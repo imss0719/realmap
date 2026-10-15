@@ -1,0 +1,8 @@
+{
+  "name": "realmap",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "지도 기반 필지 정보 서비스",
+  "engines": { "node": ">=18" }
+}
