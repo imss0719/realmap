@@ -84,24 +84,30 @@ export async function dataGoKr(url, params) {
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
   const { status, text } = await getText(u);
   const t = text.trim();
-  if (t.startsWith('{')) {
-    let j; try { j = JSON.parse(t); } catch { throw new ApiError('parse', '공공데이터포털 응답을 읽지 못했습니다.'); }
-    const head = j?.response?.header;
-    if (head && !['00', '000', 'INFO-000'].includes(String(head.resultCode))) throw new ApiError('datagokr', `공공데이터포털: ${head.resultMsg} (${head.resultCode})`);
-    let items = j?.response?.body?.items?.item ?? j?.response?.body?.items ?? [];
-    if (!Array.isArray(items)) items = items ? [items] : [];
-    return { items, total: Number(j?.response?.body?.totalCount || items.length) };
+  // 점검용: 응답 원문 앞부분 (키는 가림)
+  const raw = `HTTP ${status} · ${t.replace(/\s+/g, ' ').slice(0, 300)}`;
+  const OK = ['00', '000', 'INFO-000'];
+  if (t.startsWith('{') || t.startsWith('[')) {
+    let j; try { j = JSON.parse(t); } catch { throw new ApiError('parse', `공공데이터포털 응답을 읽지 못했습니다 · ${raw}`); }
+    const root = j.response || j;
+    const head = root.header || root.cmmMsgHeader || null;
+    const code = head && (head.resultCode ?? head.returnReasonCode);
+    if (code != null && !OK.includes(String(code))) throw new ApiError('datagokr', `공공데이터포털: ${head.resultMsg || head.returnAuthMsg || head.errMsg || ''} (${code})`);
+    if (!root.body) throw new ApiError('datagokr', `공공데이터포털 응답 형식이 예상과 다릅니다 · ${raw}`);
+    let items = root.body.items?.item ?? root.body.items ?? [];
+    if (!Array.isArray(items)) items = items && typeof items === 'object' ? [items] : [];
+    return { items, total: Number(root.body.totalCount || items.length), raw };
   }
   // XML
   const errMsg = xmlTag(t, 'returnAuthMsg') || xmlTag(t, 'errMsg');
   const reason = xmlTag(t, 'returnReasonCode');
   if (t.includes('OpenAPI_ServiceResponse') || (status >= 400 && !t.includes('<response>'))) {
-    throw new ApiError('datagokr', `공공데이터포털: ${errMsg || `HTTP ${status}`}${reason ? ` (${reason})` : ''}`);
+    throw new ApiError('datagokr', `공공데이터포털: ${errMsg || `HTTP ${status}`}${reason ? ` (${reason})` : ''} · ${raw}`);
   }
   const code = xmlTag(t, 'resultCode');
-  if (code && !['00', '000', 'INFO-000'].includes(code)) throw new ApiError('datagokr', `공공데이터포털: ${xmlTag(t, 'resultMsg')} (${code})`);
-  if (!t.startsWith('<')) throw new ApiError('datagokr', `공공데이터포털: ${t.slice(0, 120)}`);
-  return { items: xmlItems(t), total: Number(xmlTag(t, 'totalCount') || 0) };
+  if (code && !OK.includes(code)) throw new ApiError('datagokr', `공공데이터포털: ${xmlTag(t, 'resultMsg')} (${code})`);
+  if (!t.startsWith('<') || !t.includes('<body>')) throw new ApiError('datagokr', `공공데이터포털 응답 형식이 예상과 다릅니다 · ${raw}`);
+  return { items: xmlItems(t), total: Number(xmlTag(t, 'totalCount') || 0), raw };
 }
 
 // 여러 페이지를 모두 받기

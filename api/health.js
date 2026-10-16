@@ -36,8 +36,8 @@ export default async function (req, res) {
   }
   if (DATA_KEY) {
     const q = { sigunguCd: PNU.slice(0, 5), bjdongCd: PNU.slice(5, 10), platGbCd: PNU[10] === '2' ? '1' : '0', bun: PNU.slice(11, 15), ji: PNU.slice(15, 19), _type: 'json', numOfRows: 5, pageNo: 1 };
-    jobs.push(t('건축HUB · 건축물대장 표제부', 'data', async () => { const r = await dataGoKr(HUB + 'getBrTitleInfo', q); return `${r.total}건 · ${r.items[0]?.mainPurpsCdNm || ''}`; }));
-    const rt = (label, path) => jobs.push(t(label, 'data', async () => { const r = await dataGoKr(RT + path, { LAWD_CD: '11440', DEAL_YMD: ym, numOfRows: 1, pageNo: 1 }); return `${ym.slice(0, 4)}.${ym.slice(4)} 마포구 ${r.total}건`; }));
+    jobs.push(t('건축HUB · 건축물대장 표제부', 'data', async () => { const r = await dataGoKr(HUB + 'getBrTitleInfo', q); if (!r.total) throw new Error(`결과 0건 · 응답 원문: ${r.raw}`); return `${r.total}건 · ${r.items[0]?.mainPurpsCdNm || ''}`; }));
+    const rt = (label, path) => jobs.push(t(label, 'data', async () => { const r = await dataGoKr(RT + path, { LAWD_CD: '11440', DEAL_YMD: ym, numOfRows: 1, pageNo: 1 }); if (!r.total) throw new Error(`${ym.slice(0, 4)}.${ym.slice(4)} 마포구 0건 · 응답 원문: ${r.raw}`); return `${ym.slice(0, 4)}.${ym.slice(4)} 마포구 ${r.total}건`; }));
     rt('실거래 · 아파트 매매', 'RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev');
     rt('실거래 · 아파트 전월세', 'RTMSDataSvcAptRent/getRTMSDataSvcAptRent');
     rt('실거래 · 연립다세대 매매', 'RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade');
