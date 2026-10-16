@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>개발정보 관리 · 리얼맵</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#EEF1F4;--surface:#fff;--fg:#16202A;--muted:#5E6A77;--line:#DCE2E8;--soft:#F5F7F9;--accent:#0B6E69;--accent-soft:#E2F1EF;--warn:#B4231A;--warn-soft:#FBE7E5}
+@media (prefers-color-scheme:dark){:root{--bg:#0E1317;--surface:#151C22;--fg:#E5EAEF;--muted:#94A1AE;--line:#26313A;--soft:#1B242B;--accent:#4BBDB2;--accent-soft:#16302E;--warn:#FF8A80;--warn-soft:#3A1D1B;color-scheme:dark}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{height:100%;display:grid;grid-template-columns:400px 1fr}
+.side{background:var(--surface);border-right:1px solid var(--line);overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.side h1{font-size:18px;margin:0;display:flex;justify-content:space-between;align-items:center}
+.side h1 a{font-size:12px;color:var(--muted);font-weight:400}
+.list{display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;background:var(--surface);text-align:left;width:100%}
+.item.on{border-color:var(--accent);background:var(--accent-soft)}
+.item i{width:10px;height:10px;border-radius:3px;flex:none}
+.item small{color:var(--muted);margin-left:auto;white-space:nowrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.del{color:var(--warn)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+form{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+input,select,textarea{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px 10px;font-size:14px;color:var(--fg)}
+textarea{min-height:110px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;background:none;padding:8px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--surface)}
+.hint{font-size:12px;color:var(--muted);background:var(--soft);border-radius:8px;padding:8px 10px;line-height:1.5}
+.msg{font-size:13px;border-radius:8px;padding:8px 10px}
+.msg.ok{background:var(--accent-soft);color:var(--accent)}.msg.err{background:var(--warn-soft);color:var(--warn)}
+.chk{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:14px}
+.chk input{width:16px;height:16px}
+.mapbox{position:relative}
+#map{position:absolute;inset:0}
+.msearch{position:absolute;left:14px;top:14px;z-index:5;display:flex;gap:6px;width:min(360px,calc(100% - 28px))}
+.msearch input{flex:1;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:20;padding:16px}
+.login form{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;width:min(360px,100%);border-top:1px solid var(--line)}
+@media (max-width:800px){.wrap{grid-template-columns:1fr;grid-template-rows:55% 45%}.side{order:2}.mapbox{order:1}}
+</style>
+</head>
+<body>
+<div class="login" id="login">
+  <form id="loginForm">
+    <b style="font-size:16px">개발정보 관리</b>
+    <label for="pw">관리자 비밀번호<input id="pw" type="password" autocomplete="current-password"></label>
+    <button class="btn pri" type="submit">들어가기</button>
+    <div class="msg err" id="loginMsg" hidden></div>
+  </form>
+</div>
+<div class="wrap">
+  <aside class="side">
+    <h1>개발정보 관리 <a href="/">리얼맵으로</a></h1>
+    <div class="row"><button class="btn pri" id="newBtn" type="button">+ 새 구역</button></div>
+    <div class="list" id="list"></div>
+    <form id="zform" hidden>
+      <b id="formTitle">새 구역</b>
+      <div class="seg" role="group" aria-label="구역 지정 방법">
+        <button type="button" data-mode="parcel" aria-pressed="true">필지 클릭</button>
+        <button type="button" data-mode="draw" aria-pressed="false">직접 그리기</button>
+        <button type="button" data-mode="point" aria-pressed="false">위치만</button>
+      </div>
+      <div class="hint" id="modeHint"></div>
+      <div class="row"><button class="btn" type="button" id="drawDone" hidden>그리기 완료</button><button class="btn" type="button" id="clearShape">지정 초기화</button></div>
+      <div class="hint" id="shapeInfo">아직 지정한 구역이 없습니다.</div>
+      <label for="f_name">구역 이름 *<input id="f_name" placeholder="예: 아현동 699 일대 재개발"></label>
+      <div class="two">
+        <label for="f_type">종류<select id="f_type"></select></label>
+        <label for="f_stage">추진 단계<select id="f_stage"></select></label>
+      </div>
+      <div class="two">
+        <label for="f_date">단계 일자<input id="f_date" placeholder="예: 2025.11"></label>
+        <label for="f_hh">세대수 (선택)<input id="f_hh" placeholder="예: 1,200"></label>
+      </div>
+      <label for="f_builder">시공사 (선택)<input id="f_builder"></label>
+      <label for="f_note">리얼워커스 의견<textarea id="f_note" placeholder="고객에게 보여 줄 설명과 의견을 적어 주세요."></textarea></label>
+      <label for="f_src">관련 자료 링크 (고시문, 보도자료 등)<input id="f_src" placeholder="https://"></label>
+      <label class="chk" for="f_pub"><input id="f_pub" type="checkbox" checked>리얼맵에 공개</label>
+      <div class="row"><button class="btn pri" type="submit">저장</button><button class="btn del" type="button" id="delBtn" hidden>삭제</button><button class="btn" type="button" id="cancelBtn">닫기</button></div>
+      <div class="msg" id="formMsg" hidden></div>
+    </form>
+  </aside>
+  <div class="mapbox">
+    <div id="map"></div>
+    <div class="msearch"><input id="addr" placeholder="주소로 지도 이동 (예: 아현동 699)"><button class="btn" id="addrGo" type="button">이동</button></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.1.0/turf.min.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

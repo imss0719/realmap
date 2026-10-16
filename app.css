@@ -154,6 +154,36 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .bigrv .mini{position:absolute;left:14px;bottom:14px;z-index:3;width:260px;border-radius:10px;overflow:hidden;border:2px solid #fff;box-shadow:0 4px 16px rgba(0,0,0,.35);background:var(--surface)}
 .bigrv .mini #miniMap{width:100%;height:180px}
 .bigrv .mini span{display:block;font-size:11px;color:var(--muted);padding:5px 8px}
+.devpanel{position:absolute;right:84px;top:14px;z-index:13;width:250px;max-height:calc(100% - 28px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.16);padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.devpanel .dp-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.devpanel .dp-h button{border:0;background:var(--soft);color:var(--fg);width:26px;height:26px;border-radius:50%;cursor:pointer}
+.devpanel .dp-sec{font-size:11px;font-weight:700;color:var(--muted);margin-top:8px}
+.devpanel .dp-sec small{font-weight:400}
+.devpanel label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}
+.devpanel label i{width:12px;height:12px;border-radius:3px;flex:none;opacity:.8}
+.devpanel .dp-legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--muted);padding:0 0 2px 20px}
+.devpanel .dp-legend span{display:inline-flex;align-items:center;gap:4px}
+.devpanel .dp-legend i{width:9px;height:9px;border-radius:2px}
+.jlabel{background:var(--surface);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.2);border-left:4px solid currentColor;font-family:var(--f-body);pointer-events:none}
+.jlabel span{color:var(--fg)}
+.devpanel .dp-note{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.5}
+.zlabel{background:var(--surface);border:2px solid currentColor;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18);cursor:pointer;font-family:var(--f-body)}
+.zlabel span{color:var(--fg);font-weight:600;margin-left:4px}
+.zonecard{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:13;width:min(420px,calc(100% - 32px));background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:14px 16px;display:flex;flex-direction:column;gap:8px;max-height:60%;overflow:auto}
+.zonecard .zc-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.zonecard .zc-h b{font-size:16px}
+.zonecard .zc-h button{border:0;background:var(--soft);color:var(--fg);width:28px;height:28px;border-radius:50%;cursor:pointer;flex:none}
+.zonecard .zc-tags{display:flex;flex-wrap:wrap;gap:6px}
+.zonecard .zc-tags span{font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--soft)}
+.zonecard .zc-note{font-size:13px;line-height:1.6;white-space:pre-wrap;background:var(--accent-soft);border-radius:8px;padding:10px 12px}
+.zonecard .zc-note b{display:block;font-size:11px;color:var(--accent);margin-bottom:2px}
+.zonecard .zc-meta{font-size:12px;color:var(--muted)}
+.zonecard .zc-pub{font-size:12px;color:var(--fg)}
+.zonecard a{color:var(--accent)}
+.zonebox{border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:6px}
+.zonebox .zt{display:flex;gap:6px;align-items:center;font-weight:700}
+.zonebox .zt i{width:10px;height:10px;border-radius:3px}
+.zonebox p{margin:0;font-size:13px;white-space:pre-wrap;line-height:1.6}
 .setup{position:absolute;inset:0;display:grid;place-items:center;padding:24px;z-index:15;background:var(--bg)}
 .setup div{max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px}
 .setup a{color:var(--accent);font-weight:600}
@@ -174,6 +204,8 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
   .mapctl{top:118px}
   .toast{top:118px}
   .viewtog{top:64px}
+  .devpanel{right:auto;left:16px;top:118px;width:min(260px,calc(100% - 100px))}
+  .zonecard{bottom:auto;top:118px}
   .viewtog button{padding:7px 20px;font-size:13px}
   .bigrv .mini{width:150px}
   .bigrv .mini #miniMap{height:110px}

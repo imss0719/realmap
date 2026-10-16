@@ -58,7 +58,7 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => pick(e.latLng.getLat(), e.latLng.getLng()));
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); pick(la, ln); devHit(la, ln); });
 
     const setType = sky => { S.map.setMapTypeId(sky ? K.MapTypeId.HYBRID : K.MapTypeId.ROADMAP); $('mtRoad').setAttribute('aria-pressed', !sky); $('mtSky').setAttribute('aria-pressed', sky); };
     $('mtRoad').onclick = () => setType(false);
@@ -72,6 +72,7 @@
     $('vMap').onclick = () => setView('map');
     $('vRv').onclick = () => setView('rv');
     $('rvbig').onclick = () => setView('rv');
+    devInit();
     if (mobile()) $('panel').classList.add('closed');
     wireSearch();
 
@@ -350,7 +351,7 @@
     const L = S.d.land;
     if (!L) return skel();
     if (L.error) return errBox(L.error);
-    const out = [];
+    const out = [zoneSection()];
     if (L.use && L.use.ok) {
       const rows = L.use.data;
       const li = a => a.length ? a.map(x => `<li class="${/^UQA/.test(x.code) ? 'k' : ''}">${esc(x.name)}${x.rel && x.rel !== '포함' ? ` <em>(${esc(x.rel)})</em>` : ''}</li>`).join('') : '<li>해당 없음</li>';
@@ -589,6 +590,233 @@
     D.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.tradeMode = b.dataset.m; render(); });
     D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { S.months = +b.dataset.mo; render(); });
     const mt = D.querySelector('#moreT'); if (mt) mt.onclick = () => { S.showAll = true; render(); };
+  }
+
+  // ---------- 개발지도 ----------
+  const ZTYPE = { '재개발': '#D9480F', '재건축': '#1971C2', '신속통합기획': '#7048E8', '모아타운': '#2F9E44', '가로주택·소규모': '#E67700', '역세권 개발': '#C2255C', '기타': '#495057' };
+  const LCOLOR = { jigu: '#F08C00', toheo: '#E03131', road: '#868E96', trans: '#1C7ED6', park: '#37B24D', market: '#AE3EC9', gb: '#2B8A3E', devlim: '#5F3DC4' };
+  const LNAME = { jigu: '지구단위계획구역', toheo: '토지거래허가구역', road: '도시계획도로', trans: '도시계획 교통시설', park: '공원 등 공간시설', market: '시장정비구역', gb: '개발제한구역', devlim: '개발행위허가제한지역' };
+  const TILE = 0.01;
+  const D = { on: false, want: { jb: true, zones: true, jigu: true, toheo: true }, zones: null, zoneShapes: [], tiles: {}, shapes: {}, feats: {}, jb: null, jbShapes: [], jbLabels: new Map() };
+  const KCOLOR = { '재개발': '#D9480F', '도시정비형 재개발': '#E67700', '재정비촉진(뉴타운)': '#C2255C', '재건축': '#1971C2', '역세권 재개발': '#7048E8', '주거환경개선': '#2F9E44', '정비구역': '#868E96', '사업완료': '#ADB5BD' };
+  let jbLoading = null;
+  function loadJB() {
+    if (D.jb) return Promise.resolve(D.jb);
+    if (!jbLoading) jbLoading = fetch('/data/jeongbi-seoul.json').then(r => r.json()).then(j => {
+      D.jb = j.features.map(f => ({ ...f.properties, g: f.geometry, c: geoCenter(f.geometry) }));
+      D.jbUpdated = j.updated; return D.jb;
+    }).catch(() => { jbLoading = null; D.jb = null; toast('정비구역 자료를 불러오지 못했습니다'); return null; });
+    return jbLoading;
+  }
+  function drawJB() {
+    const K = kakao.maps;
+    const show = D.on && D.want.jb && D.jb;
+    if (!show) { D.jbShapes.forEach(o => o.setMap(null)); D.jbLabels.forEach(o => o.setMap(null)); return; }
+    if (!D.jbShapes.length) {
+      for (const z of D.jb) {
+        const c = KCOLOR[z.k] || '#868E96';
+        for (const path of geoToPaths(z.g)) D.jbShapes.push(new K.Polygon({ path, strokeWeight: 2, strokeColor: c, strokeOpacity: .9, fillColor: c, fillOpacity: z.k === '사업완료' ? .05 : .16 }));
+      }
+    }
+    D.jbShapes.forEach(o => { if (!o.getMap || !o.getMap()) o.setMap(S.map); });
+    // 이름표는 가까이 확대했을 때 화면 안의 구역만
+    const lvl = S.map.getLevel(), b = S.map.getBounds();
+    D.jb.forEach((z, i) => {
+      const inView = lvl <= 4 && z.c && b.contain(new K.LatLng(z.c.lat, z.c.lng));
+      let o = D.jbLabels.get(i);
+      if (!inView) { if (o) o.setMap(null); return; }
+      if (!o) {
+        const el = document.createElement('div');
+        el.className = 'jlabel'; el.style.color = KCOLOR[z.k] || '#868E96';
+        el.innerHTML = `${esc(z.named ? z.n : z.k)}${z.d ? ` <span>· ${esc(z.d.slice(0, 7))}</span>` : ''}`;
+        o = new K.CustomOverlay({ position: new K.LatLng(z.c.lat, z.c.lng), content: el, yAnchor: .5, zIndex: 2 });
+        D.jbLabels.set(i, o);
+      }
+      if (!o.getMap || !o.getMap()) o.setMap(S.map);
+    });
+  }
+  const zcolor = z => ZTYPE[z.type] || ZTYPE['기타'];
+
+  function devInit() {
+    // 개발지도 버튼: 꺼져 있으면 켜기 → 켜져 있고 패널이 닫혀 있으면 패널 열기 → 패널이 열려 있으면 끄기
+    $('mtDev').onclick = () => { if (!D.on) toggleDev(true); else if ($('devpanel').hidden) $('devpanel').hidden = false; else toggleDev(false); };
+    $('devClose').onclick = () => { $('devpanel').hidden = true; };
+    document.querySelectorAll('[data-dev]').forEach(cb => {
+      cb.checked = !!D.want[cb.dataset.dev];
+      cb.onchange = () => { D.want[cb.dataset.dev] = cb.checked; devRefresh(); };
+    });
+    kakao.maps.event.addListener(S.map, 'idle', () => { if (D.on) devRefresh(); });
+    // 구역 정보는 개발지도를 끈 상태에서도 이용계획 탭에 쓰기 위해 미리 받아 둠
+    loadZones();
+  }
+  function toggleDev(on) {
+    D.on = on; D.hinted = false;
+    $('mtDev').setAttribute('aria-pressed', on);
+    $('devpanel').hidden = !on;
+    if (!on) $('zonecard').hidden = true;
+    devRefresh();
+  }
+  async function loadZones() {
+    try { const j = await api('/api/zones'); D.zones = j.zones || []; }
+    catch { D.zones = []; }
+    if (S.sel) render();
+    if (D.on) devRefresh();
+  }
+  function geoToPaths(g) {
+    const K = kakao.maps;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    return polys.map(p => p.map(r => r.map(([x, y]) => new K.LatLng(y, x))));
+  }
+  function geoLines(g) {
+    const K = kakao.maps;
+    const ls = g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
+    return ls.map(l => l.map(([x, y]) => new K.LatLng(y, x)));
+  }
+  function inRing(x, y, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function inGeo(g, x, y) {
+    if (!g) return false;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    return polys.some(p => p[0] && inRing(x, y, p[0]) && !p.slice(1).some(h => inRing(x, y, h)));
+  }
+  function geoCenter(g) {
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    let best = null, bestN = 0;
+    for (const p of polys) if (p[0] && p[0].length > bestN) { best = p[0]; bestN = p[0].length; }
+    if (!best) return null;
+    let a = 0, cx = 0, cy = 0;
+    for (let i = 0, j = best.length - 1; i < best.length; j = i++) {
+      const f = best[j][0] * best[i][1] - best[i][0] * best[j][1];
+      a += f; cx += (best[j][0] + best[i][0]) * f; cy += (best[j][1] + best[i][1]) * f;
+    }
+    if (!a) return { lng: best[0][0], lat: best[0][1] };
+    return { lng: cx / (3 * a), lat: cy / (3 * a) };
+  }
+
+  function drawZones() {
+    const K = kakao.maps;
+    D.zoneShapes.forEach(o => o.setMap(null)); D.zoneShapes = [];
+    if (!D.on || !D.want.zones || !D.zones) return;
+    for (const z of D.zones) {
+      const c = zcolor(z);
+      if (z.geometry) for (const path of geoToPaths(z.geometry))
+        D.zoneShapes.push(new K.Polygon({ map: S.map, path, strokeWeight: 3, strokeColor: c, strokeOpacity: .95, fillColor: c, fillOpacity: .18 }));
+      const ctr = z.geometry ? geoCenter(z.geometry) : z.point;
+      if (!ctr) continue;
+      const el = document.createElement('div');
+      el.className = 'zlabel'; el.style.color = c;
+      el.innerHTML = `${esc(z.type || '개발')}<span>${esc(z.name)}${z.stage ? ' · ' + esc(z.stage) : ''}</span>`;
+      el.onclick = ev => { ev.stopPropagation(); showZones([z], []); };
+      D.zoneShapes.push(new K.CustomOverlay({ map: S.map, position: new K.LatLng(ctr.lat, ctr.lng), content: el, yAnchor: 1.2, clickable: true }));
+    }
+  }
+
+  async function devRefresh() {
+    drawZones();
+    if (D.on && D.want.jb && !D.jb) loadJB().then(() => drawJB()); else drawJB();
+    const K = kakao.maps;
+    const keys = Object.keys(LCOLOR);
+    const lvl = S.map.getLevel();
+    const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast();
+    const tiles = [];
+    if (D.on && lvl <= 5) {
+      for (let tx = Math.floor(sw.getLng() / TILE); tx <= Math.floor(ne.getLng() / TILE); tx++)
+        for (let ty = Math.floor(sw.getLat() / TILE); ty <= Math.floor(ne.getLat() / TILE); ty++) tiles.push(`${tx},${ty}`);
+    }
+    const anyLayer = keys.some(k => D.want[k]);
+    if (D.on && anyLayer && lvl > 5 && !D.hinted) { D.hinted = true; toast('공공 도시계획 레이어는 지도를 조금 더 확대하면 표시됩니다', 3500); }
+    for (const k of keys) {
+      // 꺼진 레이어나 화면 밖 칸은 지움
+      for (const [tk, objs] of Object.entries(D.shapes[k] || {})) {
+        if (!D.on || !D.want[k] || !tiles.includes(tk)) { objs.forEach(o => o.setMap(null)); delete D.shapes[k][tk]; }
+      }
+      if (!D.on || !D.want[k]) continue;
+      D.shapes[k] = D.shapes[k] || {}; D.tiles[k] = D.tiles[k] || {}; D.feats[k] = D.feats[k] || {};
+      for (const tk of tiles) {
+        if (D.shapes[k][tk]) continue;
+        D.shapes[k][tk] = [];
+        const draw = feats => {
+          if (!D.on || !D.want[k] || !D.shapes[k][tk]) return;
+          for (const f of feats) {
+            if (D.feats[k][f.id] && D.feats[k][f.id] !== tk) continue; // 다른 칸에 이미 그림
+            D.feats[k][f.id] = tk;
+            const c = LCOLOR[k];
+            for (const path of geoToPaths(f.g)) D.shapes[k][tk].push(new K.Polygon({ map: S.map, path, strokeWeight: 2, strokeColor: c, strokeOpacity: .9, strokeStyle: k === 'jigu' ? 'shortdash' : 'solid', fillColor: c, fillOpacity: k === 'road' ? .25 : .1 }));
+            for (const path of geoLines(f.g)) D.shapes[k][tk].push(new K.Polyline({ map: S.map, path, strokeWeight: 3, strokeColor: c, strokeOpacity: .9 }));
+          }
+        };
+        if (D.tiles[k][tk]) { draw(D.tiles[k][tk]); continue; }
+        api(`/api/layer?layer=${k}&tile=${tk}`).then(j => { D.tiles[k][tk] = j.features; draw(j.features); })
+          .catch(e => { delete D.shapes[k][tk]; toast(`${LNAME[k]}: ${e.message}`); });
+      }
+      // 화면 밖으로 나간 칸의 '그린 기록'도 정리
+      for (const [fid, tk] of Object.entries(D.feats[k])) if (!D.shapes[k][tk]) delete D.feats[k][fid];
+    }
+  }
+
+  // 누른 위치가 어떤 구역·레이어에 속하는지
+  function zonesAt(lat, lng) { return (D.zones || []).filter(z => z.geometry && inGeo(z.geometry, lng, lat)); }
+  function devHit(lat, lng) {
+    if (!D.on) return;
+    const zs = D.want.zones ? zonesAt(lat, lng) : [];
+    const js = D.want.jb && D.jb ? D.jb.filter(z => inGeo(z.g, lng, lat)) : [];
+    const ls = [];
+    for (const k of Object.keys(LCOLOR)) {
+      if (!D.want[k] || !D.tiles[k]) continue;
+      for (const feats of Object.values(D.tiles[k])) for (const f of feats || []) {
+        if (inGeo(f.g, lng, lat)) {
+          const nm = f.p.dgm_nm || f.p.uname || f.p.name || f.p.dgm_ar || '';
+          if (!ls.some(x => x.k === k && x.nm === nm)) ls.push({ k, nm });
+        }
+      }
+    }
+    if (zs.length || ls.length || js.length) showZones(zs, ls, js); else $('zonecard').hidden = true;
+  }
+  function zoneHtml(z) {
+    const c = zcolor(z);
+    const tags = [z.type, z.stage, z.stageDate && `단계일 ${z.stageDate}`, z.households && `${z.households}세대`, z.builder && `시공 ${z.builder}`].filter(Boolean);
+    return `<div class="zc-h"><b style="color:${c}">${esc(z.name)}</b></div>
+      <div class="zc-tags">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${z.area ? `<span>구역 ${ar(z.area, 0)[0]}</span>` : ''}</div>
+      ${z.note ? `<div class="zc-note"><b>리얼워커스 의견</b>${esc(z.note)}</div>` : ''}
+      ${z.source ? `<div class="zc-meta">출처 · <a href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a></div>` : ''}
+      <div class="zc-meta">업데이트 ${esc((z.updated || '').slice(0, 10))} · 계획은 변경될 수 있습니다.</div>`;
+  }
+  function jbHtml(z) {
+    const c = KCOLOR[z.k] || '#868E96';
+    return `<div class="zc-h"><b style="color:${c}">${esc(z.named ? z.n : z.gu + ' 정비구역')}</b></div>
+      <div class="zc-tags"><span style="background:${c}22;color:${c}">${esc(z.k)}</span>${z.d ? `<span>고시 ${esc(z.d)}</span>` : z.y ? `<span>${esc(z.y)}년 고시</span>` : ''}<span>${esc(z.gu)}</span></div>
+      ${z.named ? '' : '<div class="zc-meta">국토부 자료에 구역 이름이 등록되어 있지 않습니다.</div>'}
+      <div class="zc-meta">출처 · 국토교통부 정비구역 연속주제도 (${esc(D.jbUpdated || '')} 기준)</div>`;
+  }
+  function showZones(zs, ls, js = []) {
+    const el = $('zonecard');
+    el.innerHTML = `<div class="zc-h"><span style="font-size:12px;color:var(--muted)">개발정보</span><button id="zcClose" aria-label="닫기">×</button></div>`
+      + [...js.map(jbHtml), ...zs.map(zoneHtml)].join('<hr style="border:0;border-top:1px solid var(--line);margin:4px 0">')
+      + (ls.length ? `<div class="zc-tags">${ls.map(l => `<span style="background:${LCOLOR[l.k]}22;color:${LCOLOR[l.k]}">${esc(LNAME[l.k])}${l.nm ? ' · ' + esc(l.nm) : ''}</span>`).join('')}</div>` : '')
+      + `<div class="zc-meta">리얼워커스 공인중개사사무소 · 상담 02-393-7676</div>`;
+    el.hidden = false;
+    $('zcClose').onclick = () => el.hidden = true;
+  }
+  // 이용계획 탭에 붙일 개발정보
+  function zoneSection() {
+    if (!S.sel || !S.sel.c) return '';
+    if (!D.jb && String(S.sel.pnu).startsWith('11')) loadJB().then(j => { if (j) render(); });
+    const jz = D.jb ? D.jb.filter(z => inGeo(z.g, S.sel.c.lng, S.sel.c.lat)) : [];
+    const zs = (D.zones || []).filter(z => (z.pnus || []).includes(S.sel.pnu) || (z.geometry && inGeo(z.geometry, S.sel.c.lng, S.sel.c.lat)));
+    const jh = jz.length ? `<section><h2>정비구역<span>국토부 ${esc(D.jbUpdated || '')}</span></h2>${jz.map(z => `<div class="zonebox"><div class="zt"><i style="background:${KCOLOR[z.k] || '#868E96'}"></i>${esc(z.named ? z.n : '이름 미등록 정비구역')}</div>
+      <div class="chips" style="margin:0"><span class="chip">${esc(z.k)}</span>${z.d ? `<span class="chip">고시 ${esc(z.d)}</span>` : ''}</div></div>`).join('')}
+      <p class="note">이 필지는 정비구역 안에 있습니다. 추진 단계와 권리 관계는 리얼워커스(02-393-7676)로 문의해 주세요.</p></section>` : '';
+    if (!zs.length) return jh;
+    return jh + `<section><h2>리얼워커스 개발정보<span>참고 자료</span></h2>${zs.map(z => `<div class="zonebox"><div class="zt"><i style="background:${zcolor(z)}"></i>${esc(z.name)}</div>
+      <div class="chips" style="margin:0">${[z.type, z.stage, z.stageDate].filter(Boolean).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
+      ${z.note ? `<p>${esc(z.note)}</p>` : ''}${z.source ? `<a class="src" href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a>` : ''}</div>`).join('')}
+      <p class="note">계획 단계의 정보는 변경될 수 있습니다. 자세한 내용은 리얼워커스(02-393-7676)로 문의해 주세요.</p></section>`;
   }
 
   // ---------- 검색 ----------
