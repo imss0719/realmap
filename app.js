@@ -413,7 +413,7 @@
     if (!U.units.length) return collTitle()
       ? '<div class="empty">이 건물은 집합건물로 등록되어 있지만 전유부(호별) 정보가 전산 대장에 없습니다. 오래된 건물은 호별 대장이 빠져 있는 경우가 있어, 세움터나 정부24 열람으로 확인해 주세요.</div>'
       : '<div class="empty">이 지번에는 호별 정보가 없습니다. 땅이 여러 호로 나뉘어 소유되어 있다면, 집합건물이 옆의 다른 지번(대표지번)에 등록되어 있을 수 있습니다. 주변 필지를 눌러 확인해 주세요.</div>';
-    const dongs = [...new Set(U.units.map(u => u.dong))];
+    const dongs = [...new Set(U.units.map(u => (u.dong = String(u.dong || '').trim())))];
     if (S.uDong == null || !dongs.includes(S.uDong)) S.uDong = dongs[0];
     const hos = U.units.filter(u => u.dong === S.uDong);
     if (!S.uHo || !hos.find(h => h.ho === S.uHo)) { S.uHo = hos[Math.min(hos.length - 1, Math.floor(hos.length / 3))].ho; loadUnit(); }
