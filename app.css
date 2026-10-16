@@ -160,6 +160,8 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .devpanel .dp-sec{font-size:11px;font-weight:700;color:var(--muted);margin-top:8px}
 .devpanel .dp-sec small{font-weight:400}
 .devpanel label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}
+.devpanel label em{margin-left:auto;font-style:normal;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.devpanel .dp-all{font-weight:600;border-bottom:1px solid var(--line);padding-bottom:6px}
 .devpanel label i{width:12px;height:12px;border-radius:3px;flex:none;opacity:.8}
 .devpanel .dp-legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--muted);padding:0 0 2px 20px}
 .devpanel .dp-legend span{display:inline-flex;align-items:center;gap:4px}

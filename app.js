@@ -597,14 +597,20 @@
   const LCOLOR = { jigu: '#F08C00', toheo: '#E03131', road: '#868E96', trans: '#1C7ED6', park: '#37B24D', market: '#AE3EC9', gb: '#2B8A3E', devlim: '#5F3DC4' };
   const LNAME = { jigu: '지구단위계획구역', toheo: '토지거래허가구역', road: '도시계획도로', trans: '도시계획 교통시설', park: '공원 등 공간시설', market: '시장정비구역', gb: '개발제한구역', devlim: '개발행위허가제한지역' };
   const TILE = 0.01;
-  const D = { on: false, want: { jb: true, zones: true, jigu: true, toheo: true }, zones: null, zoneShapes: [], tiles: {}, shapes: {}, feats: {}, jb: null, jbShapes: [], jbLabels: new Map() };
+  const KGROUP = { '재개발': '재개발', '도시정비형 재개발': '도시정비형', '재정비촉진(뉴타운)': '재정비촉진', '재건축': '재건축', '역세권 재개발': '역세권', '주거환경개선': '주거환경개선', '정비구역': '기타', '사업완료': '기타' };
+  const grp = z => KGROUP[z.k] || '기타';
+  const D = { on: false, jbOn: { '재개발': true, '도시정비형': true, '재정비촉진': true, '재건축': true, '역세권': true, '주거환경개선': true, '기타': true }, want: { jb: true }, zones: null, zoneShapes: [], tiles: {}, shapes: {}, feats: {}, jb: null, jbShapes: [], jbLabels: new Map() };
   const KCOLOR = { '재개발': '#D9480F', '도시정비형 재개발': '#E67700', '재정비촉진(뉴타운)': '#C2255C', '재건축': '#1971C2', '역세권 재개발': '#7048E8', '주거환경개선': '#2F9E44', '정비구역': '#868E96', '사업완료': '#ADB5BD' };
   let jbLoading = null;
   function loadJB() {
     if (D.jb) return Promise.resolve(D.jb);
-    if (!jbLoading) jbLoading = fetch('/data/jeongbi-seoul.json').then(r => r.json()).then(j => {
+    const get = u => fetch(u).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    if (!jbLoading) jbLoading = get('/data/jeongbi-seoul.json').catch(() => get('/jeongbi-seoul.json')).then(j => {
       D.jb = j.features.map(f => ({ ...f.properties, g: f.geometry, c: geoCenter(f.geometry) }));
-      D.jbUpdated = j.updated; return D.jb;
+      D.jbUpdated = j.updated;
+      const cnt = {}; D.jb.forEach(z => { cnt[grp(z)] = (cnt[grp(z)] || 0) + 1; });
+      document.querySelectorAll('[data-cnt]').forEach(e => e.textContent = cnt[e.dataset.cnt] || 0);
+      return D.jb;
     }).catch(() => { jbLoading = null; D.jb = null; toast('정비구역 자료를 불러오지 못했습니다'); return null; });
     return jbLoading;
   }
@@ -615,14 +621,14 @@
     if (!D.jbShapes.length) {
       for (const z of D.jb) {
         const c = KCOLOR[z.k] || '#868E96';
-        for (const path of geoToPaths(z.g)) D.jbShapes.push(new K.Polygon({ path, strokeWeight: 2, strokeColor: c, strokeOpacity: .9, fillColor: c, fillOpacity: z.k === '사업완료' ? .05 : .16 }));
+        for (const path of geoToPaths(z.g)) { const o = new K.Polygon({ path, strokeWeight: 2, strokeColor: c, strokeOpacity: .9, fillColor: c, fillOpacity: z.k === '사업완료' ? .05 : .16 }); o.grp = grp(z); D.jbShapes.push(o); }
       }
     }
-    D.jbShapes.forEach(o => { if (!o.getMap || !o.getMap()) o.setMap(S.map); });
+    D.jbShapes.forEach(o => { const on = D.jbOn[o.grp]; const m = o.getMap && o.getMap(); if (on && !m) o.setMap(S.map); if (!on && m) o.setMap(null); });
     // 이름표는 가까이 확대했을 때 화면 안의 구역만
     const lvl = S.map.getLevel(), b = S.map.getBounds();
     D.jb.forEach((z, i) => {
-      const inView = lvl <= 4 && z.c && b.contain(new K.LatLng(z.c.lat, z.c.lng));
+      const inView = D.jbOn[grp(z)] && lvl <= 4 && z.c && b.contain(new K.LatLng(z.c.lat, z.c.lng));
       let o = D.jbLabels.get(i);
       if (!inView) { if (o) o.setMap(null); return; }
       if (!o) {
@@ -641,13 +647,12 @@
     // 개발지도 버튼: 꺼져 있으면 켜기 → 켜져 있고 패널이 닫혀 있으면 패널 열기 → 패널이 열려 있으면 끄기
     $('mtDev').onclick = () => { if (!D.on) toggleDev(true); else if ($('devpanel').hidden) $('devpanel').hidden = false; else toggleDev(false); };
     $('devClose').onclick = () => { $('devpanel').hidden = true; };
-    document.querySelectorAll('[data-dev]').forEach(cb => {
-      cb.checked = !!D.want[cb.dataset.dev];
-      cb.onchange = () => { D.want[cb.dataset.dev] = cb.checked; devRefresh(); };
-    });
+    const boxes = [...document.querySelectorAll('[data-jb]')];
+    const syncAll = () => { $('jbAll').checked = boxes.every(b => b.checked); $('jbAll').indeterminate = !$('jbAll').checked && boxes.some(b => b.checked); };
+    boxes.forEach(cb => cb.onchange = () => { D.jbOn[cb.dataset.jb] = cb.checked; syncAll(); devRefresh(); });
+    $('jbAll').onchange = () => { boxes.forEach(cb => { cb.checked = $('jbAll').checked; D.jbOn[cb.dataset.jb] = cb.checked; }); devRefresh(); };
     kakao.maps.event.addListener(S.map, 'idle', () => { if (D.on) devRefresh(); });
-    // 구역 정보는 개발지도를 끈 상태에서도 이용계획 탭에 쓰기 위해 미리 받아 둠
-    loadZones();
+
   }
   function toggleDev(on) {
     D.on = on; D.hinted = false;
@@ -765,7 +770,7 @@
   function devHit(lat, lng) {
     if (!D.on) return;
     const zs = D.want.zones ? zonesAt(lat, lng) : [];
-    const js = D.want.jb && D.jb ? D.jb.filter(z => inGeo(z.g, lng, lat)) : [];
+    const js = D.want.jb && D.jb ? D.jb.filter(z => D.jbOn[grp(z)] && inGeo(z.g, lng, lat)) : [];
     const ls = [];
     for (const k of Object.keys(LCOLOR)) {
       if (!D.want[k] || !D.tiles[k]) continue;

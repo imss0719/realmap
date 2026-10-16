@@ -55,21 +55,16 @@
     </div>
     <div class="devpanel" id="devpanel" hidden>
       <div class="dp-h"><b>개발지도</b><button id="devClose" aria-label="닫기">×</button></div>
-      <div class="dp-sec">재개발·재건축 정비구역 <small>(국토부, 서울)</small></div>
-      <label><input type="checkbox" data-dev="jb" checked><i style="background:#D9480F"></i>정비구역 전체</label>
-      <div class="dp-legend"><span><i style="background:#D9480F"></i>재개발</span><span><i style="background:#E67700"></i>도시정비형</span><span><i style="background:#C2255C"></i>재정비촉진</span><span><i style="background:#1971C2"></i>재건축</span><span><i style="background:#7048E8"></i>역세권</span><span><i style="background:#2F9E44"></i>주거환경개선</span><span><i style="background:#868E96"></i>기타·미상</span></div>
-      <div class="dp-sec">리얼워커스 개발정보 <small>(직접 등록)</small></div>
-      <label><input type="checkbox" data-dev="zones" checked><i style="background:#495057"></i>신통기획·모아타운 등</label>
-      <div class="dp-sec">공공 도시계획 <small>(가까이 확대하면 표시)</small></div>
-      <label><input type="checkbox" data-dev="jigu" checked><i style="background:#F08C00"></i>지구단위계획구역</label>
-      <label><input type="checkbox" data-dev="toheo" checked><i style="background:#E03131"></i>토지거래허가구역</label>
-      <label><input type="checkbox" data-dev="road"><i style="background:#868E96"></i>도시계획도로</label>
-      <label><input type="checkbox" data-dev="trans"><i style="background:#1C7ED6"></i>도시계획 교통시설</label>
-      <label><input type="checkbox" data-dev="park"><i style="background:#37B24D"></i>공원 등 공간시설</label>
-      <label><input type="checkbox" data-dev="market"><i style="background:#AE3EC9"></i>시장정비구역</label>
-      <label><input type="checkbox" data-dev="gb"><i style="background:#2B8A3E"></i>개발제한구역</label>
-      <label><input type="checkbox" data-dev="devlim"><i style="background:#5F3DC4"></i>개발행위허가제한지역</label>
-      <p class="dp-note">개발정보는 공개 자료와 리얼워커스 의견을 바탕으로 정리한 참고 자료이며, 계획은 변경될 수 있습니다.</p>
+      <div class="dp-sec">재개발·재건축 정비구역 <small>(국토부 고시 경계, 서울)</small></div>
+      <label class="dp-all"><input type="checkbox" id="jbAll" checked>전체 선택</label>
+      <label><input type="checkbox" data-jb="재개발" checked><i style="background:#D9480F"></i>재개발 (주택정비형)<em data-cnt="재개발"></em></label>
+      <label><input type="checkbox" data-jb="도시정비형" checked><i style="background:#E67700"></i>도시정비형 재개발<em data-cnt="도시정비형"></em></label>
+      <label><input type="checkbox" data-jb="재정비촉진" checked><i style="background:#C2255C"></i>재정비촉진 (뉴타운)<em data-cnt="재정비촉진"></em></label>
+      <label><input type="checkbox" data-jb="재건축" checked><i style="background:#1971C2"></i>재건축<em data-cnt="재건축"></em></label>
+      <label><input type="checkbox" data-jb="역세권" checked><i style="background:#7048E8"></i>역세권 재개발<em data-cnt="역세권"></em></label>
+      <label><input type="checkbox" data-jb="주거환경개선" checked><i style="background:#2F9E44"></i>주거환경개선<em data-cnt="주거환경개선"></em></label>
+      <label><input type="checkbox" data-jb="기타" checked><i style="background:#868E96"></i>기타·종류 미상<em data-cnt="기타"></em></label>
+      <p class="dp-note">국토교통부 정비구역 연속주제도 기준입니다. 종류는 구역 이름으로 분류했으며, 이름이 없는 구역은 '기타'에 들어갑니다. 계획은 변경될 수 있습니다.</p>
     </div>
     <div class="zonecard" id="zonecard" hidden></div>
     <div class="viewtog" role="group" aria-label="보기 전환">
