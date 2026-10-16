@@ -6,7 +6,7 @@
   const PY = 3.305785;
   const S = {
     cfg: null, map: null, rv: null, rvc: null, geocoder: null, places: null, polys: [], marker: null,
-    sel: null, tok: 0, d: {}, tab: 'land', unit: 'm2', tradeMode: 'sale', months: 12,
+    sel: null, tok: 0, d: {}, tab: 'land', view: 'map', unit: 'm2', tradeMode: 'sale', months: 12,
     bldIdx: 0, uDong: null, uHo: null,
   };
 
@@ -69,6 +69,9 @@
       $('mtCad').setAttribute('aria-pressed', on);
     };
     $('close').onclick = () => $('panel').classList.add('closed');
+    $('vMap').onclick = () => setView('map');
+    $('vRv').onclick = () => setView('rv');
+    $('rvbig').onclick = () => setView('rv');
     if (mobile()) $('panel').classList.add('closed');
     wireSearch();
 
@@ -132,6 +135,7 @@
     $('panel').classList.remove('closed');
     $('rvwrap').hidden = false;
     roadview(c);
+    if (S.view === 'rv' && c) bigTo({ lat: c.lat, lng: c.lng }, c);
     if (c) S.geocoder.coord2Address(c.lng, c.lat, (r, st) => {
       if (tok !== S.tok || st !== K.services.Status.OK || !r[0]) return;
       S.sel.road = r[0].road_address?.address_name || '';
@@ -153,7 +157,6 @@
   function roadview(c) {
     if (!c) return;
     const K = kakao.maps, pos = new K.LatLng(c.lat, c.lng);
-    $('rvbig').href = `https://map.kakao.com/link/roadview/${c.lat},${c.lng}`;
     if (!S.rv) {
       S.rv = new K.Roadview($('rv'));
       K.event.addListener(S.rv, 'init', () => {
@@ -168,6 +171,45 @@
       $('rvnone').hidden = true;
       S.rv.relayout();
       S.rv.setPanoId(id, pos);
+    });
+  }
+
+  // ---------- 크게 보는 로드뷰 (지도 / 로드뷰 전환) ----------
+  function setView(v) {
+    S.view = v;
+    $('vMap').setAttribute('aria-pressed', v === 'map');
+    $('vRv').setAttribute('aria-pressed', v === 'rv');
+    $('bigrv').hidden = v !== 'rv';
+    $('mtRoad').parentNode.parentNode.hidden = v === 'rv';
+    if (v !== 'rv') { setTimeout(() => S.map.relayout(), 0); return; }
+    const K = kakao.maps;
+    if (!S.brv) {
+      S.brv = new K.Roadview($('bigrvView'));
+      S.mini = new K.Map($('miniMap'), { center: S.map.getCenter(), level: 3 });
+      S.mini.addOverlayMapTypeId(K.MapTypeId.ROADVIEW);
+      S.miniMark = new K.Marker({ map: S.mini, position: S.map.getCenter() });
+      K.event.addListener(S.mini, 'click', e => bigTo({ lat: e.latLng.getLat(), lng: e.latLng.getLng() }, null));
+      K.event.addListener(S.brv, 'init', () => {
+        const at = S.brv.getPosition(), tgt = S.bigTarget;
+        if (at && tgt) S.brv.setViewpoint({ pan: bearing({ lat: at.getLat(), lng: at.getLng() }, tgt), tilt: 0, zoom: 0 });
+        if (at) { S.miniMark.setPosition(at); S.mini.setCenter(at); }
+      });
+      K.event.addListener(S.brv, 'position_changed', () => {
+        const at = S.brv.getPosition(); if (at) { S.miniMark.setPosition(at); S.mini.panTo(at); }
+      });
+    }
+    if (mobile()) $('panel').classList.add('closed');
+    const c = S.sel && S.sel.c;
+    const ctr = S.map.getCenter();
+    setTimeout(() => { S.brv.relayout(); S.mini.relayout(); bigTo(c ? { lat: c.lat, lng: c.lng } : { lat: ctr.getLat(), lng: ctr.getLng() }, c || null); }, 0);
+  }
+  function bigTo(p, target) {
+    const K = kakao.maps, pos = new K.LatLng(p.lat, p.lng);
+    S.bigTarget = target;
+    S.rvc.getNearestPanoId(pos, 80, id => {
+      if (id === null) { $('bigrvNone').hidden = false; S.mini.setCenter(pos); S.miniMark.setPosition(pos); return; }
+      $('bigrvNone').hidden = true;
+      S.brv.setPanoId(id, pos);
     });
   }
 

@@ -1,4 +1,3 @@
-[hidden]{display:none !important}
 /* 리얼맵 — 지도 전면 + 왼쪽 정보 패널 (휴대폰에서는 아래 시트) */
 :root{
   --bg:#EEF1F4; --surface:#FFFFFF; --fg:#16202A; --muted:#5E6A77; --line:#DCE2E8; --soft:#F5F7F9;
@@ -13,6 +12,7 @@
   --accent:#4BBDB2; --accent-soft:#16302E; --pick:#FF7B52; --pick-soft:rgba(255,123,82,.22);
   --warn:#FF8A80; --warn-soft:#3A1D1B; --ok:#6FD08C; color-scheme:dark}}
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;overflow:hidden}
 button{font:inherit}
@@ -39,10 +39,10 @@ button{font:inherit}
 .sheet-head{display:none}
 .intro{padding:28px 20px;color:var(--muted);display:flex;flex-direction:column;gap:10px}
 .intro b{color:var(--fg);font-size:16px}
-.rvwrap{position:relative;height:230px;background:var(--soft);border-bottom:1px solid var(--line)}
+.rvwrap{position:relative;aspect-ratio:4/3;max-height:340px;width:100%;background:var(--soft);border-bottom:1px solid var(--line)}
 #rv{position:absolute;inset:0}
 .rvwrap .cap{position:absolute;left:10px;top:10px;z-index:3;font-size:11px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:3px 8px;border-radius:6px;pointer-events:none}
-.rvwrap .big{position:absolute;right:10px;top:10px;z-index:3;font-size:11px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:3px 8px;border-radius:6px;text-decoration:none}
+.rvwrap .big{position:absolute;right:10px;top:10px;z-index:3;font-size:11px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:4px 9px;border-radius:6px;border:0;cursor:pointer}
 .rvwrap .none{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:16px;z-index:2;background:var(--soft)}
 .head{padding:16px 16px 4px;display:flex;flex-direction:column;gap:4px}
 .head h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
@@ -144,7 +144,16 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .mapctl button{border:0;background:none;color:var(--fg);font-size:12px;font-weight:600;padding:8px 10px;cursor:pointer;min-width:52px}
 .mapctl button+button{border-top:1px solid var(--line)}
 .mapctl button[aria-pressed="true"]{background:var(--fg);color:var(--surface)}
-.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:10;background:var(--fg);color:var(--surface);font-size:12px;font-weight:500;padding:7px 14px;border-radius:999px;pointer-events:none;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis}
+.toast{position:absolute;left:50%;top:64px;transform:translateX(-50%);z-index:10;background:var(--fg);color:var(--surface);font-size:12px;font-weight:500;padding:7px 14px;border-radius:999px;pointer-events:none;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis}
+.viewtog{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:14;display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;box-shadow:0 2px 10px rgba(0,0,0,.14)}
+.viewtog button{border:0;background:none;color:var(--fg);font-size:14px;font-weight:700;padding:8px 26px;border-radius:7px;cursor:pointer}
+.viewtog button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.bigrv{position:absolute;inset:0;z-index:12;background:#000}
+#bigrvView{position:absolute;inset:0}
+.bigrv .none{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#fff;background:rgba(0,0,0,.75);z-index:2;padding:24px;line-height:1.7}
+.bigrv .mini{position:absolute;left:14px;bottom:14px;z-index:3;width:260px;border-radius:10px;overflow:hidden;border:2px solid #fff;box-shadow:0 4px 16px rgba(0,0,0,.35);background:var(--surface)}
+.bigrv .mini #miniMap{width:100%;height:180px}
+.bigrv .mini span{display:block;font-size:11px;color:var(--muted);padding:5px 8px}
 .setup{position:absolute;inset:0;display:grid;place-items:center;padding:24px;z-index:15;background:var(--bg)}
 .setup div{max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px}
 .setup a{color:var(--accent);font-weight:600}
@@ -161,9 +170,14 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
   .sheet-head .grab{width:40px;height:4px;border-radius:2px;background:var(--line)}
   .sheet-head button{position:absolute;right:10px;top:4px;border:0;background:var(--soft);color:var(--fg);width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer}
   .tabs{top:42px}
-  .rvwrap{height:190px}
-  .mapctl{top:70px}
-  .toast{top:70px}
+  .rvwrap{aspect-ratio:16/10;max-height:230px}
+  .mapctl{top:118px}
+  .toast{top:118px}
+  .viewtog{top:64px}
+  .viewtog button{padding:7px 20px;font-size:13px}
+  .bigrv .mini{width:150px}
+  .bigrv .mini #miniMap{height:110px}
+  .bigrv .mini span{display:none}
   .intro{display:none}
 }
 @media (prefers-reduced-motion:reduce){.sk i{animation:none}}

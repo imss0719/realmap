@@ -33,7 +33,7 @@
     <div class="rvwrap" id="rvwrap" hidden>
       <div id="rv"></div>
       <span class="cap">로드뷰</span>
-      <a class="big" id="rvbig" href="#" target="_blank" rel="noopener">크게 보기</a>
+      <button class="big" id="rvbig" type="button">크게 보기</button>
       <div class="none" id="rvnone" hidden>이 필지 주변에는 로드뷰 사진이 없습니다.</div>
     </div>
     <div id="detail"></div>
@@ -49,6 +49,15 @@
       <div class="grp">
         <button id="mtCad" aria-pressed="true">지적도</button>
       </div>
+    </div>
+    <div class="viewtog" role="group" aria-label="보기 전환">
+      <button id="vMap" aria-pressed="true">지도</button>
+      <button id="vRv" aria-pressed="false">로드뷰</button>
+    </div>
+    <div class="bigrv" id="bigrv" hidden>
+      <div id="bigrvView"></div>
+      <div class="none" id="bigrvNone" hidden>이 위치에는 로드뷰 사진이 없습니다.<br>왼쪽 아래 작은 지도에서 파란 선(촬영된 도로)을 눌러 주세요.</div>
+      <div class="mini"><div id="miniMap"></div><span>파란 선을 누르면 그 위치로 이동합니다</span></div>
     </div>
     <div class="toast" id="toast" hidden></div>
     <div class="setup" id="setup" hidden></div>
