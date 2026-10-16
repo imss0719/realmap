@@ -1,10 +1,10 @@
 // 공통 도우미: 외부 API 호출, XML/JSON 응답 해석, PNU 분해, 캐시
 // 파일명이 _ 로 시작하면 Vercel이 주소(라우트)로 만들지 않습니다.
 
-const DATA_KEY_RAW = process.env.DATA_GO_KR_KEY || '';
+const DATA_KEY_RAW = (process.env.DATA_GO_KR_KEY || '').trim();
 // 공공데이터포털 키는 Decoding 키를 넣는 것이 원칙이지만, Encoding 키를 넣어도 동작하도록 풀어 둡니다.
 export const DATA_KEY = DATA_KEY_RAW.includes('%') ? safeDecode(DATA_KEY_RAW) : DATA_KEY_RAW;
-export const VWORLD_KEY = process.env.VWORLD_KEY || '';
+export const VWORLD_KEY = (process.env.VWORLD_KEY || '').trim();
 // 브이월드에 등록한 서비스 URL. 비워 두면 Vercel의 고정 운영 주소를 자동으로 씁니다.
 export const VWORLD_DOMAIN = process.env.VWORLD_DOMAIN
   || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '');
@@ -89,7 +89,7 @@ export async function dataGoKr(url, params) {
   const OK = ['00', '000', 'INFO-000'];
   if (t.startsWith('{') || t.startsWith('[')) {
     let j; try { j = JSON.parse(t); } catch { throw new ApiError('parse', `공공데이터포털 응답을 읽지 못했습니다 · ${raw}`); }
-    const root = j.response || j;
+    const root = j.response || j.OpenAPI_ServiceResponse || j;
     const head = root.header || root.cmmMsgHeader || null;
     const code = head && (head.resultCode ?? head.returnReasonCode);
     if (code != null && !OK.includes(String(code))) throw new ApiError('datagokr', `공공데이터포털: ${head.resultMsg || head.returnAuthMsg || head.errMsg || ''} (${code})`);
@@ -111,14 +111,17 @@ export async function dataGoKr(url, params) {
 }
 
 // 여러 페이지를 모두 받기
-export async function dataGoKrAll(url, params, { pageSize = 1000, maxPages = 10 } = {}) {
+// 서버가 요청한 개수보다 적게 주면(예: 한 번에 100건 제한) 그 크기에 맞춰 끝까지 나눠 받습니다.
+export async function dataGoKrAll(url, params, { pageSize = 1000, maxPages = 40, concurrency = 6 } = {}) {
   const first = await dataGoKr(url, { ...params, numOfRows: pageSize, pageNo: 1 });
+  const got = first.items.length, total = first.total || got;
+  if (!got || got >= total) return first.items;
+  const per = got;
+  const pages = Math.min(maxPages, Math.ceil(total / per));
+  const nums = []; for (let p = 2; p <= pages; p++) nums.push(p);
+  const rs = await pool(nums, concurrency, p => dataGoKr(url, { ...params, numOfRows: per, pageNo: p }));
   let items = first.items;
-  const pages = Math.min(maxPages, Math.ceil((first.total || 0) / pageSize));
-  for (let p = 2; p <= pages; p++) {
-    const r = await dataGoKr(url, { ...params, numOfRows: pageSize, pageNo: p });
-    items = items.concat(r.items);
-  }
+  for (const r of rs) { if (!r.ok) throw r.e; items = items.concat(r.v.items); }
   return items;
 }
 

@@ -40,8 +40,8 @@ export default handler(async (req, res) => {
   const out = await cached('bld:' + P.pnu, 12 * 3600e3, async () => {
     const [recap, titles, floors] = await Promise.all([
       settle(async () => (await dataGoKrAll(HUB + 'getBrRecapTitleInfo', q, { maxPages: 1 })).map(title)),
-      settle(async () => (await dataGoKrAll(HUB + 'getBrTitleInfo', q, { maxPages: 3 })).map(title)),
-      settle(async () => (await dataGoKrAll(HUB + 'getBrFlrOulnInfo', q, { maxPages: 5 })).map(r => ({
+      settle(async () => (await dataGoKrAll(HUB + 'getBrTitleInfo', q, { maxPages: 10 })).map(title)),
+      settle(async () => (await dataGoKrAll(HUB + 'getBrFlrOulnInfo', q, { maxPages: 30 })).map(r => ({
         pk: r.mgmBldrgstPk, dong: r.dongNm || '', gb: r.flrGbCdNm, no: num(r.flrNo), noNm: r.flrNoNm,
         use: r.mainPurpsCdNm, etcUse: r.etcPurps, strct: r.strctCdNm, area: num(r.area),
         mainAtch: r.mainAtchGbCdNm, excl: r.areaExctYn === '1' || r.areaExctYn === 'Y',

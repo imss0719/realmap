@@ -28,7 +28,7 @@ function monthsBack(n) {
 async function month(kind, lawd, ym) {
   const cur = monthsBack(2).includes(ym);
   return cached(`rt:${kind}:${lawd}:${ym}`, (cur ? 6 : 72) * 3600e3, () =>
-    dataGoKrAll(KINDS[kind].url, { LAWD_CD: lawd, DEAL_YMD: ym }, { pageSize: 1000, maxPages: 5 }));
+    dataGoKrAll(KINDS[kind].url, { LAWD_CD: lawd, DEAL_YMD: ym }, { pageSize: 1000, maxPages: 30 }));
 }
 
 const clean = s => String(s ?? '').trim();
@@ -81,7 +81,7 @@ export default handler(async (req, res) => {
 
   const jobs = [];
   for (const k of kinds) for (const ym of yms) jobs.push([k, ym]);
-  const results = await pool(jobs, 8, ([k, ym]) => month(k, P.sigunguCd, ym));
+  const results = await pool(jobs, 4, ([k, ym]) => month(k, P.sigunguCd, ym));
 
   const errors = new Set();
   const rows = [];

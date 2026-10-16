@@ -15,7 +15,7 @@ export default handler(async (req, res) => {
 
   if (!ho) {
     const list = await cached('units:' + P.pnu, 24 * 3600e3, async () => {
-      const rows = await dataGoKrAll(HUB + 'getBrExposInfo', q, { maxPages: 12 });
+      const rows = await dataGoKrAll(HUB + 'getBrExposInfo', q, { maxPages: 60 });
       const seen = new Set(), out = [];
       for (const r of rows) {
         const k = (r.dongNm || '') + '|' + (r.hoNm || '');
@@ -33,7 +33,7 @@ export default handler(async (req, res) => {
   const out = await cached(`unit:${P.pnu}:${dong}:${ho}`, 24 * 3600e3, async () => {
     const [area, price] = await Promise.all([
       settle(async () => {
-        const rows = await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: dong || '', hoNm: ho }, { maxPages: 2 });
+        const rows = await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: dong || '', hoNm: ho }, { maxPages: 5 });
         return rows.filter(r => sameTok(r.hoNm, ho) && (!dong || !r.dongNm || sameTok(r.dongNm, dong))).map(r => ({
           gb: r.exposPubuseGbCdNm, use: r.mainPurpsCdNm, etcUse: r.etcPurps, area: num(r.area),
           flr: r.flrNoNm || (r.flrNo ? r.flrNo + '층' : ''), strct: r.strctCdNm,
