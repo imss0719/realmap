@@ -714,7 +714,7 @@
 
   function devInit() {
     // 개발지도 버튼: 꺼져 있으면 켜기 → 켜져 있고 패널이 닫혀 있으면 패널 열기 → 패널이 열려 있으면 끄기
-    $('mtDev').onclick = () => { if (!D.on) toggleDev(true); else if ($('devpanel').hidden) $('devpanel').hidden = false; else toggleDev(false); };
+    $('mtDev').onclick = () => { if (!D.on) toggleDev(true); else if ($('devpanel').hidden) { $('devpanel').hidden = false; $('tpanel').hidden = true; } else toggleDev(false); };
     $('devClose').onclick = () => { $('devpanel').hidden = true; };
     const boxes = [...document.querySelectorAll('[data-jb]')];
     const syncAll = () => { $('jbAll').checked = boxes.every(b => b.checked); $('jbAll').indeterminate = !$('jbAll').checked && boxes.some(b => b.checked); };
@@ -727,6 +727,7 @@
     D.on = on; D.hinted = false;
     $('mtDev').setAttribute('aria-pressed', on);
     $('devpanel').hidden = !on;
+    if (on) $('tpanel').hidden = true;
     if (!on) $('zonecard').hidden = true;
     devRefresh();
   }
@@ -911,22 +912,30 @@
   }
 
   // ---------- 지도 위 실거래가 라벨 ----------
-  // 화면 중심·모서리가 속한 시군구의 최근 6개월 아파트 매매를 단지별 최신 거래가로 표시합니다.
-  const T = { on: true, regions: new Map(), ovs: new Map(), geo: new Map(), geoQ: [], geoBusy: false, hinted: false };
+  // 화면 중심·모서리가 속한 시군구의 최근 6개월 매매를 건물별 최신 거래가로 표시합니다 (아파트·빌라·오피스텔).
+  const TK = { apt: '아파트', rh: '빌라', offi: '오피스텔' };
+  const T = { on: true, kinds: { apt: true, rh: true, offi: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: false, hinted: false };
   const MAXLV = 5;
   const eok = man => { if (man >= 10000) { const e = man / 10000; const d = e >= 10 ? 10 : 100; return `${String(Math.round(e * d) / d)}억`; } return `${n(man)}만`; };
+  function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds })); } catch { /* 저장소 없음 */ } }
   function tradeMapInit() {
-    try { if (localStorage.getItem('rm.trade') === '0') T.on = false; } catch { /* 저장소 없음 */ }
-    $('mtTrade').setAttribute('aria-pressed', T.on);
+    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; Object.assign(T.kinds, v.kinds || {}); } } catch { /* 저장소 없음 */ }
+    const boxes = [...document.querySelectorAll('[data-tk]')];
+    boxes.forEach(cb => { cb.checked = !!T.kinds[cb.dataset.tk]; cb.onchange = () => { T.kinds[cb.dataset.tk] = cb.checked; tSave(); tradeRefresh(); }; });
+    const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); };
+    setOn(T.on);
+    // 실거래 버튼: 꺼져 있으면 켜고 선택 창 열기 → 켜져 있고 창이 닫혀 있으면 창 열기 → 창이 열려 있으면 끄기
     $('mtTrade').onclick = () => {
-      T.on = !T.on; $('mtTrade').setAttribute('aria-pressed', T.on);
-      try { localStorage.setItem('rm.trade', T.on ? '1' : '0'); } catch { /* 저장소 없음 */ }
-      if (T.on && S.map.getLevel() > MAXLV) toast('조금 더 확대하면 아파트 실거래가가 보입니다');
+      if (!T.on) { setOn(true); openTPanel(); if (S.map.getLevel() > MAXLV) toast('조금 더 확대하면 실거래가가 보입니다'); }
+      else if ($('tpanel').hidden) openTPanel();
+      else { setOn(false); $('tpanel').hidden = true; }
       tradeRefresh();
     };
+    $('tClose').onclick = () => { $('tpanel').hidden = true; };
     kakao.maps.event.addListener(S.map, 'idle', tradeRefresh);
     tradeRefresh();
   }
+  function openTPanel() { $('devpanel').hidden = true; $('tpanel').hidden = false; }
   function regionAt(lat, lng) {
     return new Promise(ok => S.geocoder.coord2RegionCode(lng, lat, (r, st) => {
       if (st !== kakao.maps.services.Status.OK) return ok(null);
@@ -934,20 +943,21 @@
       ok(b ? { lawd: String(b.code).slice(0, 5), name: `${b.region_1depth_name} ${b.region_2depth_name}`.trim() } : null);
     }));
   }
-  function loadRegion(rg) {
-    let e = T.regions.get(rg.lawd);
+  function loadRegion(kind, rg) {
+    const key = `${kind}:${rg.lawd}`;
+    let e = T.regions.get(key);
     if (e) return e.p;
-    e = { items: null };
-    e.p = api(`/api/aptmap?lawd=${rg.lawd}&r=${encodeURIComponent(rg.name)}`).then(j => {
-      e.items = j.items.map((x, i) => ({ ...x, id: `${rg.lawd}:${i}` }));
+    e = { kind, items: null };
+    e.p = api(`/api/aptmap?kind=${kind}&lawd=${rg.lawd}&r=${encodeURIComponent(rg.name)}`).then(j => {
+      e.items = j.items.map((x, i) => ({ ...x, k: kind, id: `${key}:${i}` }));
       e.items.filter(x => x.lat == null).forEach(x => T.geoQ.push(x));
       geoNext();
       return e.items;
-    }).catch(() => { T.regions.delete(rg.lawd); return []; });
-    T.regions.set(rg.lawd, e);
+    }).catch(() => { T.regions.delete(key); return []; });
+    T.regions.set(key, e);
     return e.p;
   }
-  // 서버에서 좌표를 못 찾은 단지는 카카오 주소 검색으로 보충 (한 번 찾은 좌표는 이 브라우저에 기억)
+  // 서버에서 좌표를 못 찾은 건물은 카카오 주소 검색으로 보충 (한 번 찾은 좌표는 이 브라우저에 기억)
   function geoNext() {
     if (T.geoBusy) return;
     const x = T.geoQ.shift(); if (!x) { drawTrades(); return; }
@@ -964,24 +974,27 @@
       geoNext();
     });
   }
+  const tActive = () => T.on && S.map.getLevel() <= MAXLV && Object.values(T.kinds).some(Boolean);
   async function tradeRefresh() {
-    if (!T.on || S.map.getLevel() > MAXLV) { T.ovs.forEach(o => o.setMap(null)); return; }
+    if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), c = S.map.getCenter();
     const pts = [[c.getLat(), c.getLng()], [sw.getLat(), sw.getLng()], [ne.getLat(), ne.getLng()], [sw.getLat(), ne.getLng()], [ne.getLat(), sw.getLng()]];
     const rgs = (await Promise.all(pts.map(([la, ln]) => regionAt(la, ln)))).filter(Boolean);
-    const seen = new Set();
+    const seen = new Set(), uniq = rgs.filter(r => !seen.has(r.lawd) && seen.add(r.lawd));
     drawTrades();
-    await Promise.all(rgs.filter(r => !seen.has(r.lawd) && seen.add(r.lawd)).map(loadRegion));
+    const jobs = [];
+    for (const k of Object.keys(TK)) if (T.kinds[k]) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
+    await Promise.all(jobs);
     drawTrades();
-    if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 아파트 실거래가입니다'); }
+    if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 실거래가입니다'); }
   }
   function drawTrades() {
     const K = kakao.maps;
-    if (!T.on || S.map.getLevel() > MAXLV) { T.ovs.forEach(o => o.setMap(null)); return; }
+    if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), proj = S.map.getProjection();
     const all = [];
-    T.regions.forEach(e => { if (e.items) for (const x of e.items) if (x.lat && x.lng) all.push(x); });
-    // 거래가 많은 단지부터 자리 잡고, 겹치는 라벨은 숨김
+    T.regions.forEach(e => { if (e.items && T.kinds[e.kind]) for (const x of e.items) if (x.lat && x.lng) all.push(x); });
+    // 거래가 많은 건물부터 자리 잡고, 겹치는 라벨은 숨김
     all.sort((a, z) => z.c - a.c || z.d.localeCompare(a.d));
     const placed = [], show = new Set();
     for (const x of all) {
@@ -993,8 +1006,8 @@
       let o = T.ovs.get(x.id);
       if (!o) {
         const el = document.createElement('button');
-        el.type = 'button'; el.className = 'tlabel';
-        el.title = `${x.n} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}`;
+        el.type = 'button'; el.className = `tlabel k-${x.k}`;
+        el.title = `[${TK[x.k]}] ${x.n || ''} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}`;
         el.innerHTML = `<b>${eok(x.p)}</b><small>${x.ar ? Math.round(x.ar) + '㎡' : ''} · ${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;
         el.onclick = ev => { ev.stopPropagation(); pick(x.lat, x.lng); };
         o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 3, clickable: true });

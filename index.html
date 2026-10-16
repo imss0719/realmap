@@ -59,6 +59,14 @@
         <button id="mtDev" aria-pressed="false">개발지도</button>
       </div>
     </div>
+    <div class="devpanel" id="tpanel" hidden>
+      <div class="dp-h"><b>실거래가</b><button id="tClose" aria-label="닫기">×</button></div>
+      <div class="dp-sec">최근 6개월 매매 · 건물별 최근 거래가</div>
+      <label><input type="checkbox" data-tk="apt" checked><i style="background:#14212E"></i>아파트</label>
+      <label><input type="checkbox" data-tk="rh" checked><i style="background:#1F7A4D"></i>빌라 (연립·다세대)</label>
+      <label><input type="checkbox" data-tk="offi" checked><i style="background:#6741B8"></i>오피스텔</label>
+      <p class="dp-note">국토교통부 실거래가 기준입니다. 단독·다가구, 상가, 토지는 지번 일부가 가려져 공개되어 지도에는 표시하지 않고, 필지를 누르면 실거래 탭에서 확인하실 수 있습니다.</p>
+    </div>
     <div class="devpanel" id="devpanel" hidden>
       <div class="dp-h"><b>개발지도</b><button id="devClose" aria-label="닫기">×</button></div>
       <div class="dp-sec">재개발·재건축 정비구역 <small>(국토부 고시 경계, 서울)</small></div>

@@ -256,3 +256,6 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .consult b{display:block;font-size:15px;margin-bottom:3px}
 .consult span{font-size:13px;line-height:1.5;color:#C9D3DC}
 .consult a{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:#F2B705;color:#14212E;font-weight:700;text-decoration:none;font-size:14px}
+.tlabel.k-rh{background:#1F7A4D}.tlabel.k-rh::after{border-top-color:#1F7A4D}.tlabel.k-rh small{color:#CDE8D9}
+.tlabel.k-offi{background:#6741B8}.tlabel.k-offi::after{border-top-color:#6741B8}.tlabel.k-offi small{color:#DED3F5}
+.tlabel.k-rh:hover,.tlabel.k-offi:hover{background:#F2B705}.tlabel.k-rh:hover::after,.tlabel.k-offi:hover::after{border-top-color:#F2B705}.tlabel.k-rh:hover small,.tlabel.k-offi:hover small{color:#14212E}
