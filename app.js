@@ -148,7 +148,7 @@
     render(); $('panel').scrollTop = 0;
     const pnu = p.pnu;
     api(`/api/land?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.land = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.land = { error: e.message }; render(); } });
-    api(`/api/building?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.bld = j; render(); drawAtch(tok); } }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
+    api(`/api/building?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.bld = j; render(); drawAtch(tok); checkMain(tok); } }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
   }
 
   // ---------- 로드뷰 ----------
@@ -1003,6 +1003,15 @@
     });
     render();
   }
+  // 이 필지에 대장이 없고 건물의 대표 지번이 따로 있으면, 그 지번에 실제 건축물대장이 있는지 확인한 뒤에만 안내
+  async function checkMain(tok) {
+    if (titles().length || !S.sel.bldPnu) return;
+    try {
+      const j = await api(`/api/building?pnu=${S.sel.bldPnu}`);
+      if (tok !== S.tok) return;
+      if (j.titles && j.titles.ok && j.titles.data.length) { S.sel.bldOk = true; render(); }
+    } catch { /* 확인 실패 시 안내하지 않음 */ }
+  }
   function groupSection() {
     const list = atchList();
     if (list.length) {
@@ -1010,7 +1019,7 @@
         <p class="note" style="margin-top:0">이 건물은 대표 필지와 함께 아래 필지에 걸쳐 지어져 있습니다. 지도에는 점선으로 함께 표시했습니다. 건축물대장의 대지면적은 묶인 필지 전체 기준입니다.</p>
         <div class="glist"><span class="g main">${esc(S.sel.jibun || pnuJibun(S.sel.pnu)).replace(/[가-힣]+$/, '')} <small>대표</small></span>${list.map(a => `<button class="g" data-gp="${a.pnu}">${esc(a.jibun)}</button>`).join('')}</div></section>`;
     }
-    if (!titles().length && S.sel.bldPnu && S.d.bld) {
+    if (!titles().length && S.sel.bldPnu && S.sel.bldOk && S.d.bld) {
       return `<div class="gnote"><b>이 땅 위 건물은 ${esc(pnuJibun(S.sel.bldPnu))}번지에 대장이 등록되어 있습니다.</b><span>건물이 여러 필지에 걸쳐 있는 경우로, 건물 정보는 대표 필지에서 확인하실 수 있습니다.</span><button data-gp="${S.sel.bldPnu}">대표 필지 정보 보기</button></div>`;
     }
     return '';
