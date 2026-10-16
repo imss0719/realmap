@@ -3,7 +3,7 @@
 import { handler, send, fail, need, dataGoKrAll, splitPnu, cached, num, pool, DATA_KEY } from './_lib.js';
 
 const B = 'https://apis.data.go.kr/1613000/';
-const KINDS = {
+export const KINDS = {
   apt:      { url: B + 'RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev', alt: B + 'RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade', label: '아파트 매매', sale: true },
   aptRent:  { url: B + 'RTMSDataSvcAptRent/getRTMSDataSvcAptRent', label: '아파트 전월세' },
   rh:       { url: B + 'RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade', label: '연립다세대 매매', sale: true },
@@ -16,7 +16,7 @@ const KINDS = {
   land:     { url: B + 'RTMSDataSvcLandTrade/getRTMSDataSvcLandTrade', label: '토지 매매', sale: true },
 };
 
-function monthsBack(n) {
+export function monthsBack(n) {
   const out = [], d = new Date();
   // 한국시간 기준 이번 달부터
   const k = new Date(d.getTime() + 9 * 3600e3);
@@ -27,7 +27,7 @@ function monthsBack(n) {
 
 // 상세 자료 API가 아직 열리지 않았으면(오류 30 등) 기본 API로 자동 전환
 const useAlt = new Set();
-async function month(kind, lawd, ym) {
+export async function month(kind, lawd, ym) {
   const cur = monthsBack(2).includes(ym);
   const K = KINDS[kind];
   const get = url => dataGoKrAll(url, { LAWD_CD: lawd, DEAL_YMD: ym }, { pageSize: 1000, maxPages: 30 });
