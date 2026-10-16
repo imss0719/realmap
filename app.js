@@ -53,7 +53,6 @@
   function start() {
     const K = kakao.maps;
     S.map = new K.Map($('map'), { center: new K.LatLng(37.5563, 126.9236), level: 3 });
-    S.map.addOverlayMapTypeId(K.MapTypeId.USE_DISTRICT);
     S.map.addControl(new K.ZoomControl(), K.ControlPosition.BOTTOMRIGHT);
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
