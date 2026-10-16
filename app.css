@@ -1,3 +1,4 @@
+[hidden]{display:none !important}
 /* 리얼맵 — 지도 전면 + 왼쪽 정보 패널 (휴대폰에서는 아래 시트) */
 :root{
   --bg:#EEF1F4; --surface:#FFFFFF; --fg:#16202A; --muted:#5E6A77; --line:#DCE2E8; --soft:#F5F7F9;
