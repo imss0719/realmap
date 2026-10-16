@@ -4,8 +4,8 @@
 //   요청 헤더 x-admin-key 에 ADMIN_PASSWORD 와 같은 값이 있어야 합니다.
 import { send, fail } from './_lib.js';
 
-const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || Object.entries(process.env).find(([k]) => /_REST_API_URL$/.test(k))?.[1] || '';
+const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || Object.entries(process.env).find(([k]) => /_REST_API_TOKEN$/.test(k) && !/READ_ONLY/.test(k))?.[1] || '';
 const ADMIN = (process.env.ADMIN_PASSWORD || '').trim();
 const KEY = 'realmap:zones';
 

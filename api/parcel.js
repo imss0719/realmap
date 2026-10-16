@@ -22,8 +22,17 @@ export default handler(async (req, res) => {
     try {
       const b = await cached('spbd:' + params.geomFilter, 24 * 3600e3, () => vworldData({ data: 'LT_C_SPBD', geomFilter: params.geomFilter, geometry: 'false', size: '1' }));
       const sn = String(b[0]?.properties?.bd_mgt_sn || '').replace(/\D/g, '');
-      // 건물관리번호의 11번째 자리는 0=대지·1=산, PNU는 1=일반·2=산
-      if (sn.length >= 19) { const bp = sn.slice(0, 10) + (sn[10] === '1' ? '2' : '1') + sn.slice(11, 19); if (bp !== p.pnu) bldPnu = bp; }
+      // 건물관리번호 11번째 자리(산 여부)는 자료에 따라 PNU식(1=일반·2=산)과 0=일반·1=산이 섞여 있어,
+      // 가능한 후보를 만든 뒤 실제로 존재하는 필지만 대표 필지로 인정합니다.
+      if (sn.length >= 19) {
+        const head = sn.slice(0, 10), tail = sn.slice(11, 19), f = sn[10];
+        const cands = [...new Set([f === '0' ? '1' : f, f === '0' ? null : (f === '1' ? '1' : null), f === '1' ? '2' : null].filter(x => x === '1' || x === '2'))].map(x => head + x + tail);
+        for (const bp of cands) {
+          if (bp === p.pnu) break;
+          const hit = await cached('parcel-exists:' + bp, 24 * 3600e3, () => vworldData({ data: 'LP_PA_CBND_BUBUN', attrFilter: `pnu:=:${bp}`, geometry: 'false', size: '1' }));
+          if (hit.length) { bldPnu = bp; break; }
+        }
+      }
     } catch { /* 건물 정보가 없으면 건너뜀 */ }
   }
   send(res, 200, {
