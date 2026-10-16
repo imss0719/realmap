@@ -949,6 +949,8 @@
     if (e) return e.p;
     e = { kind, items: null };
     e.p = api(`/api/aptmap?kind=${kind}&lawd=${rg.lawd}&r=${encodeURIComponent(rg.name)}`).then(j => {
+      // 서버가 요청한 종류의 자료를 돌려줬는지 확인 (예전 서버 파일이면 모든 종류에 아파트 자료가 와서 겹쳐 보입니다)
+      if ((j.kind || 'apt') !== kind) { console.warn('api/aptmap.js 파일이 최신이 아닙니다'); e.items = []; return []; }
       e.items = j.items.map((x, i) => ({ ...x, k: kind, id: `${key}:${i}` }));
       e.items.filter(x => x.lat == null).forEach(x => T.geoQ.push(x));
       geoNext();
