@@ -1,6 +1,24 @@
 {
-  "regions": ["icn1"],
+  "regions": [
+    "icn1"
+  ],
   "functions": {
-    "api/*.js": { "maxDuration": 30 }
-  }
+    "api/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/auth/login",
+      "destination": "/api/auth?action=login"
+    },
+    {
+      "source": "/auth/callback",
+      "destination": "/api/auth?action=callback"
+    },
+    {
+      "source": "/auth/logout",
+      "destination": "/api/auth?action=logout"
+    }
+  ]
 }

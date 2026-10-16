@@ -36,6 +36,7 @@
   // ---------- 시작 ----------
   init();
   async function init() {
+    loadMe();
     try { S.cfg = await api('/api/config'); } catch (e) { return setup(`설정을 불러오지 못했습니다. (${esc(e.message)})`); }
     if (S.cfg.siteName) { $('siteName').textContent = S.cfg.siteName; document.title = S.cfg.siteName; }
     if (!S.cfg.kakaoKey) return setup('카카오 JavaScript 키(KAKAO_JS_KEY)가 아직 등록되지 않았습니다.');
@@ -278,12 +279,12 @@
       <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
-    <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}</div>`;
+    <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}<p class="pfoot"><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
     $('shareBtn').onclick = () => shareParcel(p, name);
-    $('locBtn').onclick = () => locReport(name);
+    $('locBtn').onclick = () => locGate(name);
     D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
@@ -1015,6 +1016,64 @@
     return '';
   }
 
+  // ---------- 회원 (카카오 로그인) ----------
+  const FREE_LOC = 3;
+  S.me = { member: false, ready: false };
+  async function loadMe() {
+    const q = new URLSearchParams(location.search), lg = q.get('login');
+    if (lg) {
+      q.delete('login'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
+      setTimeout(() => toast(lg === 'ok' ? '로그인되었습니다. 입지정보를 계속 무료로 이용하실 수 있습니다' : lg === 'cancel' ? '로그인을 취소했습니다' : '로그인하지 못했습니다. 잠시 후 다시 시도해 주세요', 3600), 600);
+    }
+    try { S.me = await api('/api/auth?action=me'); } catch { /* 회원 기능 꺼짐 */ }
+    drawAcct();
+  }
+  const here = () => location.pathname + location.search;
+  function drawAcct() {
+    const el = $('acct'); if (!el) return;
+    if (!S.me.ready) { el.innerHTML = ''; return; }
+    el.innerHTML = S.me.member
+      ? `<button type="button" id="acctBtn">${esc(S.me.nickname || '회원')}님</button><div class="acct-menu" id="acctMenu" hidden><a href="/auth/logout?r=${encodeURIComponent(here())}">로그아웃</a><button type="button" id="withdraw">회원 탈퇴</button><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`
+      : `<button type="button" id="acctBtn">로그인</button>`;
+    $('acctBtn').onclick = () => S.me.member ? ($('acctMenu').hidden = !$('acctMenu').hidden) : loginModal();
+    if ($('withdraw')) $('withdraw').onclick = async () => {
+      if (!confirm('회원 탈퇴하시겠습니까? 저장된 회원 정보가 바로 삭제됩니다.')) return;
+      try { await fetch('/api/auth?action=withdraw', { method: 'POST' }); } catch { /* 무시 */ }
+      S.me = { ...S.me, member: false, nickname: '' }; drawAcct(); toast('탈퇴 처리되었습니다. 카카오 계정의 연결 해제는 카카오톡 설정 > 카카오계정 > 연결된 서비스 관리에서 하실 수 있습니다', 6000);
+    };
+  }
+  function locCount() { try { return Number(localStorage.getItem('rm.loc') || 0); } catch { return 0; } }
+  function locGate(name) {
+    if (S.me.member || !S.me.ready) return locReport(name);
+    const used = locCount();
+    if (used < FREE_LOC) {
+      try { localStorage.setItem('rm.loc', String(used + 1)); } catch { /* 무시 */ }
+      locReport(name);
+      const left = FREE_LOC - used - 1;
+      toast(left > 0 ? `비회원 무료 이용 ${left}회 남았습니다` : '비회원 무료 이용을 모두 사용했습니다. 카카오 로그인 후 계속 무료로 이용하세요', 4000);
+      return;
+    }
+    loginModal(true);
+  }
+  function loginModal(fromLoc) {
+    let m = $('loginModal');
+    if (!m) { m = document.createElement('div'); m.id = 'loginModal'; m.className = 'lmodal'; document.body.appendChild(m); }
+    m.hidden = false;
+    m.innerHTML = `<div class="lbox" role="dialog" aria-modal="true" aria-labelledby="lmT">
+      <button class="lx" type="button" aria-label="닫기">×</button>
+      <img src="/favicon.svg" width="44" height="44" alt="">
+      <h2 id="lmT">${fromLoc ? '무료 이용 3회를 모두 사용하셨습니다' : '리얼맵 로그인'}</h2>
+      <p>카카오로 3초 만에 가입하시면 입지정보를 <b>횟수 제한 없이 무료로</b> 이용하실 수 있습니다.</p>
+      <label class="lmk"><input type="checkbox" id="lmMk"> <span>(선택) 리얼워커스의 부동산 소식·매물 정보 받기</span></label>
+      <a class="kbtn" id="lmGo" href="#"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2C4.6 2 1 4.8 1 8.2c0 2.2 1.5 4.1 3.7 5.2l-.9 3.4c-.1.3.3.5.5.3l4-2.7h.7c4.4 0 8-2.8 8-6.2S13.4 2 9 2z" fill="#191919"/></svg>카카오로 시작하기</a>
+      <p class="lsmall">가입 시 카카오 회원번호와 닉네임을 받으며, 탈퇴하면 바로 삭제됩니다. <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
+    </div>`;
+    const close = () => { m.hidden = true; };
+    m.querySelector('.lx').onclick = close;
+    m.onclick = e => { if (e.target === m) close(); };
+    $('lmGo').onclick = e => { e.preventDefault(); location.href = `/auth/login?r=${encodeURIComponent(here())}${$('lmMk').checked ? '&mk=1' : ''}`; };
+  }
+
   // ---------- 입지 정보 (중개대상물 확인·설명서 '입지조건' 참고) ----------
   const ROADW = [[/광대/, '폭 25m 이상 도로'], [/중로/, '폭 12m 이상 25m 미만 도로'], [/소로/, '폭 8m 이상 12m 미만 도로'], [/세로\s*\(?가\)?|세로가/, '폭 8m 미만 도로 (자동차 통행 가능)'], [/세로\s*\(?불\)?|세로불/, '폭 8m 미만 도로 (자동차 통행 불가)'], [/맹지/, '도로에 접하지 않음 (맹지)']];
   function roadText(r) {
@@ -1338,6 +1397,6 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       }, 250);
     });
     q.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = sg.querySelector('[data-i]'); if (b) b.click(); } if (e.key === 'Escape') sg.hidden = true; });
-    document.addEventListener('pointerdown', e => { if (!e.target.closest('.search')) sg.hidden = true; });
+    document.addEventListener('pointerdown', e => { if (!e.target.closest('.search')) sg.hidden = true; if (!e.target.closest('#acct') && $('acctMenu')) $('acctMenu').hidden = true; });
   }
 })();
