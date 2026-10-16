@@ -18,9 +18,10 @@ export default handler(async (req, res) => {
       const rows = await dataGoKrAll(HUB + 'getBrExposInfo', q, { maxPages: 60 });
       const seen = new Set(), out = [];
       for (const r of rows) {
-        const k = (r.dongNm || '') + '|' + (r.hoNm || '');
-        if (!r.hoNm || seen.has(k)) continue; seen.add(k);
-        out.push({ dong: r.dongNm || '', ho: r.hoNm, flr: num(r.flrNo), flrGb: r.flrGbCdNm || '' });
+        const dn = String(r.dongNm || '').trim(), hn = String(r.hoNm || '').trim();
+        const k = dn + '|' + hn;
+        if (!hn || seen.has(k)) continue; seen.add(k);
+        out.push({ dong: dn, ho: hn, flr: num(r.flrNo), flrGb: r.flrGbCdNm || '' });
       }
       const nat = (a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true });
       out.sort((a, b) => nat(a.dong, b.dong) || (b.flr ?? 0) - (a.flr ?? 0) || nat(a.ho, b.ho));
@@ -33,8 +34,13 @@ export default handler(async (req, res) => {
   const out = await cached(`unit:${P.pnu}:${dong}:${ho}`, 24 * 3600e3, async () => {
     const [area, price] = await Promise.all([
       settle(async () => {
-        const rows = await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: dong || '', hoNm: ho }, { maxPages: 5 });
-        return rows.filter(r => sameTok(r.hoNm, ho) && (!dong || !r.dongNm || sameTok(r.dongNm, dong))).map(r => ({
+        const D = String(dong || '').trim(), H = String(ho || '').trim();
+        const pick = rows => rows.filter(r => sameTok(r.hoNm, H) && (!D || !String(r.dongNm || '').trim() || sameTok(r.dongNm, D)));
+        // 동·호 이름 표기가 대장마다 달라서, 못 찾으면 조건을 줄여 가며 다시 찾습니다.
+        let rows = pick(await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: D, hoNm: H }, { maxPages: 5 }));
+        if (!rows.length) rows = pick(await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, hoNm: H }, { maxPages: 5 }));
+        if (!rows.length) rows = pick(await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', q, { maxPages: 60 }));
+        return rows.map(r => ({
           gb: r.exposPubuseGbCdNm, use: r.mainPurpsCdNm, etcUse: r.etcPurps, area: num(r.area),
           flr: r.flrNoNm || (r.flrNo ? r.flrNo + '층' : ''), strct: r.strctCdNm,
         }));
@@ -42,8 +48,8 @@ export default handler(async (req, res) => {
       settle(async () => {
         if (!VWORLD_KEY) return null;
         for (const y of [Y, Y - 1, Y - 2]) {
-          const rows = await vworldNed('getApartHousingPriceAttr', { pnu: P.pnu, stdrYear: y, dongNm: dong || '', hoNm: ho });
-          const m = rows.find(r => sameTok(r.hoNm, ho) && (!dong || !r.dongNm || sameTok(r.dongNm, dong)));
+          const rows = await vworldNed('getApartHousingPriceAttr', { pnu: P.pnu, stdrYear: y, dongNm: String(dong || '').trim(), hoNm: String(ho || '').trim() });
+          const m = rows.find(r => sameTok(r.hoNm, ho) && (!String(dong || '').trim() || !String(r.dongNm || '').trim() || sameTok(r.dongNm, dong)));
           if (m) return { year: y, price: num(m.pblntfPc), name: m.aphusNm, area: num(m.prvuseAr), date: m.pblntfDe };
           if (rows.length) return null;
         }
