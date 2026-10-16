@@ -259,3 +259,13 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .tlabel.k-rh{background:#1F7A4D}.tlabel.k-rh::after{border-top-color:#1F7A4D}.tlabel.k-rh small{color:#CDE8D9}
 .tlabel.k-offi{background:#6741B8}.tlabel.k-offi::after{border-top-color:#6741B8}.tlabel.k-offi small{color:#DED3F5}
 .tlabel.k-rh:hover,.tlabel.k-offi:hover{background:#F2B705}.tlabel.k-rh:hover::after,.tlabel.k-offi:hover::after{border-top-color:#F2B705}.tlabel.k-rh:hover small,.tlabel.k-offi:hover small{color:#14212E}
+
+/* 여러 필지에 걸친 건물 */
+.glist{display:flex;flex-wrap:wrap;gap:6px}
+.glist .g{padding:5px 10px;border-radius:999px;border:1px dashed var(--pick);background:var(--pick-soft);color:var(--fg);font:inherit;font-size:13px;cursor:pointer}
+.glist .g.main{border-style:solid;cursor:default;font-weight:600}
+.glist .g small{font-size:11px;color:var(--muted);font-weight:400}
+.gnote{margin:0 0 14px;padding:12px 14px;border-radius:12px;border:1px dashed var(--pick);background:var(--pick-soft);display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.5}
+.gnote b{font-size:14px}
+.gnote span{color:var(--muted)}
+.gnote button{align-self:flex-start;margin-top:4px;padding:6px 12px;border-radius:999px;border:0;background:var(--pick);color:#fff;font:inherit;font-weight:600;cursor:pointer}

@@ -146,7 +146,7 @@
     render(); $('panel').scrollTop = 0;
     const pnu = p.pnu;
     api(`/api/land?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.land = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.land = { error: e.message }; render(); } });
-    api(`/api/building?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.bld = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
+    api(`/api/building?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.bld = j; render(); drawAtch(tok); } }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
   }
 
   // ---------- 로드뷰 ----------
@@ -255,6 +255,7 @@
     if (m && m.use) chips.push(`<span class="chip">${esc(m.use)}</span>`);
     if (m && m.useApr) chips.push(`<span class="chip">${esc(m.useApr.slice(0, 4))}년 사용승인</span>`);
     if (o && o.type && !o.collective && o.type !== '개인') chips.push(`<span class="chip">${esc(o.type)}</span>`);
+    if (atchList().length) chips.push(`<span class="chip">${atchList().length + 1}개 필지 건물</span>`);
     if (collTitle()) chips.push('<span class="chip">집합건물</span>');
     else if (collOwn()) chips.push('<span class="chip">구분소유 토지</span>');
     const latestP = pr.length ? pr[pr.length - 1] : null;
@@ -276,11 +277,12 @@
       <button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
-    <div class="body">${body}${consultCard()}</div>`;
+    <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}</div>`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
     $('shareBtn').onclick = () => shareParcel(p, name);
+    D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
   }
@@ -913,6 +915,39 @@
       <div class="chips" style="margin:0">${[z.type, z.stage, z.stageDate].filter(Boolean).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
       ${z.note ? `<p>${esc(z.note)}</p>` : ''}${z.source ? `<a class="src" href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a>` : ''}</div>`).join('')}
       <p class="note">계획 단계의 정보는 변경될 수 있습니다. 자세한 내용은 리얼워커스(02-393-7676)로 문의해 주세요.</p></section>`;
+  }
+
+  // ---------- 여러 필지에 걸친 건물 ----------
+  const atchList = () => (S.d.bld && S.d.bld.atch && S.d.bld.atch.ok) ? S.d.bld.atch.data : [];
+  const pnuJibun = pnu => { pnu = String(pnu); const b = Number(pnu.slice(11, 15)), j = Number(pnu.slice(15, 19)); return `${pnu[10] === '2' ? '산' : ''}${b}${j ? '-' + j : ''}`; };
+  // 부속지번 필지 경계를 대표 필지와 함께 묶어서 그립니다
+  async function drawAtch(tok) {
+    const list = atchList();
+    if (!list.length) return;
+    const K = kakao.maps;
+    const rs = await Promise.all(list.slice(0, 30).map(a => api(`/api/parcel?pnu=${a.pnu}`).catch(() => null)));
+    if (tok !== S.tok) return;
+    rs.forEach((p, i) => {
+      if (!p) return;
+      list[i].addr = p.addr;
+      for (const poly of ringsOf(p.geometry)) {
+        const path = poly.map(ring => ring.map(([x, y]) => new K.LatLng(y, x)));
+        S.polys.push(new K.Polygon({ map: S.map, path, strokeWeight: 2, strokeColor: '#E4572E', strokeOpacity: .9, strokeStyle: 'shortdash', fillColor: '#E4572E', fillOpacity: 0.10 }));
+      }
+    });
+    render();
+  }
+  function groupSection() {
+    const list = atchList();
+    if (list.length) {
+      return `<section><h2>여러 필지에 걸친 건물<span>${list.length + 1}개 필지</span></h2>
+        <p class="note" style="margin-top:0">이 건물은 대표 필지와 함께 아래 필지에 걸쳐 지어져 있습니다. 지도에는 점선으로 함께 표시했습니다. 건축물대장의 대지면적은 묶인 필지 전체 기준입니다.</p>
+        <div class="glist"><span class="g main">${esc(S.sel.jibun || pnuJibun(S.sel.pnu)).replace(/[가-힣]+$/, '')} <small>대표</small></span>${list.map(a => `<button class="g" data-gp="${a.pnu}">${esc(a.jibun)}</button>`).join('')}</div></section>`;
+    }
+    if (!titles().length && S.sel.bldPnu && S.d.bld) {
+      return `<div class="gnote"><b>이 땅 위 건물은 ${esc(pnuJibun(S.sel.bldPnu))}번지에 대장이 등록되어 있습니다.</b><span>건물이 여러 필지에 걸쳐 있는 경우로, 건물 정보는 대표 필지에서 확인하실 수 있습니다.</span><button data-gp="${S.sel.bldPnu}">대표 필지 정보 보기</button></div>`;
+    }
+    return '';
   }
 
   // ---------- 공유 · 상담 ----------
