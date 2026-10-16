@@ -49,6 +49,9 @@ export default async function (req, res) {
     rt('실거래 · 상업업무용 매매', 'RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade');
     rt('실거래 · 토지 매매', 'RTMSDataSvcLandTrade/getRTMSDataSvcLandTrade');
   }
+  const hasStore = !!((process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL) && (process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN));
+  checks.push({ label: '개발정보 저장소 (Upstash Redis) (선택)', group: 'env', ok: hasStore, message: hasStore ? '연결됨' : '연결 안 됨 · 개발지도 구역을 등록하려면 Vercel Storage에서 연결하세요' });
+  checks.push({ label: '관리자 비밀번호 (ADMIN_PASSWORD) (선택)', group: 'env', ok: !!(process.env.ADMIN_PASSWORD || '').trim(), message: (process.env.ADMIN_PASSWORD || '').trim() ? '입력됨' : '비어 있음 · 관리자 화면을 쓰려면 입력하세요' });
   const results = await Promise.all(jobs);
   for (const r of results) checks.push({ label: r.label, group: r.group, ok: r.ok, message: r.ok ? String(r.data ?? '정상') : r.message, ms: r.ms });
 
