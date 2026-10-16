@@ -4,7 +4,7 @@ import { handler, send, fail, need, dataGoKrAll, splitPnu, cached, num, pool, DA
 
 const B = 'https://apis.data.go.kr/1613000/';
 const KINDS = {
-  apt:      { url: B + 'RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev', label: '아파트 매매', sale: true },
+  apt:      { url: B + 'RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev', alt: B + 'RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade', label: '아파트 매매', sale: true },
   aptRent:  { url: B + 'RTMSDataSvcAptRent/getRTMSDataSvcAptRent', label: '아파트 전월세' },
   rh:       { url: B + 'RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade', label: '연립다세대 매매', sale: true },
   rhRent:   { url: B + 'RTMSDataSvcRHRent/getRTMSDataSvcRHRent', label: '연립다세대 전월세' },
@@ -25,10 +25,20 @@ function monthsBack(n) {
   return out;
 }
 
+// 상세 자료 API가 아직 열리지 않았으면(오류 30 등) 기본 API로 자동 전환
+const useAlt = new Set();
 async function month(kind, lawd, ym) {
   const cur = monthsBack(2).includes(ym);
-  return cached(`rt:${kind}:${lawd}:${ym}`, (cur ? 6 : 72) * 3600e3, () =>
-    dataGoKrAll(KINDS[kind].url, { LAWD_CD: lawd, DEAL_YMD: ym }, { pageSize: 1000, maxPages: 30 }));
+  const K = KINDS[kind];
+  const get = url => dataGoKrAll(url, { LAWD_CD: lawd, DEAL_YMD: ym }, { pageSize: 1000, maxPages: 30 });
+  return cached(`rt:${kind}:${lawd}:${ym}`, (cur ? 6 : 72) * 3600e3, async () => {
+    if (K.alt && useAlt.has(kind)) return get(K.alt);
+    try { return await get(K.url); }
+    catch (e) {
+      if (K.alt && /\(30\)|\(20\)|NOT_REGISTERED|ACCESS_DENIED/.test(e.message)) { useAlt.add(kind); return get(K.alt); }
+      throw e;
+    }
+  });
 }
 
 const clean = s => String(s ?? '').trim();
