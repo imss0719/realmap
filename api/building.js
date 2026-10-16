@@ -1,4 +1,4 @@
-// 건축물대장: 총괄표제부 · 표제부(동별) · 층별개요
+// 건축물대장: 총괄표제부 · 표제부(동별) · 층별개요 · 부속지번(건물이 여러 필지에 걸친 경우)
 // GET /api/building?pnu=...
 import { handler, send, need, dataGoKrAll, settle, splitPnu, cached, num, DATA_KEY } from './_lib.js';
 
@@ -38,7 +38,7 @@ export default handler(async (req, res) => {
   const q = { sigunguCd: P.sigunguCd, bjdongCd: P.bjdongCd, platGbCd: P.platGbCd, bun: P.bun, ji: P.ji, _type: 'json' };
 
   const out = await cached('bld:' + P.pnu, 12 * 3600e3, async () => {
-    const [recap, titles, floors] = await Promise.all([
+    const [recap, titles, floors, atch] = await Promise.all([
       settle(async () => (await dataGoKrAll(HUB + 'getBrRecapTitleInfo', q, { maxPages: 1 })).map(title)),
       settle(async () => (await dataGoKrAll(HUB + 'getBrTitleInfo', q, { maxPages: 10 })).map(title)),
       settle(async () => (await dataGoKrAll(HUB + 'getBrFlrOulnInfo', q, { maxPages: 30 })).map(r => ({
@@ -46,10 +46,24 @@ export default handler(async (req, res) => {
         use: r.mainPurpsCdNm, etcUse: r.etcPurps, strct: r.strctCdNm, area: num(r.area),
         mainAtch: r.mainAtchGbCdNm, excl: r.areaExctYn === '1' || r.areaExctYn === 'Y',
       }))),
+      settle(async () => {
+        const rows = await dataGoKrAll(HUB + 'getBrAtchJibunInfo', q, { maxPages: 3 });
+        const seen = new Set(), out = [];
+        for (const r of rows) {
+          const sg = String(r.atchSigunguCd || '').trim(), bj = String(r.atchBjdongCd || '').trim(), gb = String(r.atchPlatGbCd ?? '0').trim();
+          const bun = String(r.atchBun || '').trim(), ji = String(r.atchJi || '0').trim();
+          if (!/^\d{5}$/.test(sg) || !/^\d{5}$/.test(bj) || !/^\d+$/.test(bun) || gb === '2') continue;
+          const pnu = sg + bj + (gb === '1' ? '2' : '1') + bun.padStart(4, '0') + (ji || '0').padStart(4, '0');
+          if (pnu === P.pnu || seen.has(pnu)) continue;
+          seen.add(pnu);
+          out.push({ pnu, jibun: `${gb === '1' ? '산' : ''}${Number(bun)}${Number(ji) ? '-' + Number(ji) : ''}`, dong: r.atchBjdongNm || r.bjdongNm || '' });
+        }
+        return out;
+      }),
     ]);
     // 주건축물 우선 정렬
     if (titles.ok) titles.data.sort((a, b) => (a.mainAtch === '주건축물' ? 0 : 1) - (b.mainAtch === '주건축물' ? 0 : 1) || String(a.dong).localeCompare(String(b.dong), 'ko', { numeric: true }));
-    return { recap, titles, floors };
+    return { recap, titles, floors, atch };
   });
 
   send(res, 200, { ok: true, pnu: P.pnu, ...out }, 43200);
