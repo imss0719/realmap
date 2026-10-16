@@ -72,6 +72,7 @@
     $('vRv').onclick = () => setView('rv');
     $('rvbig').onclick = () => setView('rv');
     devInit();
+    tradeMapInit();
     if (mobile()) $('panel').classList.add('closed');
     wireSearch();
 
@@ -272,12 +273,14 @@
       <div><div class="l">공시지가</div><div class="v">${latestP ? per(latestP.price) : c && c.price ? per(c.price) : '-'}</div></div>
     </div>
     <div class="bar"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button>
+      <button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
-    <div class="body">${body}</div>`;
+    <div class="body">${body}${consultCard()}</div>`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
+    $('shareBtn').onclick = () => shareParcel(p, name);
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
   }
@@ -311,6 +314,7 @@
         <div class="stat"><div class="l">토지면적</div><div class="v">${ar(c.area)[0]}</div><div class="s">${ar(c.area)[1]}</div></div>
         <div class="stat"><div class="l">공시지가 총액</div><div class="v">${pp && c.area ? wonW(pp * c.area) : '-'}</div><div class="s">${ch == null ? (last ? last.year + '년 기준' : '') : `전년 대비 ${ch >= 0 ? '+' : ''}${n(ch, 1)}%`}</div></div>
       </div>`);
+      if (!isCollective()) out.push(roomSection(false));
       out.push(`<section><h2>토지 기본정보<span>토지특성 ${esc(c.year || '')}</span></h2><dl class="kv">
         <dt>지목</dt><dd>${val(c.jimok)}</dd>
         <dt>면적</dt><dd>${arI(c.area)}</dd>
@@ -360,18 +364,49 @@
       </div><p class="note">괄호 안 '저촉'은 일부가 걸쳐 있다는 뜻이고, '접함'은 경계에 붙어 있다는 뜻입니다.</p></section>`);
     } else out.push(errBox('토지이용계획: ' + (L.use && L.use.message)));
 
-    const c = chr(), z = c && c.zone1 ? Object.keys(SEOUL).find(k => c.zone1.replace(/\s|\(.*\)/g, '').startsWith(k)) : null;
-    if (c && z && String(S.sel.pnu).startsWith('11')) {
-      const [bc, fa] = SEOUL[z], maxB = c.area * bc / 100, maxF = c.area * fa / 100;
-      const t = recap() || mainT(), used = t ? (t.vlArea || 0) : 0, rest = Math.max(0, maxF - used);
-      out.push(`<section><h2>건축 가능 규모<span>서울시 도시계획조례 기준</span></h2><dl class="kv">
-        <dt>건폐율 상한</dt><dd>${bc}%</dd><dt>용적률 상한</dt><dd>${fa}%</dd>
-        <dt>최대 건축면적</dt><dd>${arI(maxB)}</dd><dt>최대 지상 연면적</dt><dd>${arI(maxF)}</dd></dl>
-        ${t && t.vlRat != null ? `<div class="meter-l" style="margin-top:10px"><span>현재 용적률 ${n(t.vlRat, 1)}%</span><span>상한 ${fa}%</span></div><div class="meter"><i style="width:${Math.min(100, t.vlRat / fa * 100)}%"></i></div><dl class="kv"><dt>잔여 연면적 (추정)</dt><dd>${rest > 1 ? arI(rest) : '여유 없음'}</dd></dl>` : ''}
-        <p class="note">지구단위계획, 가로구역별 최고높이, 일조 사선제한, 주차 기준에 따라 실제 규모는 달라집니다. 신축 검토 시 토지이음에서 행위제한을 꼭 확인해 주세요.</p></section>`);
-    } else if (c) out.push(`<div class="empty">건폐율·용적률 상한은 지자체 도시계획조례에 따라 다릅니다. 현재는 서울 기준만 자동 계산합니다.</div>`);
+    out.push(roomSection(true));
     out.push(`<p class="src">출처 · 브이월드 토지이용계획 · <a href="https://www.eum.go.kr/web/ar/lu/luLandDet.jsp?isNoScr=script&mode=search&pnu=${esc(S.sel.pnu)}" target="_blank" rel="noopener">토지이음에서 원문 보기</a></p>`);
     return out.join('');
+  }
+
+  // 추가로 지을 수 있는 규모 (서울시 도시계획조례 기준 추정)
+  function roomCalc() {
+    const c = chr();
+    if (!c || !c.area || !c.zone1 || !String(S.sel.pnu).startsWith('11')) return null;
+    const z = Object.keys(SEOUL).find(k => c.zone1.replace(/\s|\(.*\)/g, '').startsWith(k));
+    if (!z) return null;
+    const [bc, fa] = SEOUL[z];
+    const ts = titles(), rc = recap();
+    const used = rc && rc.vlArea ? rc.vlArea : ts.reduce((s, t) => s + (t.vlArea || 0), 0);
+    const site = (rc && rc.platArea) || c.area;
+    const nowRat = rc && rc.vlRat ? rc.vlRat : used && site ? used / site * 100 : 0;
+    const maxF = c.area * fa / 100, maxB = c.area * bc / 100;
+    return { z, bc, fa, maxF, maxB, used, nowRat, rest: Math.max(0, maxF - used), floors: Math.max(1, Math.floor(maxF / maxB)), empty: !ts.length, split: c.zone2 && c.zone2 !== '지정되지않음' };
+  }
+  function roomSection(full) {
+    const c = chr();
+    const B = S.d.bld;
+    if (!B) return full ? skel() : '';
+    if (B.error || (B.titles && !B.titles.ok)) return ''; // 건물 정보를 모르면 '빈 땅'으로 잘못 안내하지 않도록
+    const R = roomCalc();
+    if (!R) return full && c ? `<div class="empty">건폐율·용적률 상한은 지자체 도시계획조례에 따라 다릅니다. 현재는 서울 기준만 자동 계산합니다.</div>` : '';
+    const py = m => `${n(toPy(m), 0)}평`;
+    const pct = Math.min(100, R.nowRat / R.fa * 100);
+    let head;
+    if (R.empty) head = `<p class="room-msg">건물이 없는 땅입니다. 새로 지으면 지상 연면적 <b>약 ${py(R.maxF)}</b>까지 가능합니다.</p>`;
+    else if (R.rest > R.maxF * 0.05) head = `<p class="room-msg">상한까지 <b>약 ${py(R.rest)}</b>을 더 지을 수 있는 땅입니다.</p>`;
+    else head = `<p class="room-msg">이미 용적률 상한 가까이 지어진 땅입니다.</p>`;
+    return `<section class="room"><h2>건축 여유<span>서울시 도시계획조례 기준 · 추정</span></h2>${head}
+      ${R.empty ? '' : `<div class="meter-l"><span>현재 용적률 ${n(R.nowRat, 0)}%</span><span>상한 ${R.fa}%</span></div><div class="meter"><i style="width:${pct}%"></i></div>`}
+      <dl class="kv">
+        <dt>용도지역</dt><dd>${esc(R.z)}</dd>
+        <dt>건폐율 / 용적률 상한</dt><dd>${R.bc}% / ${R.fa}%</dd>
+        <dt>최대 지상 연면적</dt><dd>${arI(R.maxF)}</dd>
+        ${R.empty ? '' : `<dt>현재 용적률 연면적</dt><dd>${arI(R.used)}</dd><dt>남은 연면적</dt><dd>${R.rest > 1 ? arI(R.rest) : '여유 없음'}</dd>`}
+        ${full ? `<dt>최대 건축면적</dt><dd>${arI(R.maxB)}</dd><dt>단순 환산 층수</dt><dd>약 ${R.floors}층<small>최대 건축면적으로 꽉 채워 올릴 때</small></dd>` : ''}
+      </dl>
+      ${R.split ? '<p class="note">이 땅은 용도지역이 둘 이상 걸쳐 있어 실제 상한은 면적 비율에 따라 달라집니다.</p>' : ''}
+      <p class="note">지구단위계획, 높이·일조 제한, 주차 기준에 따라 실제로 지을 수 있는 규모는 달라집니다.${full ? ' 신축이나 증축 검토 시 토지이음에서 행위제한을 꼭 확인해 주세요.' : ''}</p></section>`;
   }
 
   // 건물 탭
@@ -527,12 +562,47 @@
     const segM = hasRent ? `<span class="seg" role="group" aria-label="거래 구분"><button data-m="sale" aria-pressed="${S.tradeMode === 'sale'}">매매 ${sale.length}</button><button data-m="rent" aria-pressed="${S.tradeMode === 'rent'}">전월세 ${rent.length}</button></span>` : '';
     const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년</button>`).join('')}</span>`;
     const items = list.slice(0, S.showAll ? 500 : 40).map(r => S.tradeMode === 'sale' ? saleRow(r) : rentRow(r)).join('');
-    const out = [`<div class="ctl">${segM}${segP}</div>`];
+    const out = [jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`];
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'sale' ? '매매' : '전월세'} 거래가 없습니다.</div>`);
     if (T.errors && T.errors.length) out.push(errBox(T.errors.join(' / ')));
     out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
     out.push(src(['국토교통부 실거래가 공개시스템']));
     return out.join('');
+  }
+  // 전세가율: 같은 면적대의 매매가 중간값 대비 전세 보증금 중간값
+  function jeonseRatio(rows) {
+    const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+    const d = new Date(Date.now() + 9 * 3600e3); d.setUTCFullYear(d.getUTCFullYear() - 1);
+    const cut1 = `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    const ok = r => ['apt', 'rh', 'offi', 'aptRent', 'rhRent', 'offiRent'].includes(r.kind) && r.ex && !r.cancel;
+    const pickBest = cut => {
+      const g = new Map();
+      for (const r of rows) {
+        if (!ok(r) || (cut && r.date < cut)) continue;
+        const k = Math.round(r.ex);
+        let e = g.get(k); if (!e) g.set(k, e = { ex: k, s: [], j: [] });
+        if (/Rent$/.test(r.kind)) { if (!r.rent && r.deposit) e.j.push(r.deposit); } else if (r.price) e.s.push(r.price);
+      }
+      return [...g.values()].filter(e => e.s.length && e.j.length).sort((a, b) => (b.s.length + b.j.length) - (a.s.length + a.j.length))[0] || null;
+    };
+    let best = pickBest(cut1), recent = true;
+    if (!best) { best = pickBest(null); recent = false; }
+    if (!best) return null;
+    const s = med(best.s), j = med(best.j);
+    return { ex: best.ex, s, j, ns: best.s.length, nj: best.j.length, r: j / s * 100, recent };
+  }
+  function jeonseCard(T) {
+    if (!T.kinds.some(x => !x.sale)) return '';
+    const R = jeonseRatio(T.rows);
+    if (!R) return '';
+    const lv = R.r >= 80 ? ['높음', 'hi', '매매가와 전세가 차이가 작아 집값이 조금만 내려도 보증금 회수가 어려울 수 있습니다.']
+      : R.r >= 70 ? ['주의', 'mid', '전세가율이 다소 높은 편입니다. 선순위 근저당과 보증금 규모를 꼼꼼히 확인하세요.']
+      : ['보통', 'lo', '매매가 대비 전세가 비율이 일반적인 수준입니다.'];
+    return `<section class="jr ${lv[1]}"><h2>전세가율<span>전용 ${R.ex}㎡ 기준 · ${R.recent ? '최근 1년' : `최근 ${S.months / 12}년`}</span></h2>
+      <div class="jr-top"><b>${n(R.r, 0)}%</b><span class="jr-lv">${lv[0]}</span></div>
+      <p class="jr-msg">${lv[2]}</p>
+      <dl class="kv"><dt>매매 중간값</dt><dd>${won(R.s)}<small>${R.ns}건</small></dd><dt>전세 중간값</dt><dd>${won(R.j)}<small>${R.nj}건</small></dd></dl>
+      <p class="note">실거래 신고가 기준 추정치입니다. 전세 계약 전에는 등기사항전부증명서로 근저당·압류 여부를, 다가구라면 선순위 임차보증금도 꼭 확인하세요.</p></section>`;
   }
   function badge(r) {
     let s = '';
@@ -821,6 +891,118 @@
       <div class="chips" style="margin:0">${[z.type, z.stage, z.stageDate].filter(Boolean).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
       ${z.note ? `<p>${esc(z.note)}</p>` : ''}${z.source ? `<a class="src" href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a>` : ''}</div>`).join('')}
       <p class="note">계획 단계의 정보는 변경될 수 있습니다. 자세한 내용은 리얼워커스(02-393-7676)로 문의해 주세요.</p></section>`;
+  }
+
+  // ---------- 공유 · 상담 ----------
+  function shareParcel(p, name) {
+    const url = `${location.origin}/?pnu=${p.pnu}`;
+    const title = `${p.addr || p.jibun}${name ? ' · ' + name : ''}`;
+    if (navigator.share) { navigator.share({ title: `리얼맵 · ${title}`, text: `${title}\n로드뷰·토지·건물·실거래 한눈에 보기`, url }).catch(() => {}); return; }
+    const done = () => toast('링크를 복사했습니다. 카카오톡 대화창에 붙여 넣어 주세요');
+    if (navigator.clipboard) navigator.clipboard.writeText(`${title}\n${url}`).then(done, () => prompt('아래 링크를 복사해 주세요', url));
+    else prompt('아래 링크를 복사해 주세요', url);
+  }
+  // 리얼워커스 주력 지역(마포·서대문·은평)의 필지에만 상담 안내를 보여 줍니다
+  const CONSULT_AREA = ['11440', '11410', '11380'];
+  function consultCard() {
+    if (!S.sel || !CONSULT_AREA.includes(String(S.sel.pnu).slice(0, 5))) return '';
+    return `<div class="consult"><div><b>이 필지, 전문가와 상의해 보세요</b><span>매매·임대·건물 신축 검토까지 리얼워커스 공인중개사사무소가 도와드립니다.</span></div>
+      <a href="tel:023937676"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h2.5l1.2 3.3-1.6 1.1a8 8 0 0 0 4.5 4.5l1.1-1.6 3.3 1.2v2.5a1.5 1.5 0 0 1-1.6 1.5A12.5 12.5 0 0 1 2 3.1 1.5 1.5 0 0 1 3.5 1.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>02-393-7676</a></div>`;
+  }
+
+  // ---------- 지도 위 실거래가 라벨 ----------
+  // 화면 중심·모서리가 속한 시군구의 최근 6개월 아파트 매매를 단지별 최신 거래가로 표시합니다.
+  const T = { on: true, regions: new Map(), ovs: new Map(), geo: new Map(), geoQ: [], geoBusy: false, hinted: false };
+  const MAXLV = 5;
+  const eok = man => { if (man >= 10000) { const e = man / 10000; const d = e >= 10 ? 10 : 100; return `${String(Math.round(e * d) / d)}억`; } return `${n(man)}만`; };
+  function tradeMapInit() {
+    try { if (localStorage.getItem('rm.trade') === '0') T.on = false; } catch { /* 저장소 없음 */ }
+    $('mtTrade').setAttribute('aria-pressed', T.on);
+    $('mtTrade').onclick = () => {
+      T.on = !T.on; $('mtTrade').setAttribute('aria-pressed', T.on);
+      try { localStorage.setItem('rm.trade', T.on ? '1' : '0'); } catch { /* 저장소 없음 */ }
+      if (T.on && S.map.getLevel() > MAXLV) toast('조금 더 확대하면 아파트 실거래가가 보입니다');
+      tradeRefresh();
+    };
+    kakao.maps.event.addListener(S.map, 'idle', tradeRefresh);
+    tradeRefresh();
+  }
+  function regionAt(lat, lng) {
+    return new Promise(ok => S.geocoder.coord2RegionCode(lng, lat, (r, st) => {
+      if (st !== kakao.maps.services.Status.OK) return ok(null);
+      const b = r.find(x => x.region_type === 'B') || r[0];
+      ok(b ? { lawd: String(b.code).slice(0, 5), name: `${b.region_1depth_name} ${b.region_2depth_name}`.trim() } : null);
+    }));
+  }
+  function loadRegion(rg) {
+    let e = T.regions.get(rg.lawd);
+    if (e) return e.p;
+    e = { items: null };
+    e.p = api(`/api/aptmap?lawd=${rg.lawd}&r=${encodeURIComponent(rg.name)}`).then(j => {
+      e.items = j.items.map((x, i) => ({ ...x, id: `${rg.lawd}:${i}` }));
+      e.items.filter(x => x.lat == null).forEach(x => T.geoQ.push(x));
+      geoNext();
+      return e.items;
+    }).catch(() => { T.regions.delete(rg.lawd); return []; });
+    T.regions.set(rg.lawd, e);
+    return e.p;
+  }
+  // 서버에서 좌표를 못 찾은 단지는 카카오 주소 검색으로 보충 (한 번 찾은 좌표는 이 브라우저에 기억)
+  function geoNext() {
+    if (T.geoBusy) return;
+    const x = T.geoQ.shift(); if (!x) { drawTrades(); return; }
+    let memo = null; try { memo = JSON.parse(localStorage.getItem('rm.g:' + x.a) || 'null'); } catch { /* 없음 */ }
+    if (memo) { x.lat = memo[0]; x.lng = memo[1]; geoNext(); return; }
+    T.geoBusy = true;
+    S.geocoder.addressSearch(x.a, (r, st) => {
+      T.geoBusy = false;
+      if (st === kakao.maps.services.Status.OK && r[0]) {
+        x.lat = +r[0].y; x.lng = +r[0].x;
+        try { localStorage.setItem('rm.g:' + x.a, JSON.stringify([x.lat, x.lng])); } catch { /* 저장 실패 무시 */ }
+      } else x.lat = false;
+      if (T.geoQ.length % 15 === 0) drawTrades();
+      geoNext();
+    });
+  }
+  async function tradeRefresh() {
+    if (!T.on || S.map.getLevel() > MAXLV) { T.ovs.forEach(o => o.setMap(null)); return; }
+    const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), c = S.map.getCenter();
+    const pts = [[c.getLat(), c.getLng()], [sw.getLat(), sw.getLng()], [ne.getLat(), ne.getLng()], [sw.getLat(), ne.getLng()], [ne.getLat(), sw.getLng()]];
+    const rgs = (await Promise.all(pts.map(([la, ln]) => regionAt(la, ln)))).filter(Boolean);
+    const seen = new Set();
+    drawTrades();
+    await Promise.all(rgs.filter(r => !seen.has(r.lawd) && seen.add(r.lawd)).map(loadRegion));
+    drawTrades();
+    if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 아파트 실거래가입니다'); }
+  }
+  function drawTrades() {
+    const K = kakao.maps;
+    if (!T.on || S.map.getLevel() > MAXLV) { T.ovs.forEach(o => o.setMap(null)); return; }
+    const b = S.map.getBounds(), proj = S.map.getProjection();
+    const all = [];
+    T.regions.forEach(e => { if (e.items) for (const x of e.items) if (x.lat && x.lng) all.push(x); });
+    // 거래가 많은 단지부터 자리 잡고, 겹치는 라벨은 숨김
+    all.sort((a, z) => z.c - a.c || z.d.localeCompare(a.d));
+    const placed = [], show = new Set();
+    for (const x of all) {
+      const ll = new K.LatLng(x.lat, x.lng);
+      if (!b.contain(ll)) continue;
+      const pt = proj.containerPointFromCoords(ll);
+      if (placed.some(q => Math.abs(q.x - pt.x) < 64 && Math.abs(q.y - pt.y) < 36)) continue;
+      placed.push(pt); show.add(x.id);
+      let o = T.ovs.get(x.id);
+      if (!o) {
+        const el = document.createElement('button');
+        el.type = 'button'; el.className = 'tlabel';
+        el.title = `${x.n} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}`;
+        el.innerHTML = `<b>${eok(x.p)}</b><small>${x.ar ? Math.round(x.ar) + '㎡' : ''} · ${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;
+        el.onclick = ev => { ev.stopPropagation(); pick(x.lat, x.lng); };
+        o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 3, clickable: true });
+        T.ovs.set(x.id, o);
+      }
+      if (!o.getMap()) o.setMap(S.map);
+    }
+    T.ovs.forEach((o, id) => { if (!show.has(id) && o.getMap()) o.setMap(null); });
   }
 
   // ---------- 검색 ----------

@@ -216,3 +216,43 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
   .intro{display:none}
 }
 @media (prefers-reduced-motion:reduce){.sk i{animation:none}}
+
+/* 지도 위 실거래가 라벨 */
+.tlabel{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 8px 3px;border:0;border-radius:8px;background:#14212E;color:#fff;font:inherit;line-height:1.15;cursor:pointer;box-shadow:0 2px 6px rgba(20,33,46,.28);white-space:nowrap}
+.tlabel b{font-size:13px;font-weight:700;letter-spacing:-.01em}
+.tlabel small{font-size:10px;color:#C9D3DC}
+.tlabel::after{content:"";position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:#14212E}
+.tlabel:hover{background:#F2B705;color:#14212E}
+.tlabel:hover small{color:#14212E}
+.tlabel:hover::after{border-top-color:#F2B705}
+
+/* 건축 여유 */
+.room{border:1px solid #E3D9A8;background:#FFFBEA;border-radius:12px;padding:14px 14px 10px}
+.room-msg{margin:2px 0 10px;font-size:15px;line-height:1.5}
+.room-msg b{color:#14212E;background:linear-gradient(transparent 60%,#F9DC72 60%)}
+
+/* 전세가율 */
+.jr{border-radius:12px;padding:14px 14px 10px;border:1px solid var(--line);background:var(--soft)}
+.jr-top{display:flex;align-items:baseline;gap:10px}
+.jr-top b{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.jr-lv{font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;background:#E6F4EA;color:#1E7B34}
+.jr.mid .jr-lv{background:#FFF3D6;color:#9A6200}
+.jr.hi .jr-lv{background:#FDE4E1;color:#B42318}
+.jr.hi{border-color:#F3B8B0}
+.jr-msg{margin:4px 0 8px;font-size:14px;line-height:1.5}
+@media (prefers-color-scheme: dark){
+  .room{background:#2A2610;border-color:#5C5320}
+  .room-msg b{color:var(--fg);background:linear-gradient(transparent 60%,rgba(242,183,5,.45) 60%)}
+  .jr-lv{background:#173A22;color:#7EDB98}
+  .jr.mid .jr-lv{background:#3A2E10;color:#F2C45A}
+  .jr.hi .jr-lv{background:#3A1D1B;color:#FF8A80}
+  .jr.hi{border-color:#6B2C27}
+}
+
+/* 공유 · 상담 */
+.bar .share{display:inline-flex;align-items:center;gap:4px;margin-left:auto;margin-right:8px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:12px;cursor:pointer}
+.bar .share:hover{border-color:var(--fg)}
+.consult{margin:18px 0 6px;padding:14px;border-radius:12px;background:#14212E;color:#fff;display:flex;flex-direction:column;gap:10px}
+.consult b{display:block;font-size:15px;margin-bottom:3px}
+.consult span{font-size:13px;line-height:1.5;color:#C9D3DC}
+.consult a{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:#F2B705;color:#14212E;font-weight:700;text-decoration:none;font-size:14px}
