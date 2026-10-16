@@ -317,3 +317,4 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .lsmall{font-size:12px !important}
 .lsmall a{color:var(--muted)}
 .pfoot{margin:10px 0 4px;text-align:center;font-size:12px}.pfoot a{color:var(--muted)}
+.brand .acct{margin-left:auto}
