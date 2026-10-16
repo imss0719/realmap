@@ -383,10 +383,30 @@
     const maxF = c.area * fa / 100, maxB = c.area * bc / 100;
     return { z, bc, fa, maxF, maxB, used, nowRat, rest: Math.max(0, maxF - used), floors: Math.max(1, Math.floor(maxF / maxB)), empty: !ts.length, split: c.zone2 && c.zone2 !== '지정되지않음' };
   }
+  const BUILDABLE = /^(대|공장용지|창고용지|주차장|주유소용지|잡종지|학교용지|종교용지|체육용지)$/;
+  const FARM = /^(전|답|과수원|임야|목장용지)$/;
   function roomSection(full) {
     const c = chr();
     const B = S.d.bld;
     if (!B) return full ? skel() : '';
+    // 지목으로 건축 가능 여부부터 거릅니다
+    const jm = String(c && c.jimok || '').trim();
+    const hasBld = titles().length > 0;
+    if (jm && !hasBld && !BUILDABLE.test(jm)) {
+      if (!full) return '';
+      const why = FARM.test(jm)
+        ? `지목이 '${esc(jm)}'인 땅은 농지전용·산지전용 같은 개발행위허가를 받은 뒤에야 건축할 수 있어, 건축 여유를 자동 계산하지 않습니다.`
+        : `지목이 '${esc(jm)}'인 땅은 원칙적으로 건물을 지을 수 없어 건축 여유를 계산하지 않습니다.`;
+      return `<section class="room"><h2>건축 여유<span>지목 확인</span></h2><p class="room-msg">${why}</p></section>`;
+    }
+    // 도시계획도로에 들어간 땅
+    const L = S.d.land, uses = L && L.use && L.use.ok ? L.use.data : [];
+    const road = uses.find(u => u.law === 'k' && /^\s*(도로|광로|대로|중로|소로)/.test(u.name || '') && !/접/.test(u.rel || ''));
+    const roadIn = road && (!road.rel || road.rel === '포함');
+    if (roadIn && !hasBld) {
+      if (!full) return '';
+      return `<section class="room"><h2>건축 여유<span>도시계획시설 확인</span></h2><p class="room-msg">이 땅은 도시계획도로(${esc(road.name)})에 포함되어 있어 건축이 제한됩니다.</p><p class="note">도로 계획이 폐지·변경되지 않는 한 신축이 어렵습니다. 토지이음에서 계획 내용을 확인해 주세요.</p></section>`;
+    }
     if (B.error || (B.titles && !B.titles.ok)) return ''; // 건물 정보를 모르면 '빈 땅'으로 잘못 안내하지 않도록
     const R = roomCalc();
     if (!R) return full && c ? `<div class="empty">건폐율·용적률 상한은 지자체 도시계획조례에 따라 다릅니다. 현재는 서울 기준만 자동 계산합니다.</div>` : '';
@@ -405,6 +425,7 @@
         ${R.empty ? '' : `<dt>현재 용적률 연면적</dt><dd>${arI(R.used)}</dd><dt>남은 연면적</dt><dd>${R.rest > 1 ? arI(R.rest) : '여유 없음'}</dd>`}
         ${full ? `<dt>최대 건축면적</dt><dd>${arI(R.maxB)}</dd><dt>단순 환산 층수</dt><dd>약 ${R.floors}층<small>최대 건축면적으로 꽉 채워 올릴 때</small></dd>` : ''}
       </dl>
+      ${road && road.rel === '저촉' ? `<p class="note"><b>도시계획도로(${esc(road.name)})에 일부 저촉</b>되어 있어, 저촉 부분은 건축 면적에서 빠질 수 있습니다.</p>` : ''}
       ${R.split ? '<p class="note">이 땅은 용도지역이 둘 이상 걸쳐 있어 실제 상한은 면적 비율에 따라 달라집니다.</p>' : ''}
       <p class="note">지구단위계획, 높이·일조 제한, 주차 기준에 따라 실제로 지을 수 있는 규모는 달라집니다.${full ? ' 신축이나 증축 검토 시 토지이음에서 행위제한을 꼭 확인해 주세요.' : ''}</p></section>`;
   }
