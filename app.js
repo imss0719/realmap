@@ -903,12 +903,13 @@
     if (navigator.clipboard) navigator.clipboard.writeText(`${title}\n${url}`).then(done, () => prompt('아래 링크를 복사해 주세요', url));
     else prompt('아래 링크를 복사해 주세요', url);
   }
-  // 리얼워커스 주력 지역(마포·서대문·은평)의 필지에만 상담 안내를 보여 줍니다
-  const CONSULT_AREA = ['11440', '11410', '11380'];
+  // 광고문의 안내 (모든 필지 패널 하단)
+  const AD_MAIL = 'realwalkers@naver.com';
   function consultCard() {
-    if (!S.sel || !CONSULT_AREA.includes(String(S.sel.pnu).slice(0, 5))) return '';
-    return `<div class="consult"><div><b>이 필지, 전문가와 상의해 보세요</b><span>매매·임대·건물 신축 검토까지 리얼워커스 공인중개사사무소가 도와드립니다.</span></div>
-      <a href="tel:023937676"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h2.5l1.2 3.3-1.6 1.1a8 8 0 0 0 4.5 4.5l1.1-1.6 3.3 1.2v2.5a1.5 1.5 0 0 1-1.6 1.5A12.5 12.5 0 0 1 2 3.1 1.5 1.5 0 0 1 3.5 1.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>02-393-7676</a></div>`;
+    if (!S.sel) return '';
+    const href = `mailto:${AD_MAIL}?subject=${encodeURIComponent('[리얼맵] 광고문의')}`;
+    return `<div class="consult"><div><b>광고문의</b><span>리얼맵에 광고 게재를 원하시면 이메일로 문의해 주세요.</span></div>
+      <a href="${href}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 4l6 5 6-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>${AD_MAIL}</a></div>`;
   }
 
   // ---------- 지도 위 실거래가 라벨 ----------
