@@ -53,11 +53,20 @@
         <button id="mtCad" aria-pressed="false">지적도</button>
       </div>
       <div class="grp">
+        <button id="mtMeasure" aria-pressed="false">면적·거리</button>
+      </div>
+      <div class="grp">
         <button id="mtTrade" aria-pressed="true">실거래</button>
       </div>
       <div class="grp">
         <button id="mtDev" aria-pressed="false">개발지도</button>
       </div>
+    </div>
+    <div class="measure" id="measure" hidden>
+      <div class="dp-h"><b>면적·거리 재기</b><button id="msClose" aria-label="닫기">×</button></div>
+      <div class="seg ms-seg" role="group" aria-label="측정 방식"><button data-ms="sum" aria-pressed="true">필지 면적 합산</button><button data-ms="dist" aria-pressed="false">거리 재기</button></div>
+      <div id="msBody"></div>
+      <button class="ms-reset" id="msReset" type="button">처음부터 다시</button>
     </div>
     <div class="devpanel" id="tpanel" hidden>
       <div class="dp-h"><b>실거래가</b><button id="tClose" aria-label="닫기">×</button></div>

@@ -57,7 +57,7 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); pick(la, ln); devHit(la, ln); });
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); pick(la, ln); devHit(la, ln); });
 
     const setType = sky => { S.map.setMapTypeId(sky ? K.MapTypeId.HYBRID : K.MapTypeId.ROADMAP); $('mtRoad').setAttribute('aria-pressed', !sky); $('mtSky').setAttribute('aria-pressed', sky); };
     $('mtRoad').onclick = () => setType(false);
@@ -73,6 +73,7 @@
     $('rvbig').onclick = () => setView('rv');
     devInit();
     tradeMapInit();
+    measureInit();
     if (mobile()) $('panel').classList.add('closed');
     wireSearch();
 
@@ -274,7 +275,7 @@
       <div><div class="l">공시지가</div><div class="v">${latestP ? per(latestP.price) : c && c.price ? per(c.price) : '-'}</div></div>
     </div>
     <div class="bar"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button>
-      <button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
+      <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
     <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}</div>`;
@@ -282,6 +283,7 @@
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
     $('shareBtn').onclick = () => shareParcel(p, name);
+    $('locBtn').onclick = () => locReport(name);
     D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
@@ -500,8 +502,33 @@
       ${rows.map(f => `<tr class="${f.excl ? 'ex' : ''}"><td class="c">${esc(f.noNm || ((f.gb || '') + (f.no || '')))}</td><td>${esc(f.use || '')}${f.etcUse && f.etcUse !== f.use ? `<small>${esc(f.etcUse)}</small>` : ''}${f.excl ? '<small>면적 제외</small>' : ''}</td><td class="n">${ar(f.area)[0]}</td></tr>`).join('')}
       </tbody></table></div></section>`);
     } else if (B.floors && !B.floors.ok) out.push(errBox('층별개요: ' + B.floors.message));
+    out.push(storeSection());
     out.push(src(['건축HUB 건축물대장 표제부·총괄표제부·층별개요']));
     return out.join('');
+  }
+
+  // 입점 업종 (상가정보)
+  function storeSection() {
+    if (/^\s*(아파트\s*)+$/.test(uses()) || (/아파트/.test(uses()) && !/근린|판매|업무/.test(uses()))) return '';
+    const D = S.d.stores;
+    if (!D) {
+      const tok = S.tok; S.d.stores = { loading: true };
+      api(`/api/stores?pnu=${S.sel.pnu}`).then(j => { if (tok === S.tok) { S.d.stores = j; render(); } })
+        .catch(e => { if (tok === S.tok) { S.d.stores = { error: e.message }; render(); } });
+      return `<section><h2>입점 업종</h2>${skel()}</section>`;
+    }
+    if (D.loading) return `<section><h2>입점 업종</h2>${skel()}</section>`;
+    if (D.error) return `<section><h2>입점 업종</h2><div class="empty">상가정보를 불러오지 못했습니다. 공공데이터포털에서 '소상공인시장진흥공단_상가(상권)정보' 활용신청이 승인되었는지 확인해 주세요.</div></section>`;
+    if (!D.stores.length) return `<section><h2>입점 업종</h2><div class="empty">등록된 상가 정보가 없습니다.</div></section>`;
+    const cnt = {}; D.stores.forEach(x => { cnt[x.l || '기타'] = (cnt[x.l || '기타'] || 0) + 1; });
+    const fl = f => { const m = String(f || '').match(/-?\d+/); if (!m) return 0; return /지하|B/i.test(f) ? -Number(m[0].replace('-', '')) : Number(m[0]); };
+    const rows = [...D.stores].sort((a, b) => fl(a.floor) - fl(b.floor));
+    return `<section><h2>입점 업종<span>${D.stores.length}곳</span></h2>
+      <div class="chips" style="margin:0 0 8px">${Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="chip">${esc(k)} ${v}</span>`).join('')}</div>
+      <div class="tbl"><table><thead><tr><th>층</th><th>상호</th><th>업종</th></tr></thead><tbody>
+      ${rows.map(x => `<tr><td class="c">${x.floor ? esc(/^\d+$/.test(x.floor) ? x.floor + '층' : x.floor) : '-'}</td><td>${esc(x.name)}${x.ho ? `<small>${esc(x.ho)}호</small>` : ''}</td><td>${esc(x.s || x.m)}<small>${esc(x.m)}</small></td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">소상공인시장진흥공단 상가정보 기준이며, 분기마다 갱신되어 실제와 다를 수 있습니다.</p></section>`;
   }
 
   // 동·호수 탭
@@ -586,6 +613,7 @@
     const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년</button>`).join('')}</span>`;
     const items = list.slice(0, S.showAll ? 500 : 40).map(r => S.tradeMode === 'sale' ? saleRow(r) : rentRow(r)).join('');
     const out = [jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`];
+    out.push(trendChart(list, S.tradeMode));
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'sale' ? '매매' : '전월세'} 거래가 없습니다.</div>`);
     if (T.errors && T.errors.length) out.push(errBox(T.errors.join(' / ')));
     out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
@@ -627,6 +655,43 @@
       <dl class="kv"><dt>매매 중간값</dt><dd>${won(R.s)}<small>${R.ns}건</small></dd><dt>전세 중간값</dt><dd>${won(R.j)}<small>${R.nj}건</small></dd></dl>
       <p class="note">실거래 신고가 기준 추정치입니다. 전세 계약 전에는 등기사항전부증명서로 근저당·압류 여부를, 다가구라면 선순위 임차보증금도 꼭 확인하세요.</p></section>`;
   }
+  // 평형별 가격 추이 (월별 중간값)
+  function trendChart(list, mode) {
+    const kinds = mode === 'sale' ? ['apt', 'rh', 'offi'] : ['aptRent', 'rhRent', 'offiRent'];
+    const rows = list.filter(r => kinds.includes(r.kind) && r.ex && !r.cancel && (mode === 'sale' ? r.price : (!r.rent && r.deposit)));
+    if (rows.length < 3) return '';
+    const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+    const groups = new Map();
+    for (const r of rows) { const k = Math.round(r.ex); (groups.get(k) || groups.set(k, []).get(k)).push(r); }
+    const top = [...groups.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 3).filter(g => g[1].length >= 2);
+    if (!top.length) return '';
+    const ym = r => r.date.slice(0, 7);
+    const months = [...new Set(rows.map(ym))].sort();
+    const first = months[0], last = months[months.length - 1];
+    const toIdx = m => (Number(m.slice(0, 4)) - Number(first.slice(0, 4))) * 12 + Number(m.slice(5, 7)) - Number(first.slice(5, 7));
+    const span = Math.max(1, toIdx(last));
+    const series = top.map(([ex, rs]) => {
+      const by = new Map(); rs.forEach(r => (by.get(ym(r)) || by.set(ym(r), []).get(ym(r))).push(mode === 'sale' ? r.price : r.deposit));
+      return { ex, n: rs.length, pts: [...by.entries()].sort().map(([m, v]) => ({ i: toIdx(m), v: med(v), m })) };
+    });
+    const vals = series.flatMap(s => s.pts.map(p => p.v));
+    const mn = Math.min(...vals) * 0.95, mx = Math.max(...vals) * 1.03;
+    const W = 360, H = 170, L = 44, R = 10, T = 12, B = 24;
+    const X = i => L + i / span * (W - L - R), Y = v => T + (1 - (v - mn) / (mx - mn || 1)) * (H - T - B);
+    const COL = ['#E4572E', '#0B6E69', '#6741B8'];
+    let svg = `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="평형별 가격 추이">`;
+    for (let g = 0; g <= 3; g++) { const v = mn + (mx - mn) * g / 3, y = Y(v); svg += `<line class="gr" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="ax" x="${L - 6}" y="${y + 4}" text-anchor="end">${eokS(v)}</text>`; }
+    svg += `<text class="ax" x="${L}" y="${H - 6}">${first.replace('.', '.')}</text><text class="ax" x="${W - R}" y="${H - 6}" text-anchor="end">${last}</text>`;
+    series.forEach((s, k) => {
+      const c = COL[k];
+      if (s.pts.length > 1) svg += `<polyline fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round" points="${s.pts.map(p => `${X(p.i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')}"/>`;
+      s.pts.forEach(p => { svg += `<circle cx="${X(p.i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="${c}"><title>${p.m} · 전용 ${s.ex}㎡ · ${won(p.v)}</title></circle>`; });
+    });
+    svg += '</svg>';
+    const legend = series.map((s, k) => { const lp = s.pts[s.pts.length - 1]; return `<span><i style="background:${COL[k]}"></i>전용 ${s.ex}㎡<small>(${s.ex ? Math.round(s.ex / PY) : ''}평) 최근 ${eokS(lp.v)}</small></span>`; }).join('');
+    return `<section><h2>${mode === 'sale' ? '매매가' : '전세가'} 추이<span>평형별 월 중간값</span></h2>${svg}<div class="tlegend">${legend}</div></section>`;
+  }
+  const eokS = man => man >= 10000 ? `${String(Math.round(man / 1000) / 10)}억` : `${n(Math.round(man))}만`;
   function badge(r) {
     let s = '';
     if (r.via) s += `<span class="mini">${esc(r.via)}</span>`;
@@ -950,6 +1015,94 @@
     return '';
   }
 
+  // ---------- 입지 정보 (중개대상물 확인·설명서 '입지조건' 참고) ----------
+  const ROADW = [[/광대/, '폭 25m 이상 도로'], [/중로/, '폭 12m 이상 25m 미만 도로'], [/소로/, '폭 8m 이상 12m 미만 도로'], [/세로\s*\(?가\)?|세로가/, '폭 8m 미만 도로 (자동차 통행 가능)'], [/세로\s*\(?불\)?|세로불/, '폭 8m 미만 도로 (자동차 통행 불가)'], [/맹지/, '도로에 접하지 않음 (맹지)']];
+  function roadText(r) {
+    if (!r) return { w: '-', s: '' };
+    const w = (ROADW.find(([re]) => re.test(r)) || [null, r])[1];
+    const side = /각지/.test(r) ? '두 면 이상 도로에 접한 각지' : /한면/.test(r) ? '한 면이 도로에 접함' : /맹지/.test(r) ? '' : '';
+    return { w, s: side };
+  }
+  const walkMin = d => Math.max(1, Math.round(d * 1.3 / 67));
+  const carMin = d => Math.max(1, Math.round(d * 1.4 / 330 + 1));
+  function placesQ(kind, q, c, radius) {
+    const K = kakao.maps, P = K.services;
+    return new Promise(ok => {
+      const opt = { location: new K.LatLng(c.lat, c.lng), radius, sort: P.SortBy.DISTANCE };
+      const cb = (r, st) => ok(st === P.Status.OK ? r.map(x => ({ name: x.place_name, cat: x.category_name || '', d: +x.distance, url: x.place_url })) : []);
+      kind === 'cat' ? S.places.categorySearch(q, cb, opt) : S.places.keywordSearch(q, cb, opt);
+    });
+  }
+  async function locReport(bname) {
+    const p = S.sel; if (!p || !p.c) return;
+    const w = window.open('', '_blank');
+    if (!w) { toast('팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요'); return; }
+    w.document.write('<!doctype html><meta charset="utf-8"><title>입지 정보</title><body style="font-family:sans-serif;padding:40px;color:#14212E">입지 정보를 정리하고 있습니다…</body>');
+    const c = p.c;
+    const school = kw => placesQ('kw', kw, c, 3000).then(r => r.filter(x => x.name.endsWith(kw) || x.name.includes(kw)).slice(0, 2));
+    const BAD = ['화장장', '납골당', '봉안당', '공원묘지', '공동묘지', '쓰레기소각장', '자원회수시설', '쓰레기처리장', '음식물처리', '분뇨처리', '하수처리장', '물재생센터', '변전소', '교도소', '구치소'];
+    const [subway, bus, ele, mid, high, mart, hosp, ...bad] = await Promise.all([
+      placesQ('cat', 'SW8', c, 3000),
+      placesQ('kw', '버스정류장', c, 1000).then(r => r.filter(x => /버스정류장/.test(x.cat))),
+      school('초등학교'), school('중학교'), school('고등학교'),
+      placesQ('cat', 'MT1', c, 3000),
+      placesQ('cat', 'HP8', c, 3000).then(r => r.filter(x => /종합병원|대학병원/.test(x.cat) || /대학교병원|의료원/.test(x.name))),
+      ...BAD.map(k => placesQ('kw', k, c, 1000).then(r => r.filter(x => x.d <= 1000 && (x.name.includes(k) || x.cat.includes(k))))),
+    ]);
+    const badList = []; const seen = new Set();
+    bad.flat().sort((a, b) => a.d - b.d).forEach(x => { if (!seen.has(x.name)) { seen.add(x.name); badList.push(x); } });
+    const ch = chr(), rd = roadText(ch && ch.road);
+    const row = (label, x, note) => x ? `<tr><th>${label}</th><td><b>${esc(x.name)}</b>${note ? `<small>${note}</small>` : ''}</td><td class="n">${n(x.d)}m</td><td class="n">도보 약 ${walkMin(x.d)}분</td><td class="n">차량 약 ${carMin(x.d)}분</td></tr>`
+      : `<tr><th>${label}</th><td colspan="4" class="none">반경 안에서 찾지 못했습니다</td></tr>`;
+    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '.');
+    const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>입지 정보 · ${esc(p.addr || p.jibun)}</title>
+<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#EEF1F4;font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#14212E}
+.page{max-width:820px;margin:24px auto;background:#fff;padding:36px 40px;border-radius:12px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #14212E;padding-bottom:14px}
+h1{margin:0;font-size:22px;letter-spacing:-.02em}header p{margin:4px 0 0;color:#5E6A77;font-size:13px}
+.brand{display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;white-space:nowrap}
+h2{font-size:15px;margin:26px 0 8px;padding-left:8px;border-left:4px solid #F2B705}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{border:1px solid #DCE2E8;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#F5F7F9;width:118px;font-weight:600}td.n{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}td small{display:block;color:#5E6A77;font-size:12px;margin-top:2px}
+td.none{color:#8A949E}.ok{color:#1F7A3A;font-weight:700}.warn{color:#B4231A;font-weight:700}
+.note{font-size:12px;color:#5E6A77;line-height:1.6;margin-top:22px;border-top:1px solid #DCE2E8;padding-top:12px}
+.bar{max-width:820px;margin:16px auto 0;display:flex;justify-content:flex-end;gap:8px}.bar button{border:0;border-radius:999px;padding:9px 18px;font:inherit;font-weight:600;cursor:pointer;background:#14212E;color:#fff}
+@media print{body{background:#fff}.page{margin:0;padding:0;border-radius:0}.bar{display:none}}
+@media (max-width:640px){.page{padding:22px 16px;margin:0;border-radius:0}td.n{white-space:normal}}
+</style></head><body>
+<div class="bar"><button onclick="print()">인쇄 · PDF 저장</button></div>
+<div class="page">
+<header><div><h1>${esc(p.addr || p.jibun)}</h1><p>${p.road ? esc(p.road) + ' · ' : ''}${bname ? esc(bname) + ' · ' : ''}${today} 기준</p></div>
+<div class="brand"><img src="/favicon.svg" width="22" height="22" alt="">리얼맵</div></header>
+
+<h2>도로와의 관계</h2>
+<table><tr><th>접면 도로</th><td>${esc(rd.w)}${rd.s ? `<small>${esc(rd.s)}</small>` : ''}${ch && ch.road ? `<small>토지특성 표기: ${esc(ch.road)}</small>` : ''}</td></tr>
+<tr><th>지형</th><td>${esc((ch && ch.height) || '-')} · ${esc((ch && ch.shape) || '-')}</td></tr></table>
+
+<h2>대중교통</h2>
+<table>${row('지하철역', subway[0], subway[1] ? `다음 가까운 역: ${esc(subway[1].name)} ${n(subway[1].d)}m` : '')}${row('버스정류장', bus[0], bus.length > 1 ? `반경 1km 안 정류장 ${bus.length}곳` : '')}</table>
+
+<h2>교육시설</h2>
+<table>${row('초등학교', ele[0])}${row('중학교', mid[0])}${row('고등학교', high[0])}</table>
+
+<h2>판매 · 의료시설</h2>
+<table>${row('대형마트', mart[0])}${row('종합병원', hosp[0])}</table>
+
+<h2>비선호시설 <small style="font-weight:400;color:#5E6A77">(반경 1km)</small></h2>
+<table><tr><th>유무</th><td>${badList.length ? `<span class="warn">있음</span> · ${badList.length}곳` : '<span class="ok">없음</span> <small>지도 검색으로 찾은 시설이 없습니다</small>'}</td></tr>
+${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</th><td>${esc(x.name)}<small>직선 ${n(x.d)}m</small></td></tr>`).join('')}</table>
+
+<p class="note">· 거리는 필지 중심에서 시설까지의 직선거리이며, 도보·차량 시간은 실제 길을 고려해 직선거리에 여유를 더해 추정한 값입니다.<br>
+· 학교는 가장 가까운 곳을 표시했으며, 실제 배정 학교는 교육청 학구도로 확인해 주세요.<br>
+· 비선호시설(화장장·납골당·묘지·쓰레기처리시설·하수처리장·변전소 등)은 카카오 지도 검색 결과 기준이므로 현장 확인이 필요합니다.<br>
+· 도로 폭은 토지특성의 도로접면 구분에 따른 범위입니다. 정확한 폭은 지적도와 현장에서 확인해 주세요.<br>
+· 출처: 카카오 지도, 국토교통부 토지특성정보 · 리얼맵 (realmap)</p>
+</div></body></html>`;
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+
   // ---------- 공유 · 상담 ----------
   function shareParcel(p, name) {
     const url = `${location.origin}/?pnu=${p.pnu}`;
@@ -966,6 +1119,80 @@
     const href = `mailto:${AD_MAIL}?subject=${encodeURIComponent('[리얼맵] 광고문의')}`;
     return `<div class="consult"><div><b>광고문의</b><span>리얼맵에 광고 게재를 원하시면 이메일로 문의해 주세요.</span></div>
       <a href="${href}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 4l6 5 6-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>${AD_MAIL}</a></div>`;
+  }
+
+  // ---------- 면적 합산 · 거리 재기 ----------
+  const M = { on: false, mode: 'sum', parcels: [], pts: [], line: null, dots: [], tok: 0 };
+  // 위경도 다각형 면적(㎡) — 필지 크기에서는 평면 근사로 충분
+  function geoArea(g) {
+    let total = 0;
+    for (const poly of ringsOf(g)) poly.forEach((ring, k) => {
+      if (ring.length < 3) return;
+      const lat0 = ring[0][1] * Math.PI / 180, mx = 111320 * Math.cos(lat0), my = 110540;
+      let a = 0;
+      for (let i = 0; i < ring.length; i++) { const [x1, y1] = ring[i], [x2, y2] = ring[(i + 1) % ring.length]; a += (x1 * mx) * (y2 * my) - (x2 * mx) * (y1 * my); }
+      total += (k === 0 ? 1 : -1) * Math.abs(a) / 2;
+    });
+    return total;
+  }
+  const distM = (a, b) => { const R = 6371000, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLn = (b.lng - a.lng) * r; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+  function measureInit() {
+    $('mtMeasure').onclick = () => measureToggle(!M.on);
+    $('msClose').onclick = () => measureToggle(false);
+    $('msReset').onclick = () => { measureClear(); measureDraw(); };
+    document.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { M.mode = b.dataset.ms; measureClear(); measureDraw(); });
+  }
+  function measureToggle(on) {
+    M.on = on; $('mtMeasure').setAttribute('aria-pressed', on); $('measure').hidden = !on;
+    if (!on) measureClear(); else { $('devpanel').hidden = true; $('tpanel').hidden = true; toast(M.mode === 'sum' ? '합산할 필지를 차례로 눌러 주세요' : '지도에서 지점을 차례로 눌러 주세요'); }
+    measureDraw();
+  }
+  function measureClear() {
+    M.tok++;
+    M.parcels.forEach(p => p.shapes.forEach(o => o.setMap(null))); M.parcels = [];
+    M.pts = []; if (M.line) M.line.setMap(null); M.line = null; M.dots.forEach(o => o.setMap(null)); M.dots = [];
+  }
+  async function measureClick(lat, lng) {
+    const K = kakao.maps;
+    if (M.mode === 'dist') {
+      M.pts.push({ lat, lng });
+      const path = M.pts.map(p => new K.LatLng(p.lat, p.lng));
+      if (!M.line) M.line = new K.Polyline({ map: S.map, path, strokeWeight: 3, strokeColor: '#1971C2', strokeOpacity: .95 }); else M.line.setPath(path);
+      let d = 0; for (let i = 1; i < M.pts.length; i++) d += distM(M.pts[i - 1], M.pts[i]);
+      const el = document.createElement('div'); el.className = 'mdot'; el.textContent = M.pts.length === 1 ? '시작' : fmtDist(d);
+      M.dots.push(new K.CustomOverlay({ map: S.map, position: path[path.length - 1], content: el, yAnchor: 1.4, zIndex: 4 }));
+      return measureDraw();
+    }
+    const tok = M.tok;
+    try {
+      const p = await api(`/api/parcel?lat=${lat}&lng=${lng}`);
+      if (tok !== M.tok) return;
+      const had = M.parcels.findIndex(x => x.pnu === p.pnu);
+      if (had >= 0) { M.parcels[had].shapes.forEach(o => o.setMap(null)); M.parcels.splice(had, 1); return measureDraw(); }
+      const shapes = ringsOf(p.geometry).map(poly => new K.Polygon({ map: S.map, path: poly.map(r => r.map(([x, y]) => new K.LatLng(y, x))), strokeWeight: 2, strokeColor: '#1971C2', strokeOpacity: 1, fillColor: '#1971C2', fillOpacity: .22 }));
+      const item = { pnu: p.pnu, jibun: String(p.jibun || '').replace(/[가-힣]+$/, ''), jimok: (String(p.jibun || '').match(/[가-힣]+$/) || [''])[0], geo: geoArea(p.geometry), area: null, shapes };
+      M.parcels.push(item); measureDraw();
+      // 토지대장 면적으로 바꿔 넣기
+      api(`/api/land?pnu=${p.pnu}`).then(j => { const a = j.chr && j.chr.ok && j.chr.data && j.chr.data.area; if (a) { item.area = a; measureDraw(); } }).catch(() => {});
+    } catch (e) { toast(e.message); }
+  }
+  const fmtDist = d => d >= 1000 ? `${n(d / 1000, 2)}km` : `${n(d, 0)}m`;
+  function measureDraw() {
+    const box = $('msBody');
+    document.querySelectorAll('[data-ms]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ms === M.mode));
+    if (!M.on) return;
+    if (M.mode === 'dist') {
+      let d = 0; for (let i = 1; i < M.pts.length; i++) d += distM(M.pts[i - 1], M.pts[i]);
+      box.innerHTML = M.pts.length < 2 ? '<p class="ms-hint">지도에서 시작점과 다음 지점을 차례로 눌러 주세요.</p>'
+        : `<div class="ms-total"><b>${fmtDist(d)}</b><span>도보 약 ${Math.max(1, Math.round(d / 67))}분 · ${M.pts.length}개 지점</span></div>`;
+      return;
+    }
+    if (!M.parcels.length) { box.innerHTML = '<p class="ms-hint">합산할 필지를 지도에서 차례로 눌러 주세요. 다시 누르면 빠집니다.</p>'; return; }
+    const sum = M.parcels.reduce((s, x) => s + (x.area ?? x.geo), 0);
+    const approx = M.parcels.some(x => x.area == null);
+    box.innerHTML = `<div class="ms-total"><b>${n(sum, 2)}㎡</b><span>${n(toPy(sum), 2)}평 · ${M.parcels.length}필지${approx ? ' · 일부 도면 기준' : ''}</span></div>
+      <ul class="ms-list">${M.parcels.map(x => `<li><span>${esc(x.jibun)}<small>${esc(x.jimok)}</small></span><span>${n(x.area ?? x.geo, 1)}㎡${x.area == null ? '<small>도면</small>' : ''}</span></li>`).join('')}</ul>
+      <p class="ms-hint">면적은 토지대장 기준이며, 불러오기 전에는 지도 도면으로 계산한 근삿값을 보여 드립니다.</p>`;
   }
 
   // ---------- 지도 위 실거래가 라벨 ----------

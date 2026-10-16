@@ -250,7 +250,7 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 }
 
 /* 공유 · 상담 */
-.bar .share{display:inline-flex;align-items:center;gap:4px;margin-left:auto;margin-right:8px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:12px;cursor:pointer}
+.bar .share{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:12px;cursor:pointer}
 .bar .share:hover{border-color:var(--fg)}
 .consult{margin:18px 0 6px;padding:14px;border-radius:12px;background:#14212E;color:#fff;display:flex;flex-direction:column;gap:10px}
 .consult b{display:block;font-size:15px;margin-bottom:3px}
@@ -269,3 +269,32 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .gnote b{font-size:14px}
 .gnote span{color:var(--muted)}
 .gnote button{align-self:flex-start;margin-top:4px;padding:6px 12px;border-radius:999px;border:0;background:var(--pick);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+
+/* 가격 추이 그래프 */
+.trend{width:100%;height:auto;display:block}
+.trend .gr{stroke:var(--line);stroke-width:1}
+.trend .ax{font-size:10px;fill:var(--muted);font-family:var(--f-body)}
+.tlegend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-top:6px}
+.tlegend span{display:inline-flex;align-items:center;gap:5px}
+.tlegend i{width:10px;height:10px;border-radius:50%}
+.tlegend small{color:var(--muted)}
+
+/* 면적·거리 재기 */
+.measure{position:absolute;left:50%;transform:translateX(-50%);bottom:24px;z-index:14;width:min(340px,calc(100% - 32px));max-height:50%;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:12px 14px;display:flex;flex-direction:column;gap:10px;font-size:13px}
+.measure .dp-h{display:flex;justify-content:space-between;align-items:center}
+.measure .dp-h button{border:0;background:var(--soft);color:var(--fg);width:26px;height:26px;border-radius:50%;cursor:pointer}
+.ms-seg{display:flex}
+.ms-seg button{flex:1}
+.ms-total b{display:block;font-size:24px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#1971C2}
+.ms-total span{color:var(--muted)}
+.ms-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.ms-list li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.ms-list small{margin-left:5px;font-size:11px;color:var(--muted)}
+.ms-hint{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.ms-reset{align-self:flex-start;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 12px;font:inherit;font-size:12px;cursor:pointer}
+.mdot{padding:3px 7px;border-radius:6px;background:#1971C2;color:#fff;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.bar .share.loc{margin-left:auto;background:#14212E;color:#fff;border-color:#14212E}
+.bar .share.loc:hover{background:#F2B705;color:#14212E;border-color:#F2B705}
+.bar{flex-wrap:wrap;row-gap:8px}
+.bar .share{white-space:nowrap}
+@media (max-width:760px){.bar .pnu{flex-basis:100%;text-align:left}.bar .share.loc{margin-left:0}}
