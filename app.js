@@ -179,9 +179,11 @@
   const own = () => (S.d.land && S.d.land.own && S.d.land.own.ok && S.d.land.own.data) || null;
   const prices = () => (S.d.land && S.d.land.prices && S.d.land.prices.ok && S.d.land.prices.data) || [];
   function uses() { return titles().map(t => `${t.use || ''} ${t.etcUse || ''}`).join(' '); }
-  function isCollective() {
-    return titles().some(t => t.regstr === '집합') || !!(own() && own().collective) || /아파트|다세대|연립|오피스텔/.test(uses());
-  }
+  // 건축물대장 기준 집합건물
+  function collTitle() { return titles().some(t => t.regstr === '집합') || /아파트|다세대|연립|오피스텔/.test(uses()); }
+  // 땅만 여러 호로 나뉘어 소유된 경우 (집합건물 대지권)
+  function collOwn() { return !!(own() && own().collective); }
+  function isCollective() { return collTitle() || (collOwn() && !titles().length); }
   function tradeKinds() {
     const u = uses(), k = [];
     if (!titles().length) return ['land'];
@@ -210,7 +212,8 @@
     if (m && m.use) chips.push(`<span class="chip">${esc(m.use)}</span>`);
     if (m && m.useApr) chips.push(`<span class="chip">${esc(m.useApr.slice(0, 4))}년 사용승인</span>`);
     if (o && o.type && !o.collective && o.type !== '개인') chips.push(`<span class="chip">${esc(o.type)}</span>`);
-    if (coll) chips.push('<span class="chip">집합건물</span>');
+    if (collTitle()) chips.push('<span class="chip">집합건물</span>');
+    else if (collOwn()) chips.push('<span class="chip">구분소유 토지</span>');
     const latestP = pr.length ? pr[pr.length - 1] : null;
     const gfa = rc ? rc.totArea : titles().reduce((s, t) => s + (t.totArea || 0), 0) || null;
     const body = S.tab === 'land' ? landTab() : S.tab === 'plan' ? planTab() : S.tab === 'bld' ? bldTab() : S.tab === 'unit' ? unitTab() : tradeTab();
@@ -407,7 +410,9 @@
     if (!U) { loadUnits(); return skel(); }
     if (U.loading) return skel();
     if (U.error) return errBox(U.error);
-    if (!U.units.length) return '<div class="empty">전유부(호별) 정보가 없습니다. 일반건축물이거나 아직 등재되지 않은 건물일 수 있습니다.</div>';
+    if (!U.units.length) return collTitle()
+      ? '<div class="empty">이 건물은 집합건물로 등록되어 있지만 전유부(호별) 정보가 전산 대장에 없습니다. 오래된 건물은 호별 대장이 빠져 있는 경우가 있어, 세움터나 정부24 열람으로 확인해 주세요.</div>'
+      : '<div class="empty">이 지번에는 호별 정보가 없습니다. 땅이 여러 호로 나뉘어 소유되어 있다면, 집합건물이 옆의 다른 지번(대표지번)에 등록되어 있을 수 있습니다. 주변 필지를 눌러 확인해 주세요.</div>';
     const dongs = [...new Set(U.units.map(u => u.dong))];
     if (S.uDong == null || !dongs.includes(S.uDong)) S.uDong = dongs[0];
     const hos = U.units.filter(u => u.dong === S.uDong);
