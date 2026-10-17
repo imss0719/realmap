@@ -276,7 +276,7 @@
       <div><div class="l">공시지가</div><div class="v">${latestP ? per(latestP.price) : c && c.price ? per(c.price) : '-'}</div></div>
     </div>
     <div class="bar"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button>
-      <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
+      <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share brief" id="briefBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>브리핑</button><button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
     <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}<p class="pfoot"><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
@@ -285,6 +285,7 @@
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
     $('shareBtn').onclick = () => shareParcel(p, name);
     $('locBtn').onclick = () => locGate(name);
+    $('briefBtn').onclick = () => briefOpen(name);
     D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
@@ -1023,6 +1024,34 @@
       return `<div class="gnote"><b>이 땅 위 건물은 ${esc(pnuJibun(S.sel.bldPnu))}번지에 대장이 등록되어 있습니다.</b><span>건물이 여러 필지에 걸쳐 있는 경우로, 건물 정보는 대표 필지에서 확인하실 수 있습니다.</span><button data-gp="${S.sel.bldPnu}">대표 필지 정보 보기</button></div>`;
     }
     return '';
+  }
+
+  // ---------- 브리핑 자료 (회원 베타) ----------
+  function briefData(name) {
+    const p = S.sel, c = chr(), rc = recap(), m = mainT(), pr = prices(), o = own();
+    const lp = pr.length ? pr[pr.length - 1] : null;
+    const ts = titles();
+    const t = rc || m || null;
+    const pk = t ? (t.pkTotal || (t.pkIn || 0) + (t.pkOut || 0) + (t.pkInMech || 0) + (t.pkOutMech || 0)) : null;
+    const tr = S.d.trades && S.d.trades.rows ? S.d.trades.rows.filter(r => !r.cancel && r.price && !/Rent$/.test(r.kind)).slice(0, 4).map(r => ({ d: r.date, p: r.price, ex: r.ex || r.plottage || r.dealAr || null, f: r.floor || '', k: r.kind })) : [];
+    return {
+      v: 1, at: Date.now(),
+      pnu: p.pnu, addr: p.addr || p.jibun, road: p.road || '', name: name || '', lat: p.c && p.c.lat, lng: p.c && p.c.lng,
+      land: c ? { area: c.area, zone: c.zone1, zone2: c.zone2, jimok: c.jimok, use: c.landUse, road: c.road, shape: c.shape, height: c.height } : null,
+      price: lp ? { year: lp.year, per: lp.price } : (c && c.price ? { year: c.year, per: c.price } : null),
+      own: o ? { type: o.collective ? '구분소유' : o.type } : null,
+      bld: t ? { use: (m && m.use) || '', etc: (m && m.etcUse) || '', strct: (m && m.strct) || '', grnd: m && m.grnd, ugrnd: m && m.ugrnd, height: m && m.height,
+        tot: rc ? rc.totArea : ts.reduce((a, x) => a + (x.totArea || 0), 0), arch: t.archArea, plat: t.platArea, bc: t.bcRat, vl: t.vlRat,
+        apr: (m && m.useApr) || '', pk, lift: m ? (m.liftP || 0) + (m.liftE || 0) : null, hhld: t.hhld, ho: t.ho, cnt: ts.length } : null,
+      trades: tr,
+    };
+  }
+  function briefOpen(name) {
+    if (S.me.ready && !S.me.member) { loginModal(); toast('브리핑 자료 만들기는 회원 전용 기능입니다 (베타 기간 무료)', 3600); return; }
+    if (!S.d.land || !S.d.bld) { toast('필지 정보를 불러오는 중입니다. 잠시 후 다시 눌러 주세요'); return; }
+    try { localStorage.setItem('rm.brief', JSON.stringify(briefData(name))); } catch { toast('브라우저 저장 공간을 쓸 수 없어 브리핑을 열지 못했습니다'); return; }
+    const w = window.open('/briefing.html', '_blank');
+    if (!w) toast('팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요');
   }
 
   // ---------- 회원 (카카오 로그인) ----------

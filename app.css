@@ -318,3 +318,5 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .lsmall a{color:var(--muted)}
 .pfoot{margin:10px 0 4px;text-align:center;font-size:12px}.pfoot a{color:var(--muted)}
 .brand .acct{margin-left:auto}
+.bar .share.brief{background:#F2B705;color:#14212E;border-color:#F2B705;font-weight:600}
+.bar .share.brief:hover{background:#14212E;color:#fff;border-color:#14212E}
