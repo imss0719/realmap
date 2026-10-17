@@ -39,7 +39,7 @@ export function readSession(req) {
 function cookie(name, val, maxAge) {
   return `${name}=${val}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
-async function redis(cmd) {
+export async function redis(cmd) {
   if (!R_URL || !R_TOKEN) return null;
   const r = await fetch(R_URL, { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
   const j = await r.json().catch(() => ({}));
