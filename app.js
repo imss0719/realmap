@@ -279,7 +279,7 @@
       <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share brief" id="briefBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>브리핑</button><button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
-    <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}<p class="pfoot"><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
+    <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
@@ -1102,7 +1102,7 @@
       <img src="/favicon.svg" width="44" height="44" alt="">
       <h2 id="lmT">${fromLoc ? '무료 이용 3회를 모두 사용하셨습니다' : '리얼맵 로그인'}</h2>
       <p>카카오로 3초 만에 가입하시면 입지정보를 <b>횟수 제한 없이 무료로</b> 이용하실 수 있습니다.</p>
-      <label class="lmk"><input type="checkbox" id="lmMk"> <span>(선택) 리얼워커스의 부동산 소식·매물 정보 받기</span></label>
+      <label class="lmk"><input type="checkbox" id="lmMk"> <span>(선택) 리얼맵의 부동산 소식·매물 정보 받기</span></label>
       <a class="kbtn" id="lmGo" href="#"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2C4.6 2 1 4.8 1 8.2c0 2.2 1.5 4.1 3.7 5.2l-.9 3.4c-.1.3.3.5.5.3l4-2.7h.7c4.4 0 8-2.8 8-6.2S13.4 2 9 2z" fill="#191919"/></svg>카카오로 시작하기</a>
       <p class="lsmall">가입 시 카카오 회원번호와 닉네임을 받으며, 탈퇴하면 바로 삭제됩니다. <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
     </div>`;
