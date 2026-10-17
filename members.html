@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>회원 관리 · 리얼맵</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{--bg:#EEF1F4;--surface:#fff;--fg:#16202A;--muted:#5E6A77;--line:#DCE2E8;--soft:#F5F7F9;--accent:#14212E;--ok:#1F7A3A;--warn:#B4231A}
+@media (prefers-color-scheme: dark){:root{--bg:#0E1317;--surface:#151C22;--fg:#E5EAEF;--muted:#94A1AE;--line:#26313A;--soft:#1B242B;--accent:#F2B705;--ok:#6FD08C;--warn:#FF8A80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+header h1{font-size:20px;margin:0}
+header a{margin-left:auto;color:var(--muted);font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card h2{margin:0 0 8px;font-size:17px}
+.card p{margin:0 0 12px;color:var(--muted);line-height:1.6;font-size:14px}
+input{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:10px 12px;font:inherit;font-size:15px;width:min(320px,100%)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:10px 18px;font:inherit;font-weight:700;font-size:14px;cursor:pointer;background:#14212E;color:#fff;text-decoration:none}
+.btn.kakao{background:#FEE500;color:#191919}
+.btn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.err{color:var(--warn);font-size:14px;margin-top:10px}
+.code{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;background:var(--soft);border:1px dashed var(--line);border-radius:8px;padding:10px 14px;display:inline-block;margin:6px 0 12px;user-select:all}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat span{display:block;font-size:12px;color:var(--muted)}
+.stat b{font-size:26px;letter-spacing:-.02em}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tools label{font-size:13px;display:flex;gap:6px;align-items:center}
+.tbl{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--soft)}
+td.y{color:var(--ok);font-weight:700}
+td.n{color:var(--muted)}
+.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:12px}
+@media (max-width:600px){.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+  <header><img src="/favicon.svg" width="28" height="28" alt=""><h1>회원 관리</h1><a href="/">리얼맵으로</a></header>
+  <div id="app"><div class="card"><p>확인 중입니다…</p></div></div>
+</main>
+<script>
+(function () {
+  const app = document.getElementById('app');
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+  let pw = ''; try { pw = sessionStorage.getItem('rm.adm') || ''; } catch (e) { /* 무시 */ }
+  let data = null, onlyMk = false;
+
+  fetch('/api/auth?action=me').then(r => r.json()).then(me => {
+    if (!me.member) return login();
+    pw ? load() : askPw();
+  }).catch(() => { app.innerHTML = '<div class="card"><p>상태를 확인하지 못했습니다. 잠시 후 새로고침해 주세요.</p></div>'; });
+
+  function login() {
+    app.innerHTML = `<div class="card"><h2>운영자 로그인</h2><p>운영자 카카오 계정으로 로그인해 주세요.</p><a class="btn kakao" href="/auth/login?r=${encodeURIComponent('/members.html')}">카카오로 로그인</a></div>`;
+  }
+  function askPw(msg) {
+    app.innerHTML = `<div class="card"><h2>관리자 비밀번호</h2><p>Vercel에 넣어 둔 ADMIN_PASSWORD를 입력해 주세요. 이 창을 닫으면 다시 물어봅니다.</p>
+      <form class="row" id="f"><input type="password" id="pw" autocomplete="current-password" placeholder="관리자 비밀번호" required><button class="btn" type="submit">확인</button></form>${msg ? `<p class="err">${esc(msg)}</p>` : ''}</div>`;
+    document.getElementById('f').onsubmit = e => { e.preventDefault(); pw = document.getElementById('pw').value; try { sessionStorage.setItem('rm.adm', pw); } catch (x) { /* 무시 */ } load(); };
+    document.getElementById('pw').focus();
+  }
+  async function load() {
+    app.innerHTML = '<div class="card"><p>회원 목록을 불러오는 중입니다…</p></div>';
+    let j;
+    try { j = await fetch('/api/members', { headers: { 'x-admin-key': pw } }).then(r => r.json()); }
+    catch (e) { app.innerHTML = '<div class="card"><p>서버에 연결하지 못했습니다.</p></div>'; return; }
+    if (j.error === 'setup') {
+      app.innerHTML = `<div class="card"><h2>처음 한 번만 설정해 주세요</h2>
+        <p>지금 로그인한 카카오 계정의 회원번호입니다. 이 계정이 운영자(선배) 계정이 맞다면 아래 번호를 복사해서 Vercel 환경변수에 넣어 주세요.</p>
+        <div class="code">${esc(j.myId)}</div>
+        <p>Vercel → Settings → Environment Variables → 이름 <b>ADMIN_KAKAO_ID</b>, 값에 위 번호 → 저장 → Deployments에서 Redeploy</p></div>`;
+      return;
+    }
+    if (j.error === 'login') return login();
+    if (j.error === 'password') { try { sessionStorage.removeItem('rm.adm'); } catch (e) { /* 무시 */ } return askPw('비밀번호가 맞지 않습니다.'); }
+    if (!j.ok) { app.innerHTML = `<div class="card"><h2>열 수 없습니다</h2><p>${esc(j.message || '오류가 발생했습니다.')}</p></div>`; return; }
+    data = j; draw();
+  }
+  function draw() {
+    const rows = data.rows.filter(r => !onlyMk || r.marketing);
+    const week = Date.now() - 7 * 864e5;
+    const recent = data.rows.filter(r => r.joined && new Date(r.joined).getTime() > week).length;
+    app.innerHTML = `<div class="stats">
+        <div class="stat"><span>전체 회원</span><b>${data.total}</b></div>
+        <div class="stat"><span>소식 수신 동의</span><b>${data.marketing}</b></div>
+        <div class="stat"><span>최근 7일 가입</span><b>${recent}</b></div>
+      </div>
+      <div class="tools"><label><input type="checkbox" id="mk" ${onlyMk ? 'checked' : ''} style="width:auto"> 수신 동의 회원만</label>
+        <button class="btn ghost" type="button" id="csv">엑셀(CSV) 내려받기</button>
+        <button class="btn ghost" type="button" id="re">새로고침</button></div>
+      <div class="tbl"><table><thead><tr><th>닉네임</th><th>이메일</th><th>가입일</th><th>최근 로그인</th><th>소식 수신</th><th>동의 일시</th></tr></thead><tbody>
+      ${rows.length ? rows.map(r => `<tr><td>${esc(r.nickname || '-')}</td><td>${esc(r.email || '-')}</td><td>${dt(r.joined)}</td><td>${dt(r.last)}</td><td class="${r.marketing ? 'y' : 'n'}">${r.marketing ? '동의' : '미동의'}</td><td>${r.marketing ? dt(r.marketingAt) : '-'}</td></tr>`).join('') : '<tr><td colspan="6" class="n">회원이 없습니다</td></tr>'}
+      </tbody></table></div>
+      <p class="note">· 이 화면과 내려받은 파일에는 개인정보가 들어 있습니다. 다른 사람과 공유하지 마시고, 쓰고 난 파일은 지워 주세요.<br>
+      · 소식을 보낼 때는 '소식 수신: 동의' 회원에게만, 제목에 (광고) 표시와 수신거부 방법을 넣어 보내야 합니다. 동의일로부터 2년마다 수신 동의를 다시 확인해야 합니다.</p>`;
+    document.getElementById('mk').onchange = e => { onlyMk = e.target.checked; draw(); };
+    document.getElementById('re').onclick = load;
+    document.getElementById('csv').onclick = () => {
+      const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const lines = [['닉네임', '이메일', '가입일', '최근 로그인', '소식 수신', '동의 일시'].map(q).join(',')]
+        .concat(rows.map(r => [r.nickname, r.email, dt(r.joined), dt(r.last), r.marketing ? '동의' : '미동의', r.marketing ? dt(r.marketingAt) : ''].map(q).join(',')));
+      const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `리얼맵_회원_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+  }
+})();
+</script>
+</body>
+</html>
