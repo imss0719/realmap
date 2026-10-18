@@ -60,5 +60,5 @@ export default handler(async (req, res) => {
     });
   }
   const items = list.map(({ umd, jibun, ...g }) => g);
-  send(res, 200, { ok: true, kind, lawd, months: MONTHS, from: yms[yms.length - 1], items, errors }, 21600);
+  send(res, 200, { ok: true, kind, lawd, months: MONTHS, from: yms[yms.length - 1], items, errors }, errors.length ? 60 : 21600);
 });

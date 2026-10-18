@@ -1,6 +1,6 @@
 // 건축물대장: 총괄표제부 · 표제부(동별) · 층별개요 · 부속지번(건물이 여러 필지에 걸친 경우)
 // GET /api/building?pnu=...
-import { handler, send, need, dataGoKrAll, settle, splitPnu, cached, num, DATA_KEY } from './_lib.js';
+import { handler, send, need, dataGoKrAll, settle, splitPnu, cached, num, DATA_KEY, ttlFor } from './_lib.js';
 
 const HUB = 'https://apis.data.go.kr/1613000/BldRgstHubService/';
 
@@ -68,5 +68,5 @@ export default handler(async (req, res) => {
     return { recap, titles, floors, atch };
   });
 
-  send(res, 200, { ok: true, pnu: P.pnu, ...out }, 43200);
+  send(res, 200, { ok: true, pnu: P.pnu, ...out }, ttlFor(out, 43200));
 });

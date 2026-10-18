@@ -30,11 +30,20 @@ export function need(res, ...pairs) {
 
 // ---------- 메모리 캐시 (서버가 살아 있는 동안 유지) ----------
 const cache = new Map();
+// 일부 자료가 실패한 결과인지 (settle 결과 중 ok:false가 있거나 errors가 비어 있지 않으면)
+export function hasFail(val) {
+  if (!val || typeof val !== 'object') return false;
+  if (Array.isArray(val.errors) && val.errors.length) return true;
+  return Object.values(val).some(v => v && typeof v === 'object' && v.ok === false);
+}
+// 실패가 섞인 응답은 CDN에 오래 남기지 않습니다 (1분 뒤 다시 시도)
+export const ttlFor = (val, sec) => hasFail(val) ? 60 : sec;
+
 export async function cached(key, ttlMs, fn) {
   const hit = cache.get(key);
   if (hit && hit.exp > Date.now()) return hit.val;
   const val = await fn();
-  cache.set(key, { val, exp: Date.now() + ttlMs });
+  cache.set(key, { val, exp: Date.now() + (hasFail(val) ? 60e3 : ttlMs) });
   if (cache.size > 3000) cache.delete(cache.keys().next().value);
   return val;
 }
@@ -78,7 +87,23 @@ function xmlItems(xml) {
 }
 
 // 공공데이터포털(apis.data.go.kr) 호출 → { items, total }
+// 공공데이터포털 일시 장애 코드: 01 서비스 오류, 02 DB 오류, 04 HTTP 오류, 05 서비스 연결실패(시간 초과)
+const TRANSIENT = ['01', '02', '04', '05'];
 export async function dataGoKr(url, params) {
+  for (let i = 0; ; i++) {
+    try { return await dataGoKrOnce(url, params); }
+    catch (e) {
+      const m = /\((\d{2})\)/.exec(e.message || '');
+      const again = e.code === 'datagokr' && m && TRANSIENT.includes(m[1]); // 연결 자체 실패는 getText가 이미 다시 시도함
+      if (!again || i >= 2) {
+        if (again) e.message += ' · 공공데이터포털 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 눌러 주세요.';
+        throw e;
+      }
+      await new Promise(r => setTimeout(r, 500 + i * 700));
+    }
+  }
+}
+async function dataGoKrOnce(url, params) {
   const u = new URL(url);
   u.searchParams.set('serviceKey', DATA_KEY);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));

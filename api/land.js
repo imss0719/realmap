@@ -1,6 +1,6 @@
 // 토지 정보 묶음: 토지특성 · 토지이용계획 · 소유정보 · 개별공시지가(연도별) · 토지이동
 // GET /api/land?pnu=...
-import { handler, send, need, vworldNed, settle, splitPnu, cached, num, VWORLD_KEY } from './_lib.js';
+import { handler, send, need, vworldNed, settle, splitPnu, cached, num, VWORLD_KEY, ttlFor } from './_lib.js';
 
 const thisYear = () => new Date().getFullYear();
 
@@ -80,5 +80,5 @@ export default handler(async (req, res) => {
     return { chr, use, own, prices, move };
   });
 
-  send(res, 200, { ok: true, pnu, jibun: P.jibun, ...out }, 21600);
+  send(res, 200, { ok: true, pnu, jibun: P.jibun, ...out }, ttlFor(out, 21600));
 });
