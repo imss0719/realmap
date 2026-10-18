@@ -13,6 +13,28 @@ export default handler(async (req, res) => {
   const q = { sigunguCd: P.sigunguCd, bjdongCd: P.bjdongCd, platGbCd: P.platGbCd, bun: P.bun, ji: P.ji, _type: 'json' };
   const { dong, ho } = req.query;
 
+  const toRow = r => ({ dong: String(r.dongNm || '').trim(), ho: String(r.hoNm || '').trim(), flr: num(r.flrNo), flrGb: r.flrGbCdNm || '' });
+  const nat = (a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true });
+  const sortU = out => out.sort((a, b) => nat(a.dong, b.dong) || (b.flr ?? 0) - (a.flr ?? 0) || nat(a.ho, b.ho));
+
+  // 동 하나의 호 목록만 (큰 단지에서 빠르게): GET /api/units?pnu=...&dong=101동
+  if (!ho && dong) {
+    const D = String(dong).trim();
+    const list = await cached(`unitsd:${P.pnu}:${D}`, 24 * 3600e3, async () => {
+      const tries = [...new Set([D, D.replace(/동$/, ''), /동$/.test(D) ? '' : D + '동', D.replace(/^제/, '')].filter(Boolean))];
+      for (const nm of tries) {
+        const rows = (await dataGoKrAll(HUB + 'getBrExposInfo', { ...q, dongNm: nm }, { maxPages: 15 })).filter(r => sameTok(r.dongNm, D));
+        if (rows.length) {
+          const seen = new Set(), out = [];
+          for (const r of rows) { const x = toRow(r); const k = x.dong + '|' + x.ho; if (!x.ho || seen.has(k)) continue; seen.add(k); out.push(x); }
+          return sortU(out);
+        }
+      }
+      return [];
+    });
+    return send(res, 200, { ok: true, pnu: P.pnu, dong: D, count: list.length, units: list }, list.length ? 86400 : 300);
+  }
+
   if (!ho) {
     const list = await cached('units:' + P.pnu, 24 * 3600e3, async () => {
       const rows = await dataGoKrAll(HUB + 'getBrExposInfo', q, { maxPages: 60 });

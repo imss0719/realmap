@@ -55,7 +55,7 @@ export default handler(async (req, res) => {
   // 좌표 붙이기 (시간이 너무 걸리면 나머지는 화면 쪽에서 카카오로 찾습니다)
   if (VWORLD_KEY && region) {
     await pool(list, 12, async g => {
-      if (Date.now() - t0 > 20000) return;
+      if (Date.now() - t0 > 4000) return;
       try { const p = await geocode(g.a); if (p) { g.lat = p.lat; g.lng = p.lng; } } catch { /* 건너뜀 */ }
     });
   }

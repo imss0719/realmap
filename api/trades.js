@@ -87,7 +87,9 @@ export default handler(async (req, res) => {
   const area = num(req.query.area);
   const name = normName(req.query.name);
   const months = Math.min(60, Math.max(1, Number(req.query.months) || 24));
-  const yms = monthsBack(months);
+  // skip: 앞쪽 몇 달을 건너뛰고 그 이전 기간만 (화면에서 1년씩 나눠 받을 때)
+  const skip = Math.min(48, Math.max(0, Number(req.query.skip) || 0));
+  const yms = monthsBack(skip + months).slice(skip);
 
   const jobs = [];
   for (const k of kinds) for (const ym of yms) jobs.push([k, ym]);

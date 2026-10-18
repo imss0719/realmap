@@ -39,15 +39,22 @@ export default handler(async (req, res) => {
   const P = splitPnu(req.query.pnu);
   const q = { sigunguCd: P.sigunguCd, bjdongCd: P.bjdongCd, platGbCd: P.platGbCd, bun: P.bun, ji: P.ji, _type: 'json' };
 
+  const floorsOf = async () => (await dataGoKrAll(HUB + 'getBrFlrOulnInfo', q, { maxPages: 30 })).map(r => ({
+    pk: r.mgmBldrgstPk, dong: r.dongNm || '', gb: r.flrGbCdNm, no: num(r.flrNo), noNm: r.flrNoNm,
+    use: r.mainPurpsCdNm, etcUse: r.etcPurps, strct: r.strctCdNm, area: num(r.area),
+    mainAtch: r.mainAtchGbCdNm, excl: r.areaExctYn === '1' || r.areaExctYn === 'Y',
+  }));
+
+  // 층별개요는 큰 단지에서 수천 건이라 따로 받습니다 (화면은 먼저 띄우고 나중에 채움)
+  if (req.query.part === 'floors') {
+    const out = await cached('bldf:' + P.pnu, 12 * 3600e3, async () => ({ floors: await settle(floorsOf) }));
+    return send(res, 200, { ok: true, pnu: P.pnu, ...out }, ttlFor(out, 43200));
+  }
+
   const out = await cached('bld:' + P.pnu, 12 * 3600e3, async () => {
-    const [recap, titles, floors, atch] = await Promise.all([
+    const [recap, titles, atch] = await Promise.all([
       settle(async () => (await dataGoKrAll(HUB + 'getBrRecapTitleInfo', q, { maxPages: 1 })).map(title)),
       settle(async () => (await dataGoKrAll(HUB + 'getBrTitleInfo', q, { maxPages: 10 })).map(title)),
-      settle(async () => (await dataGoKrAll(HUB + 'getBrFlrOulnInfo', q, { maxPages: 30 })).map(r => ({
-        pk: r.mgmBldrgstPk, dong: r.dongNm || '', gb: r.flrGbCdNm, no: num(r.flrNo), noNm: r.flrNoNm,
-        use: r.mainPurpsCdNm, etcUse: r.etcPurps, strct: r.strctCdNm, area: num(r.area),
-        mainAtch: r.mainAtchGbCdNm, excl: r.areaExctYn === '1' || r.areaExctYn === 'Y',
-      }))),
       settle(async () => {
         const rows = await dataGoKrAll(HUB + 'getBrAtchJibunInfo', q, { maxPages: 3 });
         const seen = new Set(), out = [];
@@ -65,7 +72,7 @@ export default handler(async (req, res) => {
     ]);
     // 주건축물 우선 정렬
     if (titles.ok) titles.data.sort((a, b) => (a.mainAtch === '주건축물' ? 0 : 1) - (b.mainAtch === '주건축물' ? 0 : 1) || String(a.dong).localeCompare(String(b.dong), 'ko', { numeric: true }));
-    return { recap, titles, floors, atch };
+    return { recap, titles, atch };
   });
 
   send(res, 200, { ok: true, pnu: P.pnu, ...out }, ttlFor(out, 43200));
