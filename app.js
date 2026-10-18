@@ -52,6 +52,12 @@
 
   // ---------- 시작 ----------
   init();
+  // 방문 통계: 브라우저마다 임의의 번호 하나만 씁니다 (이름·연락처 같은 개인정보 없음)
+  function hit(k) {
+    let v = ''; try { v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
+    try { fetch(`/api/auth?action=hit&k=${k}&v=${encodeURIComponent(v)}`, { keepalive: true }).catch(() => {}); } catch { /* 무시 */ }
+  }
+  hit('v');
   async function init() {
     loadMe();
     try { S.cfg = await api('/api/config'); } catch (e) { console.warn('[리얼맵] config', e.message); return setup('잠시 연결이 원활하지 않습니다. 잠시 후 새로고침해 주세요.'); }
@@ -141,6 +147,7 @@
     }
     const c = centroid(p.geometry);
     S.sel = { ...p, c, dongName: '', road: '' };
+    hit('p');
     S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale'; S.seen = {}; S.tab = 'land'; S.floorsAll = false;
     if (c && (pan || mobile())) {
       const ll = new K.LatLng(c.lat, c.lng);

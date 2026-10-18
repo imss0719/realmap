@@ -39,7 +39,14 @@ th{font-size:12px;color:var(--muted);font-weight:600;background:var(--soft)}
 td.y{color:var(--ok);font-weight:700}
 td.n{color:var(--muted)}
 .note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:12px}
-@media (max-width:600px){.stats{grid-template-columns:1fr 1fr}}
+.sec-t{font-size:15px;font-weight:700;margin:26px 0 10px}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 12px 8px}
+.bars{display:flex;align-items:flex-end;gap:3px;height:120px}
+.bars div{flex:1;background:#F2B705;border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.bars div.today{background:#14212E}
+@media (prefers-color-scheme: dark){.bars div.today{background:#fff}}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px}
+@media (max-width:600px){.stats{grid-template-columns:1fr 1fr !important}}
 </style>
 </head>
 <body>
@@ -72,8 +79,15 @@ td.n{color:var(--muted)}
   async function load() {
     app.innerHTML = '<div class="card"><p>회원 목록을 불러오는 중입니다…</p></div>';
     let j;
-    try { j = await fetch('/api/members', { headers: { 'x-admin-key': pw } }).then(r => r.json()); }
-    catch (e) { app.innerHTML = '<div class="card"><p>서버에 연결하지 못했습니다.</p></div>'; return; }
+    let st = 0, txt = '';
+    try { const r = await fetch('/api/members', { headers: { 'x-admin-key': pw } }); st = r.status; txt = await r.text(); j = JSON.parse(txt); }
+    catch (e) {
+      const why = st === 404 ? 'api 폴더에 members.js 파일이 없습니다. GitHub의 api 폴더에 members.js가 올라갔는지 확인해 주세요.'
+        : st >= 500 ? 'api 폴더의 auth.js가 예전 파일일 가능성이 큽니다. 이번에 보낸 auth.js를 api 폴더에 다시 올려 주세요.'
+        : '서버에 연결하지 못했습니다.';
+      app.innerHTML = `<div class="card"><h2>열 수 없습니다</h2><p>${esc(why)}</p><p style="font-size:12px">응답 코드 ${st || '-'} · ${esc(txt.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 160))}</p></div>`;
+      return;
+    }
     if (j.error === 'setup') {
       app.innerHTML = `<div class="card"><h2>처음 한 번만 설정해 주세요</h2>
         <p>지금 로그인한 카카오 계정의 회원번호입니다. 이 계정이 운영자(선배) 계정이 맞다면 아래 번호를 복사해서 Vercel 환경변수에 넣어 주세요.</p>
@@ -90,7 +104,22 @@ td.n{color:var(--muted)}
     const rows = data.rows.filter(r => !onlyMk || r.marketing);
     const week = Date.now() - 7 * 864e5;
     const recent = data.rows.filter(r => r.joined && new Date(r.joined).getTime() > week).length;
-    app.innerHTML = `<div class="stats">
+    const st = data.stats, T = st && st.days[0];
+    const visit = st ? `<div class="sec-t">방문 통계</div>
+      <div class="stats" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat"><span>오늘 방문자</span><b>${T.uv.toLocaleString()}</b></div>
+        <div class="stat"><span>최근 7일 방문자</span><b>${st.uv7.toLocaleString()}</b></div>
+        <div class="stat"><span>최근 30일 방문자</span><b>${st.uv30.toLocaleString()}</b></div>
+        <div class="stat"><span>오늘 필지 조회</span><b>${T.pcl.toLocaleString()}</b></div>
+      </div>
+      <div class="chart"><div class="bars">${(() => { const ds = [...st.days].reverse(), mx = Math.max(1, ...ds.map(x => x.uv)); return ds.map((x, i) => `<div class="${i === ds.length - 1 ? 'today' : ''}" style="height:${Math.max(2, x.uv / mx * 100)}%" title="${x.d.slice(4, 6)}.${x.d.slice(6)} · 방문자 ${x.uv} · 페이지 ${x.pv} · 필지 조회 ${x.pcl}"></div>`).join(''); })()}</div>
+        <div class="axis"><span>${st.days[29].d.slice(4, 6)}.${st.days[29].d.slice(6)}</span><span>최근 30일 일별 방문자 (막대를 누르거나 올리면 숫자)</span><span>오늘</span></div></div>
+      <div class="tbl" style="margin-top:10px;max-height:260px"><table><thead><tr><th>날짜</th><th>방문자</th><th>페이지 열람</th><th>필지 조회</th><th>로그인 회원</th></tr></thead><tbody>
+        ${st.days.slice(0, 14).map(x => `<tr><td>${x.d.slice(0, 4)}.${x.d.slice(4, 6)}.${x.d.slice(6)}</td><td>${x.uv.toLocaleString()}</td><td>${x.pv.toLocaleString()}</td><td>${x.pcl.toLocaleString()}</td><td>${x.mem.toLocaleString()}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">· 방문자는 같은 휴대폰·컴퓨터를 하루 한 명으로 셉니다 (브라우저를 바꾸거나 기록을 지우면 다시 셉니다). 운영자 본인 방문도 포함됩니다.<br>· 검색엔진 로봇과 새벽 미리 불러오기는 세지 않습니다. 통계를 넣은 날부터 쌓입니다.</p>
+      <div class="sec-t">회원</div>` : '';
+    app.innerHTML = visit + `<div class="stats">
         <div class="stat"><span>전체 회원</span><b>${data.total}</b></div>
         <div class="stat"><span>소식 수신 동의</span><b>${data.marketing}</b></div>
         <div class="stat"><span>최근 7일 가입</span><b>${recent}</b></div>
