@@ -63,6 +63,36 @@ export default async function (req, res) {
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
+    // 관심 부동산 (회원 전용) — 회원별 최대 50개, '우리 집' 1개
+    if (action === 'favs' || action === 'fav') {
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      const key = `realmap:fav:${s.id}`;
+      const load = async () => { try { const v = await redis(['GET', key]); return v ? JSON.parse(v) : { items: [], home: null }; } catch { return { items: [], home: null }; } };
+      let d = await load();
+      if (action === 'favs') return send(res, 200, { ok: true, ...d });
+      if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const it = body.item || {};
+      const pnu = String(it.pnu || body.pnu || '').replace(/\D/g, '');
+      if (!/^\d{19}$/.test(pnu)) return fail(res, 400, 'bad_pnu', 'PNU가 올바르지 않습니다.');
+      const clean = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
+      if (body.op === 'add' || body.op === 'home') {
+        const rec = { pnu, addr: clean(it.addr, 80), name: clean(it.name, 40), lat: Number(it.lat) || null, lng: Number(it.lng) || null,
+          kinds: (Array.isArray(it.kinds) ? it.kinds : []).filter(k => /^[a-zA-Z]{2,10}$/.test(k)).slice(0, 6), area: Number(it.area) || null, at: new Date().toISOString() };
+        d.items = [rec, ...d.items.filter(x => x.pnu !== pnu)].slice(0, 50);
+        if (body.op === 'home') d.home = pnu;
+      } else if (body.op === 'del') {
+        d.items = d.items.filter(x => x.pnu !== pnu);
+        if (d.home === pnu) d.home = null;
+      } else if (body.op === 'unhome') {
+        if (d.home === pnu) d.home = null;
+      } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+      await redis(['SET', key, JSON.stringify(d)]);
+      return send(res, 200, { ok: true, ...d });
+    }
+
     if (action === 'login') {
       if (!REST) return fail(res, 500, 'no_key', 'Vercel 환경변수 KAKAO_REST_KEY 가 비어 있습니다.');
       const nonce = crypto.randomBytes(12).toString('base64url');
@@ -110,7 +140,7 @@ export default async function (req, res) {
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
-      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
+      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
     }

@@ -29,6 +29,8 @@ function title(r) {
     atchCnt: num(r.atchBldCnt), atchArea: num(r.atchBldArea), mainCnt: num(r.mainBldCnt),
     pms: d8(r.pmsDay), stcns: d8(r.stcnsDay), useApr: d8(r.useAprDay),
     crtn: d8(r.crtnDay),
+    // 위반건축물 표시 (자료에 있을 때만)
+    viol: r.violBldYn ?? r.vioBldYn ?? r.violtBldYn ?? null,
   };
 }
 
