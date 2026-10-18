@@ -22,22 +22,39 @@
   const ymd = s => { s = String(s || ''); if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}.${s.slice(4, 6)}.${s.slice(6)}`; if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10).replace(/-/g, '.'); if (/^\d{6}$/.test(s)) return `${s.slice(0, 4)}.${s.slice(4)}`; return s || '-'; };
   const val = v => v == null || v === '' ? '-' : esc(v);
   const skel = () => '<div class="sk"><i></i><i></i><i></i></div>';
-  const errBox = m => `<div class="err">${esc(m || '정보를 불러오지 못했습니다.')}</div>`;
+  // 이용자에게는 기술적인 오류 문구를 보여 주지 않습니다 (원문은 개발자 도구 콘솔에만 남김)
+  const errBox = (label, raw) => {
+    if (raw) console.warn('[리얼맵]', label || '', raw);
+    return `<div class="err soft"><span>${label ? esc(label) + ' 정보를' : '정보를'} 잠시 불러오지 못했습니다.</span><button type="button" data-retry>다시 불러오기</button></div>`;
+  };
+  // 사람이 읽어도 되는 안내만 그대로 보여 주고, 나머지는 일반 문구로 바꿉니다
+  const OK_MSG = ['not_found', 'bad_point', 'bad_pnu', 'login', 'limit'];
+  const friendly = e => (e && OK_MSG.includes(e.code) && e.message) ? e.message : '잠시 연결이 원활하지 않습니다. 다시 한번 눌러 주세요.';
   const src = a => `<p class="src">출처 · ${a.join(' · ')}</p>`;
   function toast(msg, ms = 2600) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); if (ms) toast.t = setTimeout(() => t.hidden = true, ms); }
-  async function api(path) {
-    const r = await fetch(path);
-    let j; try { j = await r.json(); } catch { throw new Error(`서버 응답을 읽지 못했습니다 (${r.status})`); }
-    if (!j.ok) { const e = new Error(j.message || '오류'); e.code = j.error; throw e; }
-    return j;
+  async function api(path, tries = 3) {
+    let last;
+    for (let i = 0; i < tries; i++) {
+      if (i) await new Promise(r => setTimeout(r, 700 * i + Math.random() * 400));
+      try {
+        const r = await fetch(i ? path + (path.includes('?') ? '&' : '?') + 'rt=' + i : path); // 다시 시도할 때는 저장된 실패 응답을 피함
+        let j; try { j = await r.json(); } catch { last = new Error(`응답 오류 ${r.status}`); continue; }
+        if (!j.ok) { const e = new Error(j.message || '오류'); e.code = j.error; if (OK_MSG.includes(e.code) || r.status === 400 || r.status === 404) throw e; last = e; continue; }
+        return j;
+      } catch (e) { if (OK_MSG.includes(e.code) || e.code === 'bad_kinds') throw e; last = e; }
+    }
+    console.warn('[리얼맵]', path, last && last.message);
+    throw last;
   }
+  // 응답 안에 일부만 실패한 항목이 있는지 (공공데이터 일시 장애)
+  const partFail = j => !!j && Object.values(j).some(v => v && typeof v === 'object' && v.ok === false);
   const mobile = () => matchMedia('(max-width:760px)').matches;
 
   // ---------- 시작 ----------
   init();
   async function init() {
     loadMe();
-    try { S.cfg = await api('/api/config'); } catch (e) { return setup(`설정을 불러오지 못했습니다. (${esc(e.message)})`); }
+    try { S.cfg = await api('/api/config'); } catch (e) { console.warn('[리얼맵] config', e.message); return setup('잠시 연결이 원활하지 않습니다. 잠시 후 새로고침해 주세요.'); }
     if (S.cfg.siteName) { $('siteName').textContent = S.cfg.siteName; document.title = S.cfg.siteName; }
     if (!S.cfg.kakaoKey) return setup('카카오 JavaScript 키(KAKAO_JS_KEY)가 아직 등록되지 않았습니다.');
     const sc = document.createElement('script');
@@ -90,7 +107,7 @@
       const p = await api(`/api/parcel?lat=${lat}&lng=${lng}`);
       if (tok !== S.tok) return;
       select(p, tok);
-    } catch (e) { if (tok === S.tok) toast(e.message); }
+    } catch (e) { if (tok === S.tok) toast(friendly(e)); }
   }
   async function pickPnu(pnu) {
     const tok = ++S.tok;
@@ -98,7 +115,7 @@
       const p = await api(`/api/parcel?pnu=${encodeURIComponent(pnu)}`);
       if (tok !== S.tok) return;
       select(p, tok, true);
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(friendly(e)); }
   }
 
   function ringsOf(g) {
@@ -124,8 +141,7 @@
     }
     const c = centroid(p.geometry);
     S.sel = { ...p, c, dongName: '', road: '' };
-    S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale';
-    if (S.tab === 'unit') S.tab = 'land';
+    S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale'; S.seen = {}; S.tab = 'land'; S.floorsAll = false;
     if (c && (pan || mobile())) {
       const ll = new K.LatLng(c.lat, c.lng);
       if (mobile()) { S.map.setCenter(ll); S.map.panBy(0, Math.round(innerHeight * 0.22)); } else S.map.panTo(ll);
@@ -146,9 +162,40 @@
     });
     render(); $('panel').scrollTop = 0;
     const pnu = p.pnu;
-    api(`/api/land?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.land = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.land = { error: e.message }; render(); } });
-    api(`/api/building?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.bld = j; render(); drawAtch(tok); checkMain(tok); loadFloors(tok); } }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
+    loadLand(tok); loadBld(tok);
   }
+  // 일부 항목이 실패해 오면 조용히 한 번 더 받아 옵니다
+  function loadLand(tok, again) {
+    api(`/api/land?pnu=${S.sel.pnu}${again ? '&rt=9' : ''}`).then(j => {
+      if (tok !== S.tok) return;
+      if (partFail(j) && !again) { if (!S.d.land || S.d.land.error) { S.d.land = j; render(); } return setTimeout(() => loadLand(tok, true), 1500); }
+      S.d.land = j; render();
+    }).catch(e => { if (tok === S.tok) { S.d.land = { error: e.message }; render(); } });
+  }
+  function loadBld(tok, again) {
+    api(`/api/building?pnu=${S.sel.pnu}${again ? '&rt=9' : ''}`).then(j => {
+      if (tok !== S.tok) return;
+      if (partFail(j) && !again) { setTimeout(() => loadBld(tok, true), 1500); if (S.d.bld && !S.d.bld.error) return; }
+      S.d.bld = j; render();
+      // 묶음 필지·대표 필지·층별은 건물 정보가 제대로 온 뒤 한 번만
+      if (j.titles && j.titles.ok && !S.d.bldInit) { S.d.bldInit = true; drawAtch(tok); checkMain(tok); loadFloors(tok); }
+    }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
+  }
+
+  // [다시 불러오기] 버튼: 실패한 부분만 비우고 다시 받습니다
+  function retryFailed() {
+    const tok = S.tok, D = S.d;
+    if (!D) return;
+    if (!D.land || D.land.error || partFail(D.land)) { D.land = null; loadLand(tok, true); }
+    if (!D.bld || D.bld.error || (D.bld.titles && !D.bld.titles.ok)) { D.bld = null; loadBld(tok, true); }
+    else if (D.bld.floors && D.bld.floors.ok === false) { D.bld.floors = null; loadFloors(tok); }
+    if (D.trades && (D.trades.error || (D.trades.errors && D.trades.errors.length))) D.trades = null;
+    if (D.units && D.units.error) D.units = null;
+    if (D.stores && D.stores.error) D.stores = null;
+    for (const o of [D.udong, D.unit]) if (o) for (const k in o) if (o[k] && (o[k].error || partFail(o[k]))) delete o[k];
+    render();
+  }
+  document.addEventListener('click', e => { if (e.target.closest('[data-retry]')) retryFailed(); });
 
   // 층별개요는 건물 정보를 먼저 띄운 뒤 따로 받습니다 (큰 단지는 수천 건)
   function loadFloors(tok) {
@@ -245,7 +292,6 @@
     const p = S.sel; if (!p) return;
     const D = $('detail');
     const coll = isCollective();
-    if (S.tab === 'unit' && !coll) S.tab = 'land';
     const tabs = [['land', '토지'], ['plan', '이용계획'], ['bld', '건물'], ...(coll ? [['unit', '동·호수']] : []), ['trade', '실거래']];
     const c = chr(), m = mainT(), rc = recap(), o = own(), pr = prices();
     const name = (rc && rc.name) || (m && m.name) || p.bname || '';
@@ -260,7 +306,17 @@
     else if (collOwn()) chips.push('<span class="chip">구분소유 토지</span>');
     const latestP = pr.length ? pr[pr.length - 1] : null;
     const gfa = rc ? rc.totArea : titles().reduce((s, t) => s + (t.totArea || 0), 0) || null;
-    const body = S.tab === 'land' ? landTab() : S.tab === 'plan' ? planTab() : S.tab === 'bld' ? bldTab() : S.tab === 'unit' ? unitTab() : tradeTab();
+    // 한 화면에 쭉: 가벼운 정보는 바로, 무거운 정보(동·호수·실거래·입점 업종)는 화면에 가까워질 때 불러옵니다
+    S.seen = S.seen || {};
+    const lazy = (k, fn) => S.seen[k] ? fn() : `<div class="lazy" data-lazy="${k}">${skel()}</div>`;
+    const blk = (k, label, html) => `<div class="blk" id="sec-${k}"><h2 class="blkh">${label}</h2>${html}</div>`;
+    const body = [
+      blk('land', '토지', landTab()),
+      blk('plan', '이용계획', planTab()),
+      blk('bld', '건물', bldTab() + lazy('stores', storeSection)),
+      coll ? blk('unit', '동·호수', lazy('unit', unitTab)) : '',
+      blk('trade', '실거래', lazy('trade', tradeTab)),
+    ].join('');
     const keepScroll = $('panel').scrollTop;
     D.innerHTML = `
     <div class="head">
@@ -276,22 +332,71 @@
     <div class="bar"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button>
       <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share brief" id="briefBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>브리핑</button>${isHome() ? `<button class="share safe" id="safeBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l5.5 2v4.2c0 3.3-2.3 5.9-5.5 6.8-3.2-.9-5.5-3.5-5.5-6.8V3.5z M5.5 8l1.8 1.8L10.8 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>전세 안전</button>` : ''}<button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
-    <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
-    <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
+    <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || 'land') === k}">${l}</button>`).join('')}</div>
+    <div class="body">${groupSection()}${body}${consultCard()}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
-    D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
+    D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => goSec(b.dataset.t));
     $('shareBtn').onclick = () => shareParcel(p, name);
     if ($('rvBtn')) $('rvBtn').onclick = () => setView('rv');
     if ($('favBtn')) $('favBtn').onclick = () => toggleFav(name);
     if ($('homeBtn')) $('homeBtn').onclick = () => toggleHome(name);
-    if ($('safeBtn')) $('safeBtn').onclick = () => { S.tab = 'trade'; S.safeOpen = true; render(); setTimeout(() => { const el = $('safe'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80); };
+    if ($('safeBtn')) $('safeBtn').onclick = () => { S.safeOpen = true; goSec('trade', 'safe'); };
     $('locBtn').onclick = () => locGate(name);
     $('briefBtn').onclick = () => briefOpen(name);
     D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
+    const mf = D.querySelector('#moreF'); if (mf) mf.onclick = () => { S.floorsAll = true; render(); };
+    watchLazy();
+    if (S.anchor) applyAnchor(false);
   }
+  // 바로가기: 해당 구간으로 스크롤 (아직 안 불러온 구간이면 먼저 불러오기 시작)
+  function goSec(k, inner) {
+    if ((k === 'trade' || k === 'unit') && !S.seen[k]) { S.seen[k] = true; render(); }
+    S.tab = k;
+    // 위쪽 정보가 늦게 도착해 높이가 바뀌어도 2.5초 동안은 고른 구간에 머물도록 고정
+    S.anchor = { k, inner, until: Date.now() + 2500 };
+    S.jumpUntil = Date.now() + 2600;
+    requestAnimationFrame(() => applyAnchor(true));
+  }
+  function applyAnchor(smooth) {
+    const A = S.anchor; if (!A || Date.now() > A.until) { S.anchor = null; return; }
+    const P = $('panel'), tabsEl = P.querySelector('.tabs');
+    const el = (A.inner && $(A.inner)) || $('sec-' + A.k); if (!el) return;
+    // 위에 고정된 바로가기 줄 아래로 맞춤 (휴대폰 시트 손잡이까지 고려)
+    const base = P.getBoundingClientRect().top + (tabsEl ? (parseFloat(getComputedStyle(tabsEl).top) || 0) + tabsEl.offsetHeight : 0);
+    const top = P.scrollTop + el.getBoundingClientRect().top - base - 10;
+    P.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    P.querySelectorAll('.tabs [data-t]').forEach(b => b.setAttribute('aria-selected', b.dataset.t === A.k));
+  }
+  ['wheel', 'touchstart'].forEach(ev => $('panel').addEventListener(ev, () => { S.anchor = null; S.jumpUntil = 0; }, { passive: true }));
+  // 화면에 가까워진 구간을 불러오기 시작
+  let lazyObs = null;
+  function watchLazy() {
+    if (lazyObs) lazyObs.disconnect();
+    // 위쪽(토지·건물)이 다 그려진 뒤에 판단해야, 화면이 짧을 때 무거운 구간까지 한꺼번에 불러오지 않습니다
+    if (!S.d || !S.d.land || !S.d.bld) return;
+    if (!('IntersectionObserver' in window)) { document.querySelectorAll('[data-lazy]').forEach(el => { S.seen[el.dataset.lazy] = true; }); return; }
+    lazyObs = new IntersectionObserver(es => {
+      const ks = es.filter(e => e.isIntersecting).map(e => e.target.dataset.lazy).filter(k => !S.seen[k]);
+      if (ks.length) { ks.forEach(k => { S.seen[k] = true; }); render(); }
+    }, { root: $('panel'), rootMargin: '250px 0px' });
+    document.querySelectorAll('#detail [data-lazy]').forEach(el => lazyObs.observe(el));
+  }
+  // 스크롤하면 지금 보고 있는 구간의 바로가기에 불이 들어옵니다
+  let secRaf = 0;
+  $('panel').addEventListener('scroll', () => {
+    if (secRaf || (S.jumpUntil && Date.now() < S.jumpUntil)) return;
+    secRaf = requestAnimationFrame(() => {
+      secRaf = 0;
+      const P = $('panel'), tabsEl = P.querySelector('.tabs'); if (!tabsEl) return;
+      const line = tabsEl.getBoundingClientRect().bottom + 24;
+      let cur = 'land';
+      P.querySelectorAll('.blk').forEach(b => { if (b.getBoundingClientRect().top <= line) cur = b.id.slice(4); });
+      if (cur !== S.tab) { S.tab = cur; P.querySelectorAll('.tabs [data-t]').forEach(b => b.setAttribute('aria-selected', b.dataset.t === cur)); }
+    });
+  }, { passive: true });
 
   // 토지 탭
   function spark(list) {
@@ -311,7 +416,7 @@
   function landTab() {
     const L = S.d.land;
     if (!L) return skel();
-    if (L.error) return errBox(L.error);
+    if (L.error) return errBox('', L.error);
     const c = chr(), o = own(), pr = prices();
     const out = [];
     if (c) {
@@ -333,7 +438,7 @@
         <dt>도로접면</dt><dd>${val(c.road)}</dd>
         ${L.move && L.move.ok && L.move.data[0] ? `<dt>토지이동사유</dt><dd>${val(L.move.data[0].why)}<small>${ymd(L.move.data[0].date)}</small></dd>` : ''}
       </dl></section>`);
-    } else out.push(L.chr && !L.chr.ok ? errBox('토지특성: ' + L.chr.message) : '<div class="empty">토지특성 정보가 없습니다.</div>');
+    } else out.push(L.chr && !L.chr.ok ? errBox('토지특성', L.chr.message) : '<div class="empty">토지특성 정보가 없습니다.</div>');
 
     if (o) {
       const types = Object.entries(o.typeCounts || {}).map(([k, v]) => `${esc(k)} ${n(v)}`).join(' · ');
@@ -344,13 +449,13 @@
         <dt>${o.collective ? '최근 소유권변동' : '소유권변동원인'}</dt><dd>${val(o.cause)}</dd>
         <dt>소유권변동일자</dt><dd>${ymd(o.date)}</dd>
       </dl><p class="note">소유자 성명·주소는 공개되지 않습니다. 정확한 권리관계는 등기사항전부증명서로 확인합니다.</p></section>`);
-    } else if (L.own && !L.own.ok) out.push(errBox('소유정보: ' + L.own.message));
+    } else if (L.own && !L.own.ok) out.push(errBox('소유', L.own.message));
 
     if (pr.length) {
       const rows = [...pr].reverse().map((r, i, a) => { const pv = a[i + 1]; const cg = pv ? (r.price / pv.price - 1) * 100 : null;
         return `<tr><td class="c">${r.year}.01.01</td><td class="n">${per(r.price)}</td><td class="n">${cg == null ? '-' : (cg >= 0 ? '+' : '') + n(cg, 1) + '%'}</td></tr>`; }).join('');
       out.push(`<section><h2>개별공시지가</h2>${spark(pr)}<div class="tbl"><table><thead><tr><th>기준일</th><th class="n">공시지가</th><th class="n">변동률</th></tr></thead><tbody>${rows}</tbody></table></div></section>`);
-    } else if (L.prices && !L.prices.ok) out.push(errBox('공시지가: ' + L.prices.message));
+    } else if (L.prices && !L.prices.ok) out.push(errBox('공시지가', L.prices.message));
 
     out.push(src(['브이월드 토지특성·토지소유정보·개별공시지가']));
     return out.join('');
@@ -361,7 +466,7 @@
   function planTab() {
     const L = S.d.land;
     if (!L) return skel();
-    if (L.error) return errBox(L.error);
+    if (L.error) return errBox('', L.error);
     const out = [zoneSection()];
     if (L.use && L.use.ok) {
       const rows = L.use.data;
@@ -370,7 +475,7 @@
         <div class="g"><div class="t">「국토의 계획 및 이용에 관한 법률」에 따른 지역·지구등</div><ul>${li(rows.filter(r => r.law === 'k'))}</ul></div>
         <div class="g"><div class="t">다른 법령 등에 따른 지역·지구등</div><ul>${li(rows.filter(r => r.law === 'o'))}</ul></div>
       </div><p class="note">괄호 안 '저촉'은 일부가 걸쳐 있다는 뜻이고, '접함'은 경계에 붙어 있다는 뜻입니다.</p></section>`);
-    } else out.push(errBox('토지이용계획: ' + (L.use && L.use.message)));
+    } else out.push(errBox('토지이용계획', L.use && L.use.message));
 
     out.push(roomSection(true));
     out.push(`<p class="src">출처 · 브이월드 토지이용계획 · <a href="https://www.eum.go.kr/web/ar/lu/luLandDet.jsp?isNoScr=script&mode=search&pnu=${esc(S.sel.pnu)}" target="_blank" rel="noopener">토지이음에서 원문 보기</a></p>`);
@@ -442,10 +547,10 @@
   function bldTab() {
     const B = S.d.bld;
     if (!B) return skel();
-    if (B.error) return errBox(B.error);
-    if (B.titles && !B.titles.ok) return errBox('건축물대장: ' + B.titles.message);
+    if (B.error) return errBox('', B.error);
+    if (B.titles && !B.titles.ok) return errBox('건축물대장', B.titles.message);
     const ts = titles();
-    if (!ts.length) return `<div class="empty">이 필지에 등록된 건축물대장이 없습니다.${chr() && /대/.test(chr().jimok || '') ? " 나대지라면 '이용계획' 탭에서 건축 가능 규모를 확인하실 수 있습니다." : ''}</div>${src(['건축HUB 건축물대장'])}`;
+    if (!ts.length) return `<div class="empty">이 필지에 등록된 건축물대장이 없습니다.${chr() && /대/.test(chr().jimok || '') ? " 나대지라면 위 '이용계획'에서 건축 가능 규모를 확인하실 수 있습니다." : ''}</div>${src(['건축HUB 건축물대장'])}`;
     const rc = recap();
     if (S.bldIdx >= ts.length) S.bldIdx = 0;
     const t = ts[S.bldIdx];
@@ -503,11 +608,10 @@
       const order = f => (f.gb && f.gb.includes('지하') ? -1 : f.gb && f.gb.includes('옥탑') ? 1000 : 0) * 1 + (f.gb && f.gb.includes('지하') ? -(f.no || 0) : (f.no || 0));
       const rows = [...fl].sort((a, b) => order(b) - order(a));
       out.push(`<section><h2>층별 현황<span>층별개요 ${rows.length}건</span></h2><div class="tbl"><table><thead><tr><th>층</th><th>용도</th><th class="n">면적</th></tr></thead><tbody>
-      ${rows.map(f => `<tr class="${f.excl ? 'ex' : ''}"><td class="c">${esc(f.noNm || ((f.gb || '') + (f.no || '')))}</td><td>${esc(f.use || '')}${f.etcUse && f.etcUse !== f.use ? `<small>${esc(f.etcUse)}</small>` : ''}${f.excl ? '<small>면적 제외</small>' : ''}</td><td class="n">${ar(f.area)[0]}</td></tr>`).join('')}
-      </tbody></table></div></section>`);
+      ${rows.slice(0, S.floorsAll ? 9999 : 12).map(f => `<tr class="${f.excl ? 'ex' : ''}"><td class="c">${esc(f.noNm || ((f.gb || '') + (f.no || '')))}</td><td>${esc(f.use || '')}${f.etcUse && f.etcUse !== f.use ? `<small>${esc(f.etcUse)}</small>` : ''}${f.excl ? '<small>면적 제외</small>' : ''}</td><td class="n">${ar(f.area)[0]}</td></tr>`).join('')}
+      </tbody></table></div>${rows.length > 12 && !S.floorsAll ? `<button class="more" id="moreF">층별 현황 ${n(rows.length - 12)}건 더 보기</button>` : ''}</section>`);
     } else if (B.floors && B.floors.loading) out.push(`<section><h2>층별 현황<span>불러오는 중</span></h2>${skel()}</section>`);
-    else if (B.floors && !B.floors.ok) out.push(errBox('층별개요: ' + B.floors.message));
-    out.push(storeSection());
+    else if (B.floors && !B.floors.ok) out.push(errBox('층별 현황', B.floors.message));
     out.push(src(['건축HUB 건축물대장 표제부·총괄표제부·층별개요']));
     return out.join('');
   }
@@ -523,7 +627,7 @@
       return `<section><h2>입점 업종</h2>${skel()}</section>`;
     }
     if (D.loading) return `<section><h2>입점 업종</h2>${skel()}</section>`;
-    if (D.error) return `<section><h2>입점 업종</h2><div class="empty">상가정보를 불러오지 못했습니다. 공공데이터포털에서 '소상공인시장진흥공단_상가(상권)정보' 활용신청이 승인되었는지 확인해 주세요.</div></section>`;
+    if (D.error) { console.warn('[리얼맵] 상가정보', D.error); return ''; }
     if (!D.stores.length) return `<section><h2>입점 업종</h2><div class="empty">등록된 상가 정보가 없습니다.</div></section>`;
     const cnt = {}; D.stores.forEach(x => { cnt[x.l || '기타'] = (cnt[x.l || '기타'] || 0) + 1; });
     const fl = f => { const m = String(f || '').match(/-?\d+/); if (!m) return 0; return /지하|B/i.test(f) ? -Number(m[0].replace('-', '')) : Number(m[0]); };
@@ -552,14 +656,14 @@
       if (L && !L.loading && !L.error && !L.units.length && TD.every(d => S.d.udong[d] && !S.d.udong[d].loading)) { loadUnits(); return skel(); }
       const pickDong = `<label>동<select id="uDong">${TD.map(d => `<option ${d === S.uDong ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label>`;
       if (!L || L.loading) return unitBody(null, TD, `${esc(S.uDong)}의 호 목록을 불러오는 중입니다.`);
-      if (L.error) return `<div class="pick">${pickDong}</div>` + errBox(L.error);
+      if (L.error) return `<div class="pick">${pickDong}</div>` + errBox('', L.error);
       if (!L.units.length) return `<div class="pick">${pickDong}</div><div class="empty">${esc(S.uDong)}에는 호별 정보가 없습니다 (상가·관리동 등). 다른 동을 골라 주세요.</div>`;
       return unitBody(L.units, TD, `${esc(S.uDong)} · ${n(L.units.length)}개 호${recap() && recap().hhld ? ` (단지 전체 ${n(recap().hhld)}세대)` : ''}`);
     }
     const U = S.d.units;
     if (!U) { loadUnits(); return skel(); }
     if (U.loading) return skel();
-    if (U.error) return errBox(U.error);
+    if (U.error) return errBox('', U.error);
     if (!U.units.length) return collTitle()
       ? '<div class="empty">이 건물은 집합건물로 등록되어 있지만 전유부(호별) 정보가 전산 대장에 없습니다. 오래된 건물은 호별 대장이 빠져 있는 경우가 있어, 세움터나 정부24 열람으로 확인해 주세요.</div>'
       : '<div class="empty">이 지번에는 호별 정보가 없습니다. 땅이 여러 호로 나뉘어 소유되어 있다면, 집합건물이 옆의 다른 지번(대표지번)에 등록되어 있을 수 있습니다. 주변 필지를 눌러 확인해 주세요.</div>';
@@ -579,7 +683,7 @@
     if (!S.uHo) { out.push(skel()); return out.join(''); }
     const key = S.uDong + '|' + S.uHo, X = S.d.unit && S.d.unit[key];
     if (!X || X.loading) out.push(skel());
-    else if (X.error) out.push(errBox(X.error));
+    else if (X.error) out.push(errBox('', X.error));
     else {
       const rows = X.area && X.area.ok ? X.area.data : [];
       const exRows = rows.filter(r => /전유/.test(r.gb || '')), coRows = rows.filter(r => /공용/.test(r.gb || ''));
@@ -605,7 +709,7 @@
       if (coRows.length) out.push(`<section><h2>공용면적 내역<span>전유공용면적</span></h2><div class="tbl"><table><thead><tr><th>구분</th><th>용도</th><th class="n">면적</th></tr></thead><tbody>
         ${rows.map(r => `<tr><td class="c">${esc(r.gb || '')}</td><td>${esc(r.use || '')}${r.etcUse && r.etcUse !== r.use ? `<small>${esc(r.etcUse)}</small>` : ''}</td><td class="n">${ar(r.area)[0]}</td></tr>`).join('')}
         </tbody></table></div></section>`);
-      if (X.area && !X.area.ok) out.push(errBox('전유공용면적: ' + X.area.message));
+      if (X.area && !X.area.ok) out.push(errBox('면적', X.area.message));
       out.push('<p class="note">건축물대장 공용면적에는 주거공용(계단·복도)과 기타공용(주차장·관리동 등)이 함께 들어 있어, 분양 광고의 공급면적과 다를 수 있습니다.</p>');
     }
     out.push(src(['건축HUB 전유부·전유공용면적', '브이월드 공동주택가격']));
@@ -638,7 +742,7 @@
     const T = S.d.trades;
     if (!T || T.key !== k) { loadTrades(kinds, k); return skel(); }
     if (T.loading) return skel() + '<p class="note">국토교통부 자료를 월별로 모으고 있습니다. 기간이 길면 조금 걸립니다.</p>';
-    if (T.error) return errBox(T.error);
+    if (T.error) return errBox('', T.error);
     const sale = T.rows.filter(r => !/Rent$/.test(r.kind)), rent = T.rows.filter(r => /Rent$/.test(r.kind));
     const hasRent = T.kinds.some(x => !x.sale);
     if (!hasRent) S.tradeMode = 'sale';
@@ -652,7 +756,7 @@
     out.push(trendChart(list, S.tradeMode));
     if (T.partial) out.push(`<p class="note loadmore"><span class="spin"></span>최근 ${T.partial.done / 12}년치를 먼저 보여 드리고, 나머지 ${(T.partial.total - T.partial.done) / 12}년치를 이어서 불러오는 중입니다.</p>`);
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'sale' ? '매매' : '전월세'} 거래가 없습니다.</div>`);
-    if (T.errors && T.errors.length) out.push(errBox(T.errors.join(' / ')));
+    if (T.errors && T.errors.length) { console.warn('[리얼맵] 실거래', T.errors); out.push(`<div class="err soft"><span>일부 기간의 거래 자료를 불러오지 못해 빠진 거래가 있을 수 있습니다.</span><button type="button" data-retry>다시 불러오기</button></div>`); }
     out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
     out.push(src(['국토교통부 실거래가 공개시스템']));
     return out.join('');
@@ -971,7 +1075,7 @@
         };
         if (D.tiles[k][tk]) { draw(D.tiles[k][tk]); continue; }
         api(`/api/layer?layer=${k}&tile=${tk}`).then(j => { D.tiles[k][tk] = j.features; draw(j.features); })
-          .catch(e => { delete D.shapes[k][tk]; toast(`${LNAME[k]}: ${e.message}`); });
+          .catch(e => { delete D.shapes[k][tk]; toast(`${LNAME[k]} 정보를 잠시 불러오지 못했습니다`); });
       }
       // 화면 밖으로 나간 칸의 '그린 기록'도 정리
       for (const [fid, tk] of Object.entries(D.feats[k])) if (!D.shapes[k][tk]) delete D.feats[k][fid];
@@ -1207,7 +1311,7 @@
       if (isFav(p.pnu)) { await favOp('del', { pnu: p.pnu }); toast('관심 부동산에서 뺐습니다'); }
       else { await favOp('add', favItem(name)); toast('관심 부동산에 저장했습니다. 오른쪽 위 내 이름을 눌러 언제든 다시 보실 수 있습니다', 3600); }
       render(); drawHomeCard();
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(friendly(e)); }
   }
   async function toggleHome(name) {
     const p = S.sel;
@@ -1215,7 +1319,7 @@
       if (S.favs.home === p.pnu) { await favOp('unhome', { pnu: p.pnu }); toast("'우리 집' 지정을 해제했습니다"); }
       else { await favOp('home', favItem(name)); toast("'우리 집'으로 지정했습니다. 첫 화면에 시세 카드가 나옵니다", 3600); }
       render(); drawHomeCard();
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(friendly(e)); }
   }
   // 우리 집 시세 요약 (최근 1년 실거래 기준)
   const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length ? (a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2) : null; };
@@ -1272,8 +1376,8 @@
     m.querySelector('.lx').onclick = closeFavSheet;
     m.onclick = e => { if (e.target === m) closeFavSheet(); };
     m.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { closeFavSheet(); pickPnu(b.dataset.p); });
-    m.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => { const it = items.find(x => x.pnu === b.dataset.h); try { await favOp(S.favs.home === it.pnu ? 'unhome' : 'home', it); openFavSheet(); drawHomeCard(); if (S.sel) render(); } catch (e) { toast(e.message); } });
-    m.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { try { await favOp('del', { pnu: b.dataset.d }); openFavSheet(); drawHomeCard(); if (S.sel) render(); } catch (e) { toast(e.message); } });
+    m.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => { const it = items.find(x => x.pnu === b.dataset.h); try { await favOp(S.favs.home === it.pnu ? 'unhome' : 'home', it); openFavSheet(); drawHomeCard(); if (S.sel) render(); } catch (e) { toast(friendly(e)); } });
+    m.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { try { await favOp('del', { pnu: b.dataset.d }); openFavSheet(); drawHomeCard(); if (S.sel) render(); } catch (e) { toast(friendly(e)); } });
     drawHomeCard($('homeCard2'));
   }
   function closeFavSheet() { const m = $('favSheet'); if (m) m.hidden = true; }
@@ -1489,7 +1593,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       M.parcels.push(item); measureDraw();
       // 토지대장 면적으로 바꿔 넣기
       api(`/api/land?pnu=${p.pnu}`).then(j => { const a = j.chr && j.chr.ok && j.chr.data && j.chr.data.area; if (a) { item.area = a; measureDraw(); } }).catch(() => {});
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(friendly(e)); }
   }
   const fmtDist = d => d >= 1000 ? `${n(d / 1000, 2)}km` : `${n(d, 0)}m`;
   function measureDraw() {

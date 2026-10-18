@@ -396,3 +396,14 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .spin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:rmspin .8s linear infinite;flex:none;opacity:.7}
 @keyframes rmspin{to{transform:rotate(360deg)}}
 
+
+/* 부드러운 오류 안내 (기술 문구 없이) */
+.err.soft{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--soft);color:var(--fg);border:1px solid var(--line)}
+.err.soft span{font-size:13.5px;color:var(--muted)}
+.err.soft button{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;flex:none}
+
+/* 한 화면에 쭉 이어 보기 */
+.blk{display:flex;flex-direction:column;gap:22px;scroll-margin-top:56px}
+.blk + .blk{border-top:8px solid var(--soft);margin:0 -16px;padding:22px 16px 0}
+.blkh{margin:0;font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--fg)}
+.lazy{min-height:120px}
