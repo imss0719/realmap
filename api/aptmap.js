@@ -46,7 +46,10 @@ export default handler(async (req, res) => {
     const date = `${x.dealYear}${String(x.dealMonth).padStart(2, '0')}${String(x.dealDay || '').padStart(2, '0')}`;
     const key = `${umd}|${jibun}|${name}`;
     let g = byKey.get(key);
-    if (!g) byKey.set(key, g = { n: name, umd, jibun, a: `${region} ${umd} ${jibun}`.trim(), c: 0, d: '' });
+    // 필지번호(PNU): 상세 자료에 법정동코드·본번·부번이 있으면 만들어 둡니다 (미리 불러오기용)
+    const sg = clean(x.sggCd) || lawd, ud = clean(x.umdCd), bb = clean(x.bonbun), bu = clean(x.bubun);
+    const pnu = /^\d{5}$/.test(sg) && /^\d{5}$/.test(ud) && /^\d+$/.test(bb) ? sg + ud + (/^산/.test(jibun) ? '2' : '1') + bb.padStart(4, '0') + (bu || '0').padStart(4, '0') : null;
+    if (!g) byKey.set(key, g = { n: name, umd, jibun, a: `${region} ${umd} ${jibun}`.trim(), c: 0, d: '', pnu });
     g.c++;
     if (date > g.d) { g.d = date; g.p = price; g.ar = num(x.excluUseAr); g.f = clean(x.floor); g.y = clean(x.buildYear); }
   }
@@ -60,5 +63,5 @@ export default handler(async (req, res) => {
     });
   }
   const items = list.map(({ umd, jibun, ...g }) => g);
-  send(res, 200, { ok: true, kind, lawd, months: MONTHS, from: yms[yms.length - 1], items, errors }, errors.length ? 60 : 21600);
+  send(res, 200, { ok: true, kind, lawd, months: MONTHS, from: yms[yms.length - 1], items, errors }, errors.length ? 0 : 21600);
 });

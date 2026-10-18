@@ -123,5 +123,5 @@ export default handler(async (req, res) => {
   send(res, 200, {
     ok: true, pnu: P.pnu, months, kinds: kinds.map(k => ({ k, label: KINDS[k].label, sale: !!KINDS[k].sale })),
     rows, errors: [...errors],
-  }, errors.size ? 60 : 21600);
+  }, errors.size ? 0 : 21600);
 });

@@ -36,8 +36,8 @@ export function hasFail(val) {
   if (Array.isArray(val.errors) && val.errors.length) return true;
   return Object.values(val).some(v => v && typeof v === 'object' && v.ok === false);
 }
-// 실패가 섞인 응답은 CDN에 오래 남기지 않습니다 (1분 뒤 다시 시도)
-export const ttlFor = (val, sec) => hasFail(val) ? 60 : sec;
+// 실패가 섞인 응답은 CDN에 남기지 않습니다 (바로 다시 시도할 수 있게)
+export const ttlFor = (val, sec) => hasFail(val) ? 0 : sec;
 
 // ---------- 오래 두는 저장소 (Upstash Redis) ----------
 // 건축물대장·토지 정보는 몇 달씩 바뀌지 않으므로, 한 번 받은 결과를 저장소에 보관해 두고
@@ -59,7 +59,7 @@ async function rcmd(cmd, ms = 1500) {
 
 // 창고가 넘치지 않게: 전체 키가 상한을 넘으면 새로 쌓지 않습니다 (회원 정보 자리를 항상 남겨 둠).
 // 보관 기간이 지나면 자동으로 지워지므로, 시간이 지나면 다시 쌓입니다.
-const MAX_KEYS = 8000;
+const MAX_KEYS = 15000;
 let room = { ok: true, at: 0 };
 async function roomLeft() {
   if (Date.now() - room.at < 10 * 60e3) return room.ok; // 10분에 한 번만 확인
@@ -81,7 +81,7 @@ export async function cached(key, ttlMs, fn) {
     const s = JSON.stringify(val);
     if (s.length < 300e3 && await roomLeft()) await rcmd(['SET', 'rmc:' + key, s, 'EX', String(days * 86400)], 2500); // 저장 실패해도 화면에는 영향 없음
   }
-  cache.set(key, { val, exp: Date.now() + (hasFail(val) ? 60e3 : ttlMs) });
+  if (!hasFail(val)) cache.set(key, { val, exp: Date.now() + ttlMs }); // 실패 결과는 기억하지 않음
   if (cache.size > 3000) cache.delete(cache.keys().next().value);
   return val;
 }
