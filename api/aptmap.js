@@ -1,7 +1,7 @@
 // 지도 위 실거래가 라벨용: 한 시군구의 최근 매매(아파트·빌라·오피스텔)를 건물별로 묶어 좌표와 함께 반환
 // GET /api/aptmap?kind=apt|rh|offi&lawd=11440&r=서울특별시 마포구
 // 결과는 Vercel CDN에 6시간 캐시되므로, 같은 구를 여러 사람이 봐도 외부 API는 거의 다시 부르지 않습니다.
-import { handler, send, fail, need, cached, getText, num, pool, DATA_KEY, VWORLD_KEY, VWORLD_DOMAIN } from './_lib.js';
+import { handler, send, fail, need, cached, getText, num, pool, vworldData, DATA_KEY, VWORLD_KEY, VWORLD_DOMAIN } from './_lib.js';
 import { month, monthsBack } from './trades.js';
 
 const MONTHS = 6;
@@ -22,6 +22,19 @@ async function geocode(addr) {
   });
 }
 
+// 시군구 안 법정동 이름 → 법정동코드(10자리). 실거래 자료에 코드가 없을 때 필지번호(PNU)를 만들기 위해 씁니다.
+async function dongCodes(lawd) {
+  return cached('emd:' + lawd, 30 * 24 * 3600e3, async () => {
+    const out = {};
+    try {
+      const fs = await vworldData({ data: 'LT_C_ADEMD_INFO', attrFilter: `emd_cd:like:${lawd}`, geometry: 'false', size: '200' });
+      for (const f of fs) { const p = f.properties || {}; const cd = String(p.emd_cd || ''); if (/^\d{8}$/.test(cd) && p.emd_kor_nm) out[String(p.emd_kor_nm).trim()] = cd + '00'; }
+    } catch { /* 아래에서 처리 */ }
+    if (!Object.keys(out).length) throw new Error('emd'); // 실패는 기억하지 않고 다음에 다시 시도
+    return out;
+  });
+}
+
 export default handler(async (req, res) => {
   if (!need(res, [DATA_KEY, 'DATA_GO_KR_KEY'])) return;
   const kind = NAME[req.query.kind] ? req.query.kind : 'apt';
@@ -32,7 +45,7 @@ export default handler(async (req, res) => {
   const t0 = Date.now();
 
   const yms = monthsBack(MONTHS);
-  const rs = await pool(yms, 3, ym => month(kind, lawd, ym));
+  const [rs, codes] = await Promise.all([pool(yms, 3, ym => month(kind, lawd, ym)), VWORLD_KEY ? dongCodes(lawd).catch(() => ({})) : {}]);
   const errors = rs.filter(r => !r.ok).map(r => r.e.message);
   if (errors.length === rs.length) return fail(res, 502, 'datagokr', errors[0]);
 
@@ -47,8 +60,11 @@ export default handler(async (req, res) => {
     const key = `${umd}|${jibun}|${name}`;
     let g = byKey.get(key);
     // 필지번호(PNU): 상세 자료에 법정동코드·본번·부번이 있으면 만들어 둡니다 (미리 불러오기용)
-    const sg = clean(x.sggCd) || lawd, ud = clean(x.umdCd), bb = clean(x.bonbun), bu = clean(x.bubun);
-    const pnu = /^\d{5}$/.test(sg) && /^\d{5}$/.test(ud) && /^\d+$/.test(bb) ? sg + ud + (/^산/.test(jibun) ? '2' : '1') + bb.padStart(4, '0') + (bu || '0').padStart(4, '0') : null;
+    const sg = clean(x.sggCd) || lawd, ud = clean(x.umdCd);
+    let pnu = null;
+    const jm = jibun.replace(/^산\s*/, '').match(/^(\d+)(?:-(\d+))?$/);
+    const bjd = /^\d{5}$/.test(sg) && /^\d{5}$/.test(ud) ? sg + ud : codes[umd];
+    if (bjd && jm) pnu = bjd + (/^산/.test(jibun) ? '2' : '1') + jm[1].padStart(4, '0') + (jm[2] || '0').padStart(4, '0');
     if (!g) byKey.set(key, g = { n: name, umd, jibun, a: `${region} ${umd} ${jibun}`.trim(), c: 0, d: '', pnu });
     g.c++;
     if (date > g.d) { g.d = date; g.p = price; g.ar = num(x.excluUseAr); g.f = clean(x.floor); g.y = clean(x.buildYear); }
