@@ -124,7 +124,7 @@
     }
     const c = centroid(p.geometry);
     S.sel = { ...p, c, dongName: '', road: '' };
-    S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.tradeMode = 'sale';
+    S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale';
     if (S.tab === 'unit') S.tab = 'land';
     if (c && (pan || mobile())) {
       const ll = new K.LatLng(c.lat, c.lng);
@@ -154,8 +154,17 @@
   function loadFloors(tok) {
     const B = S.d.bld; if (!B || B.floors || !(B.titles && B.titles.ok && B.titles.data.length)) return;
     B.floors = { loading: true };
+    prefetchUnits();
     api(`/api/building?pnu=${S.sel.pnu}&part=floors`).then(j => { if (tok === S.tok) { B.floors = j.floors || { ok: false, message: '층별개요를 받지 못했습니다.' }; render(); } })
       .catch(e => { if (tok === S.tok) { B.floors = { ok: false, message: e.message }; render(); } });
+  }
+
+  // 공동주택이면 동·호수 탭을 누르기 전에 첫 동의 호 목록을 미리 받아 둡니다
+  function prefetchUnits() {
+    if (!collTitle()) return;
+    const TD = titleDongs();
+    if (TD.length >= 2) { S.d.udong = S.d.udong || {}; const d = TD.find(x => /\d/.test(x)) || TD[0]; if (!S.d.udong[d]) loadDong(d); }
+    else if (!S.d.units) loadUnits();
   }
 
   // ---------- 로드뷰 ----------
@@ -542,8 +551,9 @@
       if (!L) loadDong(S.uDong);
       if (L && !L.loading && !L.error && !L.units.length && TD.every(d => S.d.udong[d] && !S.d.udong[d].loading)) { loadUnits(); return skel(); }
       const pickDong = `<label>동<select id="uDong">${TD.map(d => `<option ${d === S.uDong ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label>`;
-      if (!L || L.loading) return `<div class="pick">${pickDong}<label>호수<select disabled><option>불러오는 중…</option></select></label></div>${skel()}<p class="note">${esc(S.uDong)}의 호 목록을 불러오고 있습니다.</p>`;
-      if (L.error) return `<div class="pick">${pickDong}</div>` + errBox(L.error);
+      // 호 목록이 오기 전에도 호수를 직접 넣어 바로 볼 수 있습니다
+      if (!L || L.loading) return unitBody(null, TD, `${esc(S.uDong)}의 호 목록을 불러오는 중입니다. 호수를 알고 계시면 바로 입력해 보세요.`);
+      if (L.error) return errBox(L.error) + unitBody(null, TD, '호수를 직접 입력해 보실 수 있습니다.');
       if (!L.units.length) return `<div class="pick">${pickDong}</div><div class="empty">${esc(S.uDong)}에는 호별 정보가 없습니다 (상가·관리동 등). 다른 동을 골라 주세요.</div>`;
       return unitBody(L.units, TD, `${esc(S.uDong)} · ${n(L.units.length)}개 호${recap() && recap().hhld ? ` (단지 전체 ${n(recap().hhld)}세대)` : ''}`);
     }
@@ -559,12 +569,16 @@
     return unitBody(U.units, dongs, `이 건물에는 ${n(U.units.length)}개 호가 등록되어 있습니다.`);
   }
   function unitBody(units, dongs, noteTxt) {
-    const hos = units.filter(u => String(u.dong || '').trim() === S.uDong);
-    if (!S.uHo || !hos.find(h => h.ho === S.uHo)) { S.uHo = hos[Math.min(hos.length - 1, Math.floor(hos.length / 3))].ho; loadUnit(); }
+    const hos = units ? units.filter(u => String(u.dong || '').trim() === S.uDong) : [];
+    if (units && hos.length && (!S.uHo || (!S.uHoManual && !hos.find(h => h.ho === S.uHo)))) { S.uHo = hos[Math.min(hos.length - 1, Math.floor(hos.length / 3))].ho; loadUnit(); }
+    const extra = S.uHo && !hos.find(h => h.ho === S.uHo) ? `<option selected>${esc(S.uHo)}</option>` : '';
     const out = [`<div class="pick">
       <label>동<select id="uDong">${dongs.map(d => `<option ${d === S.uDong ? 'selected' : ''}>${esc(d || '단일동')}</option>`).join('')}</select></label>
-      <label>호수<select id="uHo">${hos.map(h => `<option ${h.ho === S.uHo ? 'selected' : ''}>${esc(h.ho)}</option>`).join('')}</select></label>
-    </div><p class="note">${noteTxt}</p>`];
+      ${units ? `<label>호수<select id="uHo">${extra}${hos.map(h => `<option ${h.ho === S.uHo ? 'selected' : ''}>${esc(h.ho)}</option>`).join('')}</select></label>` : `<label>호수<select disabled><option>${S.uHo ? esc(S.uHo) : '불러오는 중…'}</option></select></label>`}
+    </div>
+    <form class="hoin" id="uHoForm"><input id="uHoIn" value="${esc(S.uHoDraft || '')}" inputmode="numeric" autocomplete="off" placeholder="호수 직접 입력 (예: 1203)" aria-label="호수 직접 입력"><button type="submit">보기</button></form>
+    <p class="note">${!units ? '<span class="spin" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>' : ''}${noteTxt}</p>`];
+    if (!S.uHo) { out.push('<div class="empty">호 목록이 오면 자동으로 한 호를 골라 보여 드립니다.</div>'); return out.join(''); }
     const key = S.uDong + '|' + S.uHo, X = S.d.unit && S.d.unit[key];
     if (!X || X.loading) out.push(skel());
     else if (X.error) out.push(errBox(X.error));
@@ -784,8 +798,22 @@
 
   function wireTab(D) {
     const bs = D.querySelector('#bldSel'); if (bs) bs.onchange = () => { S.bldIdx = +bs.value; render(); };
-    const ud = D.querySelector('#uDong'); if (ud) ud.onchange = () => { S.uDong = ud.value === '단일동' ? '' : ud.value; S.uHo = null; render(); };
-    const uh = D.querySelector('#uHo'); if (uh) uh.onchange = () => { S.uHo = uh.value; loadUnit(); render(); };
+    const ud = D.querySelector('#uDong'); if (ud) ud.onchange = () => { S.uDong = ud.value === '단일동' ? '' : ud.value; S.uHo = null; S.uHoManual = false; render(); };
+    const uh = D.querySelector('#uHo'); if (uh) uh.onchange = () => { S.uHo = uh.value; S.uHoManual = false; loadUnit(); render(); };
+    const ui = D.querySelector('#uHoIn');
+    if (ui) { // 목록이 도착해 화면이 다시 그려져도 입력 중인 내용이 사라지지 않게
+      ui.oninput = () => { S.uHoDraft = ui.value; };
+      ui.onfocus = () => { S.uHoFocus = true; }; ui.onblur = () => { S.uHoFocus = false; };
+      if (S.uHoFocus) { ui.focus(); const L = ui.value.length; ui.setSelectionRange(L, L); }
+    }
+    const uf = D.querySelector('#uHoForm'); if (uf) uf.onsubmit = e => {
+      e.preventDefault(); let v = D.querySelector('#uHoIn').value.trim().replace(/\s/g, '');
+      if (!v) return; if (/^\d+$/.test(v)) v += '호';
+      // 목록에 있으면 그 표기를 그대로 사용 (예: 1203 → 1203호)
+      const U = (S.d.udong && S.d.udong[S.uDong] && S.d.udong[S.uDong].units) || (S.d.units && S.d.units.units) || [];
+      const hit = U.find(u => String(u.dong || '').trim() === S.uDong && String(u.ho).replace(/\D/g, '') === v.replace(/\D/g, ''));
+      S.uHo = hit ? hit.ho : v; S.uHoManual = !hit; S.uHoDraft = ''; S.uHoFocus = false; loadUnit(); render();
+    };
     D.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.tradeMode = b.dataset.m; render(); });
     D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { if (+b.dataset.mo > 12 && S.me.ready && !S.me.member) return loginModal('trade'); S.months = +b.dataset.mo; render(); });
     const mt = D.querySelector('#moreT'); if (mt) mt.onclick = () => { S.showAll = true; render(); };
