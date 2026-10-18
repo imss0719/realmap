@@ -1,0 +1,15 @@
+name: realmap-warm
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/warm.mjs
