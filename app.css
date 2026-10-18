@@ -396,7 +396,3 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .spin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:rmspin .8s linear infinite;flex:none;opacity:.7}
 @keyframes rmspin{to{transform:rotate(360deg)}}
 
-/* 호수 직접 입력 */
-.hoin{display:flex;gap:6px;margin:8px 0 2px}
-.hoin input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}
-.hoin button{border:0;border-radius:8px;padding:0 14px;background:var(--fg);color:var(--surface);font:inherit;font-weight:700;cursor:pointer}
