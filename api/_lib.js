@@ -39,10 +39,48 @@ export function hasFail(val) {
 // 실패가 섞인 응답은 CDN에 오래 남기지 않습니다 (1분 뒤 다시 시도)
 export const ttlFor = (val, sec) => hasFail(val) ? 60 : sec;
 
+// ---------- 오래 두는 저장소 (Upstash Redis) ----------
+// 건축물대장·토지 정보는 몇 달씩 바뀌지 않으므로, 한 번 받은 결과를 저장소에 보관해 두고
+// 다음 사람부터는 공공데이터포털을 거치지 않고 바로 보여 줍니다. (디스코처럼 '미리 쌓아 둔 자료' 방식)
+const R_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || Object.entries(process.env).find(([k]) => /_REST_API_URL$/.test(k))?.[1] || '';
+const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || Object.entries(process.env).find(([k]) => /_REST_API_TOKEN$/.test(k) && !/READ_ONLY/.test(k))?.[1] || '';
+// 키 앞부분별 보관 기간(일)
+const KEEP = { 'bld:': 30, 'bldf:': 30, 'units:': 30, 'unitsd:': 30, 'unit:': 30, 'land:': 7, 'stores:': 14 };
+const keepDays = key => { for (const p in KEEP) if (key.startsWith(p)) return KEEP[p]; return 0; };
+async function rcmd(cmd, ms = 1500) {
+  if (!R_URL || !R_TOKEN) return null;
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(R_URL, { method: 'POST', signal: ctrl.signal, headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
+    const j = await r.json().catch(() => ({}));
+    return r.ok && !j.error ? j.result : null;
+  } catch { return null; } finally { clearTimeout(t); }
+}
+
+// 창고가 넘치지 않게: 전체 키가 상한을 넘으면 새로 쌓지 않습니다 (회원 정보 자리를 항상 남겨 둠).
+// 보관 기간이 지나면 자동으로 지워지므로, 시간이 지나면 다시 쌓입니다.
+const MAX_KEYS = 8000;
+let room = { ok: true, at: 0 };
+async function roomLeft() {
+  if (Date.now() - room.at < 10 * 60e3) return room.ok; // 10분에 한 번만 확인
+  const n = await rcmd(['DBSIZE']);
+  room = { ok: n == null || n < MAX_KEYS, at: Date.now() };
+  return room.ok;
+}
+
 export async function cached(key, ttlMs, fn) {
   const hit = cache.get(key);
   if (hit && hit.exp > Date.now()) return hit.val;
+  const days = keepDays(key);
+  if (days) {
+    const s = await rcmd(['GET', 'rmc:' + key]);
+    if (s) { try { const val = JSON.parse(s); cache.set(key, { val, exp: Date.now() + ttlMs }); return val; } catch { /* 깨진 자료는 무시 */ } }
+  }
   const val = await fn();
+  if (days && !hasFail(val) && !(Array.isArray(val) && !val.length)) {
+    const s = JSON.stringify(val);
+    if (s.length < 300e3 && await roomLeft()) await rcmd(['SET', 'rmc:' + key, s, 'EX', String(days * 86400)], 2500); // 저장 실패해도 화면에는 영향 없음
+  }
   cache.set(key, { val, exp: Date.now() + (hasFail(val) ? 60e3 : ttlMs) });
   if (cache.size > 3000) cache.delete(cache.keys().next().value);
   return val;
