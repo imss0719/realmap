@@ -71,7 +71,6 @@
     $('close').onclick = () => $('panel').classList.add('closed');
     $('vMap').onclick = () => setView('map');
     $('vRv').onclick = () => setView('rv');
-    $('rvbig').onclick = () => setView('rv');
     devInit();
     tradeMapInit();
     measureInit();
@@ -136,8 +135,6 @@
     S.sel.dongName = parts.length >= 2 ? parts[parts.length - 2] : '';
     $('intro').hidden = true;
     $('panel').classList.remove('closed');
-    $('rvwrap').hidden = false;
-    roadview(c);
     if (S.view === 'rv' && c) bigTo({ lat: c.lat, lng: c.lng }, c);
     if (c) S.geocoder.coord2Address(c.lng, c.lat, (r, st) => {
       if (tok !== S.tok || st !== K.services.Status.OK || !r[0]) return;
@@ -157,25 +154,7 @@
     const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lng - a.lng) * r);
     return (Math.atan2(y, x) / r + 360) % 360;
   }
-  function roadview(c) {
-    if (!c) return;
-    const K = kakao.maps, pos = new K.LatLng(c.lat, c.lng);
-    if (!S.rv) {
-      S.rv = new K.Roadview($('rv'));
-      K.event.addListener(S.rv, 'init', () => {
-        const at = S.rv.getPosition(), tgt = S.rvTarget;
-        if (at && tgt) S.rv.setViewpoint({ pan: bearing({ lat: at.getLat(), lng: at.getLng() }, tgt), tilt: 0, zoom: 0 });
-      });
-    }
-    S.rvTarget = c;
-    S.rvc.getNearestPanoId(pos, 60, id => {
-      if (S.rvTarget !== c) return;
-      if (id === null) { $('rvnone').hidden = false; return; }
-      $('rvnone').hidden = true;
-      S.rv.relayout();
-      S.rv.setPanoId(id, pos);
-    });
-  }
+
 
   // ---------- 크게 보는 로드뷰 (지도 / 로드뷰 전환) ----------
   function setView(v) {
@@ -266,7 +245,7 @@
     const keepScroll = $('panel').scrollTop;
     D.innerHTML = `
     <div class="head">
-      <h1>${esc(p.addr || p.jibun)}</h1>
+      <div class="h1row"><h1>${esc(p.addr || p.jibun)}</h1>${p.c ? `<button class="rvbtn" id="rvBtn" type="button" aria-label="이 필지 로드뷰 크게 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="2" fill="currentColor"/><path d="M5.2 15l1-6.2H5V6.6a3 3 0 0 1 6 0v2.2H9.8l1 6.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>로드뷰</button>` : ''}</div>
       <div class="sub">${p.road ? esc(p.road) : ''}${name ? (p.road ? ' · ' : '') + esc(name) : ''}</div>
       <div class="chips">${chips.join('') || (S.d.land ? '' : '<span class="chip">불러오는 중…</span>')}</div>
     </div>
@@ -284,6 +263,7 @@
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
     $('shareBtn').onclick = () => shareParcel(p, name);
+    if ($('rvBtn')) $('rvBtn').onclick = () => setView('rv');
     $('locBtn').onclick = () => locGate(name);
     $('briefBtn').onclick = () => briefOpen(name);
     D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));

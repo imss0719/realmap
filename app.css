@@ -320,3 +320,13 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .brand .acct{margin-left:auto}
 .bar .share.brief{background:#F2B705;color:#14212E;border-color:#F2B705;font-weight:600}
 .bar .share.brief:hover{background:#14212E;color:#fff;border-color:#14212E}
+
+/* 필지 주소 옆 로드뷰 버튼 */
+.h1row{display:flex;align-items:flex-start;gap:10px}
+.h1row h1{flex:1;min-width:0}
+.rvbtn{flex:none;display:inline-flex;align-items:center;gap:5px;margin-top:1px;padding:6px 12px;border-radius:999px;border:0;background:#14212E;color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.rvbtn:hover{background:#F2B705;color:#14212E}
+@media (prefers-color-scheme: dark){.rvbtn{background:#F2B705;color:#14212E}}
+.bar .pnu{flex-basis:100%;text-align:left}
+.bar .share.loc{margin-left:0}
+.bar .seg{margin-left:auto}
