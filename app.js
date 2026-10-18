@@ -74,6 +74,7 @@
     devInit();
     tradeMapInit();
     measureInit();
+    $('mtFav').onclick = () => S.me.ready && !S.me.member ? loginModal('fav') : openFavSheet();
     if (mobile()) $('panel').classList.add('closed');
     wireSearch();
 
@@ -134,6 +135,7 @@
     const parts = String(p.addr || '').split(' ');
     S.sel.dongName = parts.length >= 2 ? parts[parts.length - 2] : '';
     $('intro').hidden = true;
+    if ($('homeCard')) $('homeCard').hidden = true;
     $('panel').classList.remove('closed');
     if (S.view === 'rv' && c) bigTo({ lat: c.lat, lng: c.lng }, c);
     if (c) S.geocoder.coord2Address(c.lng, c.lat, (r, st) => {
@@ -245,7 +247,7 @@
     const keepScroll = $('panel').scrollTop;
     D.innerHTML = `
     <div class="head">
-      <div class="h1row"><h1>${esc(p.addr || p.jibun)}</h1>${p.c ? `<button class="rvbtn" id="rvBtn" type="button" aria-label="이 필지 로드뷰 크게 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="2" fill="currentColor"/><path d="M5.2 15l1-6.2H5V6.6a3 3 0 0 1 6 0v2.2H9.8l1 6.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>로드뷰</button>` : ''}</div>
+      <div class="h1row"><h1>${esc(p.addr || p.jibun)}</h1>${favBtns()}${p.c ? `<button class="rvbtn" id="rvBtn" type="button" aria-label="이 필지 로드뷰 크게 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="2" fill="currentColor"/><path d="M5.2 15l1-6.2H5V6.6a3 3 0 0 1 6 0v2.2H9.8l1 6.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>로드뷰</button>` : ''}</div>
       <div class="sub">${p.road ? esc(p.road) : ''}${name ? (p.road ? ' · ' : '') + esc(name) : ''}</div>
       <div class="chips">${chips.join('') || (S.d.land ? '' : '<span class="chip">불러오는 중…</span>')}</div>
     </div>
@@ -255,7 +257,7 @@
       <div><div class="l">공시지가</div><div class="v">${latestP ? per(latestP.price) : c && c.price ? per(c.price) : '-'}</div></div>
     </div>
     <div class="bar"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button>
-      <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share brief" id="briefBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>브리핑</button><button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
+      <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share brief" id="briefBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>브리핑</button>${isHome() ? `<button class="share safe" id="safeBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l5.5 2v4.2c0 3.3-2.3 5.9-5.5 6.8-3.2-.9-5.5-3.5-5.5-6.8V3.5z M5.5 8l1.8 1.8L10.8 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>전세 안전</button>` : ''}<button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>
     <div class="body">${S.tab === 'land' || S.tab === 'bld' ? groupSection() : ''}${body}${consultCard()}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
@@ -264,6 +266,9 @@
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
     $('shareBtn').onclick = () => shareParcel(p, name);
     if ($('rvBtn')) $('rvBtn').onclick = () => setView('rv');
+    if ($('favBtn')) $('favBtn').onclick = () => toggleFav(name);
+    if ($('homeBtn')) $('homeBtn').onclick = () => toggleHome(name);
+    if ($('safeBtn')) $('safeBtn').onclick = () => { S.tab = 'trade'; S.safeOpen = true; render(); setTimeout(() => { const el = $('safe'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80); };
     $('locBtn').onclick = () => locGate(name);
     $('briefBtn').onclick = () => briefOpen(name);
     D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));
@@ -592,9 +597,11 @@
     if (!hasRent) S.tradeMode = 'sale';
     const list = S.tradeMode === 'sale' ? sale : rent;
     const segM = hasRent ? `<span class="seg" role="group" aria-label="거래 구분"><button data-m="sale" aria-pressed="${S.tradeMode === 'sale'}">매매 ${sale.length}</button><button data-m="rent" aria-pressed="${S.tradeMode === 'rent'}">전월세 ${rent.length}</button></span>` : '';
-    const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년</button>`).join('')}</span>`;
+    const lockI = '<svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" style="margin-left:3px;vertical-align:-1px"><rect x="2" y="5.5" width="8" height="5.5" rx="1" fill="currentColor"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
+    const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년${m > 12 && S.me.ready && !S.me.member ? lockI : ''}</button>`).join('')}</span>`;
     const items = list.slice(0, S.showAll ? 500 : 40).map(r => S.tradeMode === 'sale' ? saleRow(r) : rentRow(r)).join('');
-    const out = [jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`];
+    const safe = safeSection(T);
+    const out = [safe || jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`];
     out.push(trendChart(list, S.tradeMode));
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'sale' ? '매매' : '전월세'} 거래가 없습니다.</div>`);
     if (T.errors && T.errors.length) out.push(errBox(T.errors.join(' / ')));
@@ -727,8 +734,9 @@
     const ud = D.querySelector('#uDong'); if (ud) ud.onchange = () => { S.uDong = ud.value === '단일동' ? '' : ud.value; S.uHo = null; render(); };
     const uh = D.querySelector('#uHo'); if (uh) uh.onchange = () => { S.uHo = uh.value; loadUnit(); render(); };
     D.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.tradeMode = b.dataset.m; render(); });
-    D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { S.months = +b.dataset.mo; render(); });
+    D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { if (+b.dataset.mo > 12 && S.me.ready && !S.me.member) return loginModal('trade'); S.months = +b.dataset.mo; render(); });
     const mt = D.querySelector('#moreT'); if (mt) mt.onclick = () => { S.showAll = true; render(); };
+    const sl = D.querySelector('#safeLogin'); if (sl) sl.onclick = () => loginModal('safe');
   }
 
   // ---------- 개발지도 ----------
@@ -1027,7 +1035,7 @@
     };
   }
   function briefOpen(name) {
-    if (S.me.ready && !S.me.member) { loginModal(); toast('브리핑 자료 만들기는 회원 전용 기능입니다 (베타 기간 무료)', 3600); return; }
+    if (S.me.ready && !S.me.member) { loginModal('brief'); return; }
     if (!S.d.land || !S.d.bld) { toast('필지 정보를 불러오는 중입니다. 잠시 후 다시 눌러 주세요'); return; }
     try { localStorage.setItem('rm.brief', JSON.stringify(briefData(name))); } catch { toast('브라우저 저장 공간을 쓸 수 없어 브리핑을 열지 못했습니다'); return; }
     const w = window.open('/briefing.html', '_blank');
@@ -1045,15 +1053,17 @@
     }
     try { S.me = await api('/api/auth?action=me'); } catch { /* 회원 기능 꺼짐 */ }
     drawAcct();
+    loadFavs();
   }
   const here = () => location.pathname + location.search;
   function drawAcct() {
     const el = $('acct'); if (!el) return;
     if (!S.me.ready) { el.innerHTML = ''; return; }
     el.innerHTML = S.me.member
-      ? `<button type="button" id="acctBtn">${esc(S.me.nickname || '회원')}님</button><div class="acct-menu" id="acctMenu" hidden><a href="/auth/logout?r=${encodeURIComponent(here())}">로그아웃</a><button type="button" id="withdraw">회원 탈퇴</button><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`
+      ? `<button type="button" id="acctBtn">${esc(S.me.nickname || '회원')}님</button><div class="acct-menu" id="acctMenu" hidden><button type="button" id="favMenu">관심 부동산 · 우리 집</button><a href="/auth/logout?r=${encodeURIComponent(here())}">로그아웃</a><button type="button" id="withdraw">회원 탈퇴</button><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`
       : `<button type="button" id="acctBtn">로그인</button>`;
     $('acctBtn').onclick = () => S.me.member ? ($('acctMenu').hidden = !$('acctMenu').hidden) : loginModal();
+    if ($('favMenu')) $('favMenu').onclick = () => { $('acctMenu').hidden = true; openFavSheet(); };
     if ($('withdraw')) $('withdraw').onclick = async () => {
       if (!confirm('회원 탈퇴하시겠습니까? 저장된 회원 정보가 바로 삭제됩니다.')) return;
       try { await fetch('/api/auth?action=withdraw', { method: 'POST' }); } catch { /* 무시 */ }
@@ -1071,17 +1081,25 @@
       toast(left > 0 ? `비회원 무료 이용 ${left}회 남았습니다` : '비회원 무료 이용을 모두 사용했습니다. 카카오 로그인 후 계속 무료로 이용하세요', 4000);
       return;
     }
-    loginModal(true);
+    loginModal('loc');
   }
-  function loginModal(fromLoc) {
+  const LOGIN_WHY = {
+    loc: '무료 이용 3회를 모두 사용하셨습니다',
+    fav: '관심 부동산 저장은 회원 전용입니다',
+    safe: '전세 안전 점검 전체 결과는 회원 전용입니다',
+    trade: '3년·5년 실거래는 회원 전용입니다',
+    brief: '브리핑 자료 만들기는 회원 전용입니다',
+  };
+  function loginModal(why) {
+    const fromLoc = why;
     let m = $('loginModal');
     if (!m) { m = document.createElement('div'); m.id = 'loginModal'; m.className = 'lmodal'; document.body.appendChild(m); }
     m.hidden = false;
     m.innerHTML = `<div class="lbox" role="dialog" aria-modal="true" aria-labelledby="lmT">
       <button class="lx" type="button" aria-label="닫기">×</button>
       <img src="/favicon.svg" width="44" height="44" alt="">
-      <h2 id="lmT">${fromLoc ? '무료 이용 3회를 모두 사용하셨습니다' : '리얼맵 로그인'}</h2>
-      <p>카카오로 3초 만에 가입하시면 입지정보를 <b>횟수 제한 없이 무료로</b> 이용하실 수 있습니다.</p>
+      <h2 id="lmT">${LOGIN_WHY[why] || '리얼맵 로그인'}</h2>
+      <p>카카오로 3초 만에 가입하시면 아래 기능을 <b>모두 무료로</b> 쓰실 수 있습니다.</p><ul class="lperks"><li>전세 안전 점검 전체 결과</li><li>관심 부동산 저장 · 우리 집 시세 카드</li><li>3년·5년 실거래와 가격 추이</li><li>입지정보 무제한 · 브리핑 자료 만들기</li></ul>
       <label class="lmk"><input type="checkbox" id="lmMk"> <span>(선택) 리얼맵의 부동산 소식·매물 정보 받기</span></label>
       <a class="kbtn" id="lmGo" href="#"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2C4.6 2 1 4.8 1 8.2c0 2.2 1.5 4.1 3.7 5.2l-.9 3.4c-.1.3.3.5.5.3l4-2.7h.7c4.4 0 8-2.8 8-6.2S13.4 2 9 2z" fill="#191919"/></svg>카카오로 시작하기</a>
       <p class="lsmall">가입 시 카카오 회원번호와 닉네임을 받으며, 탈퇴하면 바로 삭제됩니다. <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
@@ -1090,6 +1108,161 @@
     m.querySelector('.lx').onclick = close;
     m.onclick = e => { if (e.target === m) close(); };
     $('lmGo').onclick = e => { e.preventDefault(); location.href = `/auth/login?r=${encodeURIComponent(here())}${$('lmMk').checked ? '&mk=1' : ''}`; };
+  }
+
+  // ---------- 관심 부동산 · 우리 집 ----------
+  S.favs = { items: [], home: null };
+  const isFav = pnu => S.favs.items.some(x => x.pnu === pnu);
+  async function loadFavs() {
+    if (!S.me.member) return;
+    try { const j = await api('/api/auth?action=favs'); S.favs = { items: j.items || [], home: j.home || null }; } catch { /* 저장소 없음 */ }
+    drawHomeCard(); if (S.sel) render();
+  }
+  async function favOp(op, item) {
+    const r = await fetch('/api/auth?action=fav', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, item, pnu: item.pnu }) });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.message || '저장하지 못했습니다');
+    S.favs = { items: j.items || [], home: j.home || null };
+  }
+  function favItem(name) {
+    const p = S.sel, ex = (() => { const rows = S.d.trades && S.d.trades.rows || []; const r = rows.find(x => x.ex); return r ? r.ex : null; })();
+    return { pnu: p.pnu, addr: p.addr || p.jibun, name: name || '', lat: p.c && p.c.lat, lng: p.c && p.c.lng, kinds: S.d.bld ? tradeKinds() : [], area: ex };
+  }
+  function favBtns() {
+    const p = S.sel; if (!p) return '';
+    const on = isFav(p.pnu), home = S.favs.home === p.pnu;
+    const star = `<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l1.9 4 4.4.5-3.3 3 .9 4.3L8 11.2l-3.9 2.2.9-4.3-3.3-3 4.4-.5z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+    return `<button class="favbtn${on ? ' on' : ''}" id="favBtn" type="button" aria-pressed="${on}" aria-label="${on ? '관심 부동산에서 빼기' : '관심 부동산으로 저장'}">${star}${on ? '저장됨' : '저장'}</button>`
+      + (on ? `<button class="favbtn home${home ? ' on' : ''}" id="homeBtn" type="button" aria-pressed="${home}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 7.5L8 2.5l6 5V14H10v-4H6v4H2z" fill="${home ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>${home ? '우리 집' : '우리 집으로'}</button>` : '');
+  }
+  async function toggleFav(name) {
+    if (!S.me.member) return loginModal('fav');
+    const p = S.sel;
+    try {
+      if (isFav(p.pnu)) { await favOp('del', { pnu: p.pnu }); toast('관심 부동산에서 뺐습니다'); }
+      else { await favOp('add', favItem(name)); toast('관심 부동산에 저장했습니다. 오른쪽 위 내 이름을 눌러 언제든 다시 보실 수 있습니다', 3600); }
+      render(); drawHomeCard();
+    } catch (e) { toast(e.message); }
+  }
+  async function toggleHome(name) {
+    const p = S.sel;
+    try {
+      if (S.favs.home === p.pnu) { await favOp('unhome', { pnu: p.pnu }); toast("'우리 집' 지정을 해제했습니다"); }
+      else { await favOp('home', favItem(name)); toast("'우리 집'으로 지정했습니다. 첫 화면에 시세 카드가 나옵니다", 3600); }
+      render(); drawHomeCard();
+    } catch (e) { toast(e.message); }
+  }
+  // 우리 집 시세 요약 (최근 1년 실거래 기준)
+  const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length ? (a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2) : null; };
+  const homeCache = {};
+  async function homeSummary(it) {
+    if (homeCache[it.pnu]) return homeCache[it.pnu];
+    const kinds = (it.kinds && it.kinds.length ? it.kinds : ['apt', 'aptRent']).join(',');
+    const umd = String(it.addr || '').split(' ').slice(-2, -1)[0] || '';
+    const q = new URLSearchParams({ pnu: it.pnu, kinds, months: 12, umd, name: it.name || '', area: '' });
+    const j = await api('/api/trades?' + q);
+    const rows = (j.rows || []).filter(r => !r.cancel);
+    const sale = rows.filter(r => !/Rent$/.test(r.kind) && r.price);
+    // 가장 거래가 많은 면적대 기준
+    const g = {}; sale.forEach(r => { const k = r.ex ? Math.round(r.ex) : 0; (g[k] = g[k] || []).push(r); });
+    const best = Object.entries(g).sort((a, b) => b[1].length - a[1].length)[0];
+    const out = { count: sale.length, rent: rows.filter(r => /Rent$/.test(r.kind)).length };
+    if (best) {
+      const list = best[1].sort((a, b) => b.date.localeCompare(a.date));
+      out.ex = +best[0] || null; out.last = list[0];
+      const cut = d => { const t = new Date(Date.now() + 9 * 3600e3); t.setUTCMonth(t.getUTCMonth() - d); return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}`; };
+      const recent = med(list.filter(r => r.date >= cut(4)).map(r => r.price)), older = med(list.filter(r => r.date < cut(6)).map(r => r.price));
+      if (recent && older) out.chg = (recent / older - 1) * 100;
+    }
+    const R = jeonseRatio(rows); if (R) out.jr = R.r;
+    return (homeCache[it.pnu] = out);
+  }
+  async function drawHomeCard(target) {
+    const box = target || $('homeCard'); if (!box) return;
+    if (!target && S.sel) { box.hidden = true; return; }
+    const it = S.me.member && S.favs.home && S.favs.items.find(x => x.pnu === S.favs.home);
+    if (!it) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    box.innerHTML = `<div class="hc-top"><span class="hc-tag">우리 집</span><b>${esc(it.name || it.addr)}</b></div>${it.name ? `<div class="hc-sub">${esc(it.addr)}</div>` : '<div class="hc-sub"></div>'}<div class="hc-body">${skel()}</div>`;
+    try {
+      const m = await homeSummary(it);
+      const body = box.querySelector('.hc-body'); if (!body) return;
+      body.innerHTML = m.last ? `<div class="hc-price"><small>최근 거래${m.ex ? ` · 전용 ${m.ex}㎡` : ''}</small><b>${won(m.last.price)}</b><span>${esc(m.last.date)}${m.last.floor ? ` · ${esc(m.last.floor)}층` : ''}</span></div>
+        <div class="hc-stats"><div><small>반년 전보다</small><b class="${m.chg == null ? '' : m.chg >= 0 ? 'up' : 'down'}">${m.chg == null ? '-' : Math.abs(m.chg) < 0.05 ? '변동 없음' : (m.chg >= 0 ? '▲ ' : '▼ ') + n(Math.abs(m.chg), 1) + '%'}</b></div><div><small>1년 매매</small><b>${m.count}건</b></div><div><small>전세가율</small><b>${m.jr ? n(m.jr, 0) + '%' : '-'}</b></div></div>`
+        : '<p class="hc-empty">최근 1년 동안 이 필지에서 신고된 매매가 없습니다.</p>';
+    } catch { const body = box.querySelector('.hc-body'); if (body) body.innerHTML = '<p class="hc-empty">시세를 불러오지 못했습니다.</p>'; }
+    box.onclick = () => { closeFavSheet(); pickPnu(it.pnu); };
+  }
+  function openFavSheet() {
+    let m = $('favSheet');
+    if (!m) { m = document.createElement('div'); m.id = 'favSheet'; m.className = 'lmodal'; document.body.appendChild(m); }
+    m.hidden = false;
+    const items = S.favs.items;
+    m.innerHTML = `<div class="lbox favbox" role="dialog" aria-modal="true" aria-labelledby="fvT"><button class="lx" type="button" aria-label="닫기">×</button>
+      <h2 id="fvT">관심 부동산</h2>
+      <div class="homecard" id="homeCard2" hidden></div>
+      ${items.length ? `<ul class="favlist">${items.map(x => `<li><button type="button" class="fv-open" data-p="${x.pnu}"><b>${esc(x.name || x.addr)}</b><small>${esc(x.addr)}</small></button>
+        <button type="button" class="fv-home${S.favs.home === x.pnu ? ' on' : ''}" data-h="${x.pnu}" aria-label="우리 집으로 지정">${S.favs.home === x.pnu ? '우리 집' : '우리 집으로'}</button><button type="button" class="fv-del" data-d="${x.pnu}" aria-label="삭제">×</button></li>`).join('')}</ul>`
+        : '<p>아직 저장한 부동산이 없습니다. 필지를 누른 뒤 주소 옆 <b>☆ 저장</b>을 눌러 보세요.</p>'}</div>`;
+    m.querySelector('.lx').onclick = closeFavSheet;
+    m.onclick = e => { if (e.target === m) closeFavSheet(); };
+    m.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { closeFavSheet(); pickPnu(b.dataset.p); });
+    m.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => { const it = items.find(x => x.pnu === b.dataset.h); try { await favOp(S.favs.home === it.pnu ? 'unhome' : 'home', it); openFavSheet(); drawHomeCard(); if (S.sel) render(); } catch (e) { toast(e.message); } });
+    m.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { try { await favOp('del', { pnu: b.dataset.d }); openFavSheet(); drawHomeCard(); if (S.sel) render(); } catch (e) { toast(e.message); } });
+    drawHomeCard($('homeCard2'));
+  }
+  function closeFavSheet() { const m = $('favSheet'); if (m) m.hidden = true; }
+
+  // ---------- 전세 안전 점검 ----------
+  function isHome() { const u = uses(); return !!titles().length && (/주택|아파트|다세대|연립|오피스텔|기숙사/.test(u) || isCollective()); }
+  function safeItems(T) {
+    const rows = (T && T.rows) || [], ts = titles(), m = mainT();
+    const out = [];
+    const R = jeonseRatio(rows);
+    out.push({ k: '전세가율', lv: !R ? 'na' : R.r >= 80 ? 'bad' : R.r >= 70 ? 'warn' : 'ok',
+      t: R ? `${n(R.r, 0)}% · 전용 ${R.ex}㎡ 기준 매매 ${won(R.s)} / 전세 ${won(R.j)}` : '최근 매매·전세 거래가 부족해 계산할 수 없습니다.',
+      d: R && R.r >= 80 ? '매매가와 전세가 차이가 작아 집값이 조금만 내려도 보증금을 돌려받기 어려울 수 있습니다.' : R && R.r >= 70 ? '다소 높은 편입니다. 선순위 근저당과 보증금 규모를 꼭 확인하세요.' : '' });
+    const vio = ts.map(t => String(t.viol ?? '').trim()).filter(Boolean);
+    const vioBad = vio.some(v => /^(1|Y|y|위반)/.test(v));
+    out.push({ k: '위반건축물', lv: vioBad ? 'bad' : vio.length ? 'ok' : 'check',
+      t: vioBad ? '건축물대장에 위반건축물로 표시되어 있습니다.' : vio.length ? '위반건축물 표시가 없습니다.' : '공공 API로는 확인되지 않습니다. 정부24에서 건축물대장을 무료로 떼어 \'위반건축물\' 표시를 확인하세요.',
+      d: vioBad ? '전세대출과 전세보증보험 가입이 거절될 수 있습니다.' : '' });
+    const geun = /근린생활/.test(uses()) && !/아파트/.test(uses());
+    out.push({ k: '건물 용도', lv: geun ? 'warn' : 'ok', t: geun ? `주용도가 ${esc((m && m.use) || '근린생활시설')}입니다.` : `${esc((m && m.use) || '-')} · 주거용 건물입니다.`,
+      d: geun ? '주택으로 쓰는 \'근생빌라\'라면 전세대출·보증보험이 제한될 수 있습니다.' : '' });
+    const coll = collTitle();
+    out.push({ k: '등기 형태', lv: coll ? 'ok' : 'warn', t: coll ? '집합건물이라 호수별로 등기됩니다.' : '다가구·단독 등 한 건물 단위로 등기됩니다.',
+      d: coll ? '' : '한 건물에 세입자가 여럿일 수 있어 먼저 들어온 세입자들의 보증금 합계(선순위 보증금)를 꼭 확인하세요.' });
+    const apr = m && m.useApr ? Number(String(m.useApr).slice(0, 4)) : null, age = apr ? new Date().getFullYear() - apr : null;
+    out.push({ k: '건물 연식', lv: age == null ? 'na' : age >= 30 ? 'warn' : 'ok', t: age == null ? '사용승인일 정보가 없습니다.' : `${apr}년 사용승인 · ${age}년차`, d: age >= 30 ? '오래된 건물은 누수·결로 등 하자를 현장에서 꼭 확인하세요.' : '' });
+    const yr = rows.filter(r => !r.cancel), sN = yr.filter(r => !/Rent$/.test(r.kind)).length, jN = yr.filter(r => /Rent$/.test(r.kind) && !r.rent).length;
+    out.push({ k: '거래 활발도', lv: sN + jN < 3 ? 'warn' : 'ok', t: `최근 ${S.months / 12}년 매매 ${sN}건 · 전세 ${jN}건`, d: sN + jN < 3 ? '거래가 적어 시세를 판단하기 어렵습니다. 주변 비슷한 건물 시세도 함께 보세요.' : '' });
+    // 매매가 흐름
+    const sale = yr.filter(r => !/Rent$/.test(r.kind) && r.price && r.ex);
+    const g = {}; sale.forEach(r => { const k = Math.round(r.ex); (g[k] = g[k] || []).push(r); });
+    const best = Object.values(g).sort((a, b) => b.length - a.length)[0];
+    let chg = null;
+    if (best && best.length >= 3) {
+      const ds = best.map(r => r.date).sort(), mid = ds[Math.floor(ds.length / 2)];
+      const a = med(best.filter(r => r.date < mid).map(r => r.price)), b = med(best.filter(r => r.date >= mid).map(r => r.price));
+      if (a && b) chg = (b / a - 1) * 100;
+    }
+    out.push({ k: '매매가 흐름', lv: chg == null ? 'na' : chg <= -10 ? 'warn' : 'ok', t: chg == null ? '비교할 매매 거래가 부족합니다.' : `최근 거래가 이전보다 ${chg >= 0 ? '+' : ''}${n(chg, 1)}%`, d: chg != null && chg <= -10 ? '매매가가 떨어지는 중이면 전세가율이 금방 높아질 수 있습니다.' : '' });
+    return out;
+  }
+  const LV = { ok: ['양호', 'ok'], warn: ['주의', 'warn'], bad: ['위험', 'bad'], check: ['직접 확인', 'chk'], na: ['정보 부족', 'na'] };
+  function safeSection(T) {
+    if (!isHome() || !T || !T.kinds || !T.kinds.some(x => !x.sale)) return '';
+    const items = safeItems(T);
+    const cnt = k => items.filter(x => x.lv === k).length;
+    const locked = S.me.ready && !S.me.member;
+    const row = (x, blur) => `<li class="sf ${LV[x.lv][1]}${blur ? ' blur' : ''}"><span class="sf-lv">${LV[x.lv][0]}</span><div><b>${x.k}</b><p>${x.t}</p>${x.d ? `<small>${x.d}</small>` : ''}</div></li>`;
+    const head = `<div class="sf-sum"><span class="bad">위험 ${cnt('bad')}</span><span class="warn">주의 ${cnt('warn')}</span><span class="ok">양호 ${cnt('ok')}</span>${cnt('check') ? `<span class="chk">직접 확인 ${cnt('check')}</span>` : ''}</div>`;
+    const list = locked
+      ? `<ul class="sflist">${row(items[0])}${items.slice(1).map(x => row(x, true)).join('')}</ul><div class="sf-lock"><b>나머지 ${items.length - 1}개 항목은 회원 전용입니다</b><button type="button" class="kbtn" id="safeLogin">카카오로 3초 가입하고 전체 보기</button></div>`
+      : `<ul class="sflist">${items.map(x => row(x)).join('')}</ul>
+        <div class="sf-todo"><b>계약 전 꼭 확인하세요</b><ol><li>등기사항전부증명서: 근저당·압류·가압류, 소유자 본인 여부</li><li>전입세대 열람: 먼저 살고 있는 세입자가 있는지</li><li>전세보증보험(HUG·HF) 가입이 가능한지</li><li>임대인의 국세·지방세 완납 증명</li></ol></div>`;
+    return `<section class="safe" id="safe"><h2>전세 안전 점검<span>공공데이터 자동 분석</span></h2>${head}${list}<p class="note">공공데이터로 자동 분석한 참고용 결과입니다. 실제 계약 전에는 서류와 현장을 반드시 확인하세요.</p></section>`;
   }
 
   // ---------- 입지 정보 (중개대상물 확인·설명서 '입지조건' 참고) ----------
