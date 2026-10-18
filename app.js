@@ -147,7 +147,15 @@
     render(); $('panel').scrollTop = 0;
     const pnu = p.pnu;
     api(`/api/land?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.land = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.land = { error: e.message }; render(); } });
-    api(`/api/building?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.bld = j; render(); drawAtch(tok); checkMain(tok); } }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
+    api(`/api/building?pnu=${pnu}`).then(j => { if (tok === S.tok) { S.d.bld = j; render(); drawAtch(tok); checkMain(tok); loadFloors(tok); } }).catch(e => { if (tok === S.tok) { S.d.bld = { error: e.message }; render(); } });
+  }
+
+  // 층별개요는 건물 정보를 먼저 띄운 뒤 따로 받습니다 (큰 단지는 수천 건)
+  function loadFloors(tok) {
+    const B = S.d.bld; if (!B || B.floors || !(B.titles && B.titles.ok && B.titles.data.length)) return;
+    B.floors = { loading: true };
+    api(`/api/building?pnu=${S.sel.pnu}&part=floors`).then(j => { if (tok === S.tok) { B.floors = j.floors || { ok: false, message: '층별개요를 받지 못했습니다.' }; render(); } })
+      .catch(e => { if (tok === S.tok) { B.floors = { ok: false, message: e.message }; render(); } });
   }
 
   // ---------- 로드뷰 ----------
@@ -488,7 +496,8 @@
       out.push(`<section><h2>층별 현황<span>층별개요 ${rows.length}건</span></h2><div class="tbl"><table><thead><tr><th>층</th><th>용도</th><th class="n">면적</th></tr></thead><tbody>
       ${rows.map(f => `<tr class="${f.excl ? 'ex' : ''}"><td class="c">${esc(f.noNm || ((f.gb || '') + (f.no || '')))}</td><td>${esc(f.use || '')}${f.etcUse && f.etcUse !== f.use ? `<small>${esc(f.etcUse)}</small>` : ''}${f.excl ? '<small>면적 제외</small>' : ''}</td><td class="n">${ar(f.area)[0]}</td></tr>`).join('')}
       </tbody></table></div></section>`);
-    } else if (B.floors && !B.floors.ok) out.push(errBox('층별개요: ' + B.floors.message));
+    } else if (B.floors && B.floors.loading) out.push(`<section><h2>층별 현황<span>불러오는 중</span></h2>${skel()}</section>`);
+    else if (B.floors && !B.floors.ok) out.push(errBox('층별개요: ' + B.floors.message));
     out.push(storeSection());
     out.push(src(['건축HUB 건축물대장 표제부·총괄표제부·층별개요']));
     return out.join('');
@@ -519,7 +528,25 @@
   }
 
   // 동·호수 탭
+  // 큰 단지: 동 목록은 표제부(이미 받아 둔 건물 정보)에서 바로 만들고, 호 목록은 고른 동만 받습니다
+  function titleDongs() {
+    const nat = (a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true });
+    return [...new Set(titles().map(t => String(t.dong || '').trim()).filter(Boolean))].sort(nat);
+  }
   function unitTab() {
+    const TD = titleDongs();
+    if (TD.length >= 2 && !(S.d.units && S.d.units.units)) {
+      if (S.uDong == null || !TD.includes(S.uDong)) S.uDong = TD.find(d => /\d/.test(d)) || TD[0];
+      S.d.udong = S.d.udong || {};
+      const L = S.d.udong[S.uDong];
+      if (!L) loadDong(S.uDong);
+      if (L && !L.loading && !L.error && !L.units.length && TD.every(d => S.d.udong[d] && !S.d.udong[d].loading)) { loadUnits(); return skel(); }
+      const pickDong = `<label>동<select id="uDong">${TD.map(d => `<option ${d === S.uDong ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label>`;
+      if (!L || L.loading) return `<div class="pick">${pickDong}<label>호수<select disabled><option>불러오는 중…</option></select></label></div>${skel()}<p class="note">${esc(S.uDong)}의 호 목록을 불러오고 있습니다.</p>`;
+      if (L.error) return `<div class="pick">${pickDong}</div>` + errBox(L.error);
+      if (!L.units.length) return `<div class="pick">${pickDong}</div><div class="empty">${esc(S.uDong)}에는 호별 정보가 없습니다 (상가·관리동 등). 다른 동을 골라 주세요.</div>`;
+      return unitBody(L.units, TD, `${esc(S.uDong)} · ${n(L.units.length)}개 호${recap() && recap().hhld ? ` (단지 전체 ${n(recap().hhld)}세대)` : ''}`);
+    }
     const U = S.d.units;
     if (!U) { loadUnits(); return skel(); }
     if (U.loading) return skel();
@@ -529,12 +556,15 @@
       : '<div class="empty">이 지번에는 호별 정보가 없습니다. 땅이 여러 호로 나뉘어 소유되어 있다면, 집합건물이 옆의 다른 지번(대표지번)에 등록되어 있을 수 있습니다. 주변 필지를 눌러 확인해 주세요.</div>';
     const dongs = [...new Set(U.units.map(u => (u.dong = String(u.dong || '').trim())))];
     if (S.uDong == null || !dongs.includes(S.uDong)) S.uDong = dongs[0];
-    const hos = U.units.filter(u => u.dong === S.uDong);
+    return unitBody(U.units, dongs, `이 건물에는 ${n(U.units.length)}개 호가 등록되어 있습니다.`);
+  }
+  function unitBody(units, dongs, noteTxt) {
+    const hos = units.filter(u => String(u.dong || '').trim() === S.uDong);
     if (!S.uHo || !hos.find(h => h.ho === S.uHo)) { S.uHo = hos[Math.min(hos.length - 1, Math.floor(hos.length / 3))].ho; loadUnit(); }
     const out = [`<div class="pick">
       <label>동<select id="uDong">${dongs.map(d => `<option ${d === S.uDong ? 'selected' : ''}>${esc(d || '단일동')}</option>`).join('')}</select></label>
       <label>호수<select id="uHo">${hos.map(h => `<option ${h.ho === S.uHo ? 'selected' : ''}>${esc(h.ho)}</option>`).join('')}</select></label>
-    </div><p class="note">이 건물에는 ${n(U.units.length)}개 호가 등록되어 있습니다.</p>`];
+    </div><p class="note">${noteTxt}</p>`];
     const key = S.uDong + '|' + S.uHo, X = S.d.unit && S.d.unit[key];
     if (!X || X.loading) out.push(skel());
     else if (X.error) out.push(errBox(X.error));
@@ -574,6 +604,11 @@
     try { const j = await api(`/api/units?pnu=${S.sel.pnu}`); if (tok === S.tok) { S.d.units = j; render(); } }
     catch (e) { if (tok === S.tok) { S.d.units = { error: e.message }; render(); } }
   }
+  async function loadDong(d) {
+    const tok = S.tok; S.d.udong[d] = { loading: true };
+    try { const j = await api(`/api/units?pnu=${S.sel.pnu}&dong=${encodeURIComponent(d)}`); if (tok === S.tok) { S.d.udong[d] = j; render(); } }
+    catch (e) { if (tok === S.tok) { S.d.udong[d] = { error: e.message }; render(); } }
+  }
   async function loadUnit() {
     const tok = S.tok, key = S.uDong + '|' + S.uHo;
     S.d.unit = S.d.unit || {};
@@ -603,6 +638,7 @@
     const safe = safeSection(T);
     const out = [safe || jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`];
     out.push(trendChart(list, S.tradeMode));
+    if (T.partial) out.push(`<p class="note loadmore"><span class="spin"></span>최근 ${T.partial.done / 12}년치를 먼저 보여 드리고, 나머지 ${(T.partial.total - T.partial.done) / 12}년치를 이어서 불러오는 중입니다.</p>`);
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'sale' ? '매매' : '전월세'} 거래가 없습니다.</div>`);
     if (T.errors && T.errors.length) out.push(errBox(T.errors.join(' / ')));
     out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
@@ -725,8 +761,25 @@
     const c = chr(), rc = recap(), m = mainT();
     const name = (rc && rc.name) || (m && m.name) || '';
     const q = new URLSearchParams({ pnu: S.sel.pnu, kinds: kinds.join(','), months: S.months, umd: S.sel.dongName || '', area: c && c.area ? c.area : '', name });
-    try { const j = await api('/api/trades?' + q); if (tok === S.tok) { S.d.trades = { key, ...j }; render(); } }
-    catch (e) { if (tok === S.tok) { S.d.trades = { key, error: e.message }; render(); } }
+    // 최근 1년을 먼저 보여 주고, 3·5년은 1년씩 이어 붙입니다
+    const total = S.months, step = 12;
+    try {
+      q.set('months', Math.min(step, total));
+      const j = await api('/api/trades?' + q);
+      if (tok !== S.tok || S.d.trades.key !== key) return;
+      S.d.trades = { key, ...j, errors: [...(j.errors || [])], partial: total > step ? { done: step, total } : null }; render();
+      for (let skip = step; skip < total; skip += step) {
+        q.set('months', Math.min(step, total - skip)); q.set('skip', skip);
+        let k;
+        try { k = await api('/api/trades?' + q); } catch (e) { k = { rows: [], errors: [e.message] }; }
+        const T = S.d.trades;
+        if (tok !== S.tok || !T || T.key !== key) return;
+        T.rows = T.rows.concat(k.rows || []).sort((a, b) => b.date.localeCompare(a.date));
+        (k.errors || []).forEach(x => { if (!T.errors.includes(x)) T.errors.push(x); });
+        T.partial = skip + step < total ? { done: skip + step, total } : null;
+        render();
+      }
+    } catch (e) { if (tok === S.tok && S.d.trades && S.d.trades.key === key) { S.d.trades = { key, error: e.message }; render(); } }
   }
 
   function wireTab(D) {
