@@ -3,3 +3,5 @@ Disallow: /members.html
 Disallow: /admin.html
 Disallow: /check.html
 Disallow: /api/
+
+Sitemap: https://realmap.online/sitemap.xml
