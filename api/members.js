@@ -3,7 +3,7 @@
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
 import { send, fail } from './_lib.js';
-import { readSession, redis } from './auth.js';
+import { readSession, redis, R_URL, R_TOKEN } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const ADMIN_PW = String(process.env.ADMIN_PASSWORD || '').trim();
@@ -28,8 +28,25 @@ export default async function (req, res) {
     }
     if (ids.length === 0 && (await redis(['PING'])) === null) return fail(res, 500, 'no_storage', '회원 저장소(Upstash)가 연결되지 않았습니다.');
     rows.sort((a, b) => String(b.joined).localeCompare(String(a.joined)));
-    send(res, 200, { ok: true, total: rows.length, marketing: rows.filter(r => r.marketing).length, rows });
+    send(res, 200, { ok: true, total: rows.length, marketing: rows.filter(r => r.marketing).length, rows, stats: await stats() });
   } catch (e) {
     fail(res, 502, 'storage', '회원 저장소를 읽지 못했습니다: ' + e.message);
   }
+}
+
+// 최근 30일 방문 통계 (한국 날짜 기준)
+async function stats() {
+  try {
+    const days = [];
+    for (let i = 0; i < 30; i++) days.push(new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, ''));
+    const cmds = days.flatMap(d => [['PFCOUNT', `rm:st:${d}:uv`], ['GET', `rm:st:${d}:pv`], ['GET', `rm:st:${d}:pcl`], ['PFCOUNT', `rm:st:${d}:mem`]]);
+    cmds.push(['PFCOUNT', ...days.slice(0, 7).map(d => `rm:st:${d}:uv`)], ['PFCOUNT', ...days.map(d => `rm:st:${d}:uv`)]);
+    const r = await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
+    const out = await r.json();
+    const val = i => Number(out[i] && out[i].result) || 0;
+    return {
+      days: days.map((d, i) => ({ d, uv: val(i * 4), pv: val(i * 4 + 1), pcl: val(i * 4 + 2), mem: val(i * 4 + 3) })),
+      uv7: val(days.length * 4), uv30: val(days.length * 4 + 1),
+    };
+  } catch { return null; }
 }

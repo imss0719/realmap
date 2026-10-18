@@ -39,6 +39,7 @@ export function readSession(req) {
 function cookie(name, val, maxAge) {
   return `${name}=${val}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
+export { R_URL, R_TOKEN };
 export async function redis(cmd) {
   if (!R_URL || !R_TOKEN) return null;
   const r = await fetch(R_URL, { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
@@ -62,6 +63,23 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '' });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
+
+    // 방문 통계 (개인 식별 정보 없이 숫자만): 하루 방문자 수·페이지 조회·필지 조회
+    if (action === 'hit') {
+      res.setHeader('Cache-Control', 'no-store');
+      if (!R_URL || !R_TOKEN || /bot|crawl|spider|slurp|preview|realmap-warm/i.test(req.headers['user-agent'] || '')) return send(res, 200, { ok: true });
+      const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '');
+      const v = String(req.query.v || '').replace(/[^a-z0-9]/gi, '').slice(0, 24);
+      const kind = req.query.k === 'p' ? 'p' : 'v';
+      const s = readSession(req);
+      const ex = String(400 * 86400);
+      const cmds = kind === 'p'
+        ? [['INCR', `rm:st:${day}:pcl`], ['EXPIRE', `rm:st:${day}:pcl`, ex]]
+        : [['INCR', `rm:st:${day}:pv`], ['EXPIRE', `rm:st:${day}:pv`, ex], ...(v ? [['PFADD', `rm:st:${day}:uv`, v], ['EXPIRE', `rm:st:${day}:uv`, ex]] : []),
+           ...(s ? [['PFADD', `rm:st:${day}:mem`, s.id], ['EXPIRE', `rm:st:${day}:mem`, ex]] : [])];
+      try { await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) }); } catch { /* 통계 실패는 무시 */ }
+      return send(res, 200, { ok: true });
+    }
 
     // 관심 부동산 (회원 전용) — 회원별 최대 50개, '우리 집' 1개
     if (action === 'favs' || action === 'fav') {
