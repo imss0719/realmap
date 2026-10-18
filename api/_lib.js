@@ -94,7 +94,7 @@ export async function dataGoKr(url, params) {
     try { return await dataGoKrOnce(url, params); }
     catch (e) {
       const m = /\((\d{2})\)/.exec(e.message || '');
-      const again = e.code === 'datagokr' && m && TRANSIENT.includes(m[1]); // 연결 자체 실패는 getText가 이미 다시 시도함
+      const again = e.transient || (e.code === 'datagokr' && m && TRANSIENT.includes(m[1])); // 연결 자체 실패는 getText가 이미 다시 시도함
       if (!again || i >= 2) {
         if (again) e.message += ' · 공공데이터포털 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 눌러 주세요.';
         throw e;
@@ -109,6 +109,10 @@ async function dataGoKrOnce(url, params) {
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
   const { status, text } = await getText(u);
   const t = text.trim();
+  // 공공데이터포털이 가끔 내용 없이(또는 안내 웹페이지로) 응답합니다 → 일시 장애로 보고 다시 시도
+  if (!t || /^<!doctype html|^<html/i.test(t)) {
+    const e = new ApiError('datagokr', `공공데이터포털이 ${t ? '오류 페이지를' : '빈 응답을'} 보냈습니다`); e.transient = true; throw e;
+  }
   // 점검용: 응답 원문 앞부분 (키는 가림)
   const raw = `HTTP ${status} · ${t.replace(/\s+/g, ' ').slice(0, 300)}`;
   const OK = ['00', '000', 'INFO-000'];
@@ -137,7 +141,7 @@ async function dataGoKrOnce(url, params) {
 
 // 여러 페이지를 모두 받기
 // 서버가 요청한 개수보다 적게 주면(예: 한 번에 100건 제한) 그 크기에 맞춰 끝까지 나눠 받습니다.
-export async function dataGoKrAll(url, params, { pageSize = 1000, maxPages = 40, concurrency = 6 } = {}) {
+export async function dataGoKrAll(url, params, { pageSize = 1000, maxPages = 40, concurrency = 4 } = {}) {
   const first = await dataGoKr(url, { ...params, numOfRows: pageSize, pageNo: 1 });
   const got = first.items.length, total = first.total || got;
   if (!got || got >= total) return first.items;
