@@ -19,7 +19,7 @@ export default handler(async (req, res) => {
   const Y = thisYear();
 
   const out = await cached('land:' + pnu, 6 * 3600e3, async () => {
-    const [chr, use, own, prices, move] = await Promise.all([
+    const [chr, use, own, prices, move, house] = await Promise.all([
       settle(async () => {
         const rows = await firstYear('getLandCharacteristics', pnu, [Y, Y - 1, Y - 2]);
         const r = rows[0];
@@ -76,8 +76,19 @@ export default handler(async (req, res) => {
         return rows.map(r => ({ why: r.ladMvmnPrvonshCodeNm, date: r.ladMvmnDe, jimok: r.lndcgrCodeNm, area: num(r.lndpclAr) }))
           .sort((a, b) => String(b.date).localeCompare(String(a.date)));
       }),
+      // 개별주택가격 (단독·다가구 주택 공시가격). 서비스가 막혀 있어도 다른 정보에 영향 없도록 실패는 조용히 비움
+      (async () => {
+        try {
+          for (const y of [Y, Y - 1, Y - 2]) {
+            const rows = await vworldNed('getIndvdHousingPriceAttr', { pnu, stdrYear: y });
+            const r = rows.find(x => num(x.housePc ?? x.indvdHousePc ?? x.pblntfPc));
+            if (r) return { ok: true, data: { year: Number(r.stdrYear) || y, price: num(r.housePc ?? r.indvdHousePc ?? r.pblntfPc), date: r.pblntfDe || '', bldArea: num(r.buldAllTotAr ?? r.bldAllTotAr), landArea: num(r.ladRegstrAr ?? r.calcPlotAr) } };
+          }
+          return { ok: true, data: null };
+        } catch (e) { console.warn('개별주택가격', e.message); return { ok: true, data: null, note: 'unavailable' }; }
+      })(),
     ]);
-    return { chr, use, own, prices, move };
+    return { chr, use, own, prices, move, house };
   });
 
   send(res, 200, { ok: true, pnu, jibun: P.jibun, ...out }, ttlFor(out, 21600));
