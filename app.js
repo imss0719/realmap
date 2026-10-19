@@ -275,6 +275,7 @@
   const mainT = () => titles().find(t => t.mainAtch === '주건축물') || titles()[0] || null;
   const chr = () => (S.d.land && S.d.land.chr && S.d.land.chr.ok && S.d.land.chr.data) || null;
   const own = () => (S.d.land && S.d.land.own && S.d.land.own.ok && S.d.land.own.data) || null;
+  const housePrice = () => (S.d.land && S.d.land.house && S.d.land.house.ok && S.d.land.house.data) || null;
   const prices = () => (S.d.land && S.d.land.prices && S.d.land.prices.ok && S.d.land.prices.data) || [];
   function uses() { return titles().map(t => `${t.use || ''} ${t.etcUse || ''}`).join(' '); }
   // 건축물대장 기준 집합건물
@@ -464,8 +465,13 @@
         return `<tr><td class="c">${r.year}.01.01</td><td class="n">${per(r.price)}</td><td class="n">${cg == null ? '-' : (cg >= 0 ? '+' : '') + n(cg, 1) + '%'}</td></tr>`; }).join('');
       out.push(`<section><h2>개별공시지가</h2>${spark(pr)}<div class="tbl"><table><thead><tr><th>기준일</th><th class="n">공시지가</th><th class="n">변동률</th></tr></thead><tbody>${rows}</tbody></table></div></section>`);
     } else if (L.prices && !L.prices.ok) out.push(errBox('공시지가', L.prices.message));
+    const hp = housePrice();
+    if (hp) out.push(`<section><h2>개별주택가격<span>단독·다가구 주택 공시가격</span></h2><dl class="kv">
+      <dt>주택가격 (토지+건물)</dt><dd><b>${wonW(hp.price)}</b><small>${hp.year}.01.01 기준</small></dd>
+      ${hp.bldArea ? `<dt>산정 건물면적</dt><dd>${arI(hp.bldArea)}</dd>` : ''}
+    </dl><p class="note">전세보증보험 가입 가능 금액 등은 이 공시가격을 기준으로 판단합니다. 정확한 한도는 HUG·SGI 등 보증기관에서 확인하세요.</p></section>`);
 
-    out.push(src(['브이월드 토지특성·토지소유정보·개별공시지가']));
+    out.push(src(['브이월드 토지특성·토지소유정보·개별공시지가·개별주택가격']));
     return out.join('');
   }
 
@@ -1429,6 +1435,9 @@
     out.push({ k: '건물 용도', lv: geun ? 'warn' : 'ok', t: geun ? `주용도가 ${esc((m && m.use) || '근린생활시설')}입니다.` : `${esc((m && m.use) || '-')} · 주거용 건물입니다.`,
       d: geun ? '주택으로 쓰는 \'근생빌라\'라면 전세대출·보증보험이 제한될 수 있습니다.' : '' });
     const coll = collTitle();
+    const hp = housePrice();
+    if (!coll && hp) out.push({ k: '주택 공시가격', lv: 'check', t: `개별주택가격 ${wonW(hp.price)} (${hp.year}년)`,
+      d: '다가구·단독주택은 전세보증보험 가입 한도를 이 공시가격으로 판단합니다. 보증금이 공시가격에 비해 높으면 가입이 어려울 수 있으니 보증기관에서 꼭 확인하세요.' });
     out.push({ k: '등기 형태', lv: coll ? 'ok' : 'warn', t: coll ? '집합건물이라 호수별로 등기됩니다.' : '다가구·단독 등 한 건물 단위로 등기됩니다.',
       d: coll ? '' : '한 건물에 세입자가 여럿일 수 있어 먼저 들어온 세입자들의 보증금 합계(선순위 보증금)를 꼭 확인하세요.' });
     const apr = m && m.useApr ? Number(String(m.useApr).slice(0, 4)) : null, age = apr ? new Date().getFullYear() - apr : null;
