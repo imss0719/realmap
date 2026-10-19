@@ -148,6 +148,7 @@
     const c = centroid(p.geometry);
     S.sel = { ...p, c, dongName: '', road: '' };
     hit('p');
+    joinNudge();
     S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale'; S.seen = {}; S.tab = 'land'; S.floorsAll = false;
     if (c && (pan || mobile())) {
       const ll = new K.LatLng(c.lat, c.lng);
@@ -1260,6 +1261,7 @@
     loginModal('loc');
   }
   const LOGIN_WHY = {
+    join: '리얼맵 회원 기능, 모두 무료입니다',
     loc: '무료 이용 3회를 모두 사용하셨습니다',
     fav: '관심 부동산 저장은 회원 전용입니다',
     safe: '전세 안전 점검 전체 결과는 회원 전용입니다',
@@ -1284,6 +1286,26 @@
     m.querySelector('.lx').onclick = close;
     m.onclick = e => { if (e.target === m) close(); };
     $('lmGo').onclick = e => { e.preventDefault(); location.href = `/auth/login?r=${encodeURIComponent(here())}${$('lmMk').checked ? '&mk=1' : ''}`; };
+  }
+
+  // 세 번째 필지를 볼 때 한 번만 보여 주는 가입 안내 (닫으면 다시 안 뜸)
+  function joinNudge() {
+    if (!S.me.ready || S.me.member) return;
+    let n = 0, done = false;
+    try { done = localStorage.getItem('rm.nudge') === '1'; n = +(localStorage.getItem('rm.pc') || 0) + 1; localStorage.setItem('rm.pc', String(n)); } catch { return; }
+    if (done || n < 3) return;
+    try { localStorage.setItem('rm.nudge', '1'); } catch { /* 무시 */ }
+    setTimeout(() => {
+      if (S.me.member || $('joinBar')) return;
+      const b = document.createElement('div'); b.id = 'joinBar'; b.className = 'joinbar'; b.setAttribute('role', 'status');
+      b.innerHTML = `<div class="jt"><b>관심 부동산 저장 · 우리 집 시세 · 5년 실거래</b><span>카카오로 3초 가입하면 모두 무료입니다</span></div><button type="button" class="jgo">무료 가입</button><button type="button" class="jx" aria-label="닫기">×</button>`;
+      document.body.appendChild(b);
+      requestAnimationFrame(() => b.classList.add('on'));
+      const close = () => { b.classList.remove('on'); setTimeout(() => b.remove(), 300); };
+      b.querySelector('.jx').onclick = close;
+      b.querySelector('.jgo').onclick = () => { close(); loginModal('join'); };
+      setTimeout(close, 15000); // 15초 뒤 저절로 사라짐
+    }, 2500); // 정보를 먼저 보고 난 뒤에
   }
 
   // ---------- 관심 부동산 · 우리 집 ----------
