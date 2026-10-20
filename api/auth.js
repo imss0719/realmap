@@ -141,17 +141,32 @@ export default async function (req, res) {
       const now = new Date().toISOString();
       if (body.op === 'save') {
         const it = body.item || {};
-        const pnu = String(it.pnu || '').replace(/\D/g, '');
-        if (!/^\d{19}$/.test(pnu)) return fail(res, 400, 'bad_pnu', '주소를 먼저 골라 주세요.');
+        const pnuOk = v => { const x = String(v || '').replace(/\D/g, ''); return /^\d{19}$/.test(x) ? x : ''; };
+        // 주소 여러 개 (상가 여러 칸, 토지 여러 필지)
+        const places = (Array.isArray(it.places) ? it.places : []).map(p => ({
+          pnu: pnuOk(p.pnu), addr: str(p.addr, 80), lat: Number(p.lat) || null, lng: Number(p.lng) || null, bname: str(p.bname, 40),
+          dong: str(p.dong, 20), ho: str(p.ho, 20), area: numv(p.area), land: !!p.land,
+        })).filter(p => p.pnu).slice(0, 30);
+        if (!places.length) return fail(res, 400, 'bad_pnu', '주소를 먼저 골라 주세요.');
+        const contacts = (Array.isArray(it.contacts) ? it.contacts : []).map(c => ({ role: str(c.role, 10), name: str(c.name, 20), phone: str(c.phone, 20).replace(/[^\d-]/g, '') }))
+          .filter(c => c.name || c.phone).slice(0, 10);
+        const rents = (Array.isArray(it.rents) ? it.rents : []).map(r => ({ label: str(r.label, 30), deposit: numv(r.deposit), rent: numv(r.rent), memo: str(r.memo, 60) }))
+          .filter(r => r.label || r.deposit || r.rent || r.memo).slice(0, 60);
         const kind = ['sale', 'jeonse', 'wolse'].includes(it.kind) ? it.kind : 'sale';
         const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
         const prev = id ? items.find(x => x.id === id) : null;
         if (!prev && items.length >= 1000) return fail(res, 400, 'full', '매물은 1,000건까지 저장할 수 있습니다. 계약 완료된 매물을 정리해 주세요.');
+        const p0 = places[0], c0 = contacts[0] || {};
+        const areaSum = places.reduce((a, p) => a + (p.area || 0), 0);
         const rec = {
           id: prev ? prev.id : Date.now().toString(36) + crypto.randomBytes(3).toString('hex'),
-          pnu, addr: str(it.addr, 80), road: str(it.road, 80), bname: str(it.bname, 40), lat: Number(it.lat) || null, lng: Number(it.lng) || null,
-          ptype: str(it.ptype, 10), kind, price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent),
-          dong: str(it.dong, 20), ho: str(it.ho, 20), area: numv(it.area), owner: str(it.owner, 20), phone: str(it.phone, 20).replace(/[^\d-]/g, ''),
+          // 목록·지도용 대표값 (첫 번째 주소 · 첫 번째 연락처)
+          pnu: p0.pnu, addr: p0.addr, road: str(it.road, 80), bname: str(it.bname, 40) || p0.bname, lat: p0.lat, lng: p0.lng,
+          dong: p0.dong, ho: p0.ho, area: areaSum ? Math.round(areaSum * 100) / 100 : null, owner: c0.name || '', phone: c0.phone || '',
+          places, contacts, rents,
+          ptype: str(it.ptype, 10), kind,
+          price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
+          curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan),
           memo: str(it.memo, 1000), status, at: prev ? prev.at : now, up: now,
         };
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
