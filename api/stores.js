@@ -29,7 +29,7 @@ async function busNear(lat, lng) {
   }
   // 같은 이름(길 건너 양방향)은 가까운 쪽 하나만
   const seen = new Map();
-  for (const x of out.filter(x => x.name).sort((a, b) => a.d - b.d)) if (!seen.has(x.name)) seen.set(x.name, x);
+  for (const x of out.filter(x => x.name && !/\(가상\)|가상정류장/.test(x.name)).sort((a, b) => a.d - b.d)) if (!seen.has(x.name)) seen.set(x.name, x);
   return { list: [...seen.values()].slice(0, 15), errs };
 }
 
