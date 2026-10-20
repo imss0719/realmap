@@ -58,7 +58,7 @@
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
         <div class="tabs" id="tabs"></div>
         <div class="tabs" id="kinds"></div>
-        <input class="find" id="find" type="search" placeholder="주소, 건물명, 집주인, 메모로 찾기">
+        <input class="find" id="find" type="search" placeholder="매물번호, 주소, 건물명, 연락처, 메모로 찾기">
         <div class="list" id="list"></div>
       </div></div>`;
     $('addBtn').onclick = () => openForm(null);
@@ -70,7 +70,7 @@
   function filtered() {
     const q = S.q.toLowerCase();
     return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
-      && (!q || [x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
+      && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
   function draw() { drawTabs(); drawList(); drawPins(); }
   function drawTabs() {
@@ -93,6 +93,7 @@
       const addrs = [...new Set(pl.map(p => p.addr))];
       return `<div class="card${x.status === 'done' ? ' done' : ''}${S.hl === x.id ? ' hl' : ''}" id="c_${x.id}">
       <div class="ch"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${x.ptype ? `<span class="pt">${esc(x.ptype)}</span>` : ''}${pl.length > 1 ? `<span class="pt">${pl.length}건 묶음</span>` : ''}<span class="st ${x.status}">${STAT[x.status]}</span></div>
+      ${x.no ? `<div class="no">No. ${esc(x.no)}</div>` : ''}
       <div class="price">${esc(priceText(x))}</div>
       ${extra.length ? `<div class="meta" style="font-weight:600;color:#33414F">${esc(extra.join(' · '))}</div>` : ''}
       <div class="addr">${esc(x.bname ? x.bname + ' ' : '')}${esc(units.slice(0, 3).join(', '))}${units.length > 3 ? ` 외 ${units.length - 3}` : ''}</div>
@@ -384,7 +385,8 @@
         <div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn sub" id="addRent" style="flex:1">＋ 세부 임대료 추가</button>${it.rents.length ? '<button type="button" class="btn dark" id="sumRent">합계 반영</button>' : ''}</div>
         ${it.rents.length ? `<div class="meta" style="margin-top:6px">세부 금액은 자동으로 더해지지 않습니다. '합계 반영'을 누르면 합계를 보여 드리고, 확인하시면 위 ${it.kind === 'sale' ? '기보증금·기월세' : '보증금·월세'}에 넣습니다.</div>` : ''}</div>` : ''}
       <div class="fld"><span class="lb">매물 유형</span><div class="seg" id="fType">${PTYPES.map(v => `<button type="button" data-v="${v}" aria-pressed="${it.ptype === v}">${v}</button>`).join('')}</div></div>
-      <div class="fld"><label for="f_bname">매물 이름<small>목록에 보이는 이름 · 선택</small></label><input class="in" id="f_bname" value="${esc(it.bname || '')}" maxlength="40"></div>
+      <div class="two"><div class="fld"><label for="f_no">매물번호<small>비우면 자동</small></label><input class="in" id="f_no" value="${esc(it.no || '')}" maxlength="20" placeholder="${F.edit ? '' : '자동 (예: 2610-001)'}"></div>
+        <div class="fld"><label for="f_bname">매물 이름<small>선택</small></label><input class="in" id="f_bname" value="${esc(it.bname || '')}" maxlength="40"></div></div>
       <div class="fld"><span class="lb">연락처<small>소유자·임차인·관리인 등 여러 명 가능</small></span>
         ${it.contacts.map((c, i) => `<div class="crow">
           <select class="in" id="c${i}_role" aria-label="관계">${ROLES.map(r => `<option ${c.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
@@ -441,7 +443,7 @@
     it.contacts.forEach((c, i) => { const r = v(`c${i}_role`), nm = v(`c${i}_name`), ph = v(`c${i}_phone`); if (r !== undefined) c.role = r; if (nm !== undefined) c.name = nm.trim(); if (ph !== undefined) c.phone = ph.trim(); });
     it.rents.forEach((r, i) => { const l = v(`r${i}_label`), d = v(`r${i}_deposit`), m = v(`r${i}_rent`), me = v(`r${i}_memo`); if (l !== undefined) r.label = l.trim(); if (d !== undefined) r.deposit = num(d); if (m !== undefined) r.rent = num(m); if (me !== undefined) r.memo = me.trim(); });
     ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan'].forEach(k => { const x = v('m_' + k); if (x !== undefined) it[k] = num(x); });
-    ['bname', 'memo'].forEach(k => { const x = v('f_' + k); if (x !== undefined) it[k] = x.trim(); });
+    ['bname', 'memo', 'no'].forEach(k => { const x = v('f_' + k); if (x !== undefined) it[k] = x.trim(); });
   }
   async function save() {
     collect();
@@ -470,18 +472,18 @@
   // ---------- 엑셀(CSV) 저장 ----------
   function exportCsv() {
     if (!S.items.length) return toast('저장할 매물이 없습니다');
-    const head = ['상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '연락처', '세부 임대료', '메모', '등록일', '수정일', '리얼맵 링크'];
+    const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '연락처', '세부 임대료', '메모', '등록일', '수정일', '리얼맵 링크'];
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = S.items.map(x => {
       const pl = Array.isArray(x.places) && x.places.length ? x.places : [{ addr: x.addr, dong: x.dong, ho: x.ho }];
       const cs = Array.isArray(x.contacts) ? x.contacts : x.owner || x.phone ? [{ role: '집주인', name: x.owner, phone: x.phone }] : [];
-      return [STAT[x.status], KIND[x.kind], x.ptype, x.bname, [...new Set(pl.map(p => p.addr))].join(' / '), pl.map(p => [p.dong, p.ho].filter(Boolean).join(' ')).filter(Boolean).join(', '),
+      return [x.no, STAT[x.status], KIND[x.kind], x.ptype, x.bname, [...new Set(pl.map(p => p.addr))].join(' / '), pl.map(p => [p.dong, p.ho].filter(Boolean).join(' ')).filter(Boolean).join(', '),
         x.area || '', x.area ? (x.area / 3.3058).toFixed(1) : '', x.price || '', x.deposit || '', x.rent || '', x.mgmt || '', x.premium || '', x.curDep || '', x.curRent || '', x.loan || '',
         cs.map(c => `${c.role || ''} ${c.name || ''} ${c.phone || ''}`.trim()).join(' / '), (x.rents || []).map(r => `${r.label} ${r.deposit || 0}/${r.rent || 0}${r.memo ? ' ' + r.memo : ''}`).join(' / '),
         x.memo, ymd(x.at), ymd(x.up), `https://realmap.online/?pnu=${x.pnu}`].map(q).join(',');
     });
     // 금액은 모두 만원 단위
-    head[8] += '(만원)'; for (let k = 9; k <= 15; k++) head[k] += '(만원)';
+    for (let k = 9; k <= 16; k++) head[k] += '(만원)';
     const blob = new Blob(['﻿' + [head.map(q).join(','), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `리얼맵_매물장_${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); a.remove();
