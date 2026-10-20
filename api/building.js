@@ -38,9 +38,10 @@ function title(r) {
 
 // ---------- K-apt 공동주택 관리비 · 단지 정보 ----------
 const KB = 'https://apis.data.go.kr/1613000/';
-const K_LIST = [KB + 'AptListService4/getLegaldongAptList4', KB + 'AptListService3/getLegaldongAptList3'];
-const K_BASIC = [KB + 'AptBasisInfoServiceV5/getAphusBassInfoV5', KB + 'AptBasisInfoServiceV4/getAphusBassInfoV4'];
-const K_DTL = [KB + 'AptBasisInfoServiceV5/getAphusDtlInfoV5', KB + 'AptBasisInfoServiceV4/getAphusDtlInfoV4'];
+// 옛 주소(List3·V4)는 폐기되어, 함께 시도하면 일시 장애가 '폐기됨' 오류로 덮여 버립니다 → 현재 주소만 씁니다
+const K_LIST = [KB + 'AptListService4/getLegaldongAptList4'];
+const K_BASIC = [KB + 'AptBasisInfoServiceV5/getAphusBassInfoV5'];
+const K_DTL = [KB + 'AptBasisInfoServiceV5/getAphusDtlInfoV5'];
 // 관리비 서비스는 버전이 바뀔 수 있어 V2·V3를 차례로 시도하고, 되는 주소를 기억합니다
 const CMN = 'Cmnuse', IND = 'Indvdlz';
 const VERS = ['V2', 'V3'];
@@ -71,17 +72,29 @@ async function opCall(op, kaptCode, ym) {
   return { sum, any, url };
 }
 const ymBack = n => { const d = new Date(Date.now() + 9 * 3600e3); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - n); return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
-const normNm = s => String(s || '').replace(/\s|\(.*?\)|아파트|APT|제?\d+단지$/gi, '');
+// 이름 비교: 공백·괄호·'아파트' 제거, 단지·차수 숫자는 남김 (상암월드컵파크9단지 ≠ 5단지)
+const normNm = s => String(s || '').replace(/\(.*?\)|\s|아파트|APT/gi, '').replace(/제(\d)/g, '$1').replace(/(\d+)(단지|차)$/, '$1');
+const baseNm = s => normNm(s).replace(/\d+$/, '');
 async function findComplex(P, name) {
   const bjd = P.pnu.slice(0, 10);
   const list = await cached('kaptl:' + bjd, 30 * 864e5, async () => (await tryUrls(K_LIST, { bjdCode: bjd, numOfRows: 500, pageNo: 1, _type: 'json' })).r.items.map(x => ({ code: x.kaptCode, name: x.kaptName })));
   if (!list.length) return null;
-  const nm = normNm(name);
-  if (nm) { const hit = list.find(x => normNm(x.name) === nm) || list.find(x => normNm(x.name).includes(nm) || nm.includes(normNm(x.name))); if (hit) return hit.code; }
+  // 단지 주소(kaptAddr: "… 아현동 804 단지명")에 이 필지 지번이 있는지로 최종 확인합니다
   const jib = `${P.bunNum}${P.jiNum ? '-' + P.jiNum : ''}`;
-  const rx = new RegExp(`(^|\\s)${jib.replace('-', '\\-')}(\\s|$|번지)`);
-  for (const x of list.slice(0, 25)) { const b = await basic(x.code).catch(() => null); if (b && rx.test(String(b.kaptAddr || ''))) return x.code; }
-  return null;
+  const rx = new RegExp(`(^|\\s)${jib.replace('-', '\\-')}(\\s|$|번지|,)`);
+  const addrOk = async x => { const b = await basic(x.code).catch(() => null); return !!(b && rx.test(String(b.kaptAddr || ''))); };
+  const nm = normNm(name), bn = baseNm(name);
+  const exact = nm ? list.filter(x => normNm(x.name) === nm) : [];
+  const fuzzy = bn.length >= 2 ? list.filter(x => { const b = baseNm(x.name); return b.length >= 2 && (b.includes(bn) || bn.includes(b)); }) : [];
+  const cands = [...new Set([...exact, ...fuzzy])].slice(0, 10);
+  const ok1 = await pool(cands, 5, addrOk);
+  const i1 = ok1.findIndex(r => r.ok && r.v); if (i1 >= 0) return cands[i1].code;
+  if (exact.length === 1) return exact[0].code;            // 주소 표기가 달라도 이름이 정확히 하나면 인정
+  // 이름으로 못 찾으면 같은 동의 단지 주소를 훑어봅니다
+  const rest = list.filter(x => !cands.includes(x)).slice(0, 40);
+  const ok2 = await pool(rest, 6, addrOk);
+  const i2 = ok2.findIndex(r => r.ok && r.v); if (i2 >= 0) return rest[i2].code;
+  return null;                                              // 확실하지 않으면 다른 단지 관리비를 보여 주지 않습니다
 }
 const basic = code => cached('kaptb:' + code, 30 * 864e5, async () => (await tryUrls(K_BASIC, { kaptCode: code, _type: 'json' })).r.items[0] || null);
 const detail = code => cached('kaptd:' + code, 30 * 864e5, async () => (await tryUrls(K_DTL, { kaptCode: code, _type: 'json' })).r.items[0] || null);
@@ -97,7 +110,7 @@ async function costAt(code, ym, ops = OPS) {
 async function kaptPart(P, name) {
   const code = await findComplex(P, name);
   if (!code) return { kapt: null };
-  return { kapt: await cached('kaptc:' + code + ':' + ymBack(1), 20 * 864e5, async () => {
+  return { kapt: await cached('kaptc:v2:' + code + ':' + ymBack(1), 20 * 864e5, async () => {
     const [b, d] = await Promise.all([basic(code), detail(code).catch(() => null)]);
     const ym = await costMonth(code);
     let groups = null, total = null, fails = 0;
@@ -112,6 +125,7 @@ async function kaptPart(P, name) {
     return {
       code, name: b && b.kaptName, hh, dongCnt: num(b && b.kaptDongCnt), heat: b && b.codeHeatNm, builder: b && b.kaptBcompany, mgr: b && b.codeMgrNm,
       hall: b && b.codeHallNm, usedate: b && b.kaptUsedate, marea, parking: pk, elev: d ? num(d.kaptdEcnt) : null,
+      errors: fails ? ['관리비 일부 항목을 받지 못함'] : [], // 일부 실패는 창고에 넣지 않음
       month: ym, total, groups, fails, perHH: total && hh ? total / hh : null, perM2: total && marea ? total / marea : null,
     };
   }) };
