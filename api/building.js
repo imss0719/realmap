@@ -38,10 +38,12 @@ function title(r) {
 
 // ---------- K-apt 공동주택 관리비 · 단지 정보 ----------
 const KB = 'https://apis.data.go.kr/1613000/';
-const K_LIST = [KB + 'AptListService3/getLegaldongAptList3', KB + 'AptListService2/getLegaldongAptList'];
-const K_BASIC = [KB + 'AptBasisInfoServiceV4/getAphusBassInfoV4', KB + 'AptBasisInfoServiceV3/getAphusBassInfoV3'];
-const K_DTL = [KB + 'AptBasisInfoServiceV4/getAphusDtlInfoV4', KB + 'AptBasisInfoServiceV3/getAphusDtlInfoV3'];
-const CMN = KB + 'AptCmnuseManageCostServiceV2/', IND = KB + 'AptIndvdlzManageCostServiceV2/';
+const K_LIST = [KB + 'AptListService4/getLegaldongAptList4', KB + 'AptListService3/getLegaldongAptList3'];
+const K_BASIC = [KB + 'AptBasisInfoServiceV5/getAphusBassInfoV5', KB + 'AptBasisInfoServiceV4/getAphusBassInfoV4'];
+const K_DTL = [KB + 'AptBasisInfoServiceV5/getAphusDtlInfoV5', KB + 'AptBasisInfoServiceV4/getAphusDtlInfoV4'];
+// 관리비 서비스는 버전이 바뀔 수 있어 V2·V3를 차례로 시도하고, 되는 주소를 기억합니다
+const CMN = 'Cmnuse', IND = 'Indvdlz';
+const VERS = ['V2', 'V3'];
 // [이름, 묶음, 서비스, 이름 후보들]
 const OPS = [
   ['인건비', 'gen', CMN, ['LaborCost']], ['제사무비', 'gen', CMN, ['Ofcrk', 'OfcrkCost']], ['제세공과금', 'gen', CMN, ['Taxdue', 'TaxdueCost']],
@@ -60,7 +62,7 @@ const okOp = new Map(); // 작동하는 오퍼레이션 이름 기억
 async function tryUrls(urls, params) { let last; for (const u of urls) { try { return { url: u, r: await dataGoKr(u, params) }; } catch (e) { last = e; } } throw last; }
 async function opCall(op, kaptCode, ym) {
   const [, , base, names] = op;
-  const urls = okOp.has(op[0]) ? [okOp.get(op[0])] : names.map(n => `${base}getHsmp${n}InfoV2`);
+  const urls = okOp.has(op[0]) ? [okOp.get(op[0])] : VERS.flatMap(v => names.map(n => `${KB}Apt${base}ManageCostService${v}/getHsmp${n}Info${v}`));
   const { url, r } = await tryUrls(urls, { kaptCode, searchDate: ym, _type: 'json' });
   okOp.set(op[0], url);
   const it = r.items[0] || {};
@@ -138,6 +140,15 @@ export default handler(async (req, res) => {
   // 아파트 관리비 · 단지 정보 (K-apt)
   if (req.query.part === 'kapt') {
     if (req.query.debug) { // 점검용: 오퍼레이션별 응답 상태
+      if (req.query.debug === 'list') {
+        const bjd = P.pnu.slice(0, 10), out = {};
+        for (const u of [...K_LIST, ...K_BASIC, ...K_DTL]) {
+          const isList = K_LIST.includes(u);
+          try { const r = await dataGoKr(u, isList ? { bjdCode: bjd, numOfRows: 5, pageNo: 1, _type: 'json' } : { kaptCode: req.query.code || 'A10027875', _type: 'json' }); out[u.split('/').slice(-2).join('/')] = { ok: true, n: r.items.length, first: r.items[0] }; }
+          catch (e) { out[u.split('/').slice(-2).join('/')] = { ok: false, err: String(e.message).slice(0, 90) }; }
+        }
+        return send(res, 200, { ok: true, bjd, out });
+      }
       const code = req.query.code || await findComplex(P, req.query.name || '');
       const ym = req.query.ym || ymBack(2);
       const rs = await pool(OPS, 4, op => opCall(op, code, ym));
