@@ -54,12 +54,12 @@
   init();
   // 방문 통계: 브라우저마다 임의의 번호 하나만 씁니다 (이름·연락처 같은 개인정보 없음)
   // 운영자 기기(한 번이라도 운영자로 로그인한 브라우저)는 로그아웃 상태여도 세지 않습니다
-  function hit(k) {
+  function hit(k, gu) {
     let v = '', op = false; try { op = localStorage.getItem('rm.op') === '1'; v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
     if (op) return;
     let src = '';
     if (k === 'v') { try { if (!sessionStorage.getItem('rm.src')) { src = visitSrc(); sessionStorage.setItem('rm.src', src); } } catch { src = visitSrc(); } }
-    try { fetch(`/api/auth?action=hit&k=${k}&v=${encodeURIComponent(v)}${src ? '&src=' + src : ''}`, { keepalive: true }).catch(() => {}); } catch { /* 무시 */ }
+    try { fetch(`/api/auth?action=hit&k=${k}&v=${encodeURIComponent(v)}${src ? '&src=' + src : ''}${gu ? '&g=' + gu : ''}`, { keepalive: true }).catch(() => {}); } catch { /* 무시 */ }
   }
   // 어디서 들어왔는지: 링크에 붙인 ?from=, 앱 안 브라우저, 이전 페이지 주소 순으로 판단
   function visitSrc() {
@@ -170,7 +170,7 @@
     }
     const c = centroid(p.geometry);
     S.sel = { ...p, c, dongName: '', road: '' };
-    hit('p');
+    hit('p', String(p.pnu || '').slice(0, 5));
     joinNudge();
     S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale'; S.seen = {}; S.tab = 'land'; S.floorsAll = false;
     if (c && (pan || mobile())) {

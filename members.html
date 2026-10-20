@@ -129,6 +129,23 @@ td.n{color:var(--muted)}
           </tbody></table></div>
           <p class="note">· 블로그·릴스·카톡에 주소를 올릴 때 <b>realmap.online/?from=blog</b> (또는 ?from=insta, ?from=kakao, ?from=youtube)처럼 붙이면 더 정확하게 구분됩니다.</p>`;
       })()}
+      ${(() => {
+        const GU = { '11110': '종로구', '11140': '중구', '11170': '용산구', '11200': '성동구', '11215': '광진구', '11230': '동대문구', '11260': '중랑구', '11290': '성북구', '11305': '강북구', '11320': '도봉구', '11350': '노원구', '11380': '은평구', '11410': '서대문구', '11440': '마포구', '11470': '양천구', '11500': '강서구', '11530': '구로구', '11545': '금천구', '11560': '영등포구', '11590': '동작구', '11620': '관악구', '11650': '서초구', '11680': '강남구', '11710': '송파구', '11740': '강동구', '41570': '김포시', '41281': '고양 덕양구', '41285': '고양 일산동구', '41287': '고양 일산서구', '28245': '인천 계양구', '28237': '인천 부평구' };
+        const WARM = ['11440', '11410', '11380'];
+        const sum = n => { const m = {}; st.days.slice(0, n).forEach(x => Object.entries(x.gu || {}).forEach(([k, v]) => { m[k] = (m[k] || 0) + v; })); return m; };
+        const d1 = sum(1), d7 = sum(7), d30 = sum(30);
+        const keys = Object.keys(d30).sort((a, b) => d30[b] - d30[a]).slice(0, 15);
+        const tot = keys.reduce((a, k) => a + d30[k], 0) || 1;
+        const pct = st.maxKeys ? Math.round(st.keys / st.maxKeys * 100) : 0;
+        return `<div class="sec-t" style="margin-top:18px">지역별 필지 조회 <small style="font-weight:400;color:#5E6A77">어느 구를 많이 보는지 · 미리 불러오기 지역을 정할 때 참고</small></div>
+          <div class="tbl"><table><thead><tr><th>지역</th><th>오늘</th><th>최근 7일</th><th>최근 30일</th><th>비중 (30일)</th></tr></thead><tbody>
+          ${keys.length ? keys.map(k => `<tr><td>${GU[k] || (k.startsWith('11') ? '서울 ' + k : '기타 (' + k + ')')}${WARM.includes(k) ? ' <small style="color:#1F7A3A;font-weight:700">미리 불러오는 중</small>' : ''}</td><td>${(d1[k] || 0).toLocaleString()}</td><td>${(d7[k] || 0).toLocaleString()}</td><td>${d30[k].toLocaleString()}</td><td>${Math.round(d30[k] / tot * 100)}%</td></tr>`).join('') : '<tr><td colspan="5" class="n">아직 집계된 조회가 없습니다. 오늘부터 쌓입니다.</td></tr>'}
+          </tbody></table></div>
+          <div class="sec-t" style="margin-top:18px">창고 사용량 <small style="font-weight:400;color:#5E6A77">빨리 보여 주려고 저장해 둔 공공데이터</small></div>
+          <div class="stat" style="max-width:520px"><span>저장된 자료 ${st.keys.toLocaleString()}개 / 한도 ${st.maxKeys.toLocaleString()}개</span><b style="color:${pct >= 90 ? '#C03A16' : pct >= 70 ? '#9A6200' : 'inherit'}">${pct}%</b>
+            <div style="height:10px;border-radius:5px;background:#E6EAEE;margin-top:8px;overflow:hidden"><div style="height:100%;width:${Math.min(100, pct)}%;background:${pct >= 90 ? '#E4572E' : pct >= 70 ? '#F2B705' : '#1F7A3A'}"></div></div></div>
+          <p class="note">· 한도에 다다르면 새 자료를 더 저장하지 않아 처음 보는 필지가 느려질 수 있습니다. 70%를 넘으면 알려 주세요. 회원·매물장 자료는 이 한도와 상관없이 항상 저장됩니다.</p>`;
+      })()}
       <p class="note">· 방문자는 같은 휴대폰·컴퓨터를 하루 한 명으로 셉니다 (브라우저를 바꾸거나 기록을 지우면 다시 셉니다). 운영자 본인 방문은 오늘부터 빠집니다 (운영자로 한 번이라도 로그인한 기기 포함).<br>· 검색엔진 로봇과 새벽 미리 불러오기는 세지 않습니다. 통계를 넣은 날부터 쌓입니다.</p>
       <div class="sec-t">회원</div>` : '';
     app.innerHTML = visit + `<div class="stats">
