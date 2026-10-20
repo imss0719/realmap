@@ -2,7 +2,7 @@
 // GET /api/members   헤더 x-admin-key: ADMIN_PASSWORD
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
-import { send, fail } from './_lib.js';
+import { send, fail, MAX_KEYS } from './_lib.js';
 import { readSession, redis, R_URL, R_TOKEN } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
@@ -39,16 +39,18 @@ async function stats() {
   try {
     const days = [];
     for (let i = 0; i < 30; i++) days.push(new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, ''));
-    const cmds = days.flatMap(d => [['PFCOUNT', `rm:st:${d}:uv`], ['GET', `rm:st:${d}:pv`], ['GET', `rm:st:${d}:pcl`], ['PFCOUNT', `rm:st:${d}:mem`], ['HGETALL', `rm:st:${d}:src`]]);
-    cmds.push(['PFCOUNT', ...days.slice(0, 7).map(d => `rm:st:${d}:uv`)], ['PFCOUNT', ...days.map(d => `rm:st:${d}:uv`)]);
+    const N = 6;
+    const cmds = days.flatMap(d => [['PFCOUNT', `rm:st:${d}:uv`], ['GET', `rm:st:${d}:pv`], ['GET', `rm:st:${d}:pcl`], ['PFCOUNT', `rm:st:${d}:mem`], ['HGETALL', `rm:st:${d}:src`], ['HGETALL', `rm:st:${d}:gu`]]);
+    cmds.push(['PFCOUNT', ...days.slice(0, 7).map(d => `rm:st:${d}:uv`)], ['PFCOUNT', ...days.map(d => `rm:st:${d}:uv`)], ['DBSIZE']);
     const r = await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
     const out = await r.json();
     const val = i => Number(out[i] && out[i].result) || 0;
     // HGETALL 결과는 [이름, 값, 이름, 값…] 또는 {이름: 값}
     const hash = o => { const r = o && o.result, m = {}; if (Array.isArray(r)) for (let k = 0; k < r.length; k += 2) m[r[k]] = Number(r[k + 1]) || 0; else if (r && typeof r === 'object') for (const [k, v] of Object.entries(r)) m[k] = Number(v) || 0; return m; };
     return {
-      days: days.map((d, i) => ({ d, uv: val(i * 5), pv: val(i * 5 + 1), pcl: val(i * 5 + 2), mem: val(i * 5 + 3), src: hash(out[i * 5 + 4]) })),
-      uv7: val(days.length * 5), uv30: val(days.length * 5 + 1),
+      days: days.map((d, i) => ({ d, uv: val(i * N), pv: val(i * N + 1), pcl: val(i * N + 2), mem: val(i * N + 3), src: hash(out[i * N + 4]), gu: hash(out[i * N + 5]) })),
+      uv7: val(days.length * N), uv30: val(days.length * N + 1),
+      keys: val(days.length * N + 2), maxKeys: MAX_KEYS,
     };
   } catch { return null; }
 }

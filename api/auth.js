@@ -89,7 +89,8 @@ export default async function (req, res) {
       const SRC = ['blog', 'nsearch', 'naver', 'insta', 'kakao', 'youtube', 'google', 'daum', 'direct', 'etc'];
       const src = SRC.includes(req.query.src) ? req.query.src : '';
       const cmds = kind === 'p'
-        ? [['INCR', `rm:st:${day}:pcl`], ['EXPIRE', `rm:st:${day}:pcl`, ex]]
+        ? [['INCR', `rm:st:${day}:pcl`], ['EXPIRE', `rm:st:${day}:pcl`, ex],
+           ...(/^\d{5}$/.test(String(req.query.g || '')) ? [['HINCRBY', `rm:st:${day}:gu`, String(req.query.g), '1'], ['EXPIRE', `rm:st:${day}:gu`, ex]] : [])]
         : [['INCR', `rm:st:${day}:pv`], ['EXPIRE', `rm:st:${day}:pv`, ex], ...(v ? [['PFADD', `rm:st:${day}:uv`, v], ['EXPIRE', `rm:st:${day}:uv`, ex]] : []),
            ...(s ? [['PFADD', `rm:st:${day}:mem`, s.id], ['EXPIRE', `rm:st:${day}:mem`, ex]] : []),
            ...(src ? [['HINCRBY', `rm:st:${day}:src`, src, '1'], ['EXPIRE', `rm:st:${day}:src`, ex]] : [])];
