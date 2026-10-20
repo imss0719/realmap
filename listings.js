@@ -99,7 +99,7 @@
       <div class="price">${esc(priceText(x))}</div>
       ${extra.length ? `<div class="meta" style="font-weight:600;color:#33414F">${esc(extra.join(' · '))}</div>` : ''}
       <div class="addr">${esc(x.bname ? x.bname + ' ' : '')}${esc(units.slice(0, 3).join(', '))}${units.length > 3 ? ` 외 ${units.length - 3}` : ''}</div>
-      <div class="meta">${esc(addrs[0] || '')}${addrs.length > 1 ? ` 외 ${addrs.length - 1}필지` : ''}${x.area ? ` · ${pl.some(p => p.land) ? '면적' : '전용'} ${esc(py(x.area))}` : ''}</div>
+      <div class="meta">${esc(addrs[0] || '')}${addrs.length > 1 ? ` 외 ${addrs.length - 1}필지` : ''}${x.area ? ` · ${(() => { const ks = [...new Set(pl.map(p => p.land ? 'land' : p.ak || 'ex'))]; return ks.length > 1 ? '면적' : ks[0] === 'land' ? '토지' : ks[0] === 'tot' ? '연면적' : '전용'; })()} ${esc(py(x.area))}` : ''}</div>
       ${cs.map(c => `<div class="owner"><span>${esc(c.role || '연락처')} <b>${esc(c.name || '-')}</b></span>${c.phone ? `<a class="tel" href="tel:${esc(c.phone)}">📞 ${esc(c.phone)}</a>` : ''}</div>`).join('')}
       ${Array.isArray(x.rents) && x.rents.length ? `<details class="rents"><summary>${x.kind === 'sale' ? '임대 현황' : '세부 임대료'} ${x.rents.length}건</summary>${x.rents.map(r => `<div><span>${esc(r.label || '-')}${r.memo ? ` <small>${esc(r.memo)}</small>` : ''}</span><b>${shortWon(r.deposit) || '0'} / ${r.rent ? r.rent.toLocaleString() + '만' : '-'}</b></div>`).join('')}</details>` : ''}
       ${x.memo ? `<div class="memo">${esc(x.memo)}</div>` : ''}
@@ -215,19 +215,27 @@
         if (!F.touchedType) F.it.ptype = guessType(t);
       }
       const ts = (b.titles && b.titles.data) || [];
+      // 건물 전체로 할 때 쓸 연면적·대지면적
+      P._tot = (rc && rc.totArea) || Math.round(ts.filter(x => x.mainAtch !== '부속건축물').reduce((a, x) => a + (x.totArea || 0), 0) * 100) / 100 || null;
+      P._site = (rc && rc.platArea) || (t && t.platArea) || null;
       if (ts.some(x => x.regstr === '집합') || (b.recap && b.recap.data && b.recap.data.length)) {
         const nat = (a, c) => String(a).localeCompare(String(c), 'ko', { numeric: true });
         const dongs = [...new Set(ts.map(x => String(x.dong || '').trim()).filter(Boolean))].sort(nat);
         const want = P.dong ? dongs.find(d => d.replace(/동$/, '') === String(P.dong).replace(/동$/, '')) : null;
         P._U = { mode: F.edit && !P.ho ? 'whole' : 'unit', lists: {}, byDong: dongs.length >= 2, dongs, cur: want || dongs.find(d => /\d/.test(d)) || dongs[0] || '', sel: P.ho || '' };
+        if (P._U.mode === 'whole' && !P.ak) P.ak = 'tot';
         loadUnits(F, P);
-      } else if (!t) { // 건물 없는 땅 → 토지면적
-        P.land = true;
+      } else if (t) { // 일반건물(상가건물·다가구 등)은 통째 거래가 보통 → 연면적
+        P.ak = 'tot';
+        if (!P.area && P._tot) { P.area = P._tot; P._msg = totMsg(P); }
+      } else { // 건물 없는 땅 → 토지면적
+        P.land = true; P.ak = 'land';
         if (!P.area) try { const L = await api(`/api/land?pnu=${P.pnu}`); const ar = L.chr && L.chr.data && L.chr.data.area; if (alive(F, P) && ar && !P.area) { collect(); P.area = ar; P._msg = `토지면적 ${ar}㎡ (${(ar / 3.3058).toFixed(1)}평) 자동 입력했습니다`; } } catch { /* 직접 입력 */ }
       }
     } catch { if (alive(F, P)) P._info = { none: true, err: true }; }
     if (alive(F, P)) renderForm(true);
   }
+  const totMsg = P => `연면적 ${P._tot}㎡ (${(P._tot / 3.3058).toFixed(1)}평)${P._site ? ` · 대지 ${P._site}㎡ (${(P._site / 3.3058).toFixed(1)}평)` : ''} 자동 입력했습니다`;
   // 검색 결과(또는 PNU) → 주소 하나 추가
   async function addPlace(lat, lng, label, pnuIn, base) {
     const F = S.form;
@@ -248,7 +256,7 @@
   function cloneUnit(F, i) {
     collect();
     const A = F.it.places[i];
-    const P = { pnu: A.pnu, addr: A.addr, lat: A.lat, lng: A.lng, bname: A.bname, dong: A.dong, ho: '', area: null, _info: A._info };
+    const P = { pnu: A.pnu, addr: A.addr, lat: A.lat, lng: A.lng, bname: A.bname, dong: A.dong, ho: '', area: null, ak: 'ex', _info: A._info, _tot: A._tot, _site: A._site };
     if (A._U) P._U = { ...A._U, mode: 'unit', sel: '' };
     F.it.places.splice(i + 1, 0, P);
     renderForm(true);
@@ -272,6 +280,7 @@
   async function pickUnit(F, P, ho) {
     const U = P._U;
     collect();
+    P.ak = 'ex';
     if (!ho) { P.ho = ''; U.sel = ''; P._msg = ''; return renderForm(true); }
     P.dong = U.cur.replace(/동$/, ''); P.ho = ho; U.sel = ho; P._msg = '전용면적을 불러오는 중…';
     renderForm(true);
@@ -353,7 +362,7 @@
     const I = P._info;
     const info = I && !I.none ? esc([I.use, I.grnd ? `지상 ${I.grnd}층${I.ugrnd ? '·지하 ' + I.ugrnd + '층' : ''}` : '', I.apr ? `사용승인 ${String(I.apr).slice(0, 4)}년` : ''].filter(Boolean).join(' · '))
       : I && I.none && !I.err ? '건물 없는 땅 (토지)' : I ? '' : '건물 정보를 불러오는 중…';
-    const areaLb = P.land ? '토지면적' : '전용면적';
+    const areaLb = P.land || P.ak === 'land' ? '토지면적' : P.ak === 'tot' ? '연면적' : '전용면적';
     return `<div class="picked" style="margin-top:${i ? 10 : 0}px">
       <div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0">${n > 1 ? `<span class="pt" style="margin-right:6px">${i + 1}</span>` : ''}<b style="display:inline">${esc(P.bname || P.addr)}</b><div class="meta">${esc(P.addr)}</div>${info ? `<div class="meta">${info}</div>` : ''}</div>
         ${n > 1 || !S.form.edit ? `<button type="button" class="xbtn" data-pdel="${i}" aria-label="이 주소 빼기">×</button>` : ''}</div>
@@ -435,7 +444,10 @@
     if ($('addPlace')) $('addPlace').onclick = () => { F.adding = true; renderForm(); setTimeout(() => $('fq') && $('fq').focus(), 30); };
     on('[data-pdel]', b => b.onclick = () => { collect(); F.it.places.splice(+b.dataset.pdel, 1); if (!F.it.places.length) { F.adding = true; F.touchedType = false; F.it.bname = ''; } renderForm(true); });
     on('[data-clone]', b => b.onclick = () => cloneUnit(F, +b.dataset.clone));
-    on('[data-umode]', b => b.onclick = () => { collect(); const [i, m] = b.dataset.umode.split(':'); const P = F.it.places[+i]; P._U.mode = m; if (m === 'whole') { P.dong = ''; P.ho = ''; P._U.sel = ''; P._msg = ''; } renderForm(true); });
+    on('[data-umode]', b => b.onclick = () => { collect(); const [i, m] = b.dataset.umode.split(':'); const P = F.it.places[+i]; if (P._U.mode === m) return; P._U.mode = m;
+      if (m === 'whole') { P.dong = ''; P.ho = ''; P._U.sel = ''; P.ak = 'tot'; P.area = P._tot || null; P._msg = P._tot ? totMsg(P) : '연면적 정보가 없어 직접 입력해 주세요'; }
+      else { P.ak = 'ex'; P.area = null; P._msg = ''; }
+      renderForm(true); });
     on('[data-udong]', s => s.onchange = e => { collect(); const P = F.it.places[+s.dataset.udong]; P._U.cur = e.target.value; P._U.sel = ''; P._msg = ''; renderForm(true); loadUnits(F, P); });
     on('[data-uho]', s => s.onchange = e => pickUnit(F, F.it.places[+s.dataset.uho], e.target.value));
     on('[data-area]', inp => inp.oninput = () => { const v = num(inp.value); $('hp' + inp.dataset.area).textContent = v ? (v / 3.3058).toFixed(1) + '평' : ''; });
