@@ -47,7 +47,7 @@ const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_
 // 키 앞부분별 보관 기간(일)
 const KEEP = { 'kaptl:': 30, 'kaptb:': 30, 'kaptd:': 30, 'kaptc:': 20, 'kaptt:': 20, 'bld:': 30, 'bldf:': 30, 'units:': 30, 'unitsd:': 30, 'unit:': 30, 'land:': 7, 'stores:': 14, 'signm:': 30, 'bus:': 30 };
 const keepDays = key => { for (const p in KEEP) if (key.startsWith(p)) return KEEP[p]; return 0; };
-async function rcmd(cmd, ms = 1500) {
+export async function rcmd(cmd, ms = 1500) {
   if (!R_URL || !R_TOKEN) return null;
   const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), ms);
   try {
