@@ -17,6 +17,10 @@ const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_
 const DAYS = 180;
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 // 유료회원(PRO): 운영자는 항상 PRO, 그 외에는 저장소의 realmap:pro 목록에 있는 회원
+// 매물 사진 (Vercel Blob) — 패키지는 사진 기능을 쓸 때만 불러와서, 문제가 생겨도 로그인 등 다른 기능은 그대로 동작
+const blobLib = () => import('@vercel/blob');
+const ownPhoto = (u, id) => { try { const x = new URL(u); return x.protocol === 'https:' && /\.public\.blob\.vercel-storage\.com$/.test(x.hostname) && x.pathname.startsWith(`/ls/${id}/`); } catch { return false; } };
+async function dropPhotos(urls) { if (!urls.length) return; try { const { del } = await blobLib(); await del(urls); } catch { /* 지우기 실패는 무시 (용량만 조금 남음) */ } }
 async function isPro(id) {
   if (!id) return false;
   if (ADMIN_ID && String(id) === ADMIN_ID) return true;
@@ -129,6 +133,17 @@ export default async function (req, res) {
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       if (!(await isPro(s.id))) return fail(res, 403, 'pro', '유료회원 전용 기능입니다.');
+      // 사진 올리기: 브라우저에서 줄인 JPEG를 받아 저장하고 주소를 돌려줍니다
+      if (action === 'listing' && req.query.op === 'photo') {
+        if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+        const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+        const buf = Buffer.from(String(body.data || '').replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        if (buf.length < 500 || buf.length > 3 * 1024 * 1024) return fail(res, 400, 'size', '사진 크기가 올바르지 않습니다.');
+        if (!(buf[0] === 0xFF && buf[1] === 0xD8)) return fail(res, 400, 'type', 'JPEG 사진만 올릴 수 있습니다.');
+        const { put } = await blobLib();
+        const r = await put(`ls/${s.id}/${Date.now().toString(36)}.jpg`, buf, { access: 'public', contentType: 'image/jpeg', addRandomSuffix: true, cacheControlMaxAge: 31536000 });
+        return send(res, 200, { ok: true, url: r.url });
+      }
       const key = `realmap:ls:${s.id}`;
       const raw = await redis(['GET', key]);
       let items = raw ? JSON.parse(raw) : [];
@@ -140,6 +155,12 @@ export default async function (req, res) {
         await redis(['SET', key, JSON.stringify(items)]);
       }
       if (action === 'listings') return send(res, 200, { ok: true, items });
+      if (req.query.op === 'photodel') { // 저장하지 않고 닫은 사진 정리 (저장된 매물에 쓰인 사진은 지우지 않음)
+        const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+        const used = new Set(items.flatMap(x => (x.photos || []).map(p => p.url)));
+        await dropPhotos((Array.isArray(body.urls) ? body.urls : []).filter(u => ownPhoto(u, s.id) && !used.has(u)).slice(0, 50));
+        return send(res, 200, { ok: true });
+      }
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const str = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
@@ -159,6 +180,7 @@ export default async function (req, res) {
           .filter(c => c.name || c.phone).slice(0, 10);
         const rents = (Array.isArray(it.rents) ? it.rents : []).map(r => ({ label: str(r.label, 30), deposit: numv(r.deposit), rent: numv(r.rent), memo: str(r.memo, 60) }))
           .filter(r => r.label || r.deposit || r.rent || r.memo).slice(0, 60);
+        const photos = (Array.isArray(it.photos) ? it.photos : []).map(p => ({ url: String(p && p.url || '') })).filter(p => ownPhoto(p.url, s.id)).slice(0, 30);
         const kind = ['sale', 'jeonse', 'wolse', 'presale'].includes(it.kind) ? it.kind : 'sale';
         const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
         const prev = id ? items.find(x => x.id === id) : null;
@@ -173,19 +195,22 @@ export default async function (req, res) {
           // 목록·지도용 대표값 (첫 번째 주소 · 첫 번째 연락처)
           pnu: p0.pnu, addr: p0.addr, road: str(it.road, 80), bname: str(it.bname, 40) || p0.bname, lat: p0.lat, lng: p0.lng,
           dong: p0.dong, ho: p0.ho, area: areaSum ? Math.round(areaSum * 100) / 100 : null, owner: c0.name || '', phone: c0.phone || '',
-          places, contacts, rents,
+          places, contacts, rents, photos,
           ptype: str(it.ptype, 10), ptypeTx: str(it.ptypeTx, 20), kind,
           price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
           curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
           memo: str(it.memo, 1000), status, at: prev ? prev.at : now, up: now,
         };
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
+        if (prev && prev.photos) { const keep = new Set(photos.map(p => p.url)); await dropPhotos(prev.photos.map(p => p.url).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }
       } else if (body.op === 'status') {
         const st = ['on', 'hold', 'done'].includes(body.status) ? body.status : null;
         if (!st) return fail(res, 400, 'status', '상태가 올바르지 않습니다.');
         items = items.map(x => (x.id === id ? { ...x, status: st, up: now } : x));
       } else if (body.op === 'del') {
+        const gone = items.find(x => x.id === id);
         items = items.filter(x => x.id !== id);
+        if (gone && gone.photos) await dropPhotos(gone.photos.map(p => p.url).filter(u => ownPhoto(u, s.id)));
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
       await redis(['SET', key, JSON.stringify(items)]);
       return send(res, 200, { ok: true, items });
@@ -238,6 +263,7 @@ export default async function (req, res) {
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
+      try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id))); } catch { /* 무시 */ }
       try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
