@@ -43,6 +43,8 @@
     $('who').textContent = `${S.me.nickname || '회원'}님`;
     if (!S.me.pro) return gate('유료회원 전용 기능입니다', '매물장은 PRO 회원에게 제공됩니다. 이용 문의는 realwalkers@naver.com 으로 연락 주세요.', '<a class="btn dark" href="/">리얼맵 지도로 돌아가기</a>');
     layout();
+    const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
+    th(); addEventListener('resize', th);
     loadMap();
     try { S.items = (await api('/api/auth?action=listings')).items || []; } catch (e) { toast(e.message, 4000); }
     draw();
@@ -308,6 +310,12 @@
     return it;
   }
   function openForm(item, pnu) {
+    if (!item && !pnu && S.draft) { // 닫기 전에 쓰던 내용 이어서
+      S.form = S.draft; S.draft = null;
+      $('shTitle').textContent = '매물 등록'; $('sheet').hidden = false; document.body.style.overflow = 'hidden'; $('form').innerHTML = '';
+      renderForm(true); toast('작성하던 내용을 불러왔습니다'); return;
+    }
+    if (!item && pnu) S.draft = null;
     S.form = { edit: !!item, it: item ? upgrade(item) : { kind: 'sale', status: 'on', ptype: '', places: [], contacts: [{ role: '소유자', name: '', phone: '' }], rents: [] }, results: null, picking: false, adding: !item, touchedType: !!item };
     if (!S.form.it.contacts.length) S.form.it.contacts.push({ role: '소유자', name: '', phone: '' });
     $('shTitle').textContent = item ? '매물 수정' : '매물 등록';
@@ -319,8 +327,15 @@
     else setTimeout(() => $('fq') && $('fq').focus(), 50);
   }
   function closeForm() { $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null; }
-  $('shClose').onclick = closeForm;
-  $('sheet').onclick = e => { if (e.target === $('sheet')) closeForm(); };
+  // 창 바깥을 눌러도 닫히지 않습니다. 닫기(×)를 누르면 한 번 더 묻고, 새로 쓰던 내용은 임시로 보관합니다.
+  function dirty(F) { return F && (F.it.places.length || F.it.contacts.some(c => c.name || c.phone) || F.it.memo); }
+  $('shClose').onclick = () => {
+    const F = S.form; if (!F) return closeForm();
+    collect();
+    if (dirty(F) && !confirm(F.edit ? '수정한 내용을 저장하지 않고 닫을까요?' : '작성 중인 내용을 저장하지 않고 닫을까요?\n(다시 ＋ 매물 등록을 누르면 이어서 쓸 수 있습니다)')) return;
+    if (!F.edit && dirty(F)) S.draft = F;
+    closeForm();
+  };
 
   const m2py = a => a ? `${a}㎡ (${(a / 3.3058).toFixed(1)}평)` : '';
   function placeBlock(P, i, n) {
@@ -458,7 +473,7 @@
     $('fSave').disabled = true; $('fSave').textContent = '저장 중…';
     try {
       const j = await api('/api/auth?action=listing', post({ op: 'save', id: S.form.edit ? it.id : '', item: body }));
-      const wasEdit = S.form.edit; S.items = j.items; closeForm();
+      const wasEdit = S.form.edit; S.items = j.items; if (!wasEdit) S.draft = null; closeForm();
       if (!wasEdit) { S.tab = it.status; S.kind = 'all'; }
       draw(); if (!wasEdit) focusItem(S.items[0].id, true);
       toast(wasEdit ? '수정했습니다' : '매물장에 등록했습니다');
