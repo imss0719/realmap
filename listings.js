@@ -151,12 +151,15 @@
       const el = document.createElement('div');
       el.className = `pin ${x.status === 'on' ? x.kind : x.status}${S.hl === x.id ? ' hl' : ''}`;
       el.textContent = pinText(x);
-      el.style.transform = `translate(${k * 16}px, ${-6 - k * 30}px)`;
+      el.style.transform = `translate(${k * 14}px, ${-6 - k * 24}px)`;
       el.onclick = () => focusItem(x.id, true);
       const pos = new kakao.maps.LatLng(g.lat, g.lng);
       const ov = new kakao.maps.CustomOverlay({ position: pos, content: el, yAnchor: 1, zIndex: S.hl === x.id ? 100 : 1 + k });
       el.onmouseenter = () => ov.setZIndex(99); el.onmouseleave = () => ov.setZIndex(S.hl === x.id ? 100 : 1 + k);
       ov.setMap(S.map); S.pins.set(x.id, ov); bounds.extend(pos);
+      // 핀을 비켜 그려도 지도가 감싸는 상자는 원래 자리에 남아 아래 핀을 가립니다 → 상자는 클릭을 통과시키고 핀만 누르게
+      let w = el.parentElement; if (w && w !== $('map')) w.style.pointerEvents = 'none';
+      el.style.pointerEvents = 'auto';
     });
     if (fit !== false && rows.length) { if (rows.length === 1) { S.map.setCenter(new kakao.maps.LatLng(rows[0].lat, rows[0].lng)); S.map.setLevel(4); } else S.map.setBounds(bounds, 40, 40, 40, 40); }
   }
