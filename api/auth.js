@@ -15,6 +15,13 @@ const SECRET = (process.env.SESSION_SECRET || '').trim()
 const R_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || Object.entries(process.env).find(([k]) => /_REST_API_URL$/.test(k))?.[1] || '';
 const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || Object.entries(process.env).find(([k]) => /_REST_API_TOKEN$/.test(k) && !/READ_ONLY/.test(k))?.[1] || '';
 const DAYS = 180;
+const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
+// 유료회원(PRO): 운영자는 항상 PRO, 그 외에는 저장소의 realmap:pro 목록에 있는 회원
+async function isPro(id) {
+  if (!id) return false;
+  if (ADMIN_ID && String(id) === ADMIN_ID) return true;
+  try { return !!(await redis(['SISMEMBER', 'realmap:pro', String(id)])); } catch { return false; }
+}
 
 function origin(req) {
   const host = req.headers['x-forwarded-host'] || req.headers.host;
@@ -60,7 +67,7 @@ export default async function (req, res) {
   try {
     if (action === 'me') {
       const s = readSession(req);
-      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '' });
+      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: s ? await isPro(s.id) : false });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
@@ -111,6 +118,49 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, ...d });
     }
 
+    // 매물장 (PRO 전용) — 회원별 최대 1,000건, 한 덩어리로 저장
+    if (action === 'listings' || action === 'listing') {
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '유료회원 전용 기능입니다.');
+      const key = `realmap:ls:${s.id}`;
+      const raw = await redis(['GET', key]);
+      let items = raw ? JSON.parse(raw) : [];
+      if (action === 'listings') return send(res, 200, { ok: true, items });
+      if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const str = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
+      const numv = v => { const x = Number(String(v ?? '').replace(/[^\d.]/g, '')); return Number.isFinite(x) && x > 0 ? Math.round(x * 100) / 100 : null; };
+      const id = str(body.id, 20).replace(/[^\w-]/g, '');
+      const now = new Date().toISOString();
+      if (body.op === 'save') {
+        const it = body.item || {};
+        const pnu = String(it.pnu || '').replace(/\D/g, '');
+        if (!/^\d{19}$/.test(pnu)) return fail(res, 400, 'bad_pnu', '주소를 먼저 골라 주세요.');
+        const kind = ['sale', 'jeonse', 'wolse'].includes(it.kind) ? it.kind : 'sale';
+        const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
+        const prev = id ? items.find(x => x.id === id) : null;
+        if (!prev && items.length >= 1000) return fail(res, 400, 'full', '매물은 1,000건까지 저장할 수 있습니다. 계약 완료된 매물을 정리해 주세요.');
+        const rec = {
+          id: prev ? prev.id : Date.now().toString(36) + crypto.randomBytes(3).toString('hex'),
+          pnu, addr: str(it.addr, 80), road: str(it.road, 80), bname: str(it.bname, 40), lat: Number(it.lat) || null, lng: Number(it.lng) || null,
+          ptype: str(it.ptype, 10), kind, price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent),
+          dong: str(it.dong, 20), ho: str(it.ho, 20), area: numv(it.area), owner: str(it.owner, 20), phone: str(it.phone, 20).replace(/[^\d-]/g, ''),
+          memo: str(it.memo, 1000), status, at: prev ? prev.at : now, up: now,
+        };
+        items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
+      } else if (body.op === 'status') {
+        const st = ['on', 'hold', 'done'].includes(body.status) ? body.status : null;
+        if (!st) return fail(res, 400, 'status', '상태가 올바르지 않습니다.');
+        items = items.map(x => (x.id === id ? { ...x, status: st, up: now } : x));
+      } else if (body.op === 'del') {
+        items = items.filter(x => x.id !== id);
+      } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+      await redis(['SET', key, JSON.stringify(items)]);
+      return send(res, 200, { ok: true, items });
+    }
+
     if (action === 'login') {
       if (!REST) return fail(res, 500, 'no_key', 'Vercel 환경변수 KAKAO_REST_KEY 가 비어 있습니다.');
       const nonce = crypto.randomBytes(12).toString('base64url');
@@ -158,7 +208,7 @@ export default async function (req, res) {
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
-      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
+      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
     }
