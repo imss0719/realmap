@@ -98,6 +98,7 @@
       return `<div class="card${x.status === 'done' ? ' done' : ''}${S.hl === x.id ? ' hl' : ''}" id="c_${x.id}">
       <div class="ch"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${x.ptype ? `<span class="pt">${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}</span>` : ''}${pl.length > 1 ? `<span class="pt">${pl.length}건 묶음</span>` : ''}<span class="st ${x.status}">${STAT[x.status]}</span></div>
       ${x.no ? `<div class="no">No. ${esc(x.no)}</div>` : ''}
+      ${Array.isArray(x.photos) && x.photos.length ? `<div class="thumbs">${x.photos.slice(0, 4).map((p, i) => `<button type="button" data-view="${x.id}:${i}"><img src="${esc(p.url)}" alt="" loading="lazy">${i === 3 && x.photos.length > 4 ? `<b>+${x.photos.length - 4}</b>` : ''}</button>`).join('')}</div>` : ''}
       <div class="price">${esc(priceText(x))}</div>
       ${extra.length ? `<div class="meta" style="font-weight:600;color:#33414F">${esc(extra.join(' · '))}</div>` : ''}
       <div class="addr">${esc(x.bname ? x.bname + ' ' : '')}${esc(units.slice(0, 3).join(', '))}${units.length > 3 ? ` 외 ${units.length - 3}` : ''}</div>
@@ -113,6 +114,7 @@
       </div>
       <div class="meta" style="margin-top:8px;font-size:13px">등록 ${ymd(x.at)}${x.up !== x.at ? ' · 수정 ' + ymd(x.up) : ''}</div>
     </div>`; }).join('');
+    $('list').querySelectorAll('[data-view]').forEach(b => b.onclick = () => { const [id, i] = b.dataset.view.split(':'); const x = S.items.find(y => y.id === id); viewer(x.photos.map(p => p.url), +i); });
     $('list').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openForm(S.items.find(x => x.id === b.dataset.edit)));
     $('list').querySelectorAll('[data-next]').forEach(b => b.onclick = async () => {
       const x = S.items.find(i => i.id === b.dataset.next); const st = x.status === 'on' ? 'done' : 'on';
@@ -337,6 +339,7 @@
     if (!Array.isArray(it.places) || !it.places.length) it.places = [{ pnu: x.pnu, addr: x.addr, lat: x.lat, lng: x.lng, bname: x.bname, dong: x.dong, ho: x.ho, area: x.area }];
     if (!Array.isArray(it.contacts)) it.contacts = x.owner || x.phone ? [{ role: '소유자', name: x.owner || '', phone: x.phone || '' }] : [];
     if (!Array.isArray(it.rents)) it.rents = [];
+    if (!Array.isArray(it.photos)) it.photos = [];
     return it;
   }
   function openForm(item, pnu) {
@@ -346,7 +349,8 @@
       renderForm(true); toast('작성하던 내용을 불러왔습니다'); return;
     }
     if (!item && pnu) S.draft = null;
-    S.form = { edit: !!item, it: item ? upgrade(item) : { kind: 'sale', status: 'on', ptype: '', places: [], contacts: [{ role: '소유자', name: '', phone: '' }], rents: [] }, results: null, picking: false, adding: !item, touchedType: !!item };
+    S.form = { edit: !!item, it: item ? upgrade(item) : { kind: 'sale', status: 'on', ptype: '', places: [], contacts: [{ role: '소유자', name: '', phone: '' }], rents: [], photos: [] }, newPhotos: [], upN: 0, results: null, picking: false, adding: !item, touchedType: !!item };
+    S.form.newPhotos = S.form.newPhotos || []; S.form.upN = 0;
     if (!S.form.it.contacts.length) S.form.it.contacts.push({ role: '소유자', name: '', phone: '' });
     $('shTitle').textContent = item ? '매물 수정' : '매물 등록';
     $('sheet').hidden = false; document.body.style.overflow = 'hidden';
@@ -358,12 +362,13 @@
   }
   function closeForm() { $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null; }
   // 창 바깥을 눌러도 닫히지 않습니다. 닫기(×)를 누르면 한 번 더 묻고, 새로 쓰던 내용은 임시로 보관합니다.
-  function dirty(F) { return F && (F.it.places.length || F.it.contacts.some(c => c.name || c.phone) || F.it.memo); }
+  function dirty(F) { return F && (F.it.places.length || F.it.photos.length || F.it.contacts.some(c => c.name || c.phone) || F.it.memo); }
   $('shClose').onclick = () => {
     const F = S.form; if (!F) return closeForm();
     collect();
     if (dirty(F) && !confirm(F.edit ? '수정한 내용을 저장하지 않고 닫을까요?' : '작성 중인 내용을 저장하지 않고 닫을까요?\n(다시 ＋ 매물 등록을 누르면 이어서 쓸 수 있습니다)')) return;
-    if (!F.edit && dirty(F)) S.draft = F;
+    if (!F.edit && dirty(F)) S.draft = F; // 새로 쓰던 건 사진째 보관
+    else if (F.newPhotos.length) api('/api/auth?action=listing&op=photodel', post({ urls: F.newPhotos })).catch(() => {});
     closeForm();
   };
 
@@ -405,6 +410,45 @@
     const y = inv > 0 ? it.curRent * 12 / inv * 100 : 0;
     return y ? `<div class="sumline">연 임대수익 ${won(it.curRent * 12)} · 수익률 약 <b>${y.toFixed(2)}%</b> <small>(실투자금 ${won(inv)} 기준, 융자 제외)</small></div>` : '';
   }
+  // ---------- 사진 ----------
+  // 휴대폰 원본(3~5MB)을 긴 변 1,600px JPEG(약 0.3MB)로 줄여서 올립니다
+  async function shrink(file) {
+    let src;
+    try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch { src = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
+    const W = src.width, H = src.height, k = Math.min(1, 1600 / Math.max(W, H));
+    const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.82);
+  }
+  async function uploadPhotos(F, files) {
+    const room = 30 - F.it.photos.length - F.upN;
+    if (files.length > room) toast(`사진은 매물당 30장까지입니다. ${Math.max(0, room)}장만 올립니다.`, 3500);
+    files = files.slice(0, Math.max(0, room)).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
+    if (!files.length) return;
+    collect(); F.upN += files.length; renderForm(true);
+    let bad = 0;
+    for (const f of files) {
+      try {
+        const data = await shrink(f);
+        const j = await api('/api/auth?action=listing&op=photo', post({ data }));
+        if (S.form !== F) { api('/api/auth?action=listing&op=photodel', post({ urls: [j.url] })).catch(() => {}); continue; }
+        F.it.photos.push({ url: j.url }); F.newPhotos.push(j.url);
+      } catch { bad++; }
+      F.upN--; if (S.form === F) { collect(); renderForm(true); }
+    }
+    if (bad) toast(`사진 ${bad}장을 올리지 못했습니다. 다른 사진으로 다시 시도해 주세요.`, 4000);
+  }
+  // 사진 크게 보기
+  function viewer(urls, at) {
+    let i = at;
+    const box = document.createElement('div'); box.className = 'viewer';
+    const draw = () => { box.innerHTML = `<img src="${esc(urls[i])}" alt=""><button class="vx" aria-label="닫기">×</button>${urls.length > 1 ? `<button class="vp" aria-label="이전">‹</button><button class="vn" aria-label="다음">›</button>` : ''}<div class="vc">${i + 1} / ${urls.length}</div>`;
+      box.querySelector('.vx').onclick = () => box.remove();
+      if (urls.length > 1) { box.querySelector('.vp').onclick = e => { e.stopPropagation(); i = (i - 1 + urls.length) % urls.length; draw(); }; box.querySelector('.vn').onclick = e => { e.stopPropagation(); i = (i + 1) % urls.length; draw(); }; } };
+    box.onclick = e => { if (e.target === box) box.remove(); };
+    draw(); document.body.appendChild(box);
+  }
   function renderForm(skipCollect) {
     const F = S.form; if (!F) return;
     if (!skipCollect) collect();
@@ -427,6 +471,11 @@
     $('form').innerHTML = `
       <div class="fld"><span class="lb">주소<small>지번·도로명·건물명 모두 됩니다</small></span>${addr}</div>
       ${n ? `
+      <div class="fld"><span class="lb">사진<small>${it.photos.length}/30 · 첫 번째가 대표 사진</small></span>
+        <div class="pgrid">${it.photos.map((p, i) => `<div class="ph"><img src="${esc(p.url)}" alt="" loading="lazy">${i === 0 ? '<em>대표</em>' : ''}
+          <div class="pbar">${i ? `<button type="button" data-pl="${i}" aria-label="앞으로">◀</button>` : '<span></span>'}<button type="button" data-px="${i}" aria-label="사진 빼기">×</button>${i < it.photos.length - 1 ? `<button type="button" data-pr="${i}" aria-label="뒤로">▶</button>` : '<span></span>'}</div></div>`).join('')}
+          ${F.upN ? Array.from({ length: F.upN }, () => '<div class="ph up"><span class="spin"></span></div>').join('') : ''}
+          ${it.photos.length + (F.upN || 0) < 30 ? '<label class="ph add"><input type="file" id="fPhoto" accept="image/*" multiple hidden><b>＋</b><span>사진 추가</span></label>' : ''}</div></div>
       <div class="fld"><span class="lb">거래 종류</span><div class="seg" id="fKind">${Object.entries(KIND).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="${it.kind === k}">${v}</button>`).join('')}</div></div>
       <div class="fld"><span class="lb">금액<small>만원 단위로 입력</small></span><div class="two">${MF.map(([k, lb, req]) => moneyField(k, lb, it[k], req)).join('')}</div><div id="yield">${yieldHint(it)}</div></div>
       ${showRents ? `<div class="fld"><span class="lb">${rentTitle}<small>필요할 때만</small></span>
@@ -485,6 +534,11 @@
       if (!confirm(`세부 ${F.it.rents.length}건 합계\n\n${lb[0]}: ${won(d) || '0원'}\n${lb[1]}: ${won(m) || '0원'}\n\n이 금액을 위 ${lb[0]}·${lb[1]} 칸에 넣을까요?`)) return;
       F.it[kd] = d || null; F.it[km] = m || null; renderForm(true); toast('합계를 반영했습니다');
     };
+    if ($('fPhoto')) $('fPhoto').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; uploadPhotos(F, fs); };
+    on('[data-px]', b => b.onclick = () => { collect(); F.it.photos.splice(+b.dataset.px, 1); renderForm(true); });
+    const mv = (i, d) => { collect(); const a = F.it.photos; [a[i], a[i + d]] = [a[i + d], a[i]]; renderForm(true); };
+    on('[data-pl]', b => b.onclick = () => mv(+b.dataset.pl, -1));
+    on('[data-pr]', b => b.onclick = () => mv(+b.dataset.pr, 1));
     $('addContact').onclick = () => { collect(); F.it.contacts.push({ role: '임차인', name: '', phone: '' }); renderForm(true); };
     on('[data-cdel]', b => b.onclick = () => { collect(); F.it.contacts.splice(+b.dataset.cdel, 1); renderForm(true); });
     $('fSave').onclick = save;
@@ -505,6 +559,7 @@
   async function save() {
     collect();
     const it = S.form.it;
+    if (S.form.upN) return toast('사진을 올리는 중입니다. 잠시 후 저장해 주세요');
     const need = MONEY[it.kind].find(([k, , req]) => req && !it[k]);
     if (need && !(it.kind === 'wolse' && it.deposit)) return toast(`${need[1]}을(를) 입력해 주세요`);
     // 화면용 임시값(_로 시작)은 빼고 보냅니다. 거래 종류에 없는 금액 칸은 비웁니다.
@@ -530,14 +585,14 @@
   // ---------- 엑셀(CSV) 저장 ----------
   function exportCsv() {
     if (!S.items.length) return toast('저장할 매물이 없습니다');
-    const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '대지㎡', '건축㎡', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '프리미엄', '납입액', '연락처', '세부 임대료', '메모', '등록일', '수정일', '리얼맵 링크'];
+    const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '대지㎡', '건축㎡', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '프리미엄', '납입액', '연락처', '세부 임대료', '사진 수', '메모', '등록일', '수정일', '리얼맵 링크'];
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = S.items.map(x => {
       const pl = Array.isArray(x.places) && x.places.length ? x.places : [{ addr: x.addr, dong: x.dong, ho: x.ho }];
       const cs = Array.isArray(x.contacts) ? x.contacts : x.owner || x.phone ? [{ role: '집주인', name: x.owner, phone: x.phone }] : [];
       return [x.no, STAT[x.status], KIND[x.kind], x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype, x.bname, [...new Set(pl.map(p => p.addr))].join(' / '), pl.map(p => [p.dong, p.ho].filter(Boolean).join(' ')).filter(Boolean).join(', '),
         x.area || '', x.area ? (x.area / 3.3058).toFixed(1) : '', pl.reduce((a, p) => a + (p.site || 0), 0) || '', pl.reduce((a, p) => a + (p.arch || 0), 0) || '', x.price || '', x.deposit || '', x.rent || '', x.mgmt || '', x.premium || '', x.curDep || '', x.curRent || '', x.loan || '', x.pr || '', x.paid || '',
-        cs.map(c => `${c.role || ''} ${c.name || ''} ${c.phone || ''}`.trim()).join(' / '), (x.rents || []).map(r => `${r.label} ${r.deposit || 0}/${r.rent || 0}${r.memo ? ' ' + r.memo : ''}`).join(' / '),
+        cs.map(c => `${c.role || ''} ${c.name || ''} ${c.phone || ''}`.trim()).join(' / '), (x.rents || []).map(r => `${r.label} ${r.deposit || 0}/${r.rent || 0}${r.memo ? ' ' + r.memo : ''}`).join(' / '), (x.photos || []).length || '',
         x.memo, ymd(x.at), ymd(x.up), `https://realmap.online/?pnu=${x.pnu}`].map(q).join(',');
     });
     // 금액은 모두 만원 단위
