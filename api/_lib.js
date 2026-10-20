@@ -161,7 +161,7 @@ async function dataGoKrOnce(url, params) {
     const code = head && (head.resultCode ?? head.returnReasonCode);
     if (code != null && !OK.includes(String(code))) throw new ApiError('datagokr', `공공데이터포털: ${head.resultMsg || head.returnAuthMsg || head.errMsg || ''} (${code})`);
     if (!root.body) throw new ApiError('datagokr', `공공데이터포털 응답 형식이 예상과 다릅니다 · ${raw}`);
-    let items = root.body.items?.item ?? root.body.items ?? [];
+    let items = root.body.items?.item ?? root.body.items ?? root.body.item ?? [];  // K-apt는 body.item 하나로 옴
     if (!Array.isArray(items)) items = items && typeof items === 'object' ? [items] : [];
     return { items, total: Number(root.body.totalCount || items.length), raw };
   }
