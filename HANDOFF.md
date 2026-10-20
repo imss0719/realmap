@@ -1,6 +1,6 @@
 # 리얼맵 인수인계 문서 (새 대화방에서 이어서 작업할 때 먼저 읽기)
 
-마지막 정리: 2026-10-20
+마지막 정리: 2026-10-20 (밤, 지도 실거래가 좌표장 추가)
 
 ## 0. 일하는 방식 (가장 중요)
 - 운영자: 선배 (리얼워커스 공인중개사사무소 대표, 마포). 존댓말, "선배"로 부름, 비개발자.
@@ -23,14 +23,16 @@
 - `briefing.html` + `briefing.js`: 매물 브리핑 자료 편집기
 - `members.html`: 운영자 회원관리·방문 통계·유입 경로·지역별 필지 조회·창고 사용량
 - `guide.html`, `privacy.html`, `sitemap.xml`, `robots.txt`, `og.png`, `favicon.svg`
-- `api/` (Vercel 서버 함수 13개 — Hobby 한도 근처라 **새 파일 대신 기존 파일에 기능을 붙임**)
-  - `_lib.js` 공통: 공공데이터 호출(일시 장애 3회 재시도), `cached()` 메모리+Upstash 창고(KEEP 접두사별 보관일, MAX_KEYS 15000 넘으면 저장 중지), `pool()`
+- `api/` (Vercel 서버 함수 11개 + `_lib.js` — Hobby 한도 12개라 **새 파일 대신 기존 파일에 기능을 붙임**)
+  - `_lib.js` 공통: 공공데이터 호출(일시 장애 3회 재시도), `cached()` 메모리+Upstash 창고(KEEP 접두사별 보관일, MAX_KEYS 15000 넘으면 저장 중지), `pool()`, `rcmd()`(창고 직접 명령)
   - `auth.js`: 카카오 로그인, 방문 통계(hit), 관심 부동산, **매물장(listings/listing, 사진 op=photo/photodel)**, 탈퇴
   - `building.js`: 건축물대장(+part=floors), **K-apt 관리비(part=kapt, kaptTrend)**
-  - `land.js` 토지·공시지가·개별주택가격 / `units.js` 동·호 / `trades.js` 실거래 / `aptmap.js` 지도 실거래 표시
+  - `land.js` 토지·공시지가·개별주택가격 / `units.js` 동·호 / `trades.js` 실거래
+  - `aptmap.js` 지도 위 실거래가 라벨. 건물 좌표는 구별 **좌표장**(창고 `rmc:geo:<시군구코드>` 해시, 180일)에서 먼저 꺼내 쓰고, 없으면 브이월드 주소검색 → 그래도 없으면 화면이 카카오로 찾아서 `POST /api/aptmap`으로 좌표장에 보탬. 원인 확인용 `?debug=geo`
   - `stores.js`: 입점 업종, **버스정류장(near=bus: 서울 ws.bus.go.kr → 없으면 TAGO)**
   - `members.js`: 운영자 통계 (지역 이름은 브이월드 LT_C_ADSIGG_INFO로 찾음)
-  - `parcel.js`, `zones.js`, `layer.js`, `config.js`, `health.js`
+  - `parcel.js`, `config.js`, `health.js`
+  - `zones.js`·`layer.js`는 10/17 삭제(함수 한도). 개발지도 정비구역은 정적 파일 `data/jeongbi-seoul.json`에서 바로 읽음. `app.js`의 `/api/zones` 호출과 `admin.html`·`admin.js`는 남은 흔적(조용히 실패, 이용자 영향 없음)
 - `scripts/warm.mjs` + `.github/workflows/warm.yml`: 매일 새벽 3시 마포·서대문·은평 아파트·오피스텔 미리 불러오기 (7일에 한 바퀴)
 - `package.json`: 의존성 `@vercel/blob` 하나 (사진). auth.js에서 사진 기능 쓸 때만 동적 import.
 
@@ -65,6 +67,7 @@
 - 콘텐츠: 블로그 2편(전세 안전 점검, 중개사 후기) 게시, 릴스(관리비 편·입점 업종 편 등) 게시, 링크에 `?from=blog|insta|kakao|youtube` 붙이기.
 
 ## 7. 점검 요령
+- 지도 실거래가가 새 브라우저(인스타 앱 등)에서 늦게 뜨면: `/api/aptmap?kind=apt&lawd=11440&r=서울특별시 마포구&debug=geo` 로 브이월드 주소검색 상태 확인. 10/20에 브이월드 좌표가 0건으로 오던 문제 때문에 좌표장을 만듦
 - 실사이트 확인: `https://realmap.online/api/health`, `/api/building?pnu=..&part=kapt&debug=list`
 - 공공데이터 일시 장애(01/02/04/05, 빈 응답)는 흔함 → 결과를 캐시에 넣지 않고 다시 시도.
 - 영상(릴스)은 HTML render(t) + Playwright 캡처 + ffmpeg, 배경음악은 numpy로 만든 딥하우스(선배 선호), 사람 목소리는 선배 녹음 파일을 받는 게 최선.

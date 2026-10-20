@@ -1761,7 +1761,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // ---------- 지도 위 실거래가 라벨 ----------
   // 화면 중심·모서리가 속한 시군구의 최근 6개월 매매를 건물별 최신 거래가로 표시합니다 (아파트·빌라·오피스텔).
   const TK = { apt: '아파트', rh: '빌라', offi: '오피스텔' };
-  const T = { on: true, kinds: { apt: true, rh: true, offi: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: false, hinted: false };
+  const T = { on: true, kinds: { apt: true, rh: true, offi: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
   const MAXLV = 5;
   const eok = man => { if (man >= 10000) { const e = man / 10000; const d = e >= 10 ? 10 : 100; return `${String(Math.round(e * d) / d)}억`; } return `${n(man)}만`; };
   function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds })); } catch { /* 저장소 없음 */ } }
@@ -1787,7 +1787,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     return new Promise(ok => S.geocoder.coord2RegionCode(lng, lat, (r, st) => {
       if (st !== kakao.maps.services.Status.OK) return ok(null);
       const b = r.find(x => x.region_type === 'B') || r[0];
-      ok(b ? { lawd: String(b.code).slice(0, 5), name: `${b.region_1depth_name} ${b.region_2depth_name}`.trim() } : null);
+      ok(b ? { lawd: String(b.code).slice(0, 5), name: `${b.region_1depth_name} ${b.region_2depth_name}`.trim(), dong: b.region_3depth_name || '' } : null);
     }));
   }
   function loadRegion(kind, rg) {
@@ -1798,30 +1798,55 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     e.p = api(`/api/aptmap?kind=${kind}&lawd=${rg.lawd}&r=${encodeURIComponent(rg.name)}`).then(j => {
       // 서버가 요청한 종류의 자료를 돌려줬는지 확인 (예전 서버 파일이면 모든 종류에 아파트 자료가 와서 겹쳐 보입니다)
       if ((j.kind || 'apt') !== kind) { console.warn('api/aptmap.js 파일이 최신이 아닙니다'); e.items = []; return []; }
-      e.items = j.items.map((x, i) => ({ ...x, k: kind, id: `${key}:${i}` }));
+      e.items = j.items.map((x, i) => ({ ...x, k: kind, id: `${key}:${i}`, lawd: rg.lawd }));
       e.items.filter(x => x.lat == null).forEach(x => T.geoQ.push(x));
-      geoNext();
+      geoSort(); geoNext();
       return e.items;
     }).catch(() => { T.regions.delete(key); return []; });
     T.regions.set(key, e);
     return e.p;
   }
-  // 서버에서 좌표를 못 찾은 건물은 카카오 주소 검색으로 보충 (한 번 찾은 좌표는 이 브라우저에 기억)
+  // 서버에서 좌표를 못 찾은 건물은 카카오 주소 검색으로 보충 (한 번 찾은 좌표는 이 브라우저에 기억하고, 서버 좌표장에도 보탬)
+  // 지금 보고 있는 동(洞)의 건물부터, 한 번에 4곳씩 찾습니다.
+  function geoSort() {
+    if (!T.dong) return;
+    const near = x => (x.a || '').includes(` ${T.dong} `) ? 0 : 1;
+    T.geoQ.sort((a, z) => near(a) - near(z) || z.c - a.c);
+  }
   function geoNext() {
-    if (T.geoBusy) return;
-    const x = T.geoQ.shift(); if (!x) { drawTrades(); return; }
-    let memo = null; try { memo = JSON.parse(localStorage.getItem('rm.g:' + x.a) || 'null'); } catch { /* 없음 */ }
-    if (memo) { x.lat = memo[0]; x.lng = memo[1]; geoNext(); return; }
-    T.geoBusy = true;
-    S.geocoder.addressSearch(x.a, (r, st) => {
-      T.geoBusy = false;
-      if (st === kakao.maps.services.Status.OK && r[0]) {
-        x.lat = +r[0].y; x.lng = +r[0].x;
-        try { localStorage.setItem('rm.g:' + x.a, JSON.stringify([x.lat, x.lng])); } catch { /* 저장 실패 무시 */ }
-      } else x.lat = false;
-      if (T.geoQ.length % 15 === 0) drawTrades();
-      geoNext();
-    });
+    while (T.geoBusy < 4) {
+      const x = T.geoQ.shift();
+      if (!x) { if (!T.geoBusy) { drawTrades(); geoFlush(); } return; }
+      let memo = null; try { memo = JSON.parse(localStorage.getItem('rm.g:' + x.a) || 'null'); } catch { /* 없음 */ }
+      if (memo) { x.lat = memo[0]; x.lng = memo[1]; geoKeep(x); continue; }
+      T.geoBusy++;
+      S.geocoder.addressSearch(x.a, (r, st) => {
+        T.geoBusy--;
+        if (st === kakao.maps.services.Status.OK && r[0]) {
+          x.lat = +r[0].y; x.lng = +r[0].x;
+          try { localStorage.setItem('rm.g:' + x.a, JSON.stringify([x.lat, x.lng])); } catch { /* 저장 실패 무시 */ }
+          geoKeep(x);
+        } else x.lat = false;
+        if (T.geoQ.length % 8 === 0) drawTrades();
+        geoNext();
+      });
+    }
+  }
+  // 찾은 좌표를 모아 두었다가 서버 좌표장에 한꺼번에 보냄 (다음 방문자는 바로 보이도록)
+  function geoKeep(x) {
+    if (!x.lawd || !x.a) return;
+    (T.found[x.lawd] = T.found[x.lawd] || []).push([x.a, x.lat, x.lng]);
+    if (T.found[x.lawd].length >= 40) geoFlush();
+    else { clearTimeout(T.flushT); T.flushT = setTimeout(geoFlush, 4000); }
+  }
+  function geoFlush() {
+    clearTimeout(T.flushT);
+    for (const [lawd, pts] of Object.entries(T.found)) {
+      if (!pts.length) continue;
+      T.found[lawd] = [];
+      for (let i = 0; i < pts.length; i += 60)
+        fetch('/api/aptmap', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lawd, pts: pts.slice(i, i + 60) }) }).catch(() => { /* 보태기 실패는 무시 */ });
+    }
   }
   const tActive = () => T.on && S.map.getLevel() <= MAXLV && Object.values(T.kinds).some(Boolean);
   async function tradeRefresh() {
@@ -1829,6 +1854,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), c = S.map.getCenter();
     const pts = [[c.getLat(), c.getLng()], [sw.getLat(), sw.getLng()], [ne.getLat(), ne.getLng()], [sw.getLat(), ne.getLng()], [ne.getLat(), sw.getLng()]];
     const rgs = (await Promise.all(pts.map(([la, ln]) => regionAt(la, ln)))).filter(Boolean);
+    if (rgs[0] && rgs[0].dong && rgs[0].dong !== T.dong) { T.dong = rgs[0].dong; geoSort(); }
     const seen = new Set(), uniq = rgs.filter(r => !seen.has(r.lawd) && seen.add(r.lawd));
     drawTrades();
     const jobs = [];
