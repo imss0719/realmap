@@ -139,7 +139,7 @@ td.n{color:var(--muted)}
         const pct = st.maxKeys ? Math.round(st.keys / st.maxKeys * 100) : 0;
         return `<div class="sec-t" style="margin-top:18px">지역별 필지 조회 <small style="font-weight:400;color:#5E6A77">어느 구를 많이 보는지 · 미리 불러오기 지역을 정할 때 참고</small></div>
           <div class="tbl"><table><thead><tr><th>지역</th><th>오늘</th><th>최근 7일</th><th>최근 30일</th><th>비중 (30일)</th></tr></thead><tbody>
-          ${keys.length ? keys.map(k => `<tr><td>${GU[k] || (k.startsWith('11') ? '서울 ' + k : '기타 (' + k + ')')}${WARM.includes(k) ? ' <small style="color:#1F7A3A;font-weight:700">미리 불러오는 중</small>' : ''}</td><td>${(d1[k] || 0).toLocaleString()}</td><td>${(d7[k] || 0).toLocaleString()}</td><td>${d30[k].toLocaleString()}</td><td>${Math.round(d30[k] / tot * 100)}%</td></tr>`).join('') : '<tr><td colspan="5" class="n">아직 집계된 조회가 없습니다. 오늘부터 쌓입니다.</td></tr>'}
+          ${keys.length ? keys.map(k => `<tr><td>${GU[k] || (st.guNames && st.guNames[k]) || '지역 코드 ' + k}${WARM.includes(k) ? ' <small style="color:#1F7A3A;font-weight:700">미리 불러오는 중</small>' : ''}</td><td>${(d1[k] || 0).toLocaleString()}</td><td>${(d7[k] || 0).toLocaleString()}</td><td>${d30[k].toLocaleString()}</td><td>${Math.round(d30[k] / tot * 100)}%</td></tr>`).join('') : '<tr><td colspan="5" class="n">아직 집계된 조회가 없습니다. 오늘부터 쌓입니다.</td></tr>'}
           </tbody></table></div>
           <div class="sec-t" style="margin-top:18px">창고 사용량 <small style="font-weight:400;color:#5E6A77">빨리 보여 주려고 저장해 둔 공공데이터</small></div>
           <div class="stat" style="max-width:520px"><span>저장된 자료 ${st.keys.toLocaleString()}개 / 한도 ${st.maxKeys.toLocaleString()}개</span><b style="color:${pct >= 90 ? '#C03A16' : pct >= 70 ? '#9A6200' : 'inherit'}">${pct}%</b>
