@@ -159,7 +159,7 @@ export default async function (req, res) {
           .filter(c => c.name || c.phone).slice(0, 10);
         const rents = (Array.isArray(it.rents) ? it.rents : []).map(r => ({ label: str(r.label, 30), deposit: numv(r.deposit), rent: numv(r.rent), memo: str(r.memo, 60) }))
           .filter(r => r.label || r.deposit || r.rent || r.memo).slice(0, 60);
-        const kind = ['sale', 'jeonse', 'wolse'].includes(it.kind) ? it.kind : 'sale';
+        const kind = ['sale', 'jeonse', 'wolse', 'presale'].includes(it.kind) ? it.kind : 'sale';
         const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
         const prev = id ? items.find(x => x.id === id) : null;
         if (!prev && items.length >= 1000) return fail(res, 400, 'full', '매물은 1,000건까지 저장할 수 있습니다. 계약 완료된 매물을 정리해 주세요.');
@@ -174,9 +174,9 @@ export default async function (req, res) {
           pnu: p0.pnu, addr: p0.addr, road: str(it.road, 80), bname: str(it.bname, 40) || p0.bname, lat: p0.lat, lng: p0.lng,
           dong: p0.dong, ho: p0.ho, area: areaSum ? Math.round(areaSum * 100) / 100 : null, owner: c0.name || '', phone: c0.phone || '',
           places, contacts, rents,
-          ptype: str(it.ptype, 10), kind,
+          ptype: str(it.ptype, 10), ptypeTx: str(it.ptypeTx, 20), kind,
           price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
-          curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan),
+          curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
           memo: str(it.memo, 1000), status, at: prev ? prev.at : now, up: now,
         };
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
