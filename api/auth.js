@@ -152,7 +152,7 @@ export default async function (req, res) {
         // 주소 여러 개 (상가 여러 칸, 토지 여러 필지)
         const places = (Array.isArray(it.places) ? it.places : []).map(p => ({
           pnu: pnuOk(p.pnu), addr: str(p.addr, 80), lat: Number(p.lat) || null, lng: Number(p.lng) || null, bname: str(p.bname, 40),
-          dong: str(p.dong, 20), ho: str(p.ho, 20), area: numv(p.area), land: !!p.land, ak: ['ex', 'tot', 'land'].includes(p.ak) ? p.ak : '',
+          dong: str(p.dong, 20), ho: str(p.ho, 20), area: numv(p.area), site: numv(p.site), arch: numv(p.arch), land: !!p.land, ak: ['ex', 'tot', 'land'].includes(p.ak) ? p.ak : '',
         })).filter(p => p.pnu).slice(0, 30);
         if (!places.length) return fail(res, 400, 'bad_pnu', '주소를 먼저 골라 주세요.');
         const contacts = (Array.isArray(it.contacts) ? it.contacts : []).map(c => ({ role: str(c.role, 10), name: str(c.name, 20), phone: str(c.phone, 20).replace(/[^\d-]/g, '') }))
