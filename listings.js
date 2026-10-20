@@ -144,14 +144,16 @@
     // 같은 자리(같은 건물)의 매물은 대각선으로 계단처럼 비켜 놓아 하나씩 누를 수 있게
     const seen = new Map();
     rows.forEach(x => {
-      const spot = `${(+x.lat).toFixed(5)},${(+x.lng).toFixed(5)}`;
-      const k = seen.get(spot) || 0; seen.set(spot, k + 1);
+      // 같은 필지(PNU)면 같은 자리로 봅니다 (검색 위치가 조금씩 달라도 첫 매물 자리에 맞춰 줄 세움)
+      const spot = x.pnu || `${(+x.lat).toFixed(4)},${(+x.lng).toFixed(4)}`;
+      const g = seen.get(spot) || { k: 0, lat: x.lat, lng: x.lng };
+      const k = g.k; g.k++; seen.set(spot, g);
       const el = document.createElement('div');
       el.className = `pin ${x.status === 'on' ? x.kind : x.status}${S.hl === x.id ? ' hl' : ''}`;
       el.textContent = pinText(x);
-      el.style.transform = `translate(${k * 14}px, ${-6 - k * 24}px)`;
+      el.style.transform = `translate(${k * 16}px, ${-6 - k * 30}px)`;
       el.onclick = () => focusItem(x.id, true);
-      const pos = new kakao.maps.LatLng(x.lat, x.lng);
+      const pos = new kakao.maps.LatLng(g.lat, g.lng);
       const ov = new kakao.maps.CustomOverlay({ position: pos, content: el, yAnchor: 1, zIndex: S.hl === x.id ? 100 : 1 + k });
       el.onmouseenter = () => ov.setZIndex(99); el.onmouseleave = () => ov.setZIndex(S.hl === x.id ? 100 : 1 + k);
       ov.setMap(S.map); S.pins.set(x.id, ov); bounds.extend(pos);
