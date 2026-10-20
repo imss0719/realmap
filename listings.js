@@ -99,6 +99,7 @@
       <div class="price">${esc(priceText(x))}</div>
       ${extra.length ? `<div class="meta" style="font-weight:600;color:#33414F">${esc(extra.join(' · '))}</div>` : ''}
       <div class="addr">${esc(x.bname ? x.bname + ' ' : '')}${esc(units.slice(0, 3).join(', '))}${units.length > 3 ? ` 외 ${units.length - 3}` : ''}</div>
+      ${(() => { const site = pl.reduce((a, p) => a + (p.ak === 'tot' && p.site || 0), 0), arch = pl.reduce((a, p) => a + (p.ak === 'tot' && p.arch || 0), 0); return site || arch ? `<div class="meta">${[site && '대지 ' + esc(py(Math.round(site * 100) / 100)), arch && '건축 ' + esc(py(Math.round(arch * 100) / 100))].filter(Boolean).join(' · ')}</div>` : ''; })()}
       <div class="meta">${esc(addrs[0] || '')}${addrs.length > 1 ? ` 외 ${addrs.length - 1}필지` : ''}${x.area ? ` · ${(() => { const ks = [...new Set(pl.map(p => p.land ? 'land' : p.ak || 'ex'))]; return ks.length > 1 ? '면적' : ks[0] === 'land' ? '토지' : ks[0] === 'tot' ? '연면적' : '전용'; })()} ${esc(py(x.area))}` : ''}</div>
       ${cs.map(c => `<div class="owner"><span>${esc(c.role || '연락처')} <b>${esc(c.name || '-')}</b></span>${c.phone ? `<a class="tel" href="tel:${esc(c.phone)}">📞 ${esc(c.phone)}</a>` : ''}</div>`).join('')}
       ${Array.isArray(x.rents) && x.rents.length ? `<details class="rents"><summary>${x.kind === 'sale' ? '임대 현황' : '세부 임대료'} ${x.rents.length}건</summary>${x.rents.map(r => `<div><span>${esc(r.label || '-')}${r.memo ? ` <small>${esc(r.memo)}</small>` : ''}</span><b>${shortWon(r.deposit) || '0'} / ${r.rent ? r.rent.toLocaleString() + '만' : '-'}</b></div>`).join('')}</details>` : ''}
@@ -218,6 +219,7 @@
       // 건물 전체로 할 때 쓸 연면적·대지면적
       P._tot = (rc && rc.totArea) || Math.round(ts.filter(x => x.mainAtch !== '부속건축물').reduce((a, x) => a + (x.totArea || 0), 0) * 100) / 100 || null;
       P._site = (rc && rc.platArea) || (t && t.platArea) || null;
+      P._arch = (rc && rc.archArea) || Math.round(ts.filter(x => x.mainAtch !== '부속건축물').reduce((a, x) => a + (x.archArea || 0), 0) * 100) / 100 || null;
       if (ts.some(x => x.regstr === '집합') || (b.recap && b.recap.data && b.recap.data.length)) {
         const nat = (a, c) => String(a).localeCompare(String(c), 'ko', { numeric: true });
         const dongs = [...new Set(ts.map(x => String(x.dong || '').trim()).filter(Boolean))].sort(nat);
@@ -227,7 +229,7 @@
         loadUnits(F, P);
       } else if (t) { // 일반건물(상가건물·다가구 등)은 통째 거래가 보통 → 연면적
         P.ak = 'tot';
-        if (!P.area && P._tot) { P.area = P._tot; P._msg = totMsg(P); }
+        if (!P.area && P._tot) fillTot(P);
       } else { // 건물 없는 땅 → 토지면적
         P.land = true; P.ak = 'land';
         if (!P.area) try { const L = await api(`/api/land?pnu=${P.pnu}`); const ar = L.chr && L.chr.data && L.chr.data.area; if (alive(F, P) && ar && !P.area) { collect(); P.area = ar; P._msg = `토지면적 ${ar}㎡ (${(ar / 3.3058).toFixed(1)}평) 자동 입력했습니다`; } } catch { /* 직접 입력 */ }
@@ -235,7 +237,11 @@
     } catch { if (alive(F, P)) P._info = { none: true, err: true }; }
     if (alive(F, P)) renderForm(true);
   }
-  const totMsg = P => `연면적 ${P._tot}㎡ (${(P._tot / 3.3058).toFixed(1)}평)${P._site ? ` · 대지 ${P._site}㎡ (${(P._site / 3.3058).toFixed(1)}평)` : ''} 자동 입력했습니다`;
+  // 건물 전체: 대지면적 · 건축면적 · 연면적을 한꺼번에
+  function fillTot(P) {
+    P.area = P._tot || null; P.site = P._site || null; P.arch = P._arch || null;
+    P._msg = P._tot || P._site || P._arch ? '건축물대장의 대지·건축·연면적을 자동 입력했습니다' : '면적 정보가 없어 직접 입력해 주세요';
+  }
   // 검색 결과(또는 PNU) → 주소 하나 추가
   async function addPlace(lat, lng, label, pnuIn, base) {
     const F = S.form;
@@ -256,7 +262,7 @@
   function cloneUnit(F, i) {
     collect();
     const A = F.it.places[i];
-    const P = { pnu: A.pnu, addr: A.addr, lat: A.lat, lng: A.lng, bname: A.bname, dong: A.dong, ho: '', area: null, ak: 'ex', _info: A._info, _tot: A._tot, _site: A._site };
+    const P = { pnu: A.pnu, addr: A.addr, lat: A.lat, lng: A.lng, bname: A.bname, dong: A.dong, ho: '', area: null, ak: 'ex', _info: A._info, _tot: A._tot, _site: A._site, _arch: A._arch };
     if (A._U) P._U = { ...A._U, mode: 'unit', sel: '' };
     F.it.places.splice(i + 1, 0, P);
     renderForm(true);
@@ -369,6 +375,7 @@
       ${unitPicker(P, i)}
       <div class="two" style="margin-top:10px"><div><label class="sl" for="p${i}_dong">동</label><input class="in" id="p${i}_dong" value="${esc(P.dong || '')}" maxlength="20" placeholder="101"></div>
         <div><label class="sl" for="p${i}_ho">호 · 층</label><input class="in" id="p${i}_ho" value="${esc(P.ho || '')}" maxlength="20" placeholder="1203"></div></div>
+      ${P.ak === 'tot' ? `<div class="two" style="margin-top:8px">${[['site', '대지면적'], ['arch', '건축면적']].map(([k, lb]) => `<div><label class="sl" for="p${i}_${k}">${lb}</label><div class="unit"><input class="in" id="p${i}_${k}" data-sq="h${k}${i}" inputmode="decimal" value="${P[k] || ''}"><span>㎡</span></div><div class="hint" id="h${k}${i}">${P[k] ? (P[k] / 3.3058).toFixed(1) + '평' : ''}</div></div>`).join('')}</div>` : ''}
       <div style="margin-top:8px"><label class="sl" for="p${i}_area">${areaLb}</label><div class="unit"><input class="in" id="p${i}_area" data-area="${i}" inputmode="decimal" value="${P.area || ''}"><span>㎡</span></div>
         <div class="hint" id="hp${i}">${esc(P._msg || (P.area ? (P.area / 3.3058).toFixed(1) + '평' : ''))}</div></div>
       ${P._U ? `<button type="button" class="linkbtn" data-clone="${i}">＋ 같은 건물 다른 호 추가</button>` : ''}
@@ -414,7 +421,7 @@
       <div class="fld"><span class="lb">주소<small>지번·도로명·건물명 모두 됩니다</small></span>${addr}</div>
       ${n ? `
       <div class="fld"><span class="lb">거래 종류</span><div class="seg" id="fKind">${Object.entries(KIND).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="${it.kind === k}">${v}</button>`).join('')}</div></div>
-      <div class="fld"><span class="lb">금액<small>만원 단위로 입력</small></span><div class="two">${MF.map(([k, lb, req]) => moneyField(k, lb, it[k], req)).join('')}</div>${yieldHint(it)}</div>
+      <div class="fld"><span class="lb">금액<small>만원 단위로 입력</small></span><div class="two">${MF.map(([k, lb, req]) => moneyField(k, lb, it[k], req)).join('')}</div><div id="yield">${yieldHint(it)}</div></div>
       ${showRents ? `<div class="fld"><span class="lb">${rentTitle}<small>필요할 때만</small></span>
         ${rentRows}
         <div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn sub" id="addRent" style="flex:1">＋ 세부 임대료 추가</button>${it.rents.length ? '<button type="button" class="btn dark" id="sumRent">합계 반영</button>' : ''}</div>
@@ -445,17 +452,19 @@
     on('[data-pdel]', b => b.onclick = () => { collect(); F.it.places.splice(+b.dataset.pdel, 1); if (!F.it.places.length) { F.adding = true; F.touchedType = false; F.it.bname = ''; } renderForm(true); });
     on('[data-clone]', b => b.onclick = () => cloneUnit(F, +b.dataset.clone));
     on('[data-umode]', b => b.onclick = () => { collect(); const [i, m] = b.dataset.umode.split(':'); const P = F.it.places[+i]; if (P._U.mode === m) return; P._U.mode = m;
-      if (m === 'whole') { P.dong = ''; P.ho = ''; P._U.sel = ''; P.ak = 'tot'; P.area = P._tot || null; P._msg = P._tot ? totMsg(P) : '연면적 정보가 없어 직접 입력해 주세요'; }
-      else { P.ak = 'ex'; P.area = null; P._msg = ''; }
+      if (m === 'whole') { P.dong = ''; P.ho = ''; P._U.sel = ''; P.ak = 'tot'; fillTot(P); }
+      else { P.ak = 'ex'; P.area = null; P.site = null; P.arch = null; P._msg = ''; }
       renderForm(true); });
     on('[data-udong]', s => s.onchange = e => { collect(); const P = F.it.places[+s.dataset.udong]; P._U.cur = e.target.value; P._U.sel = ''; P._msg = ''; renderForm(true); loadUnits(F, P); });
     on('[data-uho]', s => s.onchange = e => pickUnit(F, F.it.places[+s.dataset.uho], e.target.value));
+    on('[data-sq]', inp => inp.oninput = () => { const v = num(inp.value); $(inp.dataset.sq).textContent = v ? (v / 3.3058).toFixed(1) + '평' : ''; });
     on('[data-area]', inp => inp.oninput = () => { const v = num(inp.value); $('hp' + inp.dataset.area).textContent = v ? (v / 3.3058).toFixed(1) + '평' : ''; });
     if (!n) return;
     const seg = (id, key, after) => $(id).querySelectorAll('button').forEach(b => b.onclick = () => { collect(); F.it[key] = b.dataset.v; if (after) after(); renderForm(true); });
     seg('fKind', 'kind'); seg('fType', 'ptype', () => (F.touchedType = true)); seg('fStat', 'status');
     on('[data-money]', inp => inp.oninput = () => { $('hm_' + inp.dataset.money).textContent = won(num(inp.value)); });
-    on('[data-money]', inp => inp.onchange = () => { if (F.it.kind === 'sale') renderForm(); });
+    // 수익률은 다시 그리지 않고 그 자리만 바꿉니다 (다시 그리면 바로 누른 '저장하기'가 씹힘)
+    on('[data-money]', inp => inp.addEventListener('input', () => { if (F.it.kind !== 'sale' || !$('yield')) return; collect(); $('yield').innerHTML = yieldHint(F.it); }));
     on('[data-phone]', inp => inp.oninput = () => { const d = inp.value.replace(/\D/g, ''); if (/^01\d{8,9}$/.test(d)) inp.value = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`; });
     if ($('addRent')) $('addRent').onclick = () => { collect(); F.it.rents.push({ label: '', deposit: null, rent: null, memo: '' }); renderForm(true); const i = F.it.rents.length - 1; setTimeout(() => $(`r${i}_label`) && $(`r${i}_label`).focus(), 30); };
     on('[data-rdel]', b => b.onclick = () => { collect(); F.it.rents.splice(+b.dataset.rdel, 1); renderForm(true); });
@@ -477,7 +486,7 @@
     const F = S.form; if (!F) return;
     const v = id => $(id) ? $(id).value : undefined;
     const it = F.it;
-    it.places.forEach((P, i) => { const d = v(`p${i}_dong`), h = v(`p${i}_ho`), a = v(`p${i}_area`); if (d !== undefined) P.dong = d.trim(); if (h !== undefined) P.ho = h.trim(); if (a !== undefined) P.area = num(a); });
+    it.places.forEach((P, i) => { const d = v(`p${i}_dong`), h = v(`p${i}_ho`), a = v(`p${i}_area`), si = v(`p${i}_site`), ar = v(`p${i}_arch`); if (d !== undefined) P.dong = d.trim(); if (h !== undefined) P.ho = h.trim(); if (a !== undefined) P.area = num(a); if (si !== undefined) P.site = num(si); if (ar !== undefined) P.arch = num(ar); });
     it.contacts.forEach((c, i) => { const r = v(`c${i}_role`), nm = v(`c${i}_name`), ph = v(`c${i}_phone`); if (r !== undefined) c.role = r; if (nm !== undefined) c.name = nm.trim(); if (ph !== undefined) c.phone = ph.trim(); });
     it.rents.forEach((r, i) => { const l = v(`r${i}_label`), d = v(`r${i}_deposit`), m = v(`r${i}_rent`), me = v(`r${i}_memo`); if (l !== undefined) r.label = l.trim(); if (d !== undefined) r.deposit = num(d); if (m !== undefined) r.rent = num(m); if (me !== undefined) r.memo = me.trim(); });
     ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan'].forEach(k => { const x = v('m_' + k); if (x !== undefined) it[k] = num(x); });
@@ -510,18 +519,18 @@
   // ---------- 엑셀(CSV) 저장 ----------
   function exportCsv() {
     if (!S.items.length) return toast('저장할 매물이 없습니다');
-    const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '연락처', '세부 임대료', '메모', '등록일', '수정일', '리얼맵 링크'];
+    const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '대지㎡', '건축㎡', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '연락처', '세부 임대료', '메모', '등록일', '수정일', '리얼맵 링크'];
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = S.items.map(x => {
       const pl = Array.isArray(x.places) && x.places.length ? x.places : [{ addr: x.addr, dong: x.dong, ho: x.ho }];
       const cs = Array.isArray(x.contacts) ? x.contacts : x.owner || x.phone ? [{ role: '집주인', name: x.owner, phone: x.phone }] : [];
       return [x.no, STAT[x.status], KIND[x.kind], x.ptype, x.bname, [...new Set(pl.map(p => p.addr))].join(' / '), pl.map(p => [p.dong, p.ho].filter(Boolean).join(' ')).filter(Boolean).join(', '),
-        x.area || '', x.area ? (x.area / 3.3058).toFixed(1) : '', x.price || '', x.deposit || '', x.rent || '', x.mgmt || '', x.premium || '', x.curDep || '', x.curRent || '', x.loan || '',
+        x.area || '', x.area ? (x.area / 3.3058).toFixed(1) : '', pl.reduce((a, p) => a + (p.site || 0), 0) || '', pl.reduce((a, p) => a + (p.arch || 0), 0) || '', x.price || '', x.deposit || '', x.rent || '', x.mgmt || '', x.premium || '', x.curDep || '', x.curRent || '', x.loan || '',
         cs.map(c => `${c.role || ''} ${c.name || ''} ${c.phone || ''}`.trim()).join(' / '), (x.rents || []).map(r => `${r.label} ${r.deposit || 0}/${r.rent || 0}${r.memo ? ' ' + r.memo : ''}`).join(' / '),
         x.memo, ymd(x.at), ymd(x.up), `https://realmap.online/?pnu=${x.pnu}`].map(q).join(',');
     });
     // 금액은 모두 만원 단위
-    for (let k = 9; k <= 16; k++) head[k] += '(만원)';
+    for (let k = 11; k <= 18; k++) head[k] += '(만원)';
     const blob = new Blob(['﻿' + [head.map(q).join(','), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `리얼맵_매물장_${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); a.remove();
