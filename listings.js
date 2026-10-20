@@ -167,6 +167,29 @@
   function centroid(g) {
     try { const ring = g.type === 'MultiPolygon' ? g.coordinates[0][0] : g.coordinates[0]; let x = 0, y = 0; ring.forEach(p => { x += p[0]; y += p[1]; }); return { lng: x / ring.length, lat: y / ring.length }; } catch { return null; }
   }
+  // 건축물대장 → 건물 이름·유형, 집합건물이면 동·호 목록 준비 (수정할 때도 씁니다)
+  async function loadBld(F, pnu) {
+    try {
+      const b = await api(`/api/building?pnu=${pnu}`);
+      if (S.form !== F) return;
+      const t = mainTitle(b), rc = b.recap && b.recap.data && b.recap.data[0];
+      collect();
+      F.info = t ? { name: (rc && rc.name) || t.name || '', use: t.use, grnd: t.grnd, ugrnd: t.ugrnd, tot: t.totArea, apr: t.useAprDay, road: t.road } : { none: true };
+      if (!F.it.bname && F.info.name) F.it.bname = F.info.name;
+      if (t && t.road && !F.it.road) F.it.road = String(t.road).replace(/^서울특별시\s*/, '서울 ');
+      if (!F.touchedType) F.it.ptype = guessType(t);
+      // 집합건물(아파트·오피스텔·빌라·집합상가 등)이면 동·호수를 목록에서 고를 수 있게
+      const ts = (b.titles && b.titles.data) || [];
+      if (ts.some(x => x.regstr === '집합') || (b.recap && b.recap.data && b.recap.data.length)) {
+        const nat = (a, c) => String(a).localeCompare(String(c), 'ko', { numeric: true });
+        const dongs = [...new Set(ts.map(x => String(x.dong || '').trim()).filter(Boolean))].sort(nat);
+        const want = F.it.dong ? dongs.find(d => d.replace(/동$/, '') === String(F.it.dong).replace(/동$/, '')) : null;
+        F.U = { mode: F.edit && !F.it.ho ? 'whole' : 'unit', lists: {}, byDong: dongs.length >= 2, dongs, cur: want || dongs.find(d => /\d/.test(d)) || dongs[0] || '', sel: F.it.ho || '' };
+        loadUnits(F, pnu);
+      }
+    } catch { if (S.form === F) F.info = { none: true, err: true }; }
+    if (S.form === F) renderForm(true);
+  }
   // 고른 위치 → 필지·건물 정보 채우기
   async function pickPlace(lat, lng, label, pnuIn) {
     const F = S.form;
@@ -178,24 +201,7 @@
       const pnu = p.bldPnu || p.pnu;
       F.it.pnu = pnu; F.it.addr = p.addr || label || ''; F.it.lat = lat; F.it.lng = lng;
       F.info = null; F.picking = false; renderForm();
-      try {
-        const b = await api(`/api/building?pnu=${pnu}`);
-        const t = mainTitle(b), rc = b.recap && b.recap.data && b.recap.data[0];
-        collect();
-        F.info = t ? { name: (rc && rc.name) || t.name || '', use: t.use, grnd: t.grnd, ugrnd: t.ugrnd, tot: t.totArea, apr: t.useAprDay, road: t.road } : { none: true };
-        if (!F.it.bname && F.info.name) F.it.bname = F.info.name;
-        if (t && t.road && !F.it.road) F.it.road = String(t.road).replace(/^서울특별시\s*/, '서울 ');
-        if (!F.touchedType) F.it.ptype = guessType(t);
-        // 집합건물(아파트·오피스텔·집합상가 등)이면 동·호수를 목록에서 고를 수 있게
-        const ts = (b.titles && b.titles.data) || [];
-        if (ts.some(x => x.regstr === '집합') || (b.recap && b.recap.data && b.recap.data.length)) {
-          const nat = (a, c) => String(a).localeCompare(String(c), 'ko', { numeric: true });
-          const dongs = [...new Set(ts.map(x => String(x.dong || '').trim()).filter(Boolean))].sort(nat);
-          F.U = { mode: 'unit', lists: {}, byDong: dongs.length >= 2, dongs, cur: dongs.find(d => /\d/.test(d)) || dongs[0] || '' };
-          loadUnits(F, pnu);
-        }
-      } catch { F.info = { none: true, err: true }; }
-      renderForm(true);
+      await loadBld(F, pnu);
     } catch (e) { F.picking = false; toast('그 위치의 필지를 찾지 못했습니다. 다른 주소로 검색해 주세요.', 3500); renderForm(); }
   }
   async function loadUnits(F, pnu) {
@@ -265,6 +271,7 @@
     $('form').innerHTML = '';
     renderForm();
     if (pnu) pickPlace(null, null, '', pnu);
+    else if (item) loadBld(S.form, item.pnu);
     else if (!item) setTimeout(() => $('fq') && $('fq').focus(), 50);
   }
   function closeForm() { $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null; }
