@@ -67,7 +67,7 @@ export default async function (req, res) {
   try {
     if (action === 'me') {
       const s = readSession(req);
-      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: s ? await isPro(s.id) : false });
+      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: s ? await isPro(s.id) : false, op: !!(s && ADMIN_ID && s.id === ADMIN_ID) });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
@@ -79,11 +79,16 @@ export default async function (req, res) {
       const v = String(req.query.v || '').replace(/[^a-z0-9]/gi, '').slice(0, 24);
       const kind = req.query.k === 'p' ? 'p' : 'v';
       const s = readSession(req);
+      if (s && ADMIN_ID && s.id === ADMIN_ID) return send(res, 200, { ok: true, skip: 'op' }); // 운영자 본인은 세지 않음
       const ex = String(400 * 86400);
+      // 유입 경로: 방문(세션)마다 첫 화면에서 한 번만 보냅니다
+      const SRC = ['blog', 'nsearch', 'naver', 'insta', 'kakao', 'youtube', 'google', 'daum', 'direct', 'etc'];
+      const src = SRC.includes(req.query.src) ? req.query.src : '';
       const cmds = kind === 'p'
         ? [['INCR', `rm:st:${day}:pcl`], ['EXPIRE', `rm:st:${day}:pcl`, ex]]
         : [['INCR', `rm:st:${day}:pv`], ['EXPIRE', `rm:st:${day}:pv`, ex], ...(v ? [['PFADD', `rm:st:${day}:uv`, v], ['EXPIRE', `rm:st:${day}:uv`, ex]] : []),
-           ...(s ? [['PFADD', `rm:st:${day}:mem`, s.id], ['EXPIRE', `rm:st:${day}:mem`, ex]] : [])];
+           ...(s ? [['PFADD', `rm:st:${day}:mem`, s.id], ['EXPIRE', `rm:st:${day}:mem`, ex]] : []),
+           ...(src ? [['HINCRBY', `rm:st:${day}:src`, src, '1'], ['EXPIRE', `rm:st:${day}:src`, ex]] : [])];
       try { await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) }); } catch { /* 통계 실패는 무시 */ }
       return send(res, 200, { ok: true });
     }
