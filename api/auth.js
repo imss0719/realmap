@@ -132,6 +132,13 @@ export default async function (req, res) {
       const key = `realmap:ls:${s.id}`;
       const raw = await redis(['GET', key]);
       let items = raw ? JSON.parse(raw) : [];
+      // 매물번호: 비워 두면 '등록한 해·월-순번' (예: 2610-001)으로 자동으로 붙입니다
+      const ym = iso => { const d = new Date(new Date(iso || Date.now()).getTime() + 9 * 3600e3); return String(d.getUTCFullYear()).slice(2) + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+      const nextNo = (list, iso) => { const p = ym(iso) + '-'; const max = list.reduce((m, x) => { const k = String(x.no || ''); return k.startsWith(p) ? Math.max(m, Number(k.slice(p.length)) || 0) : m; }, 0); return p + String(max + 1).padStart(3, '0'); };
+      if (items.some(x => !x.no)) { // 예전에 등록한 매물은 등록일 순서대로 번호를 붙여 둡니다
+        [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
+        await redis(['SET', key, JSON.stringify(items)]);
+      }
       if (action === 'listings') return send(res, 200, { ok: true, items });
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
@@ -157,9 +164,12 @@ export default async function (req, res) {
         const prev = id ? items.find(x => x.id === id) : null;
         if (!prev && items.length >= 1000) return fail(res, 400, 'full', '매물은 1,000건까지 저장할 수 있습니다. 계약 완료된 매물을 정리해 주세요.');
         const p0 = places[0], c0 = contacts[0] || {};
+        let no = str(it.no, 20);
+        if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) return fail(res, 400, 'dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`);
+        if (!no) no = prev && prev.no ? prev.no : nextNo(items, now);
         const areaSum = places.reduce((a, p) => a + (p.area || 0), 0);
         const rec = {
-          id: prev ? prev.id : Date.now().toString(36) + crypto.randomBytes(3).toString('hex'),
+          id: prev ? prev.id : Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), no,
           // 목록·지도용 대표값 (첫 번째 주소 · 첫 번째 연락처)
           pnu: p0.pnu, addr: p0.addr, road: str(it.road, 80), bname: str(it.bname, 40) || p0.bname, lat: p0.lat, lng: p0.lng,
           dong: p0.dong, ho: p0.ho, area: areaSum ? Math.round(areaSum * 100) / 100 : null, owner: c0.name || '', phone: c0.phone || '',
