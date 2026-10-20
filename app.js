@@ -1581,6 +1581,17 @@
       kind === 'cat' ? S.places.categorySearch(q, cb, opt) : S.places.keywordSearch(q, cb, opt);
     });
   }
+  // 버스정류장: 공공데이터(서울시·국토부 정류소 정보)를 먼저 쓰고, 안 되면 카카오 장소 검색
+  async function busStops(c) {
+    try {
+      const r = await fetch(`/api/stores?near=bus&lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}`).then(x => x.json());
+      if (r.ok && r.bus && r.bus.length) return r.bus.map(x => ({ name: x.name + (x.no ? ` (${x.no})` : ''), cat: '버스정류장', d: x.d }));
+      if (r.note) console.warn('[리얼맵] 버스정류장', r.note);
+    } catch { /* 아래로 */ }
+    const [a, b] = await Promise.all([placesQ('kw', '버스정류장', c, 1000), placesQ('kw', '정류장', c, 1000)]);
+    const seen = new Set();
+    return [...a, ...b].filter(x => /버스정류장|정류장/.test(x.cat + x.name) && !/택시|지하철|역$/.test(x.name)).sort((x, y) => x.d - y.d).filter(x => !seen.has(x.name) && seen.add(x.name));
+  }
   async function locReport(bname) {
     const p = S.sel; if (!p || !p.c) return;
     const w = window.open('', '_blank');
@@ -1591,7 +1602,7 @@
     const BAD = ['화장장', '납골당', '봉안당', '공원묘지', '공동묘지', '쓰레기소각장', '자원회수시설', '쓰레기처리장', '음식물처리', '분뇨처리', '하수처리장', '물재생센터', '변전소', '교도소', '구치소'];
     const [subway, bus, ele, mid, high, mart, hosp, ...bad] = await Promise.all([
       placesQ('cat', 'SW8', c, 3000),
-      placesQ('kw', '버스정류장', c, 1000).then(r => r.filter(x => /버스정류장/.test(x.cat))),
+      busStops(c),
       school('초등학교'), school('중학교'), school('고등학교'),
       placesQ('cat', 'MT1', c, 3000),
       placesQ('cat', 'HP8', c, 3000).then(r => r.filter(x => /종합병원|대학병원/.test(x.cat) || /대학교병원|의료원/.test(x.name))),

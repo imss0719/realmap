@@ -515,7 +515,8 @@
     const school = kw => q('kw', kw, 3000).then(r => r.find(x => x.name.includes(kw)) || null);
     Promise.all([
       q('cat', 'SW8', 3000).then(r => r[0] || null),
-      q('kw', '버스정류장', 1000).then(r => r.find(x => /버스정류장/.test(x.cat)) || null),
+      fetch(`/api/stores?near=bus&lat=${(+D.lat).toFixed(5)}&lng=${(+D.lng).toFixed(5)}`).then(x => x.json()).then(r => r.ok && r.bus && r.bus[0] ? { name: r.bus[0].name, d: r.bus[0].d } : null).catch(() => null)
+        .then(x => x || Promise.all([q('kw', '버스정류장', 1000), q('kw', '정류장', 1000)]).then(([a, b]) => [...a, ...b].filter(y => /정류장/.test(y.cat + y.name) && !/택시/.test(y.name)).sort((y, z) => y.d - z.d)[0] || null)),
       school('초등학교'), school('중학교'), school('고등학교'),
       q('cat', 'MT1', 3000).then(r => r[0] || null),
     ]).then(([sub, bus, e, m, h, mart]) => {
