@@ -1600,12 +1600,16 @@
     const c = p.c;
     const school = kw => placesQ('kw', kw, c, 3000).then(r => r.filter(x => x.name.endsWith(kw) || x.name.includes(kw)).slice(0, 2));
     const BAD = ['화장장', '납골당', '봉안당', '공원묘지', '공동묘지', '쓰레기소각장', '자원회수시설', '쓰레기처리장', '음식물처리', '분뇨처리', '하수처리장', '물재생센터', '변전소', '교도소', '구치소'];
-    const [subway, bus, ele, mid, high, mart, hosp, ...bad] = await Promise.all([
+    // 종합병원: 병원 분류(HP8)는 가까운 의원부터 15곳만 돌려줘서 종합병원이 빠짐 → 이름으로 따로 찾음
+    const hospQ = () => Promise.all(['종합병원', '대학병원', '의료원'].map(k => placesQ('kw', k, c, 5000)))
+      .then(rs => { const seen = new Set(); return rs.flat().filter(x => (/종합병원|대학병원/.test(x.cat) || /대학교병원|대학병원|의료원/.test(x.name)) && !/장례식장|주차장|약국/.test(x.name + x.cat)).sort((a, b) => a.d - b.d).filter(x => !seen.has(x.name) && seen.add(x.name)); });
+    const [subway, bus, ele, mid, high, mart, hosp, dept, ...bad] = await Promise.all([
       placesQ('cat', 'SW8', c, 3000),
       busStops(c),
       school('초등학교'), school('중학교'), school('고등학교'),
       placesQ('cat', 'MT1', c, 3000),
-      placesQ('cat', 'HP8', c, 3000).then(r => r.filter(x => /종합병원|대학병원/.test(x.cat) || /대학교병원|의료원/.test(x.name))),
+      hospQ(),
+      placesQ('kw', '백화점', c, 3000).then(r => r.filter(x => /백화점/.test(x.cat) && !/주차장|식당|카페/.test(x.name))),
       ...BAD.map(k => placesQ('kw', k, c, 1000).then(r => r.filter(x => x.d <= 1000 && (x.name.includes(k) || x.cat.includes(k))))),
     ]);
     const badList = []; const seen = new Set();
@@ -1647,7 +1651,7 @@ td.none{color:#8A949E}.ok{color:#1F7A3A;font-weight:700}.warn{color:#B4231A;font
 <table>${row('초등학교', ele[0])}${row('중학교', mid[0])}${row('고등학교', high[0])}</table>
 
 <h2>판매 · 의료시설</h2>
-<table>${row('대형마트', mart[0])}${row('종합병원', hosp[0])}</table>
+<table>${row('대형마트', mart[0])}${dept[0] ? row('백화점', dept[0]) : ''}${row('종합병원', hosp[0], hosp[1] ? `다음 가까운 곳: ${esc(hosp[1].name)} ${n(hosp[1].d)}m` : '')}</table>
 
 <h2>비선호시설 <small style="font-weight:400;color:#5E6A77">(반경 1km)</small></h2>
 <table><tr><th>유무</th><td>${badList.length ? `<span class="warn">있음</span> · ${badList.length}곳` : '<span class="ok">없음</span> <small>지도 검색으로 찾은 시설이 없습니다</small>'}</td></tr>
