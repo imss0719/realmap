@@ -141,13 +141,19 @@
     S.pins.forEach(p => p.setMap(null)); S.pins.clear();
     const rows = filtered().filter(x => x.lat && x.lng);
     const bounds = new kakao.maps.LatLngBounds();
+    // 같은 자리(같은 건물)의 매물은 대각선으로 계단처럼 비켜 놓아 하나씩 누를 수 있게
+    const seen = new Map();
     rows.forEach(x => {
+      const spot = `${(+x.lat).toFixed(5)},${(+x.lng).toFixed(5)}`;
+      const k = seen.get(spot) || 0; seen.set(spot, k + 1);
       const el = document.createElement('div');
       el.className = `pin ${x.status === 'on' ? x.kind : x.status}${S.hl === x.id ? ' hl' : ''}`;
       el.textContent = pinText(x);
+      el.style.transform = `translate(${k * 14}px, ${-6 - k * 24}px)`;
       el.onclick = () => focusItem(x.id, true);
       const pos = new kakao.maps.LatLng(x.lat, x.lng);
-      const ov = new kakao.maps.CustomOverlay({ position: pos, content: el, yAnchor: 1, zIndex: S.hl === x.id ? 5 : 1 });
+      const ov = new kakao.maps.CustomOverlay({ position: pos, content: el, yAnchor: 1, zIndex: S.hl === x.id ? 100 : 1 + k });
+      el.onmouseenter = () => ov.setZIndex(99); el.onmouseleave = () => ov.setZIndex(S.hl === x.id ? 100 : 1 + k);
       ov.setMap(S.map); S.pins.set(x.id, ov); bounds.extend(pos);
     });
     if (fit !== false && rows.length) { if (rows.length === 1) { S.map.setCenter(new kakao.maps.LatLng(rows[0].lat, rows[0].lng)); S.map.setLevel(4); } else S.map.setBounds(bounds, 40, 40, 40, 40); }
