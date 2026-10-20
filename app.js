@@ -214,6 +214,57 @@
       .catch(e => { if (tok === S.tok) { B.floors = { ok: false, message: e.message }; render(); } });
   }
 
+  // ---------- 아파트 관리비 · 단지 정보 (K-apt) ----------
+  const isApt = () => collTitle() && /아파트|공동주택/.test(uses()) && !/다세대|연립/.test(uses());
+  const man1 = w => w == null ? '-' : `${n(w / 10000, 1)}만원`;
+  function kaptSection() {
+    const K = S.d.kapt;
+    if (!K) {
+      const tok = S.tok, rc = recap(), m = mainT();
+      S.d.kapt = { loading: true };
+      api(`/api/building?pnu=${S.sel.pnu}&part=kapt&name=${encodeURIComponent((rc && rc.name) || (m && m.name) || S.sel.bname || '')}`)
+        .then(j => { if (tok === S.tok) { S.d.kapt = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.kapt = { error: e.message }; render(); } });
+      return `<section><h2>관리비 · 단지 정보</h2>${skel()}</section>`;
+    }
+    if (K.loading) return `<section><h2>관리비 · 단지 정보</h2>${skel()}</section>`;
+    if (K.error) return `<section><h2>관리비 · 단지 정보</h2>${errBox('관리비', K.error)}</section>`;
+    const k = K.kapt;
+    if (!k) return `<section><h2>관리비 · 단지 정보</h2><div class="empty">K-apt(공동주택관리정보시스템)에 관리비가 공개되지 않는 단지입니다. 의무관리대상(대략 150세대 이상 등) 아파트만 공개됩니다.</div></section>`;
+    const mem = S.me.member || !S.me.ready;
+    const ym = k.month ? `${k.month.slice(0, 4)}년 ${+k.month.slice(4)}월분` : '';
+    const out = [`<section class="kapt"><h2>관리비 · 단지 정보<span>K-apt</span></h2>`];
+    if (k.perHH) {
+      const g = k.groups || [], tot = g.reduce((s2, x) => s2 + x.v, 0) || 1;
+      const cmn = g.filter(x => ['gen', 'svc', 'fac'].includes(x.g)).reduce((s2, x) => s2 + x.v, 0), ind = tot - cmn;
+      const hh = k.hh || 1;
+      out.push(`<div class="kh"><div class="l">세대당 월 관리비 (평균 추정) · ${ym}</div><div class="v">약 ${man1(k.perHH)}</div><div class="s">공용관리비 ${man1(cmn / hh)} + 개별사용료 ${man1(ind / hh)} · 장기수선충당금 제외</div></div>`);
+      const COLS = { gen: '#14212E', svc: '#2D4B6E', fac: '#5B7FA6', heat: '#F2B705', util: '#F6CF5A' };
+      const lockedHtml = `${k.perM2 ? `<div class="kcmp"><div><span>전용 59㎡ 환산</span><b>약 ${man1(k.perM2 * 59)}</b></div><div><span>전용 84㎡ 환산</span><b>약 ${man1(k.perM2 * 84)}</b></div><div><span>전용 114㎡ 환산</span><b>약 ${man1(k.perM2 * 114)}</b></div></div>` : ''}
+        <h3 class="kt">항목별 <span>세대당 월 평균</span></h3>
+        <div class="kbar">${g.map(x => `<i style="width:${(x.v / tot * 100).toFixed(1)}%;background:${COLS[x.g]}"></i>`).join('')}</div>
+        <div class="klg">${g.map(x => `<div><i style="background:${COLS[x.g]}"></i>${esc(x.label)}<b>${man1(x.v / hh)}</b></div>`).join('')}</div>
+        ${mem ? kaptTrendHtml(k) : `<h3 class="kt">최근 12개월 추이 <span>난방·전기·수도</span></h3><div class="ktr">${[72, 70, 78, 92, 100, 96, 80, 70, 66, 68, 72, 74].map(h => `<i style="height:${h}%"></i>`).join('')}</div>`}`;
+      out.push(mem ? lockedHtml : `<div class="klock"><div class="kblur" aria-hidden="true">${lockedHtml}</div><div class="kcta"><b>평형별 관리비 · 항목별 내역 · 12개월 추이</b><span>회원이면 무료로 모두 보실 수 있습니다</span><button type="button" class="kbtn" id="kaptLogin">카카오로 3초 가입하고 보기</button></div></div>`);
+    } else out.push('<div class="empty">이 단지는 최근 관리비 공개 자료가 아직 없습니다.</div>');
+    const pk = k.parking && k.hh ? `${n(k.parking)}대 · 세대당 ${n(k.parking / k.hh, 2)}대` : (k.parking ? n(k.parking) + '대' : '');
+    out.push(`<dl class="kv">${[['단지명', esc(k.name || '')], ['세대수 · 동수', `${k.hh ? n(k.hh) + '세대' : '-'}${k.dongCnt ? ' · ' + n(k.dongCnt) + '개 동' : ''}`], ['난방 방식', esc(k.heat || '')], ['복도 유형', esc(k.hall || '')], ['시공사', esc(k.builder || '')], ['관리 방식', esc(k.mgr || '')], ['주차', pk], ['승강기', k.elev ? n(k.elev) + '대' : '']].filter(r => r[1] && r[1] !== '-').map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>`);
+    out.push('<p class="note">관리비는 단지가 K-apt에 신고한 금액을 세대수로 나눈 평균이며, 실제 고지액은 평형·사용량에 따라 다릅니다. 평형별 금액은 관리비 부과면적 비율로 환산한 추정치입니다. 매달 1~2개월 늦게 반영됩니다.</p>');
+    out.push(src(['국토교통부 공동주택관리정보시스템(K-apt)']) + '</section>');
+    return out.join('');
+  }
+  function kaptTrendHtml(k) {
+    const T = S.d.kaptT;
+    if (!T && k.month) {
+      const tok = S.tok; S.d.kaptT = { loading: true };
+      api(`/api/building?pnu=${S.sel.pnu}&part=kaptTrend&code=${encodeURIComponent(k.code)}&ym=${k.month}`).then(j => { if (tok === S.tok) { S.d.kaptT = j; render(); } }).catch(() => { if (tok === S.tok) { S.d.kaptT = { error: true }; render(); } });
+    }
+    const head = '<h3 class="kt">최근 12개월 추이 <span>난방·전기·수도 등 개별사용료</span></h3>';
+    if (!T || T.loading) return head + skel();
+    if (T.error || !T.trend) return '';
+    const hh = k.hh || 1, mx = Math.max(1, ...T.trend.map(x => x.v));
+    return head + `<div class="ktr">${T.trend.map((x, i) => `<i class="${i === T.trend.length - 1 ? 'on' : ''}" style="height:${Math.max(3, x.v / mx * 100)}%" title="${x.m.slice(0, 4)}.${x.m.slice(4)} 세대당 ${man1(x.v / hh)}"></i>`).join('')}</div><div class="ktx">${T.trend.map(x => `<span>${+x.m.slice(4)}</span>`).join('')}</div>`;
+  }
+
   // 공동주택이면 동·호수 탭을 누르기 전에 첫 동의 호 목록을 미리 받아 둡니다
   function prefetchUnits() {
     if (!collTitle()) return;
@@ -322,7 +373,7 @@
     const body = [
       blk('land', '토지', landTab()),
       blk('plan', '이용계획', planTab()),
-      blk('bld', '건물', bldTab() + lazy('stores', storeSection)),
+      blk('bld', '건물', bldTab() + (isApt() ? lazy('kapt', kaptSection) : '') + lazy('stores', storeSection)),
       coll ? blk('unit', '동·호수', lazy('unit', unitTab)) : '',
       blk('trade', '실거래', lazy('trade', tradeTab)),
     ].join('');
@@ -920,6 +971,7 @@
     D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { if (+b.dataset.mo > 12 && S.me.ready && !S.me.member) return loginModal('trade'); S.months = +b.dataset.mo; render(); });
     const mt = D.querySelector('#moreT'); if (mt) mt.onclick = () => { S.showAll = true; render(); };
     const sl = D.querySelector('#safeLogin'); if (sl) sl.onclick = () => loginModal('safe');
+    const kl = D.querySelector('#kaptLogin'); if (kl) kl.onclick = () => loginModal('kapt');
   }
 
   // ---------- 개발지도 ----------
@@ -1268,6 +1320,7 @@
   }
   const LOGIN_WHY = {
     join: '리얼맵 회원 기능, 모두 무료입니다',
+    kapt: '평형별 관리비와 상세 내역은 회원 전용입니다',
     loc: '무료 이용 3회를 모두 사용하셨습니다',
     fav: '관심 부동산 저장은 회원 전용입니다',
     safe: '전세 안전 점검 전체 결과는 회원 전용입니다',
