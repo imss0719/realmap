@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14212E">
+<title>내 매물장 - 리얼맵</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#EEF1F4;--card:#fff;--fg:#14212E;--muted:#5E6A77;--line:#DCE2E8;--navy:#14212E;--gold:#F2B705;--sale:#1C64C8;--jeonse:#1F7A4D;--wolse:#D9480F;--done:#8A96A3}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:17px;line-height:1.5;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+.top{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.top h1{font-size:20px;margin:0;font-weight:700;display:flex;align-items:center;gap:8px}
+.pro{display:inline-block;background:var(--gold);color:var(--navy);font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.04em}
+.top .sp{flex:1}
+.top .who{font-size:14px;opacity:.8}
+.wrap{max-width:1180px;margin:0 auto;padding:14px 16px 120px;display:grid;gap:14px}
+@media (min-width:980px){.wrap{grid-template-columns:440px 1fr;align-items:start}.mapbox{position:sticky;top:72px;height:calc(100vh - 92px)!important}}
+.mapbox{height:34vh;min-height:220px;border-radius:16px;overflow:hidden;background:#dfe4e8;position:relative}
+#map{position:absolute;inset:0}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:0;border-radius:14px;min-height:52px;padding:0 20px;font-weight:700;font-size:17px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn.main{background:var(--gold);color:var(--navy);flex:1}
+.btn.sub{background:var(--card);border:2px solid var(--line)}
+.btn.dark{background:var(--navy);color:#fff}
+.btn.danger{background:#fff;border:2px solid #E4572E;color:#C03A16}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tabs button{flex:none;border:2px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px;font-weight:700;font-size:16px}
+.tabs button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+.tabs small{font-weight:600;opacity:.75;margin-left:4px}
+.find{width:100%;border:2px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--card);font-size:17px}
+.list{display:grid;gap:12px}
+.card{background:var(--card);border-radius:18px;padding:16px 16px 14px;border:3px solid transparent;transition:border-color .2s}
+.card.hl{border-color:var(--gold)}
+.card.done{opacity:.72}
+.ch{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kd{color:#fff;font-weight:700;font-size:14px;padding:3px 10px;border-radius:8px}
+.kd.sale{background:var(--sale)}.kd.jeonse{background:var(--jeonse)}.kd.wolse{background:var(--wolse)}
+.pt{font-size:14px;font-weight:700;color:var(--muted);border:2px solid var(--line);padding:1px 8px;border-radius:8px}
+.st{margin-left:auto;font-size:14px;font-weight:700;padding:3px 10px;border-radius:999px;background:#E9F6EF;color:#1F7A4D}
+.st.hold{background:#FFF3D6;color:#9A6200}.st.done{background:#EEF1F4;color:var(--done)}
+.price{font-size:26px;font-weight:700;margin:8px 0 2px;letter-spacing:-.02em}
+.addr{font-weight:600}
+.meta{color:var(--muted);font-size:15px;margin-top:2px}
+.owner{display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:2px solid #EEF1F4}
+.owner b{font-weight:700}
+.tel{margin-left:auto;background:#E9F6EF;color:#1F7A4D;border-radius:12px;padding:8px 14px;font-weight:700;text-decoration:none;white-space:nowrap}
+.memo{margin-top:8px;background:#F5F7F9;border-radius:10px;padding:8px 12px;font-size:15px;white-space:pre-wrap;color:#33414F}
+.cbtns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.cbtns button,.cbtns a{flex:1;min-height:44px;border-radius:12px;border:2px solid var(--line);background:#fff;font-weight:700;font-size:15px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;padding:0 10px;white-space:nowrap}
+.empty{background:var(--card);border-radius:18px;padding:28px 20px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--fg);font-size:19px;margin-bottom:6px}
+.gate{max-width:520px;margin:12vh auto;background:var(--card);border-radius:20px;padding:32px 24px;text-align:center}
+.gate h2{margin:0 0 8px;font-size:22px}
+.gate p{color:var(--muted);margin:0 0 20px}
+/* 등록 시트 */
+.sheet{position:fixed;inset:0;z-index:50;background:rgba(10,18,26,.55);display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+.sbox{background:var(--bg);width:100%;max-width:640px;max-height:94vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:0 0 24px}
+@media (min-width:700px){.sheet{align-items:center}.sbox{border-radius:22px}}
+.shd{position:sticky;top:0;background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;z-index:2}
+.shd b{font-size:19px;flex:1}
+.shd button{background:none;border:0;color:#fff;font-size:30px;line-height:1;width:44px;height:44px}
+.sb{padding:16px;display:grid;gap:16px}
+.fld label,.fld .lb{display:block;font-weight:700;margin-bottom:6px}
+.fld .lb small,.fld label small{font-weight:500;color:var(--muted);margin-left:6px}
+.in{width:100%;border:2px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;font-size:18px}
+.in:focus{outline:none;border-color:var(--navy)}
+.unit{position:relative}.unit .in{padding-right:64px}.unit span{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700}
+.hint{font-size:15px;color:var(--sale);font-weight:700;margin-top:4px;min-height:22px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:76px;min-height:50px;border-radius:12px;border:2px solid var(--line);background:#fff;font-weight:700;font-size:16px}
+.seg button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.res{display:grid;gap:6px;margin-top:8px}
+.res button{text-align:left;border:2px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px}
+.res button b{display:block}.res button small{color:var(--muted)}
+.picked{background:#fff;border-radius:14px;border:2px solid var(--gold);padding:12px 14px}
+.picked b{font-size:18px;display:block}
+.picked .meta{margin-top:4px}
+.picked button{margin-top:8px;background:none;border:0;color:var(--sale);font-weight:700;padding:0}
+.saveRow{position:sticky;bottom:0;background:var(--bg);padding:12px 16px 4px;display:flex;gap:10px}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;z-index:80;max-width:90vw}
+.pin{padding:4px 9px;border-radius:999px;color:#fff;font-weight:700;font-size:13px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3);border:2px solid #fff;cursor:pointer;transform:translateY(-6px)}
+.pin.sale{background:var(--sale)}.pin.jeonse{background:var(--jeonse)}.pin.wolse{background:var(--wolse)}.pin.done,.pin.hold{background:var(--done)}
+.pin.hl{outline:3px solid var(--gold)}
+.legend{position:absolute;left:8px;bottom:8px;z-index:3;background:rgba(255,255,255,.95);border-radius:10px;padding:5px 10px;font-size:13px;font-weight:700;display:flex;gap:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
+  <h1>내 매물장 <span class="pro">PRO</span></h1>
+  <span class="sp"></span>
+  <span class="who" id="who"></span>
+</div>
+<div id="root"></div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sbox" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+    <div class="shd"><b id="shTitle">매물 등록</b><button type="button" id="shClose" aria-label="닫기">×</button></div>
+    <div class="sb" id="form"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="listings.js"></script>
+</body>
+</html>

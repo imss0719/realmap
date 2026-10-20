@@ -1302,7 +1302,7 @@
     const el = $('acct'); if (!el) return;
     if (!S.me.ready) { el.innerHTML = ''; return; }
     el.innerHTML = S.me.member
-      ? `<button type="button" id="acctBtn">${esc(S.me.nickname || '회원')}님</button><div class="acct-menu" id="acctMenu" hidden><button type="button" id="favMenu">관심 부동산 · 우리 집</button><a href="/auth/logout?r=${encodeURIComponent(here())}">로그아웃</a><button type="button" id="withdraw">회원 탈퇴</button><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`
+      ? `<button type="button" id="acctBtn">${esc(S.me.nickname || '회원')}님${S.me.pro ? '<span class="probadge">PRO</span>' : ''}</button><div class="acct-menu" id="acctMenu" hidden>${S.me.pro ? '<a href="/listings.html" target="_blank" rel="noopener"><b>내 매물장</b></a>' : ''}<button type="button" id="favMenu">관심 부동산 · 우리 집</button><a href="/auth/logout?r=${encodeURIComponent(here())}">로그아웃</a><button type="button" id="withdraw">회원 탈퇴</button><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`
       : `<button type="button" id="acctBtn">로그인</button>`;
     $('acctBtn').onclick = () => S.me.member ? ($('acctMenu').hidden = !$('acctMenu').hidden) : loginModal();
     if ($('favMenu')) $('favMenu').onclick = () => { $('acctMenu').hidden = true; openFavSheet(); };
@@ -1397,7 +1397,8 @@
     const p = S.sel; if (!p) return '';
     const on = isFav(p.pnu), home = S.favs.home === p.pnu;
     const star = `<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l1.9 4 4.4.5-3.3 3 .9 4.3L8 11.2l-3.9 2.2.9-4.3-3.3-3 4.4-.5z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
-    return `<button class="favbtn${on ? ' on' : ''}" id="favBtn" type="button" aria-pressed="${on}" aria-label="${on ? '관심 부동산에서 빼기' : '관심 부동산으로 저장'}">${star}${on ? '저장됨' : '저장'}</button>`
+    const lsBtn = S.me.pro ? `<a class="favbtn" href="/listings.html?add=${p.pnu}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>매물 등록</a>` : '';
+    return lsBtn + `<button class="favbtn${on ? ' on' : ''}" id="favBtn" type="button" aria-pressed="${on}" aria-label="${on ? '관심 부동산에서 빼기' : '관심 부동산으로 저장'}">${star}${on ? '저장됨' : '저장'}</button>`
       + (on ? `<button class="favbtn home${home ? ' on' : ''}" id="homeBtn" type="button" aria-pressed="${home}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 7.5L8 2.5l6 5V14H10v-4H6v4H2z" fill="${home ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>${home ? '우리 집' : '우리 집으로'}</button>` : '');
   }
   async function toggleFav(name) {

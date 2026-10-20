@@ -322,8 +322,8 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .bar .share.brief:hover{background:#14212E;color:#fff;border-color:#14212E}
 
 /* 필지 주소 옆 로드뷰 버튼 */
-.h1row{display:flex;align-items:flex-start;gap:10px}
-.h1row h1{flex:1;min-width:0}
+.h1row{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.h1row h1{flex:1 1 55%;min-width:0}
 .rvbtn{flex:none;display:inline-flex;align-items:center;gap:5px;margin-top:1px;padding:6px 12px;border-radius:999px;border:0;background:#14212E;color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
 .rvbtn:hover{background:#F2B705;color:#14212E}
 @media (prefers-color-scheme: dark){.rvbtn{background:#F2B705;color:#14212E}}
@@ -437,3 +437,6 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .tbl td.dn{white-space:normal;word-break:keep-all;min-width:72px;max-width:150px}
 .tbl td.dn small{font-weight:500}
 .tbl td.u{white-space:nowrap}
+/* PRO 회원 */
+.probadge{display:inline-block;margin-left:5px;background:#F2B705;color:#14212E;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;letter-spacing:.04em;vertical-align:1px}
+a.favbtn{text-decoration:none}

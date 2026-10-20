@@ -2,6 +2,7 @@ User-agent: *
 Disallow: /members.html
 Disallow: /admin.html
 Disallow: /check.html
+Disallow: /listings.html
 Disallow: /api/
 
 Sitemap: https://realmap.online/sitemap.xml
