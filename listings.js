@@ -373,8 +373,10 @@
       <div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0">${n > 1 ? `<span class="pt" style="margin-right:6px">${i + 1}</span>` : ''}<b style="display:inline">${esc(P.bname || P.addr)}</b><div class="meta">${esc(P.addr)}</div>${info ? `<div class="meta">${info}</div>` : ''}</div>
         ${n > 1 || !S.form.edit ? `<button type="button" class="xbtn" data-pdel="${i}" aria-label="이 주소 빼기">×</button>` : ''}</div>
       ${unitPicker(P, i)}
-      <div class="two" style="margin-top:10px"><div><label class="sl" for="p${i}_dong">동</label><input class="in" id="p${i}_dong" value="${esc(P.dong || '')}" maxlength="20" placeholder="101"></div>
-        <div><label class="sl" for="p${i}_ho">호 · 층</label><input class="in" id="p${i}_ho" value="${esc(P.ho || '')}" maxlength="20" placeholder="1203"></div></div>
+      ${(P.ak === 'tot' || P.land || P.ak === 'land') && !P._showDH && !P.dong && !P.ho
+        ? `<div class="nodh"><span>${P.land || P.ak === 'land' ? '토지 · 동·호수 없음' : '건물 전체 · 동·호수 없음'}</span><button type="button" data-showdh="${i}">${P.land || P.ak === 'land' ? '직접 입력' : '층·호 직접 입력'}</button></div>`
+        : `<div class="two" style="margin-top:10px"><div><label class="sl" for="p${i}_dong">동</label><input class="in" id="p${i}_dong" value="${esc(P.dong || '')}" maxlength="20" placeholder="101"></div>
+        <div><label class="sl" for="p${i}_ho">호 · 층</label><input class="in" id="p${i}_ho" value="${esc(P.ho || '')}" maxlength="20" placeholder="1203"></div></div>`}
       ${P.ak === 'tot' ? `<div class="two" style="margin-top:8px">${[['site', '대지면적'], ['arch', '건축면적']].map(([k, lb]) => `<div><label class="sl" for="p${i}_${k}">${lb}</label><div class="unit"><input class="in" id="p${i}_${k}" data-sq="h${k}${i}" inputmode="decimal" value="${P[k] || ''}"><span>㎡</span></div><div class="hint" id="h${k}${i}">${P[k] ? (P[k] / 3.3058).toFixed(1) + '평' : ''}</div></div>`).join('')}</div>` : ''}
       <div style="margin-top:8px"><label class="sl" for="p${i}_area">${areaLb}</label><div class="unit"><input class="in" id="p${i}_area" data-area="${i}" inputmode="decimal" value="${P.area || ''}"><span>㎡</span></div>
         <div class="hint" id="hp${i}">${esc(P._msg || (P.area ? (P.area / 3.3058).toFixed(1) + '평' : ''))}</div></div>
@@ -450,9 +452,10 @@
     }
     if ($('addPlace')) $('addPlace').onclick = () => { F.adding = true; renderForm(); setTimeout(() => $('fq') && $('fq').focus(), 30); };
     on('[data-pdel]', b => b.onclick = () => { collect(); F.it.places.splice(+b.dataset.pdel, 1); if (!F.it.places.length) { F.adding = true; F.touchedType = false; F.it.bname = ''; } renderForm(true); });
+    on('[data-showdh]', b => b.onclick = () => { collect(); F.it.places[+b.dataset.showdh]._showDH = true; renderForm(true); setTimeout(() => $(`p${b.dataset.showdh}_ho`) && $(`p${b.dataset.showdh}_ho`).focus(), 30); });
     on('[data-clone]', b => b.onclick = () => cloneUnit(F, +b.dataset.clone));
     on('[data-umode]', b => b.onclick = () => { collect(); const [i, m] = b.dataset.umode.split(':'); const P = F.it.places[+i]; if (P._U.mode === m) return; P._U.mode = m;
-      if (m === 'whole') { P.dong = ''; P.ho = ''; P._U.sel = ''; P.ak = 'tot'; fillTot(P); }
+      if (m === 'whole') { P.dong = ''; P.ho = ''; P._U.sel = ''; P.ak = 'tot'; P._showDH = false; fillTot(P); }
       else { P.ak = 'ex'; P.area = null; P.site = null; P.arch = null; P._msg = ''; }
       renderForm(true); });
     on('[data-udong]', s => s.onchange = e => { collect(); const P = F.it.places[+s.dataset.udong]; P._U.cur = e.target.value; P._U.sel = ''; P._msg = ''; renderForm(true); loadUnits(F, P); });
