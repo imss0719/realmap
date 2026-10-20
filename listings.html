@@ -21,7 +21,9 @@ a{color:inherit}
 .top .sp{flex:1}
 .top .who{font-size:14px;opacity:.8}
 .wrap{max-width:1180px;margin:0 auto;padding:14px 16px 120px;display:grid;gap:14px}
-@media (min-width:980px){.wrap{grid-template-columns:440px 1fr;align-items:start}.mapbox{position:sticky;top:72px;height:calc(100vh - 92px)!important}}
+/* 넓은 화면: 왼쪽은 지도로 꽉 채우고, 오른쪽에 목록 */
+@media (min-width:980px){.wrap{display:block;max-width:none;padding-left:0}.mapbox{position:fixed!important;left:16px;top:68px;bottom:16px;right:532px;height:auto!important}.side{width:500px;margin-left:auto}}
+@media (min-width:1500px){.mapbox{right:592px}.side{width:560px}}
 .mapbox{height:34vh;min-height:220px;border-radius:16px;overflow:hidden;background:#dfe4e8;position:relative}
 #map{position:absolute;inset:0}
 .actions{display:flex;gap:10px;flex-wrap:wrap}
@@ -77,7 +79,8 @@ a{color:inherit}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
 .seg button{flex:1;min-width:76px;min-height:50px;border-radius:12px;border:2px solid var(--line);background:#fff;font-weight:700;font-size:16px}
 .seg button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+select.in{appearance:auto;min-height:52px}
 .res{display:grid;gap:6px;margin-top:8px}
 .res button{text-align:left;border:2px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px}
 .res button b{display:block}.res button small{color:var(--muted)}

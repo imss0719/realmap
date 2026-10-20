@@ -54,7 +54,7 @@
   function layout() {
     $('root').innerHTML = `<div class="wrap">
       <div class="mapbox"><div id="map"></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
-      <div style="display:grid;gap:12px">
+      <div class="side" style="display:grid;gap:12px">
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
         <div class="tabs" id="tabs"></div>
         <div class="tabs" id="kinds"></div>
@@ -119,6 +119,7 @@
         S.map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5563, 126.9236), level: 6 });
         S.map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
         drawPins(true);
+        addEventListener('resize', () => { clearTimeout(S.rz); S.rz = setTimeout(() => S.map && S.map.relayout(), 200); });
       });
       document.head.appendChild(sc);
     } catch { /* 지도 없이도 목록은 됩니다 */ }
@@ -185,9 +186,67 @@
         if (!F.it.bname && F.info.name) F.it.bname = F.info.name;
         if (t && t.road && !F.it.road) F.it.road = String(t.road).replace(/^서울특별시\s*/, '서울 ');
         if (!F.touchedType) F.it.ptype = guessType(t);
+        // 집합건물(아파트·오피스텔·집합상가 등)이면 동·호수를 목록에서 고를 수 있게
+        const ts = (b.titles && b.titles.data) || [];
+        if (ts.some(x => x.regstr === '집합') || (b.recap && b.recap.data && b.recap.data.length)) {
+          const nat = (a, c) => String(a).localeCompare(String(c), 'ko', { numeric: true });
+          const dongs = [...new Set(ts.map(x => String(x.dong || '').trim()).filter(Boolean))].sort(nat);
+          F.U = { mode: 'unit', lists: {}, byDong: dongs.length >= 2, dongs, cur: dongs.find(d => /\d/.test(d)) || dongs[0] || '' };
+          loadUnits(F, pnu);
+        }
       } catch { F.info = { none: true, err: true }; }
       renderForm(true);
     } catch (e) { F.picking = false; toast('그 위치의 필지를 찾지 못했습니다. 다른 주소로 검색해 주세요.', 3500); renderForm(); }
+  }
+  async function loadUnits(F, pnu) {
+    const U = F.U; if (!U) return;
+    const key = U.byDong ? U.cur : '*';
+    if (U.lists[key]) return;
+    U.lists[key] = 'loading'; renderForm(true);
+    try {
+      const j = await api(`/api/units?pnu=${pnu}${U.byDong ? '&dong=' + encodeURIComponent(U.cur) : ''}`);
+      const units = j.units || [];
+      if (!U.byDong) { // 전체 목록에서 동 이름을 뽑습니다
+        U.dongs = [...new Set(units.map(u => String(u.dong || '').trim()))];
+        if (!U.dongs.includes(U.cur)) U.cur = U.dongs.find(d => /\d/.test(d)) || U.dongs[0] || '';
+      }
+      U.lists[key] = units;
+    } catch { U.lists[key] = 'error'; }
+    if (S.form === F) renderForm();
+  }
+  async function pickUnit(F, ho) {
+    const U = F.U, it = F.it;
+    collect();
+    if (!ho) { it.ho = ''; U.msg = ''; return renderForm(true); }
+    it.dong = U.cur.replace(/동$/, ''); it.ho = ho; U.sel = ho; U.msg = '전용면적을 불러오는 중…';
+    renderForm(true);
+    try {
+      const j = await api(`/api/units?pnu=${it.pnu}&dong=${encodeURIComponent(U.cur)}&ho=${encodeURIComponent(ho)}`);
+      const rows = (j.area && j.area.ok && j.area.data) || [];
+      const ex = rows.filter(r => /전유/.test(r.gb || '')).reduce((a, r) => a + (r.area || 0), 0);
+      if (S.form !== F || U.sel !== ho) return;
+      collect();
+      if (ex > 0) { it.area = Math.round(ex * 100) / 100; U.msg = `전용 ${it.area}㎡ (${(it.area / 3.3058).toFixed(1)}평) 자동 입력했습니다`; }
+      else U.msg = '전용면적 정보가 없어 직접 입력해 주세요';
+    } catch { if (S.form === F) { collect(); U.msg = '전용면적을 불러오지 못했습니다. 직접 입력해 주세요'; } }
+    if (S.form === F) renderForm(true);
+  }
+  function unitPicker(F) {
+    const U = F.U; if (!U) return '';
+    const key = U.byDong ? U.cur : '*', L = U.lists[key];
+    const units = Array.isArray(L) ? L.filter(u => !U.byDong ? String(u.dong || '').trim() === U.cur : true) : [];
+    const showDong = U.dongs.length >= 2;
+    let body = '';
+    if (U.mode === 'unit') {
+      const dongSel = showDong ? `<select class="in" id="u_dong" aria-label="동 선택">${U.dongs.map(d => `<option ${d === U.cur ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>` : '';
+      const hoSel = L === 'loading' || !L ? '<select class="in" disabled><option>호 목록 불러오는 중…</option></select>'
+        : L === 'error' ? '<select class="in" disabled><option>목록을 불러오지 못했습니다</option></select>'
+        : !units.length ? '<select class="in" disabled><option>호 정보가 없습니다</option></select>'
+        : `<select class="in" id="u_ho" aria-label="호 선택"><option value="">호수 선택</option>${units.map(u => `<option value="${esc(u.ho)}" ${U.sel === u.ho ? 'selected' : ''}>${esc(u.ho)}${u.flr != null ? ` (${u.flrGb === '지하' ? 'B' : ''}${u.flr}층)` : ''}</option>`).join('')}</select>`;
+      body = `<div class="${showDong ? 'two' : ''}" style="margin-top:8px">${dongSel ? `<div>${dongSel}</div>` : ''}<div>${hoSel}</div></div><div class="hint">${esc(U.msg || '')}</div>`;
+    }
+    return `<div class="fld"><span class="lb">동·호수<small>목록에서 고르면 전용면적이 자동으로 들어갑니다</small></span>
+      <div class="seg" id="fWhole"><button type="button" data-v="unit" aria-pressed="${U.mode === 'unit'}">호수 고르기</button><button type="button" data-v="whole" aria-pressed="${U.mode === 'whole'}">건물 전체</button></div>${body}</div>`;
   }
   function search(q) {
     const F = S.form;
@@ -236,6 +295,7 @@
       <div class="fld">${priceF}</div>
       <div class="fld"><span class="lb">매물 유형</span><div class="seg" id="fType">${PTYPES.map(v => `<button type="button" data-v="${v}" aria-pressed="${it.ptype === v}">${v}</button>`).join('')}</div></div>
       <div class="fld"><label for="f_bname">건물 이름<small>선택</small></label><input class="in" id="f_bname" value="${esc(it.bname || '')}" maxlength="40"></div>
+      ${F.U ? unitPicker(F) : ''}
       <div class="two"><div class="fld"><label for="f_dong">동<small>선택</small></label><input class="in" id="f_dong" value="${esc(it.dong || '')}" maxlength="20" placeholder="101"></div>
         <div class="fld"><label for="f_ho">호 · 층<small>선택</small></label><input class="in" id="f_ho" value="${esc(it.ho || '')}" maxlength="20" placeholder="1203"></div></div>
       <div class="fld"><label for="f_area">전용면적<small>선택</small></label><div class="unit"><input class="in" id="f_area" inputmode="decimal" value="${it.area || ''}"><span>㎡</span></div><div class="hint" id="h_area">${it.area ? (it.area / 3.3058).toFixed(1) + '평' : ''}</div></div>
@@ -251,20 +311,25 @@
       $('fqBtn').onclick = go; $('fq').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
       document.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { const r = F.results[+b.dataset.r]; F.results = null; pickPlace(r.lat, r.lng, r.t); });
     }
-    if ($('rePick')) $('rePick').onclick = () => { collect(); F.it.pnu = ''; F.it.bname = ''; F.info = null; F.touchedType = false; renderForm(true); };
+    if ($('rePick')) $('rePick').onclick = () => { collect(); F.it.pnu = ''; F.it.bname = ''; F.info = null; F.U = null; F.touchedType = false; renderForm(true); };
     if (!it.pnu) return;
     const seg = (id, key, after) => $(id).querySelectorAll('button').forEach(b => b.onclick = () => { collect(); F.it[key] = b.dataset.v; if (after) after(); renderForm(true); });
     seg('fKind', 'kind'); seg('fType', 'ptype', () => (F.touchedType = true)); seg('fStat', 'status');
     document.querySelectorAll('[data-money]').forEach(inp => inp.oninput = () => { $('h_' + inp.id.slice(2)).textContent = won(num(inp.value)); });
     $('f_area').oninput = () => { const v = num($('f_area').value); $('h_area').textContent = v ? (v / 3.3058).toFixed(1) + '평' : ''; };
     $('f_phone').oninput = () => { const d = $('f_phone').value.replace(/\D/g, ''); if (/^01\d{8,9}$/.test(d)) $('f_phone').value = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`; };
+    if (F.U) {
+      $('fWhole').querySelectorAll('button').forEach(b => b.onclick = () => { collect(); F.U.mode = b.dataset.v; if (b.dataset.v === 'whole') { F.it.dong = ''; F.it.ho = ''; F.U.sel = ''; F.U.msg = ''; } renderForm(true); });
+      if ($('u_dong')) $('u_dong').onchange = e => { collect(); F.U.cur = e.target.value; F.U.sel = ''; F.U.msg = ''; renderForm(true); loadUnits(F, F.it.pnu); };
+      if ($('u_ho')) $('u_ho').onchange = e => pickUnit(F, e.target.value);
+    }
     $('fSave').onclick = save;
     if ($('fDel')) $('fDel').onclick = del;
   }
   const num = v => { const x = Number(String(v || '').replace(/[^\d.]/g, '')); return Number.isFinite(x) && x > 0 ? x : null; };
   function fieldMoney(key, label, val) {
-    return `<label for="f_${key}" style="display:block;font-weight:700;margin-bottom:6px">${label}<small style="font-weight:500;color:var(--muted);margin-left:6px">만원 단위</small></label>
-      <div class="unit"><input class="in" id="f_${key}" data-money inputmode="numeric" value="${val || ''}" placeholder="${key === 'rent' ? '150' : '45000'}"><span>만원</span></div><div class="hint" id="h_${key}">${val ? won(val) : ''}</div>`;
+    return `<div><label for="f_${key}" style="display:block;font-weight:700;margin-bottom:6px">${label}<small style="font-weight:500;color:var(--muted);margin-left:6px">만원 단위</small></label>
+      <div class="unit"><input class="in" id="f_${key}" data-money inputmode="numeric" value="${val || ''}" placeholder="${key === 'rent' ? '150' : '45000'}"><span>만원</span></div><div class="hint" id="h_${key}">${val ? won(val) : ''}</div></div>`;
   }
   function collect() {
     const F = S.form; if (!F || !F.it.pnu) return;
