@@ -2,7 +2,7 @@
 // GET /api/members   헤더 x-admin-key: ADMIN_PASSWORD
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
-import { send, fail, MAX_KEYS } from './_lib.js';
+import { send, fail, MAX_KEYS, vworldData, cached, pool } from './_lib.js';
 import { readSession, redis, R_URL, R_TOKEN } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
@@ -51,6 +51,22 @@ async function stats() {
       days: days.map((d, i) => ({ d, uv: val(i * N), pv: val(i * N + 1), pcl: val(i * N + 2), mem: val(i * N + 3), src: hash(out[i * N + 4]), gu: hash(out[i * N + 5]) })),
       uv7: val(days.length * N), uv30: val(days.length * N + 1),
       keys: val(days.length * N + 2), maxKeys: MAX_KEYS,
+      guNames: await guNames(days.map((d, i) => hash(out[i * N + 5]))),
     };
   } catch { return null; }
+}
+
+// 시군구 코드 → "경기 김포시" 같은 이름 (브이월드 행정구역, 한 번 찾으면 오래 기억)
+const SIDO = { '11': '서울', '26': '부산', '27': '대구', '28': '인천', '29': '광주', '30': '대전', '31': '울산', '36': '세종', '41': '경기', '42': '강원', '43': '충북', '44': '충남', '45': '전북', '46': '전남', '47': '경북', '48': '경남', '50': '제주', '51': '강원', '52': '전북' };
+async function guNames(daily) {
+  const codes = [...new Set(daily.flatMap(m => Object.keys(m || {})))].filter(c => /^\d{5}$/.test(c)).slice(0, 60);
+  const out = {};
+  const rs = await pool(codes, 5, c => cached('signm:' + c, 30 * 864e5, async () => {
+    const f = await vworldData({ data: 'LT_C_ADSIGG_INFO', attrFilter: `sig_cd:=:${c}`, geometry: 'false', size: '1' });
+    const nm = f[0] && f[0].properties && String(f[0].properties.sig_kor_nm || '').trim();
+    if (!nm) throw new Error('none');
+    return nm;
+  }));
+  codes.forEach((c, i) => { const sd = SIDO[c.slice(0, 2)] || ''; out[c] = rs[i].ok ? `${sd} ${rs[i].v}`.trim() : sd ? `${sd} (${c})` : c; });
+  return out;
 }
