@@ -629,7 +629,7 @@
     </dl></section>`);
     if (ts.length > 1) {
       out.push(`<section><h2>동별 현황<span>${ts.length}개 동</span></h2><div class="tbl"><table><thead><tr><th>동</th><th>용도</th><th class="n">층수</th><th class="n">높이</th><th class="n">연면적</th></tr></thead><tbody>
-      ${ts.map(x => `<tr class="${x.mainAtch === '부속건축물' ? 'ex' : ''}"><td class="c">${esc(x.dong || x.name || '-')}</td><td>${esc(x.use || '-')}</td><td class="n">${x.ugrnd ? 'B' + x.ugrnd + '/' : ''}${n(x.grnd)}F</td><td class="n">${x.height ? n(x.height, 1) + 'm' : '-'}</td><td class="n">${ar(x.totArea, 0)[0]}</td></tr>`).join('')}
+      ${ts.map(x => { const nm = String(x.dong || x.name || '-'), m = nm.match(/^([^(（]+)[(（](.+)[)）]$/); return `<tr class="${x.mainAtch === '부속건축물' ? 'ex' : ''}"><td class="c dn">${m ? `${esc(m[1].trim())}<small>${esc(m[2])}</small>` : esc(nm)}</td><td class="u">${esc(x.use || '-')}</td><td class="n">${x.ugrnd ? 'B' + x.ugrnd + '/' : ''}${n(x.grnd)}F</td><td class="n">${x.height ? n(x.height, 1) + 'm' : '-'}</td><td class="n">${ar(x.totArea, 0)[0]}</td></tr>`; }).join('')}
       </tbody></table></div>
       <label class="pick" style="grid-template-columns:1fr"><span style="font-size:12px;color:var(--muted)">상세 볼 동</span><select id="bldSel">${ts.map((x, i) => `<option value="${i}" ${i === S.bldIdx ? 'selected' : ''}>${esc(x.dong || x.name || '건물 ' + (i + 1))} · ${esc(x.use || '')}</option>`).join('')}</select></label></section>`);
     }
@@ -699,9 +699,15 @@
     const rows = [...D.stores].sort((a, b) => fl(a.floor) - fl(b.floor));
     return `<section><h2>입점 업종<span>${D.stores.length}곳</span></h2>
       <div class="chips" style="margin:0 0 8px">${Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="chip">${esc(k)} ${v}</span>`).join('')}</div>
-      <div class="tbl"><table><thead><tr><th>층</th><th>상호</th><th>업종</th></tr></thead><tbody>
-      ${rows.map(x => `<tr><td class="c">${x.floor ? esc(/^\d+$/.test(x.floor) ? x.floor + '층' : x.floor) : '-'}</td><td>${esc(x.name)}${x.ho ? `<small>${esc(x.ho)}호</small>` : ''}</td><td>${esc(x.s || x.m)}<small>${esc(x.m)}</small></td></tr>`).join('')}
-      </tbody></table></div>
+      ${(() => {
+        const tr = x => `<tr><td class="c">${x.floor ? esc(/^\d+$/.test(x.floor) ? x.floor + '층' : x.floor) : '-'}</td><td>${esc(x.name)}${x.ho ? `<small>${esc(x.ho)}호</small>` : ''}</td><td>${esc(x.s || x.m)}<small>${esc(x.m)}</small></td></tr>`;
+        const head = '<div class="tbl"><table><thead><tr><th>층</th><th>상호</th><th>업종</th></tr></thead><tbody>';
+        // 비회원은 앞 2곳만 보여 주고 나머지는 흐리게
+        if (S.me.member || !S.me.ready || rows.length <= 2) return head + rows.map(tr).join('') + '</tbody></table></div>';
+        return head + rows.slice(0, 2).map(tr).join('') + '</tbody></table></div>'
+          + `<div class="klock"><div class="kblur" aria-hidden="true"><div class="tbl"><table><tbody>${rows.slice(2, 8).map(tr).join('')}</tbody></table></div></div>`
+          + `<div class="kcta"><b>나머지 ${rows.length - 2}곳의 상호·업종·층</b><span>회원이면 무료로 모두 보실 수 있습니다</span><button type="button" class="kbtn" id="storeLogin">카카오로 3초 가입하고 보기</button></div></div>`;
+      })()}
       <p class="note">소상공인시장진흥공단 상가정보 기준이며, 분기마다 갱신되어 실제와 다를 수 있습니다.</p></section>`;
   }
 
@@ -972,6 +978,7 @@
     const mt = D.querySelector('#moreT'); if (mt) mt.onclick = () => { S.showAll = true; render(); };
     const sl = D.querySelector('#safeLogin'); if (sl) sl.onclick = () => loginModal('safe');
     const kl = D.querySelector('#kaptLogin'); if (kl) kl.onclick = () => loginModal('kapt');
+    const stl = D.querySelector('#storeLogin'); if (stl) stl.onclick = () => loginModal('stores');
   }
 
   // ---------- 개발지도 ----------
@@ -1321,6 +1328,7 @@
   const LOGIN_WHY = {
     join: '리얼맵 회원 기능, 모두 무료입니다',
     kapt: '평형별 관리비와 상세 내역은 회원 전용입니다',
+    stores: '입점 업종 전체 목록은 회원 전용입니다',
     loc: '무료 이용 3회를 모두 사용하셨습니다',
     fav: '관심 부동산 저장은 회원 전용입니다',
     safe: '전세 안전 점검 전체 결과는 회원 전용입니다',
