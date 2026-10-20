@@ -117,7 +117,19 @@ td.n{color:var(--muted)}
       <div class="tbl" style="margin-top:10px;max-height:260px"><table><thead><tr><th>날짜</th><th>방문자</th><th>페이지 열람</th><th>필지 조회</th><th>로그인 회원</th></tr></thead><tbody>
         ${st.days.slice(0, 14).map(x => `<tr><td>${x.d.slice(0, 4)}.${x.d.slice(4, 6)}.${x.d.slice(6)}</td><td>${x.uv.toLocaleString()}</td><td>${x.pv.toLocaleString()}</td><td>${x.pcl.toLocaleString()}</td><td>${x.mem.toLocaleString()}</td></tr>`).join('')}
       </tbody></table></div>
-      <p class="note">· 방문자는 같은 휴대폰·컴퓨터를 하루 한 명으로 셉니다 (브라우저를 바꾸거나 기록을 지우면 다시 셉니다). 운영자 본인 방문도 포함됩니다.<br>· 검색엔진 로봇과 새벽 미리 불러오기는 세지 않습니다. 통계를 넣은 날부터 쌓입니다.</p>
+      ${(() => {
+        const L = { blog: '네이버 블로그', nsearch: '네이버 검색', naver: '네이버 (기타·앱)', insta: '인스타그램', kakao: '카카오톡', youtube: '유튜브', google: '구글', daum: '다음', direct: '직접 입력 · 즐겨찾기', etc: '기타 사이트' };
+        const sum = n => { const m = {}; st.days.slice(0, n).forEach(x => Object.entries(x.src || {}).forEach(([k, v]) => { m[k] = (m[k] || 0) + v; })); return m; };
+        const d1 = sum(1), d7 = sum(7), d30 = sum(30);
+        const keys = Object.keys(L).filter(k => d30[k]).sort((a, b) => (d30[b] || 0) - (d30[a] || 0));
+        const tot = keys.reduce((a, k) => a + d30[k], 0);
+        return `<div class="sec-t" style="margin-top:18px">유입 경로 <small style="font-weight:400;color:#5E6A77">방문 1회당 한 번 · 어디서 들어왔는지</small></div>
+          <div class="tbl"><table><thead><tr><th>경로</th><th>오늘</th><th>최근 7일</th><th>최근 30일</th><th>비중 (30일)</th></tr></thead><tbody>
+          ${keys.length ? keys.map(k => `<tr><td>${L[k]}</td><td>${(d1[k] || 0).toLocaleString()}</td><td>${(d7[k] || 0).toLocaleString()}</td><td>${d30[k].toLocaleString()}</td><td>${Math.round(d30[k] / tot * 100)}%</td></tr>`).join('') : '<tr><td colspan="5" class="n">아직 집계된 유입이 없습니다. 오늘부터 쌓입니다.</td></tr>'}
+          </tbody></table></div>
+          <p class="note">· 블로그·릴스·카톡에 주소를 올릴 때 <b>realmap.online/?from=blog</b> (또는 ?from=insta, ?from=kakao, ?from=youtube)처럼 붙이면 더 정확하게 구분됩니다.</p>`;
+      })()}
+      <p class="note">· 방문자는 같은 휴대폰·컴퓨터를 하루 한 명으로 셉니다 (브라우저를 바꾸거나 기록을 지우면 다시 셉니다). 운영자 본인 방문은 오늘부터 빠집니다 (운영자로 한 번이라도 로그인한 기기 포함).<br>· 검색엔진 로봇과 새벽 미리 불러오기는 세지 않습니다. 통계를 넣은 날부터 쌓입니다.</p>
       <div class="sec-t">회원</div>` : '';
     app.innerHTML = visit + `<div class="stats">
         <div class="stat"><span>전체 회원</span><b>${data.total}</b></div>

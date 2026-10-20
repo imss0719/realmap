@@ -53,9 +53,32 @@
   // ---------- 시작 ----------
   init();
   // 방문 통계: 브라우저마다 임의의 번호 하나만 씁니다 (이름·연락처 같은 개인정보 없음)
+  // 운영자 기기(한 번이라도 운영자로 로그인한 브라우저)는 로그아웃 상태여도 세지 않습니다
   function hit(k) {
-    let v = ''; try { v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
-    try { fetch(`/api/auth?action=hit&k=${k}&v=${encodeURIComponent(v)}`, { keepalive: true }).catch(() => {}); } catch { /* 무시 */ }
+    let v = '', op = false; try { op = localStorage.getItem('rm.op') === '1'; v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
+    if (op) return;
+    let src = '';
+    if (k === 'v') { try { if (!sessionStorage.getItem('rm.src')) { src = visitSrc(); sessionStorage.setItem('rm.src', src); } } catch { src = visitSrc(); } }
+    try { fetch(`/api/auth?action=hit&k=${k}&v=${encodeURIComponent(v)}${src ? '&src=' + src : ''}`, { keepalive: true }).catch(() => {}); } catch { /* 무시 */ }
+  }
+  // 어디서 들어왔는지: 링크에 붙인 ?from=, 앱 안 브라우저, 이전 페이지 주소 순으로 판단
+  function visitSrc() {
+    const from = (new URLSearchParams(location.search).get('from') || '').toLowerCase();
+    const MAP = { blog: 'blog', insta: 'insta', instagram: 'insta', reels: 'insta', kakao: 'kakao', youtube: 'youtube', yt: 'youtube' };
+    if (MAP[from]) return MAP[from];
+    const ua = navigator.userAgent || '';
+    if (/Instagram/i.test(ua)) return 'insta';
+    if (/KAKAOTALK/i.test(ua)) return 'kakao';
+    let h = ''; try { h = document.referrer ? new URL(document.referrer).hostname : ''; } catch { /* 무시 */ }
+    if (!h || h === location.hostname) return /NAVER\(inapp/i.test(ua) ? 'naver' : 'direct';
+    if (/blog\.naver\.com$/.test(h)) return 'blog';
+    if (/search\.naver\.com$/.test(h)) return 'nsearch';
+    if (/naver\.(com|me)$/.test(h)) return 'naver';
+    if (/instagram\.com$/.test(h)) return 'insta';
+    if (/kakao\.com$|daum\.net$/.test(h)) return /daum/.test(h) ? 'daum' : 'kakao';
+    if (/youtube\.com$|youtu\.be$/.test(h)) return 'youtube';
+    if (/google\./.test(h)) return 'google';
+    return 'etc';
   }
   hit('v');
   async function init() {
@@ -1299,6 +1322,7 @@
       setTimeout(() => toast(lg === 'ok' ? '로그인되었습니다. 입지정보를 계속 무료로 이용하실 수 있습니다' : lg === 'cancel' ? '로그인을 취소했습니다' : '로그인하지 못했습니다. 잠시 후 다시 시도해 주세요', 3600), 600);
     }
     try { S.me = await api('/api/auth?action=me'); } catch { /* 회원 기능 꺼짐 */ }
+    try { if (S.me.op) localStorage.setItem('rm.op', '1'); } catch { /* 무시 */ }
     drawAcct();
     loadFavs();
   }
