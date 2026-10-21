@@ -444,3 +444,12 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .probadge{display:inline-block;margin-left:5px;background:#F2B705;color:#14212E;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;letter-spacing:.04em;vertical-align:1px}
 a.favbtn{text-decoration:none}
 .zlink{display:inline-block;margin:8px 0 2px;font-size:13px;font-weight:700;color:var(--accent);text-decoration:none}
+
+.chip.warn{cursor:pointer;font:inherit;font-size:12px;font-weight:700;color:#C92A2A;background:#FFF0F0;border-color:#FFC9C9}
+.warnbox{border:1px solid #FFC9C9;background:#FFF5F5;border-radius:12px;padding:14px 14px 10px}
+.warnbox h2{color:#C92A2A}
+.warnbox .wrow{padding:8px 0;border-top:1px solid #FFE3E3}
+.warnbox .wrow:first-of-type{border-top:0;padding-top:2px}
+.warnbox .wrow b{font-size:14px}
+.warnbox .wrow p{margin:4px 0 0;font-size:13px;line-height:1.6;color:var(--fg)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .chip.warn{background:#3B1A1A;border-color:#6B2B2B;color:#FF8787}:root:not([data-theme="light"]) .warnbox{background:#2A1515;border-color:#5C2626}:root:not([data-theme="light"]) .warnbox h2{color:#FF8787}:root:not([data-theme="light"]) .warnbox .wrow{border-color:#4A2020}}

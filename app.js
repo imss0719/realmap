@@ -380,6 +380,7 @@
     const c = chr(), m = mainT(), rc = recap(), o = own(), pr = prices();
     const name = (rc && rc.name) || (m && m.name) || p.bname || '';
     const chips = [];
+    warnsHere().forEach(w => chips.push(`<button type="button" class="chip warn" data-warn>⚠ ${esc(w.short)}</button>`));
     jz.forEach(e => chips.push(`<button type="button" class="chip dz" data-dz style="--zc:${zColor(e)}">${esc(ZSHORT[zKind(e)] || '정비구역')}</button>`));
     if (c && c.zone1) chips.push(`<span class="chip z">${esc(c.zone1)}</span>`);
     if (c && c.jimok) chips.push(`<span class="chip">${esc(c.jimok)}</span>`);
@@ -426,6 +427,7 @@
     $('shareBtn').onclick = () => shareParcel(p, name);
     if ($('rvBtn')) $('rvBtn').onclick = () => setView('rv');
     D.querySelectorAll('[data-dz]').forEach(b => b.onclick = () => goSec('dev'));
+    D.querySelectorAll('[data-warn]').forEach(b => b.onclick = () => goSec('plan', 'warnSec'));
     if ($('favBtn')) $('favBtn').onclick = () => toggleFav(name);
     if ($('homeBtn')) $('homeBtn').onclick = () => toggleHome(name);
     if ($('safeBtn')) $('safeBtn').onclick = () => { S.safeOpen = true; goSec('trade', 'safe'); };
@@ -561,7 +563,7 @@
     const L = S.d.land;
     if (!L) return skel();
     if (L.error) return errBox('', L.error);
-    const out = [];
+    const out = [warnSection()];
     if (L.use && L.use.ok) {
       const rows = L.use.data;
       const li = a => a.length ? a.map(x => `<li class="${/^UQA/.test(x.code) ? 'k' : ''}">${esc(x.name)}${x.rel && x.rel !== '포함' ? ` <em>(${esc(x.rel)})</em>` : ''}</li>`).join('') : '<li>해당 없음</li>';
@@ -1276,31 +1278,74 @@
     return szLoading;
   }
   const ZSHORT = { '재개발': '재개발', '도시정비형 재개발': '도시정비형 재개발', '재정비촉진(뉴타운)': '재정비촉진(뉴타운)', '재건축': '재건축', '역세권 재개발': '역세권개발', '주거환경개선': '주거환경개선', '사업완료': '정비사업 완료', '정비구역': '정비구역',
-    '재개발(주택정비형)': '재개발', '재개발(도시정비형)': '도시정비형 재개발', '재건축(공동)': '재건축', '재건축(단독)': '재건축', '주거환경개선(관리형)': '주거환경개선', '주거환경개선(정비형)': '주거환경개선', '신속통합기획': '신속통합기획' };
+    '재개발(주택정비형)': '재개발', '재개발(도시정비형)': '도시정비형 재개발', '재건축(공동)': '재건축', '재건축(단독)': '재건축', '주거환경개선(관리형)': '주거환경개선', '주거환경개선(정비형)': '주거환경개선', '신속통합기획': '신속통합기획', '모아타운': '모아타운', '관리지역': '소규모정비 관리지역', '소규모정비': '소규모정비', '재정비촉진지구': '재정비촉진지구' };
   const SZCOLOR = { '신속통합기획': '#0CA678', '재개발(주택정비형)': '#D9480F', '재개발(도시정비형)': '#E67700', '재건축(공동)': '#1971C2', '재건축(단독)': '#1971C2', '주거환경개선(관리형)': '#2F9E44', '주거환경개선(정비형)': '#2F9E44' };
-  // 이 필지가 들어 있는 정비구역·정비사업 (서울). 자료를 아직 안 불러왔으면 불러온 뒤 다시 그림
+  // 꼭 알아야 할 규제 (토지이용계획 기준) — 상단 경고 칩 + 이용계획 맨 위 설명
+  const WARN = [
+    { code: 'UDX100', short: '건축허가·착공제한', note: '정비구역 지정 등을 앞두고 지자체가 건축허가나 착공을 일정 기간 막아 둔 지역입니다(건축법 제18조, 원칙 2년 이내·1회 1년 연장). 이 기간에는 신축·증축이나 용도변경이 어려울 수 있고, 지분 쪼개기를 막기 위한 경우가 많습니다.' },
+    { code: 'UQQ900', short: '개발행위허가제한', note: '도시계획을 새로 세우는 동안 건축, 토지 형질변경, 토지 분할 같은 개발행위를 일정 기간 제한한 지역입니다(국토계획법 제63조, 최대 3년·일부 2년 연장). 제한 기간과 대상 행위는 고시문으로 확인해 주세요.' },
+  ];
+  function warnsHere() {
+    const L = S.d.land, uses = L && L.use && L.use.ok ? L.use.data : [];
+    return WARN.map(w => ({ ...w, u: uses.find(u => u.code === w.code && (!u.rel || u.rel === '포함')) })).filter(w => w.u);
+  }
+  function warnSection() {
+    const ws = warnsHere();
+    if (!ws.length) return '';
+    return `<section class="warnbox" id="warnSec"><h2>주의할 규제<span>토지이용계획 기준</span></h2>${ws.map(w => `<div class="wrow"><b>${esc(w.u.name || w.short)}</b><p>${esc(w.note)}</p></div>`).join('')}
+      <p class="note">제한 기간·대상은 지정 고시마다 다릅니다. 계약 전에 토지이음(eum.go.kr)의 고시 정보나 구청에서 꼭 확인해 주세요.</p></section>`;
+  }
+  // 토지이용계획(국토부)에 나오는 정비 관련 지역·지구 — 전국 공통, 경계 자료가 없어도 필지 단위로 정확함
+  const LUZ = [
+    { code: 'UDK200', x: '모아타운', label: '소규모주택정비 관리지역' },
+    { code: 'UDK300', x: '소규모정비', label: '소규모주택정비사업 사업시행구역' },
+    { re: /재정비촉진지구/, x: '재정비촉진지구', label: '재정비촉진지구' },
+    { code: 'UDT100', x: '정비구역', label: '정비구역' },
+  ];
+  const XCOLOR = { '모아타운': '#5C940D', '관리지역': '#5C940D', '소규모정비': '#74B816', '재정비촉진지구': '#C2255C', '정비구역': '#868E96' };
+  const XNOTE = {
+    '모아타운': '모아타운은 노후 저층 주거지를 블록 단위로 묶어 모아주택(가로주택정비·소규모재건축 등)으로 정비하는 제도입니다. 이 필지는 토지이용계획상 소규모주택정비 관리지역에 들어 있습니다.',
+    '관리지역': '이 필지는 토지이용계획상 소규모주택정비 관리지역에 들어 있습니다. 노후 저층 주거지를 묶어 가로주택정비·소규모재건축 등으로 정비하는 지역입니다.',
+    '소규모정비': '이 필지는 가로주택정비·소규모재건축·자율주택정비 같은 소규모주택정비사업의 사업시행구역에 들어 있습니다.',
+    '재정비촉진지구': '이 필지는 토지이용계획상 재정비촉진지구(뉴타운)에 들어 있습니다.',
+    '정비구역': '이 필지는 토지이용계획상 정비구역에 들어 있습니다. 사업 종류와 단계는 구청에서 확인해 주세요.',
+  };
+  // 이 필지가 들어 있는 정비구역·정비사업. 서울은 국토부 경계 + 서울시 정비사업 현황, 전국은 토지이용계획
   function zonesHere() {
     const p = S.sel;
-    if (!p || !p.c || !String(p.pnu).startsWith('11')) return [];
-    if (!D.jb || !D.sz) { Promise.all([loadJB(), loadSZ()]).then(([j]) => { if (j && S.sel === p) render(); }); return []; }
+    if (!p || !p.c) return [];
     const out = [], used = new Set();
-    for (const z of D.jb.filter(z => inGeo(z.g, p.c.lng, p.c.lat))) {
-      const rs = (D.sz.byJb.get(z.id) || []).slice().sort((a, b) => (b.sd || '').localeCompare(a.sd || ''));
-      rs.forEach(r => used.add(r.id));
-      out.push({ z, r: rs[0] || null });
+    const seoul = String(p.pnu).startsWith('11');
+    if (seoul && (!D.jb || !D.sz)) Promise.all([loadJB(), loadSZ()]).then(([j]) => { if (j && S.sel === p) render(); });
+    if (seoul && D.jb && D.sz) {
+      for (const z of D.jb.filter(z => inGeo(z.g, p.c.lng, p.c.lat))) {
+        const rs = (D.sz.byJb.get(z.id) || []).slice().sort((a, b) => (b.sd || '').localeCompare(a.sd || ''));
+        rs.forEach(r => used.add(r.id));
+        out.push({ z, r: rs[0] || null });
+      }
+      // 국토부 경계가 없는 사업(신속통합기획 대상지 등): 대표 지번이 이 필지이거나 대표 위치가 이 필지 안
+      const tail = String(p.addr || '').split(' ').slice(-2).join(' ');
+      for (const r of D.sz.rows) {
+        if (used.has(r.id) || (r.jb && r.jb.length)) continue;
+        if ((tail && r.a === tail) || (r.lat && p.geometry && inGeo(p.geometry, r.lng, r.lat))) { used.add(r.id); out.push({ z: null, r }); }
+      }
     }
-    // 국토부 경계가 없는 사업(신속통합기획 대상지 등): 대표 지번이 이 필지이거나 대표 위치가 이 필지 안
-    const tail = String(p.addr || '').split(' ').slice(-2).join(' ');
-    for (const r of D.sz.rows) {
-      if (used.has(r.id) || (r.jb && r.jb.length)) continue;
-      if ((tail && r.a === tail) || (r.lat && p.geometry && inGeo(p.geometry, r.lng, r.lat))) { used.add(r.id); out.push({ z: null, r }); }
+    // 토지이용계획의 지역·지구 (위에서 이미 같은 종류가 잡혔으면 빼기)
+    const L = S.d.land, uses = L && L.use && L.use.ok ? L.use.data : [];
+    for (const d of LUZ) {
+      const u = uses.find(u => (d.code ? u.code === d.code : d.re.test(u.name || '')) && (!u.rel || u.rel === '포함'));
+      if (!u) continue;
+      if (d.x === '정비구역' && out.length) continue;
+      if (d.x === '재정비촉진지구' && out.some(e => /재정비촉진/.test(zKind(e)))) continue;
+      const x = d.x === '모아타운' && !seoul ? '관리지역' : d.x; // '모아타운'은 서울시 명칭
+      out.push({ z: null, r: null, x, lu: u.name || d.label });
     }
     return out;
   }
-  const zKind = e => (e.r && e.r.k) || (e.z && e.z.k) || '정비구역';
-  const zColor = e => (e.r && SZCOLOR[e.r.k]) || (e.z && KCOLOR[e.z.k]) || '#868E96';
+  const zKind = e => e.x || (e.r && e.r.k) || (e.z && e.z.k) || '정비구역';
+  const zColor = e => (e.x && XCOLOR[e.x]) || (e.r && SZCOLOR[e.r.k]) || (e.z && KCOLOR[e.z.k]) || '#868E96';
   // 이름이 없으면 '○○동 ○○번지 일대' (서울시 자료의 대표 지번, 없으면 누른 필지의 동)
-  const zName = e => (e.r && e.r.n) || (e.z && e.z.named ? e.z.n : '') || (e.r && e.r.a ? `${e.r.a.replace(/번지$/, '')}번지 일대` : '')
+  const zName = e => (e.x ? `${String(S.sel && S.sel.addr || '').split(' ').slice(-2, -1)[0] || ''} 일대 ${e.x}`.trim() : '') || (e.r && e.r.n) || (e.z && e.z.named ? e.z.n : '') || (e.r && e.r.a ? `${e.r.a.replace(/번지$/, '')}번지 일대` : '')
     || (S.sel && S.sel.addr ? `${String(S.sel.addr).split(' ').slice(-2, -1)[0] || ''} 일대`.trim() : '');
   // 구역 면적(㎡) 대략 계산 (경위도 → 평면 근사)
   function geoArea(g) {
@@ -1318,6 +1363,12 @@
   const zPct = v => `${n(v, v % 1 ? 2 : 0)}%`;
   function devTab(jz) {
     return jz.map(e => {
+      if (e.x) {
+        const dong = String(S.sel && S.sel.addr || '').split(' ').slice(0, -1).join(' ');
+        return `<section><h2><i class="dzi" style="background:${zColor(e)}"></i>${esc(e.x)}<span>토지이용계획</span></h2>
+          <dl class="kv"><dt>구분</dt><dd>${esc(e.lu)}</dd>${dong ? `<dt>위치</dt><dd>${esc(dong)} 일대</dd>` : ''}</dl>
+          <p class="note">${esc(XNOTE[e.x] || '')} 출처: 국토교통부 토지이용계획. 구역 이름과 추진 단계는 구청이나 조합에 확인해 주세요.</p></section>`;
+      }
       const z = e.z, r = e.r, c = zColor(e), kind = zKind(e);
       const area = r && r.ar ? r.ar : z && z.g ? Math.round(geoArea(z.g) / 10) * 10 : 0;
       const fl = r && r.fl && /\d/.test(r.fl) ? r.fl.split('/') : null;
