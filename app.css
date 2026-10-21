@@ -443,3 +443,4 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 /* PRO 회원 */
 .probadge{display:inline-block;margin-left:5px;background:#F2B705;color:#14212E;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;letter-spacing:.04em;vertical-align:1px}
 a.favbtn{text-decoration:none}
+.zlink{display:inline-block;margin:8px 0 2px;font-size:13px;font-weight:700;color:var(--accent);text-decoration:none}

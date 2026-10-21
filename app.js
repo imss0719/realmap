@@ -380,7 +380,7 @@
     const c = chr(), m = mainT(), rc = recap(), o = own(), pr = prices();
     const name = (rc && rc.name) || (m && m.name) || p.bname || '';
     const chips = [];
-    jz.forEach(z => chips.push(`<button type="button" class="chip dz" data-dz style="--zc:${KCOLOR[z.k] || '#868E96'}">${esc(ZSHORT[z.k] || '정비구역')}</button>`));
+    jz.forEach(e => chips.push(`<button type="button" class="chip dz" data-dz style="--zc:${zColor(e)}">${esc(ZSHORT[zKind(e)] || '정비구역')}</button>`));
     if (c && c.zone1) chips.push(`<span class="chip z">${esc(c.zone1)}</span>`);
     if (c && c.jimok) chips.push(`<span class="chip">${esc(c.jimok)}</span>`);
     if (m && m.use) chips.push(`<span class="chip">${esc(m.use)}</span>`);
@@ -1235,14 +1235,43 @@
     $('zcClose').onclick = hideZone;
     const go = $('zcGo'); if (go) go.onclick = () => { hideZone(); pick(lat, lng); };
   }
-  // 이 필지가 들어 있는 정비구역 (서울). 자료를 아직 안 불러왔으면 불러온 뒤 다시 그림
-  const ZSHORT = { '재개발': '재개발', '도시정비형 재개발': '도시정비형 재개발', '재정비촉진(뉴타운)': '재정비촉진(뉴타운)', '재건축': '재건축', '역세권 재개발': '역세권개발', '주거환경개선': '주거환경개선', '사업완료': '정비사업 완료', '정비구역': '정비구역' };
+  // 서울시 정비사업 현황 (추진 단계 등). GitHub가 분기마다 data/seoul-zones.json 으로 만들어 둠
+  let szLoading = null;
+  function loadSZ() {
+    if (D.sz) return Promise.resolve(D.sz);
+    if (!szLoading) szLoading = fetch('/data/seoul-zones.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(j => {
+      const byJb = new Map();
+      for (const r of j.rows || []) for (const id of r.jb || []) { if (!byJb.has(id)) byJb.set(id, []); byJb.get(id).push(r); }
+      D.sz = { rows: j.rows || [], byJb, updated: j.updated || '' };
+      return D.sz;
+    }).catch(() => { D.sz = { rows: [], byJb: new Map(), updated: '' }; return D.sz; });
+    return szLoading;
+  }
+  const ZSHORT = { '재개발': '재개발', '도시정비형 재개발': '도시정비형 재개발', '재정비촉진(뉴타운)': '재정비촉진(뉴타운)', '재건축': '재건축', '역세권 재개발': '역세권개발', '주거환경개선': '주거환경개선', '사업완료': '정비사업 완료', '정비구역': '정비구역',
+    '재개발(주택정비형)': '재개발', '재개발(도시정비형)': '도시정비형 재개발', '재건축(공동)': '재건축', '재건축(단독)': '재건축', '주거환경개선(관리형)': '주거환경개선', '주거환경개선(정비형)': '주거환경개선', '신속통합기획': '신속통합기획' };
+  const SZCOLOR = { '신속통합기획': '#0CA678', '재개발(주택정비형)': '#D9480F', '재개발(도시정비형)': '#E67700', '재건축(공동)': '#1971C2', '재건축(단독)': '#1971C2', '주거환경개선(관리형)': '#2F9E44', '주거환경개선(정비형)': '#2F9E44' };
+  // 이 필지가 들어 있는 정비구역·정비사업 (서울). 자료를 아직 안 불러왔으면 불러온 뒤 다시 그림
   function zonesHere() {
     const p = S.sel;
     if (!p || !p.c || !String(p.pnu).startsWith('11')) return [];
-    if (!D.jb) { loadJB().then(j => { if (j && S.sel === p) render(); }); return []; }
-    return D.jb.filter(z => inGeo(z.g, p.c.lng, p.c.lat));
+    if (!D.jb || !D.sz) { Promise.all([loadJB(), loadSZ()]).then(([j]) => { if (j && S.sel === p) render(); }); return []; }
+    const out = [], used = new Set();
+    for (const z of D.jb.filter(z => inGeo(z.g, p.c.lng, p.c.lat))) {
+      const rs = (D.sz.byJb.get(z.id) || []).slice().sort((a, b) => (b.sd || '').localeCompare(a.sd || ''));
+      rs.forEach(r => used.add(r.id));
+      out.push({ z, r: rs[0] || null });
+    }
+    // 국토부 경계가 없는 사업(신속통합기획 대상지 등): 대표 지번이 이 필지이거나 대표 위치가 이 필지 안
+    const tail = String(p.addr || '').split(' ').slice(-2).join(' ');
+    for (const r of D.sz.rows) {
+      if (used.has(r.id) || (r.jb && r.jb.length)) continue;
+      if ((tail && r.a === tail) || (r.lat && p.geometry && inGeo(p.geometry, r.lng, r.lat))) { used.add(r.id); out.push({ z: null, r }); }
+    }
+    return out;
   }
+  const zKind = e => (e.r && e.r.k) || (e.z && e.z.k) || '정비구역';
+  const zColor = e => (e.r && SZCOLOR[e.r.k]) || (e.z && KCOLOR[e.z.k]) || '#868E96';
+  const zName = e => (e.r && e.r.n) || (e.z && e.z.named ? e.z.n : '') || '';
   // 구역 면적(㎡) 대략 계산 (경위도 → 평면 근사)
   function geoArea(g) {
     const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
@@ -1255,24 +1284,31 @@
     });
     return sum;
   }
-  // 개발정보 칸: 고시 정보 · 구역 설정 · 추진 현황
+  // 개발정보 칸: 추진 현황 · 고시 정보 · 구역 설정
+  const zPct = v => `${n(v, v % 1 ? 2 : 0)}%`;
   function devTab(jz) {
-    return jz.map(z => {
-      const c = KCOLOR[z.k] || '#868E96';
-      const area = z.g ? geoArea(z.g) : 0;
+    return jz.map(e => {
+      const z = e.z, r = e.r, c = zColor(e), kind = zKind(e);
+      const area = r && r.ar ? r.ar : z && z.g ? Math.round(geoArea(z.g) / 10) * 10 : 0;
+      const fl = r && r.fl && /\d/.test(r.fl) ? r.fl.split('/') : null;
+      const zoneChg = r && (r.zb || r.za) ? (r.zb && r.za && r.zb !== r.za ? `${r.zb} → ${r.za}` : r.za || r.zb) : '';
       const rows = [
-        ['구역명', z.named ? z.n : '국토부 자료에 이름 미등록'],
-        ['사업 구분', z.k === '정비구역' ? '정비구역 (세부 종류 미등록)' : z.k],
-        ['고시일', z.d || (z.y ? `${z.y}년` : '')],
-        ['자치구', `서울특별시 ${z.gu}`],
-        ['구역 면적', area ? `약 ${ar(Math.round(area / 10) * 10, 0)[0]}` : ''],
-        ['추진 단계', z.stage || ''],
-        ['단계 일자', z.stageDate || ''],
-        ['예정 세대수', z.households ? `${n(z.households)}세대` : ''],
-      ].filter(r => r[1]);
-      return `<section><h2><i class="dzi" style="background:${c}"></i>${esc(z.named ? z.n : ZSHORT[z.k] || '정비구역')}<span>${esc(ZSHORT[z.k] || '정비구역')}</span></h2>
+        ['구역명', zName(e) || '이름 미등록'],
+        ['사업 구분', kind === '정비구역' ? '정비구역 (세부 종류 미등록)' : kind],
+        ['추진 단계', r && r.st ? `${r.st}${r.sd ? ` (${r.sd})` : ''}` : ''],
+        ['정비구역 고시', z ? (z.d || (z.y ? `${z.y}년` : '')) : ''],
+        ['위치', r && r.a ? `서울특별시 ${r.gu} ${r.a} 일대` : z ? `서울특별시 ${z.gu}` : ''],
+        ['구역 면적', area ? `${r && r.ar ? '' : '약 '}${ar(area, 0)[0]}` : ''],
+        ['용도지역', zoneChg],
+        ['계획 용적률', r && r.far ? zPct(r.far) : ''],
+        ['계획 층수', fl ? `지하 ${fl[0]}층 · 지상 ${fl[1]}층` : ''],
+        ['계획 세대수', r && r.hh ? `${n(r.hh)}세대` : ''],
+      ].filter(x => x[1]);
+      const src = [r ? `서울시 정비사업 현황 (${esc(D.sz.updated)} 받음)` : '', z ? `국토교통부 정비구역 연속주제도 (${esc(D.jbUpdated || '')} 기준)` : ''].filter(Boolean).join(' · ');
+      return `<section><h2><i class="dzi" style="background:${c}"></i>${esc(zName(e) || ZSHORT[kind] || '정비구역')}<span>${esc(ZSHORT[kind] || '정비구역')}</span></h2>
         <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-        <p class="note">국토교통부 정비구역 연속주제도 (${esc(D.jbUpdated || '')} 기준). 추진 단계와 권리 관계는 해당 구청이나 조합에서 확인해 주세요. 계획은 변경될 수 있습니다.</p></section>`;
+        ${r && /^https:\/\/cleanup\.seoul\.go\.kr\//.test(r.url) ? `<a class="zlink" href="${esc(r.url)}" target="_blank" rel="noopener">정비사업 정보몽땅에서 조합 소식 보기 ›</a>` : ''}
+        <p class="note">${src}. 계획 수치는 진행 중에 바뀔 수 있으니 계약 전에는 구청이나 조합에 꼭 확인해 주세요.</p></section>`;
     }).join('');
   }
   // 이용계획 탭에 붙일 개발정보
