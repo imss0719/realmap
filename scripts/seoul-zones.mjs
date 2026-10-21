@@ -57,45 +57,65 @@ const norm = s => String(s || '').replace(/\s+/g, '').replace(/\(재촉\)|주택
 // 주소 다듬기: 앞뒤 공백, '일대', 쉼표 뒤 여러 지번 → 첫 지번만
 const cleanAddr = a => String(a || '').replace(/\s+/g, ' ').replace(/일대/g, '').split(/[,·~]/)[0].trim();
 
+// 카카오 주소 검색 (응답이 늦으면 5초에 끊음)
+const errs = [];
 async function geocode(q) {
   const u = 'https://dapi.kakao.com/v2/local/search/address.json?size=1&query=' + encodeURIComponent(q);
-  for (let i = 0; i < 2; i++) {
-    try {
-      const r = await fetch(u, { headers: { Authorization: `KakaoAK ${KAKAO}` }, signal: AbortSignal.timeout(10000) });
-      if (r.status === 401 || r.status === 403) throw Object.assign(new Error(`카카오 키 오류 HTTP ${r.status}`), { fatal: true });
-      const j = await r.json();
-      const d = j.documents?.[0];
-      return d ? [+(+d.y).toFixed(6), +(+d.x).toFixed(6)] : null;
-    } catch (e) { if (e.fatal || i === 1) throw e; await sleep(1500); }
+  const t0 = Date.now();
+  try {
+    const r = await fetch(u, { headers: { Authorization: `KakaoAK ${KAKAO}` }, signal: AbortSignal.timeout(5000) });
+    if (r.status === 401 || r.status === 403) throw Object.assign(new Error(`카카오 키 오류 HTTP ${r.status} ${(await r.text()).slice(0, 200)}`), { fatal: true });
+    if (!r.ok) throw new Error(`HTTP ${r.status} ${(await r.text()).slice(0, 120)}`);
+    const j = await r.json();
+    const d = j.documents?.[0];
+    return d ? [+(+d.y).toFixed(6), +(+d.x).toFixed(6)] : null;
+  } catch (e) {
+    if (errs.length < 5) { errs.push(`${e.message} (${Date.now() - t0}ms)`); console.log(`좌표 오류: ${e.message} (${Date.now() - t0}ms)`); }
+    throw e;
   }
 }
 
 const raw = (await readJson('data/seoul-raw/vnBsnsNmtn.json'))?.rows || [];
-const out = [];
-let geoNew = 0, geoMiss = 0, linked = 0;
-for (const x of raw) {
+const T0 = Date.now(), BUDGET = 10 * 60e3; // 좌표 찾기는 최대 10분. 남은 건 다음 실행 때 이어서
+let geoNew = 0, geoMiss = 0, geoFail = 0, linked = 0, tried = 0, stopGeo = false;
+const rowsOut = raw.map(x => {
   const gu = String(x.SITE_CODE_NM || '').trim(), a = cleanAddr(x.BSNS_ADDR);
-  const row = {
+  return {
     id: x.BASIC_INFO_SEQ, n: String(x.BSNS_NAME || '').replace(/\s+/g, ' ').trim(), k: String(x.CLASSIFY_L_NM || '').trim(), gu, a,
     st: String(x.PROPEL_CD_NM || '').trim(), sd: String(x.PROPEL_DT || '').slice(0, 10).replace(/-/g, '.'),
     ar: +x.BSNS_AREA || +x.AREA || 0, hh: +x.SUPLY_HSHLD || 0, far: +x.FLAR_RT || 0, fl: String(x.FLOOR || '').trim(),
     zb: String(x.SPFC_PREV || '').trim(), za: String(x.SPFC_AFTER || '').trim(), url: String(x.CLEANUP_BSNS_URL || '').trim(),
   };
-  // 좌표
-  let ll = memo.get(`${gu} ${a}`);
-  if (!ll && a) {
+});
+// 좌표: 이미 찾은 건 재사용, 나머지는 6개씩 동시에
+const todo = [];
+for (const row of rowsOut) { const ll = memo.get(`${row.gu} ${row.a}`); if (ll) { row.lat = ll[0]; row.lng = ll[1]; } else if (row.a) todo.push(row); }
+console.log(`좌표 재사용 ${rowsOut.length - todo.length}건 · 새로 찾을 곳 ${todo.length}건`);
+let qi = 0;
+await Promise.all(Array.from({ length: 6 }, async () => {
+  while (qi < todo.length && !stopGeo) {
+    if (Date.now() - T0 > BUDGET) { stopGeo = true; console.log('시간 한도 도달 — 남은 곳은 다음 실행 때 찾습니다'); break; }
+    const row = todo[qi++];
+    tried++;
     try {
-      ll = await geocode(`서울특별시 ${gu} ${a}`) || await geocode(`서울특별시 ${gu} ${a.replace(/^(\S+?)\d+(가|동)\s/, '$1$2 ')}`);
-      if (ll) geoNew++; await sleep(120);
-    } catch (e) { if (e.fatal) { console.log(e.message); process.exit(1); } }
+      const ll = await geocode(`서울특별시 ${row.gu} ${row.a}`) || await geocode(`서울특별시 ${row.gu} ${row.a.replace(/^(\S+?)\d+(가|동)\s/, '$1$2 ')}`);
+      if (ll) { row.lat = ll[0]; row.lng = ll[1]; geoNew++; } else geoMiss++;
+    } catch (e) {
+      geoFail++;
+      if (e.fatal) { stopGeo = true; console.log(e.message); }
+      if (tried >= 20 && geoNew === 0) { stopGeo = true; console.log('카카오 주소 검색이 응답하지 않아 좌표 찾기를 멈춥니다'); }
+    }
+    if (tried % 100 === 0) console.log(`좌표 진행 ${tried}/${todo.length} · 찾음 ${geoNew} · 없음 ${geoMiss} · 오류 ${geoFail} · ${Math.round((Date.now() - T0) / 1000)}초`);
   }
-  if (ll) { row.lat = ll[0]; row.lng = ll[1]; } else geoMiss++;
-  // 국토부 정비구역 경계와 짝짓기: 같은 구에서 좌표가 들어가는 구역, 없으면 이름이 같은 구역
-  let hit = ll ? jb.filter(f => f.properties.gu === gu && inGeo(f.geometry, ll[1], ll[0])) : [];
-  if (!hit.length && norm(row.n).length >= 2) hit = jb.filter(f => f.properties.gu === gu && f.properties.named && norm(f.properties.n) === norm(row.n));
+}));
+// 국토부 정비구역 경계와 짝짓기: 같은 구에서 좌표가 들어가는 구역, 없으면 이름이 같은 구역
+const out = [];
+for (const row of rowsOut) {
+  let hit = row.lat ? jb.filter(f => f.properties.gu === row.gu && inGeo(f.geometry, row.lng, row.lat)) : [];
+  if (!hit.length && norm(row.n).length >= 2) hit = jb.filter(f => f.properties.gu === row.gu && f.properties.named && norm(f.properties.n) === norm(row.n));
   row.jb = hit.map(f => f.properties.id);
   if (row.jb.length) linked++;
   out.push(row);
 }
 await writeFile('data/seoul-zones.json', JSON.stringify({ updated: new Date().toISOString().slice(0, 10), source: '서울 열린데이터광장 도시계획사업(서울플랜+) 정비사업 현황', rows: out }));
-console.log(`화면용 자료 ${out.length}건 · 새로 찾은 좌표 ${geoNew}건 · 좌표 못 찾음 ${geoMiss}건 · 국토부 구역과 연결 ${linked}건`);
+console.log(`화면용 자료 ${out.length}건 · 좌표 있음 ${out.filter(r => r.lat).length}건 (이번에 찾음 ${geoNew}) · 주소 없음 ${geoMiss} · 오류 ${geoFail} · 국토부 구역과 연결 ${linked}건 · ${Math.round((Date.now() - T0) / 1000)}초`);
