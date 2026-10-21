@@ -1,13 +1,14 @@
 // 서울 재개발·재건축 정비사업 현황 페이지 만들기 (검색 노출용, GitHub Actions에서 seoul-zones.mjs 다음에 실행)
 // 입력: data/seoul-zones.json(화면용) · data/seoul-raw/vnBsnsNmtn.json(원본) · data/jeongbi-seoul.json(국토부 경계)
 // 출력: seoul/index.html · seoul/<구>.html · seoul/<구>/<사업번호>.html · seoul/seoul.css · sitemap.xml
-import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rm, copyFile } from 'node:fs/promises';
 
 const SITE = 'https://realmap.online';
 const readJson = async f => JSON.parse(await readFile(f, 'utf8'));
 const sz = await readJson('data/seoul-zones.json');
 const raw = new Map(((await readJson('data/seoul-raw/vnBsnsNmtn.json')).rows || []).map(r => [r.BASIC_INFO_SEQ, r]));
-const jb = new Map(((await readJson('data/jeongbi-seoul.json')).features || []).map(f => [f.properties.id, f.properties]));
+const JBF = (await readJson('data/jeongbi-seoul.json')).features || [];
+const jb = new Map(JBF.map(f => [f.properties.id, f.properties]));
 const UPDATED = sz.updated || new Date().toISOString().slice(0, 10);
 
 // ---------- 기본 도우미 ----------
@@ -63,6 +64,8 @@ function track(r) {
   const done = steps.map(s => rank(s) <= cr && cr >= 0);
   return { steps, done };
 }
+// '3/35', '지하3/지상49층' 같은 층수 표기를 [지하, 지상] 숫자로
+const floors = fl => { const p = String(fl || '').split('/'); if (p.length < 2) return null; const a = (p[0].match(/\d+/) || [])[0], b = (p[1].match(/\d+/) || [])[0]; return b ? [a || '0', b] : null; };
 const SHORT = { '대상지선정': '대상지', '기획완료': '기획', '구역지정': '구역지정', '추진위구성': '추진위', '조합설립인가': '조합설립', '사업시행인가': '사업시행', '관리처분계획인가': '관리처분', '착공': '착공', '준공': '준공' };
 
 // ---------- 자료 정리 ----------
@@ -90,7 +93,7 @@ const dist = (a, b) => Math.hypot((a.lat - b.lat) * 111, (a.lng - b.lng) * 88);
 
 // ---------- 공통 틀 ----------
 const LOGO = `<svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14212E"/><g transform="translate(6.4 9) scale(0.72)"><g fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/></g><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg>`;
-function page({ path, title, desc, h1, lead, crumbs, body, faq = [] }) {
+function page({ path, title, desc, h1, lead, crumbs, body, faq = [], hero = '' }) {
   const url = SITE + path;
   const ld = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c[0], item: SITE + c[1] })) }];
   if (faq.length) ld.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
@@ -107,12 +110,15 @@ function page({ path, title, desc, h1, lead, crumbs, body, faq = [] }) {
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="/seoul/seoul.css">
+<script>document.documentElement.classList.add('js')</script>
+<script src="/seoul/seoul.js" defer></script>
 ${ld.map(x => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, '\\u003c')}</script>`).join('\n')}
 </head><body>
 <header class="top"><a class="brand" href="/">${LOGO}<b>리얼맵</b></a><a class="mapbtn" href="/">지도 열기</a></header>
+${hero}
 <main>
 <nav class="crumb" aria-label="현재 위치">${crumbs.map((c, i) => i < crumbs.length - 1 ? `<a href="${c[1]}">${esc(c[0])}</a>` : `<span>${esc(c[0])}</span>`).join(' › ')}</nav>
-<h1>${h1}</h1>
+${h1 ? `<h1>${h1}</h1>` : ''}
 ${lead ? `<p class="lead">${lead}</p>` : ''}
 ${body}
 ${faq.length ? `<section class="faq"><h2>자주 묻는 질문</h2>${faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</section>` : ''}
@@ -128,13 +134,15 @@ function mini(r) {
   const { steps, done } = track(r);
   return `<span class="mini" aria-hidden="true">${steps.map((s, i) => `<i class="${done[i] ? 'on' : ''}"></i>`).join('')}</span>`;
 }
+const zattr = r => `data-z data-id="${r.id}" data-n="${esc(r.title)}" data-gu="${esc(r.gu)}" data-st="${esc(r.st || '')}"`;
+const zbtns = (sm = '') => `<button type="button" class="zb${sm}" data-act="fav" aria-pressed="false">☆ 관심 구역</button><button type="button" class="zb${sm}" data-act="alert" aria-pressed="false">🔔 추진 알림 받기</button>`;
 function card(r, withGu = false) {
-  const meta = [r.hh ? `${num(r.hh)}세대` : '', r.fl && /\d/.test(r.fl) ? `지상 ${r.fl.split('/')[1]}층` : '', r.ar ? `${num(r.ar)}㎡` : ''].filter(Boolean).join(' · ');
-  return `<li class="card"><div class="hd"><a class="nm" href="${zoneUrl(r)}">${esc(r.title)}</a>${kchip(r.k)}</div>
+  const meta = [r.hh ? `${num(r.hh)}세대` : '', floors(r.fl) ? `지상 ${floors(r.fl)[1]}층` : '', r.ar ? `${num(r.ar)}㎡` : ''].filter(Boolean).join(' · ');
+  return `<li class="card" ${zattr(r)}><div class="hd"><a class="nm" href="${zoneUrl(r)}">${esc(r.title)}</a>${kchip(r.k)}</div>
     <div class="ad">${withGu ? esc(r.gu) + ' ' : ''}${esc(r.addr)} 일대</div>
     <div class="row">${pill(r)}${r.sd ? `<span class="dt">${esc(ym(r.sd))}</span>` : ''}${mini(r)}</div>
     ${meta ? `<div class="mt">${meta}</div>` : ''}
-    <div class="go"><a href="${zoneUrl(r)}">자세히</a>${mapUrl(r) ? `<a href="${mapUrl(r)}">지도에서 보기</a>` : ''}</div></li>`;
+    <div class="go"><a href="${zoneUrl(r)}">자세히</a>${mapUrl(r) ? `<a href="${mapUrl(r)}">지도에서 보기</a>` : ''}<span class="zbs">${zbtns(' sm')}</span></div></li>`;
 }
 function stageBar(list) {
   const cnt = GROUP.map((_, g) => list.filter(r => stageOf(r.st).g === g).length), tot = list.length || 1;
@@ -158,7 +166,7 @@ for (const [gu, list] of byGu) {
   await mkdir(`seoul/${GU[gu]}`, { recursive: true });
   for (const r of list) {
     const K = kindOf(r.k), S = stageOf(r.st, r.k), { steps, done } = track(r);
-    const fl = r.fl && /\d/.test(r.fl) ? r.fl.split('/') : null;
+    const fl = floors(r.fl);
     const zs = v => String(v || '').split(/\s*,\s*/).filter(Boolean).join(', ');
     const zoneChg = r.zb && r.za && r.zb !== r.za ? `${zs(r.zb)} → ${zs(r.za)}` : zs(r.za || r.zb);
     const facts = [
@@ -188,7 +196,9 @@ for (const [gu, list] of byGu) {
     const body = `
 <div class="hero"><div class="chips">${kchip(r.k)}${pill(r)}</div>
 <p class="intro">${s1}${s2}${s3}</p>
-<div class="btns">${mapUrl(r) ? `<a class="cta" href="${mapUrl(r)}">리얼맵 지도에서 보기</a>` : ''}${/^https:\/\/cleanup\.seoul\.go\.kr\//.test(r.url) ? `<a class="cta2" href="${esc(r.url)}" target="_blank" rel="noopener">조합 소식 (정비사업 정보몽땅)</a>` : ''}</div></div>
+<div class="btns">${mapUrl(r) ? `<a class="cta" href="${mapUrl(r)}">리얼맵 지도에서 보기</a>` : ''}${/^https:\/\/cleanup\.seoul\.go\.kr\//.test(r.url) ? `<a class="cta2" href="${esc(r.url)}" target="_blank" rel="noopener">조합 소식 (정비사업 정보몽땅)</a>` : ''}</div>
+<div class="zrow" ${zattr(r)}>${zbtns()}</div>
+<p class="znote">☆ 관심 구역은 회원 전용입니다. 🔔 추진 알림은 이메일로만 보내 드리며, 이 구역의 추진 단계가 바뀌면 알려 드립니다.</p></div>
 <section><h2>추진 단계</h2>
 <ol class="track">${steps.map((s, i) => `<li class="${done[i] ? 'on' : ''}${s === r.st || (done[i] && !done[i + 1]) ? ' cur' : ''}"><i></i><span>${esc(SHORT[s] || s)}</span></li>`).join('')}</ol>
 ${S.d ? `<p><b>${esc(r.st)}</b> — ${esc(S.d)}</p>` : ''}${S.n ? `<p class="next"><b>다음 단계</b> ${esc(S.n)}</p>` : ''}</section>
@@ -236,26 +246,70 @@ ${dongs.length ? `<section><h2>동별로 찾기</h2><p class="dongs">${dongs.map
   urls.push([`/seoul/${GU[gu]}.html`, 0.8]);
 }
 
-// ---------- 서울 전체 페이지 ----------
+// ---------- 서울 전체 페이지 (첫 화면: 움직이는 현황판) ----------
+// 구 타일 지도 배치 (열, 행) — 실제 위치를 단순화
+const TILE = { '은평구': [1, 0], '강북구': [3, 0], '도봉구': [4, 0], '노원구': [5, 0], '서대문구': [1, 1], '종로구': [2, 1], '성북구': [3, 1], '동대문구': [4, 1], '중랑구': [5, 1], '강서구': [0, 2], '마포구': [1, 2], '중구': [2, 2], '성동구': [3, 2], '광진구': [4, 2], '강동구': [5, 2], '양천구': [0, 3], '영등포구': [1, 3], '용산구': [2, 3], '서초구': [3, 3], '강남구': [4, 3], '송파구': [5, 3], '구로구': [0, 4], '동작구': [2, 4], '금천구': [1, 5], '관악구': [2, 5] };
+// 첫 화면 배경: 실제 정비구역 경계로 그린 선 그림 (마포·서대문·중구 일대)
+function heroArt() {
+  const [la0, la1, ln0, ln1] = [37.515, 37.605, 126.89, 127.06], W = 1000, H = 560, kx = Math.cos(37.56 * Math.PI / 180);
+  const sx = W / ((ln1 - ln0) * kx), sy = H / (la1 - la0), sc = Math.min(sx, sy);
+  const P = ([x, y]) => [((x - ln0) * kx * sc).toFixed(1), (H - (y - la0) * sc).toFixed(1)];
+  const cols = ['#F2B705', '#FF8A3D', '#FF6B2C', '#F2B705', '#FFD43B'];
+  const out = [];
+  JBF.forEach((f, i) => {
+    const g = f.geometry, ps = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    for (const p of ps) {
+      const ring = p[0]; if (!ring || !ring.some(([x, y]) => y > la0 && y < la1 && x > ln0 && x < ln1)) continue;
+      const step = Math.max(1, Math.floor(ring.length / 40));
+      const pts = ring.filter((_, k) => k % step === 0).map(P);
+      if (pts.length < 3) continue;
+      out.push(`<path d="M${pts.map(q => q.join(' ')).join('L')}Z" style="--d:${(out.length % 24) * 0.09}s;--c:${cols[out.length % cols.length]}"/>`);
+    }
+  });
+  return `<svg class="lh-art" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${out.slice(0, 260).join('')}</svg>`;
+}
 {
   const kc = kindCount(rows);
-  const recent = rows.filter(r => r.sd && r.st !== '준공').sort((a, b) => b.sd.localeCompare(a.sd)).slice(0, 12);
+  const recent = rows.filter(r => r.sd && r.st !== '준공').sort((a, b) => b.sd.localeCompare(a.sd)).slice(0, 9);
   const top = rows.filter(r => r.hh).sort((a, b) => b.hh - a.hh).slice(0, 10);
   const gtab = GU_ORDER.map(g => { const l = byGu.get(g); return { g, l, n: l.length, re: l.filter(r => /^재개발/.test(r.k)).length, rb: l.filter(r => /^재건축/.test(r.k)).length, st: l.filter(r => r.k === '신속통합기획').length, go: l.filter(r => [2, 3].includes(stageOf(r.st).g)).length }; }).filter(x => x.n);
+  const going = rows.filter(r => [2, 3].includes(stageOf(r.st).g)).length;
+  const hhMan = Math.round(rows.reduce((s, r) => s + (r.hh || 0), 0) / 10000);
+  const stn = rows.filter(r => r.k === '신속통합기획').length;
+  const gcnt = GROUP.map((_, g) => rows.filter(r => stageOf(r.st).g === g).length), gmax = Math.max(...gcnt);
+  const GSUB = ['대상지선정·기획·정비계획', '구역지정·추진위원회', '조합설립·건축심의·사업시행인가', '관리처분·이주·착공', '공사 완료'];
+  const nmax = Math.max(...gtab.map(x => x.n));
+  const hero = `<section class="lhero"><div class="lh-bg">${heroArt()}</div><div class="lh-in">
+  <p class="eyebrow">서울 정비사업 현황 · ${esc(updK)} 기준</p>
+  <h1 class="lh-t"><span class="l1">서울 재개발·재건축,</span><span class="l2">지금 어디까지 왔을까?</span></h1>
+  <p class="lh-s">정비사업 ${rows.length}곳의 추진 단계를 한눈에 보세요. 관심 구역을 담아 두면 단계가 바뀔 때 이메일로 알려 드립니다.</p>
+  <div class="lh-nums">
+    <div><b data-count="${rows.length}">${num(rows.length)}</b><span>정비사업</span></div>
+    <div><b data-count="${going}">${num(going)}</b><span>본격 진행 중<small>조합설립~공사</small></span></div>
+    <div><b><em data-count="${hhMan}">${num(hhMan)}</em>만</b><span>계획 세대수</span></div>
+    <div><b data-count="${stn}">${num(stn)}</b><span>신속통합기획</span></div>
+  </div>
+  <div class="lh-btns"><a class="cta y" href="/">리얼맵 지도에서 보기</a><a class="cta2 w" href="#gumap">구별 현황 보기</a></div>
+</div></section>`;
   const body = `
-<div class="hero"><p class="intro">서울에는 서울시 정비사업 현황 기준 <b>${rows.length}곳</b>의 정비사업이 있습니다. ${kc.map(([k, c]) => `${kindOf(k).s} ${c}곳`).join(', ')}입니다. 구를 고르면 사업별 추진 단계와 계획 세대수를 자세히 보실 수 있습니다.</p>
-<div class="btns"><a class="cta" href="/">리얼맵 지도에서 정비구역 보기</a></div></div>
-<section><h2>추진 단계 한눈에</h2>${stageBar(rows)}</section>
-<section><h2>구별 정비사업</h2><div class="tblwrap"><table class="gt"><thead><tr><th>구</th><th>전체</th><th>재개발</th><th>재건축</th><th>신속통합기획</th><th>본격 진행</th></tr></thead><tbody>
+<section class="mine" data-myzones hidden><h2 class="my-hi">관심 구역</h2><p class="my-mail note"></p><ul class="my-list"></ul></section>
+<section class="flow" data-anim><h2>추진 단계별 사업 수</h2><p class="note">서울 정비사업 ${rows.length}곳이 지금 어느 단계에 있는지 보여 드립니다.</p>
+<div class="fl">${GROUP.map((g, i) => `<div class="fc"><b data-count="${gcnt[i]}">${num(gcnt[i])}</b><div class="fbar"><i style="--h:${Math.max(4, gcnt[i] / gmax * 100).toFixed(0)}%;--c:${GCOLOR[i]};--d:${i * 0.12}s"></i></div><span>${g}</span><small>${GSUB[i]}</small></div>`).join('')}</div></section>
+<section id="gumap" class="gumap" data-anim><h2>구별 정비사업 지도</h2><p class="note">색이 진할수록 정비사업이 많은 구입니다. 구를 누르면 사업별 추진 단계를 보실 수 있습니다.</p>
+<div class="tiles">${gtab.map(x => { const [c, r] = TILE[x.g] || [0, 0]; return `<a class="tile" href="/seoul/${GU[x.g]}.html" style="grid-column:${c + 1};grid-row:${r + 1};--a:${(0.12 + x.n / nmax * 0.78).toFixed(2)};--d:${((c + r) * 0.05).toFixed(2)}s"><b>${x.g.replace(/구$/, '')}</b><span>${x.n}곳</span><i style="--p:${(x.go / x.n * 100).toFixed(0)}%"></i></a>`; }).join('')}</div>
+<p class="tleg"><i></i> 막대: 본격 진행(조합설립~공사) 비율</p></section>
+<section class="howto" data-anim><h2>관심 구역 담고, 추진 알림 받기</h2>
+<ol class="steps"><li><b>1</b><span>구역 찾기</span><small>구별 현황이나 리얼맵 지도에서 궁금한 구역을 찾습니다.</small></li><li><b>2</b><span>☆ 관심 구역</span><small>카카오로 3초 가입하고 관심 구역에 담습니다.</small></li><li><b>3</b><span>🔔 추진 알림</span><small>이메일을 남기면 추진 단계가 바뀔 때 알려 드립니다.</small></li></ol></section>
+<section data-anim><h2>최근 단계가 진행된 곳</h2><ul class="cards">${recent.map(r => card(r, true)).join('')}</ul></section>
+<section data-anim><h2>계획 세대수가 많은 곳</h2><ol class="rank">${top.map((r, i) => `<li><a href="${zoneUrl(r)}">${esc(r.title)}</a> <span>${esc(r.gu)} · ${esc(kindOf(r.k).s)} · ${esc(r.st)}</span><b>${num(r.hh)}세대</b><i style="--w:${(r.hh / top[0].hh * 100).toFixed(0)}%;--d:${i * 0.06}s"></i></li>`).join('')}</ol></section>
+<section><h2>구별 정비사업 표</h2><div class="tblwrap"><table class="gt"><thead><tr><th>구</th><th>전체</th><th>재개발</th><th>재건축</th><th>신속통합기획</th><th>본격 진행</th></tr></thead><tbody>
 ${gtab.map(x => `<tr><th><a href="/seoul/${GU[x.g]}.html">${x.g}</a></th><td>${x.n}</td><td>${x.re}</td><td>${x.rb}</td><td>${x.st}</td><td>${x.go}</td></tr>`).join('')}</tbody></table></div>
-<p class="note">본격 진행은 조합설립인가부터 착공까지의 단계에 있는 사업 수입니다.</p></section>
-<section><h2>최근 단계가 진행된 곳</h2><ul class="cards">${recent.map(r => card(r, true)).join('')}</ul></section>
-<section><h2>계획 세대수가 많은 곳</h2><ol class="rank">${top.map(r => `<li><a href="${zoneUrl(r)}">${esc(r.title)}</a> <span>${esc(r.gu)} · ${esc(kindOf(r.k).s)} · ${esc(r.st)}</span><b>${num(r.hh)}세대</b></li>`).join('')}</ol></section>
+<p class="note">${kc.map(([k, c]) => `${kindOf(k).s} ${c}곳`).join(' · ')}. 본격 진행은 조합설립인가부터 착공까지의 단계에 있는 사업 수입니다.</p></section>
 <section><h2>단계별 뜻</h2><dl class="facts">${['구역지정', '추진위구성', '조합설립인가', '사업시행인가', '관리처분계획인가', '착공'].map(s => `<dt>${s}</dt><dd>${esc(STAGE[s].d)}</dd>`).join('')}</dl></section>`;
   await writeFile('seoul/index.html', page({
     path: '/seoul/', title: `서울 재개발·재건축 정비사업 현황 ${rows.length}곳 — 구별 추진 단계 (${ym(ymdUpd)}) | 리얼맵`,
     desc: `서울 25개 구 재개발·재건축·신속통합기획 정비사업 ${rows.length}곳의 추진 단계와 계획 세대수를 구별로 정리했습니다. ${updK} 기준, 분기마다 자동 갱신.`,
-    h1: '서울 재개발·재건축 정비사업 현황', lead: `${esc(updK)} 기준 · 25개 구`,
+    h1: '', lead: '', hero,
     crumbs: [['리얼맵', '/'], ['서울 정비사업', '/seoul/']], body, faq: STAGE_FAQ,
   }));
   urls.unshift(['/seoul/', 0.9]);
@@ -321,6 +375,86 @@ h2{font-size:20px;margin:34px 0 12px;padding-top:20px;border-top:1px solid var(-
 .src{margin-top:30px;font-size:13px;color:var(--muted);background:var(--soft);border-radius:10px;padding:12px 14px}
 footer{max-width:860px;margin:0 auto 30px;padding:0 16px;font-size:13px;color:var(--muted)}
 `);
+
+await writeFile('seoul/seoul.css', (await readFile('seoul/seoul.css', 'utf8')) + `
+/* 관심 구역 · 알림 버튼 */
+.zrow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.zb{font:inherit;font-size:14px;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);padding:9px 16px;border-radius:999px}
+.zb:hover{border-color:var(--accent)}
+.zb.on{background:#FFF4CC;border-color:var(--accent);color:#7A5B00}
+@media (prefers-color-scheme:dark){.zb.on{background:#3A3010;color:#FFD43B}}
+.zb.sm{font-size:12px;padding:3px 9px;border-width:1px}
+.zbs{display:inline-flex;gap:6px;margin-left:auto}
+.card .go{align-items:center;flex-wrap:wrap}
+.znote{font-size:13px;color:var(--muted);margin:8px 0 0}
+#ztoast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#14212E;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:calc(100% - 32px)}
+#ztoast.show{opacity:1;transform:translateX(-50%)}
+#zmodal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+#zmodal .zm-bg{position:absolute;inset:0;background:rgba(10,16,22,.55)}
+#zmodal .zm-box{position:relative;background:var(--surface);border-radius:16px;padding:24px 22px 18px;max-width:400px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+#zmodal h3{margin:0 0 8px;font-size:19px}#zmodal p{margin:6px 0;font-size:15px}
+.zm-x{position:absolute;right:12px;top:10px;border:0;background:var(--soft);width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer;color:var(--fg)}
+.zm-kakao,.zm-go{display:block;width:100%;text-align:center;margin:14px 0 6px;padding:13px;border-radius:12px;font:inherit;font-weight:700;font-size:16px;text-decoration:none;border:0;cursor:pointer}
+.zm-kakao{background:#FEE500;color:#191919}.zm-go{background:var(--navy);color:var(--surface)}
+.zm-l{display:block;font-size:14px;font-weight:600;margin-top:12px}.zm-l input{display:block;width:100%;margin-top:6px;font:inherit;font-size:16px;padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg)}
+.zm-c{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);margin-top:10px}.zm-c input{margin-top:3px}
+.zm-s{font-size:12.5px!important;color:var(--muted)}
+.lnk{border:0;background:none;color:inherit;text-decoration:underline;font:inherit;cursor:pointer;padding:0}
+/* 내 관심 구역 */
+.mine{border:2px solid var(--accent);border-radius:14px;padding:4px 18px 14px;margin-top:4px}.mine h2{border:0;padding-top:10px;margin-top:6px}
+.my-list{list-style:none;padding:0;margin:8px 0 0}.my-list li{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.my-list a{text-decoration:none;flex:1;min-width:0}.my-list a span{font-size:13px;color:var(--muted);margin-left:6px}.my-list .empty{color:var(--muted);font-size:14px}
+/* 첫 화면 */
+.lhero{position:relative;overflow:hidden;background:#0E1823;color:#fff}
+.lh-bg{position:absolute;inset:0;opacity:.9}
+.lh-art{width:100%;height:100%}
+.lh-art path{fill:var(--c);fill-opacity:0;stroke:var(--c);stroke-width:1.4;stroke-opacity:.85;stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 2.2s cubic-bezier(.3,.6,.3,1) forwards,fillin 1.2s ease forwards;animation-delay:var(--d),calc(var(--d) + 1.2s)}
+@keyframes draw{to{stroke-dashoffset:0}}@keyframes fillin{to{fill-opacity:.12}}
+.lhero:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(14,24,35,.92) 0%,rgba(14,24,35,.7) 45%,rgba(14,24,35,.35) 100%),linear-gradient(180deg,transparent 70%,rgba(14,24,35,.9))}
+.lh-in{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:64px 24px 56px}
+.eyebrow{display:inline-block;font-size:13px;font-weight:700;color:#F2B705;letter-spacing:.02em;margin:0 0 14px;animation:up .7s .1s both}
+.lh-t{margin:0;font-size:clamp(32px,6.4vw,56px);line-height:1.2;letter-spacing:-.03em}
+.lh-t span{display:block;animation:up .8s both}.lh-t .l1{animation-delay:.2s}.lh-t .l2{color:#F2B705;animation-delay:.45s}
+.lh-s{font-size:clamp(16px,2.3vw,19px);color:#C9D3DE;max-width:560px;margin:16px 0 0;animation:up .8s .7s both}
+.lh-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:32px 0 0;animation:up .8s .9s both}
+.lh-nums div{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px 12px;backdrop-filter:blur(4px)}
+.lh-nums b{display:block;font-size:clamp(26px,4.6vw,40px);line-height:1.1;color:#fff;font-variant-numeric:tabular-nums}.lh-nums b em{font-style:normal}
+.lh-nums span{display:block;font-size:13px;color:#AFC0D1;margin-top:4px}.lh-nums small{display:block;font-size:11px;color:#7F93A8}
+@media (max-width:600px){.lh-nums{grid-template-columns:repeat(2,1fr)}.lh-in{padding:44px 18px 40px}}
+.lh-btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px;animation:up .8s 1.1s both}
+.cta.y{background:#F2B705;color:#14212E}.cta2.w{color:#fff;border-color:rgba(255,255,255,.35)}
+@keyframes up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+/* 화면에 들어오면 나타나기 */
+.js [data-anim]{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.js [data-anim].in{opacity:1;transform:none}
+/* 단계 흐름 */
+.fl{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start;margin-top:14px}
+.fc{text-align:center}.fc b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
+.fbar{height:150px;display:flex;align-items:flex-end;justify-content:center;margin:6px 0 8px;background:linear-gradient(transparent 49%,var(--line) 50%,transparent 51%) 0 0/100% 30px}
+.fbar i{display:block;width:62%;max-width:70px;border-radius:10px 10px 4px 4px;background:var(--c);height:var(--h)}
+.js .flow .fbar i{height:0;transition:height 1s cubic-bezier(.2,.7,.2,1) var(--d)}.js .flow.in .fbar i{height:var(--h)}
+.fc span{display:block;font-weight:700;font-size:14px}.fc small{display:block;font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:2px}
+@media (max-width:560px){.fc b{font-size:20px}.fbar{height:110px}.fc span{font-size:12px}.fc small{display:none}}
+/* 구 타일 지도 */
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:14px;max-width:620px}
+.tile{position:relative;aspect-ratio:1.15;border-radius:10px;text-decoration:none;padding:8px 9px;display:flex;flex-direction:column;justify-content:space-between;background:rgba(217,72,15,var(--a));color:var(--fg);overflow:hidden;transition:transform .15s}
+.tile:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.12)}
+.tile b{font-size:clamp(12px,2.2vw,15px)}.tile span{font-size:clamp(11px,2vw,14px);font-weight:700;font-variant-numeric:tabular-nums}
+.tile i{position:absolute;left:0;bottom:0;height:4px;width:var(--p);background:#14212E;opacity:.55}
+.js .gumap .tile{opacity:0;transform:scale(.85);transition:opacity .4s var(--d),transform .4s var(--d)}.js .gumap.in .tile{opacity:1;transform:none}
+@media (prefers-color-scheme:dark){.tile{color:#fff}.tile i{background:#F2B705}}
+.tleg{font-size:12.5px;color:var(--muted)}.tleg i{display:inline-block;width:18px;height:4px;background:#14212E;opacity:.55;vertical-align:middle;margin-right:4px}
+/* 이용 방법 */
+.steps{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 0}
+.steps li{background:var(--soft);border-radius:14px;padding:16px 14px}.steps b{display:inline-flex;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#14212E;align-items:center;justify-content:center;font-size:14px}
+.steps span{display:block;font-weight:700;font-size:16px;margin-top:8px}.steps small{display:block;font-size:13px;color:var(--muted);margin-top:4px;line-height:1.55}
+@media (max-width:560px){.steps{grid-template-columns:1fr}}
+/* 세대수 순위 막대 */
+.rank li{position:relative;padding-bottom:6px}.rank li i{position:absolute;left:0;bottom:0;height:3px;border-radius:2px;background:var(--accent);width:var(--w)}
+.js .rank li i{width:0;transition:width .9s var(--d)}.js section.in .rank li i{width:var(--w)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.js [data-anim]{opacity:1;transform:none}.lh-art path{stroke-dashoffset:0;fill-opacity:.12}.js .flow .fbar i{height:var(--h)}.js .gumap .tile{opacity:1;transform:none}.js .rank li i{width:var(--w)}}
+`);
+await copyFile('scripts/seoul.client.js', 'seoul/seoul.js');
 
 // ---------- 사이트맵 ----------
 const base = [['/', 1.0], ['/guide.html', 0.8], ['/privacy.html', 0.2]];
