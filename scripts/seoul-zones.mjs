@@ -55,7 +55,8 @@ function inGeo(g, x, y) { const ps = g.type === 'Polygon' ? [g.coordinates] : g.
 // 이름 비교용: 공백·줄바꿈·흔한 꼬리말 제거
 const norm = s => String(s || '').replace(/\s+/g, '').replace(/\(재촉\)|주택재개발|재정비촉진|도시환경|정비사업|정비구역|재개발|재건축|구역|지구|아파트|일대/g, '');
 // 주소 다듬기: 앞뒤 공백, '일대', 쉼표 뒤 여러 지번 → 첫 지번만
-const cleanAddr = a => String(a || '').replace(/\s+/g, ' ').replace(/일대/g, '').split(/[,·~]/)[0].trim();
+const cleanAddr = a => String(a || '').replace(/\s+/g, ' ').replace(/\(.*?\)/g, ' ')
+  .replace(/일대|일원|번지|외\s*\d+\s*(필지|개\s*필지)?|\s등(?=\s|$)/g, ' ').split(/[,·~]/)[0].replace(/\s+/g, ' ').trim();
 
 // 카카오 주소 검색 (응답이 늦으면 5초에 끊음)
 const errs = [];
@@ -98,7 +99,12 @@ await Promise.all(Array.from({ length: 6 }, async () => {
     const row = todo[qi++];
     tried++;
     try {
-      const ll = await geocode(`서울특별시 ${row.gu} ${row.a}`) || await geocode(`서울특별시 ${row.gu} ${row.a.replace(/^(\S+?)\d+(가|동)\s/, '$1$2 ')}`);
+      // 주소에 구 이름이 또 들어 있으면 빼고, 분할로 없어진 모번지(예: 81)는 81-1로도 찾아봄
+      const a = row.a.replace(new RegExp('^' + row.gu + '\\s*'), '');
+      const tries = [a, a.replace(/^(\S+?)\d+(가|동)\s/, '$1$2 ')];
+      if (/^\S+\s산?\d+$/.test(a)) tries.push(a + '-1', a + '-2');
+      let ll = null;
+      for (const q of [...new Set(tries)]) { ll = await geocode(`서울특별시 ${row.gu} ${q}`); if (ll) break; }
       if (ll) { row.lat = ll[0]; row.lng = ll[1]; geoNew++; } else geoMiss++;
     } catch (e) {
       geoFail++;
