@@ -104,7 +104,7 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); pick(la, ln); devHit(la, ln); });
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (devHit(la, ln)) return; pick(la, ln); });
 
     const setType = sky => { S.map.setMapTypeId(sky ? K.MapTypeId.HYBRID : K.MapTypeId.ROADMAP); $('mtRoad').setAttribute('aria-pressed', !sky); $('mtSky').setAttribute('aria-pressed', sky); };
     $('mtRoad').onclick = () => setType(false);
@@ -1038,7 +1038,7 @@
     if (!D.jbShapes.length) {
       for (const z of D.jb) {
         const c = KCOLOR[z.k] || '#868E96';
-        for (const path of geoToPaths(z.g)) { const o = new K.Polygon({ path, strokeWeight: 2, strokeColor: c, strokeOpacity: .9, fillColor: c, fillOpacity: z.k === '사업완료' ? .05 : .16 }); o.grp = grp(z); D.jbShapes.push(o); }
+        for (const path of geoToPaths(z.g)) { const o = new K.Polygon({ path, strokeWeight: 2, strokeColor: c, strokeOpacity: .9, fillColor: c, fillOpacity: z.k === '사업완료' ? .05 : .16 }); o.grp = grp(z); o.z = z; D.jbShapes.push(o); }
       }
     }
     D.jbShapes.forEach(o => { const on = D.jbOn[o.grp]; const m = o.getMap && o.getMap(); if (on && !m) o.setMap(S.map); if (!on && m) o.setMap(null); });
@@ -1076,7 +1076,7 @@
     $('mtDev').setAttribute('aria-pressed', on);
     $('devpanel').hidden = !on;
     if (on) $('tpanel').hidden = true;
-    if (!on) $('zonecard').hidden = true;
+    if (!on) hideZone();
     devRefresh();
   }
   async function loadZones() {
@@ -1185,8 +1185,9 @@
 
   // 누른 위치가 어떤 구역·레이어에 속하는지
   function zonesAt(lat, lng) { return (D.zones || []).filter(z => z.geometry && inGeo(z.geometry, lng, lat)); }
+  // 개발지도가 켜져 있을 때 구역 안을 누르면 구역 정보만 보여 줌 (필지 창은 카드의 버튼으로 엶). 구역을 보여 줬으면 true
   function devHit(lat, lng) {
-    if (!D.on) return;
+    if (!D.on) return false;
     const zs = D.want.zones ? zonesAt(lat, lng) : [];
     const js = D.want.jb && D.jb ? D.jb.filter(z => D.jbOn[grp(z)] && inGeo(z.g, lng, lat)) : [];
     const ls = [];
@@ -1199,8 +1200,22 @@
         }
       }
     }
-    if (zs.length || ls.length || js.length) showZones(zs, ls, js); else $('zonecard').hidden = true;
+    if (zs.length || ls.length || js.length) { showZones(zs, ls, js, lat, lng); return true; }
+    hideZone();
+    return false;
   }
+  // 고른 구역을 진하게 표시
+  function markZones(js) {
+    const sel = new Set(js);
+    D.jbShapes.forEach(o => {
+      const on = sel.has(o.z), c = KCOLOR[o.z.k] || '#868E96';
+      if (!!o.sel === on) return;
+      o.sel = on;
+      o.setOptions(on ? { strokeWeight: 4, strokeOpacity: 1, fillOpacity: .34 } : { strokeWeight: 2, strokeOpacity: .9, fillOpacity: o.z.k === '사업완료' ? .05 : .16 });
+      if (on) o.setZIndex && o.setZIndex(5); else o.setZIndex && o.setZIndex(0);
+    });
+  }
+  function hideZone() { $('zonecard').hidden = true; markZones([]); }
   function zoneHtml(z) {
     const c = zcolor(z);
     const tags = [z.type, z.stage, z.stageDate && `단계일 ${z.stageDate}`, z.households && `${z.households}세대`, z.builder && `시공 ${z.builder}`].filter(Boolean);
@@ -1217,14 +1232,17 @@
       ${z.named ? '' : '<div class="zc-meta">국토부 자료에 구역 이름이 등록되어 있지 않습니다.</div>'}
       <div class="zc-meta">출처 · 국토교통부 정비구역 연속주제도 (${esc(D.jbUpdated || '')} 기준)</div>`;
   }
-  function showZones(zs, ls, js = []) {
+  function showZones(zs, ls, js = [], lat, lng) {
     const el = $('zonecard');
     el.innerHTML = `<div class="zc-h"><span style="font-size:12px;color:var(--muted)">개발정보</span><button id="zcClose" aria-label="닫기">×</button></div>`
       + [...js.map(jbHtml), ...zs.map(zoneHtml)].join('<hr style="border:0;border-top:1px solid var(--line);margin:4px 0">')
       + (ls.length ? `<div class="zc-tags">${ls.map(l => `<span style="background:${LCOLOR[l.k]}22;color:${LCOLOR[l.k]}">${esc(LNAME[l.k])}${l.nm ? ' · ' + esc(l.nm) : ''}</span>`).join('')}</div>` : '')
-      + `<div class="zc-meta">리얼워커스 공인중개사사무소 · 상담 02-393-7676</div>`;
+      + (lat != null ? `<button class="zc-go" id="zcGo">이 자리 필지 정보 보기</button>` : '');
     el.hidden = false;
-    $('zcClose').onclick = () => el.hidden = true;
+    markZones(js);
+    if (mobile()) { $('devpanel').hidden = true; $('panel').classList.add('closed'); }
+    $('zcClose').onclick = hideZone;
+    const go = $('zcGo'); if (go) go.onclick = () => { hideZone(); pick(lat, lng); };
   }
   // 이용계획 탭에 붙일 개발정보
   function zoneSection() {
@@ -1234,12 +1252,12 @@
     const zs = (D.zones || []).filter(z => (z.pnus || []).includes(S.sel.pnu) || (z.geometry && inGeo(z.geometry, S.sel.c.lng, S.sel.c.lat)));
     const jh = jz.length ? `<section><h2>정비구역<span>국토부 ${esc(D.jbUpdated || '')}</span></h2>${jz.map(z => `<div class="zonebox"><div class="zt"><i style="background:${KCOLOR[z.k] || '#868E96'}"></i>${esc(z.named ? z.n : '이름 미등록 정비구역')}</div>
       <div class="chips" style="margin:0"><span class="chip">${esc(z.k)}</span>${z.d ? `<span class="chip">고시 ${esc(z.d)}</span>` : ''}</div></div>`).join('')}
-      <p class="note">이 필지는 정비구역 안에 있습니다. 추진 단계와 권리 관계는 리얼워커스(02-393-7676)로 문의해 주세요.</p></section>` : '';
+      <p class="note">이 필지는 정비구역 안에 있습니다. 추진 단계와 권리 관계는 해당 구청이나 조합에서 확인해 주세요.</p></section>` : '';
     if (!zs.length) return jh;
     return jh + `<section><h2>리얼워커스 개발정보<span>참고 자료</span></h2>${zs.map(z => `<div class="zonebox"><div class="zt"><i style="background:${zcolor(z)}"></i>${esc(z.name)}</div>
       <div class="chips" style="margin:0">${[z.type, z.stage, z.stageDate].filter(Boolean).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
       ${z.note ? `<p>${esc(z.note)}</p>` : ''}${z.source ? `<a class="src" href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a>` : ''}</div>`).join('')}
-      <p class="note">계획 단계의 정보는 변경될 수 있습니다. 자세한 내용은 리얼워커스(02-393-7676)로 문의해 주세요.</p></section>`;
+      <p class="note">계획 단계의 정보는 변경될 수 있습니다.</p></section>`;
   }
 
   // ---------- 여러 필지에 걸친 건물 ----------
