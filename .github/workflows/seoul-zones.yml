@@ -1,0 +1,27 @@
+name: realmap-seoul-zones
+# 서울시 정비사업 자료를 받아 저장소에 저장 (분기마다 + 수동 실행)
+on:
+  schedule:
+    - cron: '0 19 5 1,4,7,10 *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/seoul-zones.mjs
+        env:
+          SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
+          SERVICES: vnBsnsNmtn
+      - name: 바뀐 자료 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/seoul-raw
+          git diff --cached --quiet || (git commit -m "서울시 정비사업 자료 갱신" && git push)
