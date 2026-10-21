@@ -1032,10 +1032,10 @@
   const LCOLOR = { jigu: '#F08C00', toheo: '#E03131', road: '#868E96', trans: '#1C7ED6', park: '#37B24D', market: '#AE3EC9', gb: '#2B8A3E', devlim: '#5F3DC4' };
   const LNAME = { jigu: '지구단위계획구역', toheo: '토지거래허가구역', road: '도시계획도로', trans: '도시계획 교통시설', park: '공원 등 공간시설', market: '시장정비구역', gb: '개발제한구역', devlim: '개발행위허가제한지역' };
   const TILE = 0.01;
-  const KGROUP = { '재개발': '재개발', '도시정비형 재개발': '도시정비형', '재정비촉진(뉴타운)': '재정비촉진', '재건축': '재건축', '역세권 재개발': '역세권', '주거환경개선': '주거환경개선', '정비구역': '기타', '사업완료': '기타' };
+  const KGROUP = { '재개발': '재개발', '도시정비형 재개발': '도시정비형', '재정비촉진(뉴타운)': '재정비촉진', '재건축': '재건축', '역세권 재개발': '역세권', '주거환경개선': '주거환경개선', '신속통합기획': '신속통합기획', '정비구역': '기타', '사업완료': '기타' };
   const grp = z => KGROUP[z.k] || '기타';
-  const D = { on: false, jbOn: { '재개발': true, '도시정비형': true, '재정비촉진': true, '재건축': true, '역세권': true, '주거환경개선': true, '기타': true }, want: { jb: true }, zones: null, zoneShapes: [], tiles: {}, shapes: {}, feats: {}, jb: null, jbShapes: [], jbLabels: new Map() };
-  const KCOLOR = { '재개발': '#D9480F', '도시정비형 재개발': '#E67700', '재정비촉진(뉴타운)': '#C2255C', '재건축': '#1971C2', '역세권 재개발': '#7048E8', '주거환경개선': '#2F9E44', '정비구역': '#868E96', '사업완료': '#ADB5BD' };
+  const D = { on: false, jbOn: { '재개발': true, '도시정비형': true, '재정비촉진': true, '재건축': true, '역세권': true, '주거환경개선': true, '신속통합기획': true, '기타': true }, want: { jb: true }, zones: null, zoneShapes: [], tiles: {}, shapes: {}, feats: {}, jb: null, jbShapes: [], jbLabels: new Map() };
+  const KCOLOR = { '재개발': '#D9480F', '도시정비형 재개발': '#E67700', '재정비촉진(뉴타운)': '#C2255C', '재건축': '#1971C2', '역세권 재개발': '#7048E8', '주거환경개선': '#2F9E44', '신속통합기획': '#0CA678', '정비구역': '#868E96', '사업완료': '#ADB5BD' };
   let jbLoading = null;
   function loadJB() {
     if (D.jb) return Promise.resolve(D.jb);
@@ -1043,11 +1043,25 @@
     if (!jbLoading) jbLoading = get('/data/jeongbi-seoul.json').catch(() => get('/jeongbi-seoul.json')).then(j => {
       D.jb = j.features.map(f => ({ ...f.properties, g: f.geometry, c: geoCenter(f.geometry) }));
       D.jbUpdated = j.updated;
+      return loadSZ().then(sz => { enrichJB(sz); return j; });
+    }).then(() => {
       const cnt = {}; D.jb.forEach(z => { cnt[grp(z)] = (cnt[grp(z)] || 0) + 1; });
       document.querySelectorAll('[data-cnt]').forEach(e => e.textContent = cnt[e.dataset.cnt] || 0);
       return D.jb;
     }).catch(() => { jbLoading = null; D.jb = null; toast('정비구역 자료를 불러오지 못했습니다'); return null; });
     return jbLoading;
+  }
+  // 서울시 정비사업 현황으로 국토부 구역의 종류·이름 보충 (국토부에 종류가 '정비구역'으로만 된 곳, 이름 없는 곳)
+  const SZKIND = { '재개발(주택정비형)': '재개발', '재개발(도시정비형)': '도시정비형 재개발', '재건축(공동)': '재건축', '재건축(단독)': '재건축', '주거환경개선(관리형)': '주거환경개선', '주거환경개선(정비형)': '주거환경개선', '신속통합기획': '신속통합기획' };
+  function enrichJB(sz) {
+    if (!sz || !D.jb) return;
+    for (const z of D.jb) {
+      const rs = (sz.byJb.get(z.id) || []).slice().sort((a, b) => (b.sd || '').localeCompare(a.sd || ''));
+      if (!rs.length) continue;
+      const r = rs[0];
+      if ((z.k === '정비구역' || !KCOLOR[z.k]) && SZKIND[r.k]) z.k = SZKIND[r.k];
+      if (!z.named && r.n) { z.n = r.n; z.named = true; }
+    }
   }
   function drawJB() {
     const K = kakao.maps;
