@@ -124,8 +124,11 @@
     if (mobile()) $('panel').classList.add('closed');
     wireSearch();
 
-    const pnu = new URLSearchParams(location.search).get('pnu');
-    if (pnu) pickPnu(pnu); else toast('필지를 누르면 정보가 열립니다');
+    const qs = new URLSearchParams(location.search), pnu = qs.get('pnu'), qla = +qs.get('lat'), qln = +qs.get('lng');
+    if (pnu) pickPnu(pnu);
+    else if (qla > 33 && qla < 39 && qln > 124 && qln < 132) { // 정비사업 안내 페이지 등에서 '지도에서 보기'
+      S.map.setLevel(3); S.map.setCenter(new K.LatLng(qla, qln)); pick(qla, qln);
+    } else toast('필지를 누르면 정보가 열립니다');
   }
 
   // ---------- 필지 선택 ----------
