@@ -584,11 +584,19 @@
     if (!z) return null;
     const [bc, fa] = SEOUL[z];
     const ts = titles(), rc = recap();
-    const used = rc && rc.vlArea ? rc.vlArea : ts.reduce((s, t) => s + (t.vlArea || 0), 0);
+    // 대장에 '용적률 산정 연면적'이 비어 있는 건물이 많아서: 용적률×대지면적 → 지상층 비율로 나눈 연면적 순으로 보충 (추정 표시)
+    let est = false;
+    const tUsed = t => {
+      if (t.vlArea) return t.vlArea;
+      if (t.vlRat && t.platArea) { est = true; return t.vlRat * t.platArea / 100; }
+      if (t.totArea) { est = true; return t.ugrnd && t.grnd ? t.totArea * t.grnd / (t.grnd + t.ugrnd) : t.totArea; }
+      return 0;
+    };
+    const used = rc && rc.vlArea ? rc.vlArea : ts.reduce((s, t) => s + tUsed(t), 0);
     const site = (rc && rc.platArea) || c.area;
     const nowRat = rc && rc.vlRat ? rc.vlRat : used && site ? used / site * 100 : 0;
     const maxF = c.area * fa / 100, maxB = c.area * bc / 100;
-    return { z, bc, fa, maxF, maxB, used, nowRat, rest: Math.max(0, maxF - used), floors: Math.max(1, Math.floor(maxF / maxB)), empty: !ts.length, split: c.zone2 && c.zone2 !== '지정되지않음' };
+    return { z, bc, fa, maxF, maxB, used, nowRat, est, rest: Math.max(0, maxF - used), floors: Math.max(1, Math.floor(maxF / maxB)), empty: !ts.length, split: c.zone2 && c.zone2 !== '지정되지않음' };
   }
   const BUILDABLE = /^(대|공장용지|창고용지|주차장|주유소용지|잡종지|학교용지|종교용지|체육용지)$/;
   const FARM = /^(전|답|과수원|임야|목장용지)$/;
@@ -631,7 +639,7 @@
         <dt>용도지역</dt><dd>${esc(R.z)}</dd>
         <dt>건폐율 / 용적률 상한</dt><dd>${R.bc}% / ${R.fa}%<small>서울시 조례 기준${law && law[1] !== R.fa ? ` · 법정 최대 ${law[1]}%` : ''}</small></dd>
         <dt>최대 지상 연면적</dt><dd>${arI(R.maxF)}</dd>
-        ${R.empty ? '' : `<dt>현재 용적률 연면적</dt><dd>${arI(R.used)}</dd><dt>남은 연면적</dt><dd>${R.rest > 1 ? arI(R.rest) : '여유 없음'}</dd>`}
+        ${R.empty ? '' : `<dt>현재 용적률 연면적</dt><dd>${arI(R.used)}${R.est ? '<small>대장 값이 비어 있어 연면적으로 추정</small>' : ''}</dd><dt>남은 연면적</dt><dd>${R.rest > 1 ? arI(R.rest) : '여유 없음'}</dd>`}
         ${full ? `<dt>최대 건축면적</dt><dd>${arI(R.maxB)}</dd><dt>단순 환산 층수</dt><dd>약 ${R.floors}층<small>최대 건축면적으로 꽉 채워 올릴 때</small></dd>` : ''}
       </dl>
       ${road && road.rel === '저촉' ? `<p class="note"><b>도시계획도로(${esc(road.name)})에 일부 저촉</b>되어 있어, 저촉 부분은 건축 면적에서 빠질 수 있습니다.</p>` : ''}
@@ -1271,7 +1279,9 @@
   }
   const zKind = e => (e.r && e.r.k) || (e.z && e.z.k) || '정비구역';
   const zColor = e => (e.r && SZCOLOR[e.r.k]) || (e.z && KCOLOR[e.z.k]) || '#868E96';
-  const zName = e => (e.r && e.r.n) || (e.z && e.z.named ? e.z.n : '') || '';
+  // 이름이 없으면 '○○동 ○○번지 일대' (서울시 자료의 대표 지번, 없으면 누른 필지의 동)
+  const zName = e => (e.r && e.r.n) || (e.z && e.z.named ? e.z.n : '') || (e.r && e.r.a ? `${e.r.a.replace(/번지$/, '')}번지 일대` : '')
+    || (S.sel && S.sel.addr ? `${String(S.sel.addr).split(' ').slice(-2, -1)[0] || ''} 일대`.trim() : '');
   // 구역 면적(㎡) 대략 계산 (경위도 → 평면 근사)
   function geoArea(g) {
     const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
@@ -1293,7 +1303,7 @@
       const fl = r && r.fl && /\d/.test(r.fl) ? r.fl.split('/') : null;
       const zoneChg = r && (r.zb || r.za) ? (r.zb && r.za && r.zb !== r.za ? `${r.zb} → ${r.za}` : r.za || r.zb) : '';
       const rows = [
-        ['구역명', zName(e) || '이름 미등록'],
+        ['구역명', zName(e) + (e.r && e.r.n || e.z && e.z.named ? '' : ' (공식 명칭 미등록)')],
         ['사업 구분', kind === '정비구역' ? '정비구역 (세부 종류 미등록)' : kind],
         ['추진 단계', r && r.st ? `${r.st}${r.sd ? ` (${r.sd})` : ''}` : ''],
         ['정비구역 고시', z ? (z.d || (z.y ? `${z.y}년` : '')) : ''],
