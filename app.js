@@ -1362,6 +1362,9 @@
     });
     return sum;
   }
+  // 정비사업 안내 페이지 주소 (/seoul/<구>/<사업번호>.html)
+  const GUSLUG = { '종로구': 'jongno', '중구': 'jung', '용산구': 'yongsan', '성동구': 'seongdong', '광진구': 'gwangjin', '동대문구': 'dongdaemun', '중랑구': 'jungnang', '성북구': 'seongbuk', '강북구': 'gangbuk', '도봉구': 'dobong', '노원구': 'nowon', '은평구': 'eunpyeong', '서대문구': 'seodaemun', '마포구': 'mapo', '양천구': 'yangcheon', '강서구': 'gangseo', '구로구': 'guro', '금천구': 'geumcheon', '영등포구': 'yeongdeungpo', '동작구': 'dongjak', '관악구': 'gwanak', '서초구': 'seocho', '강남구': 'gangnam', '송파구': 'songpa', '강동구': 'gangdong' };
+  const zPage = r => r && r.id && GUSLUG[r.gu] ? `/seoul/${GUSLUG[r.gu]}/${encodeURIComponent(r.id)}.html` : '';
   // 추진 단계 막대 (서울시 정비사업 현황의 단계 기준)
   const ZORDER = ['대상지선정', '기획완료', '정비계획수립', '열람공고', '구역지정', '추진위구성', '조합설립인가', '건축심의', '사업시행인가', '관리처분계획인가', '착공', '준공(일부)', '준공'];
   const ZSTEP = { '대상지선정': '대상지', '기획완료': '기획', '구역지정': '구역지정', '추진위구성': '추진위', '조합설립인가': '조합설립', '사업시행인가': '사업시행', '관리처분계획인가': '관리처분', '착공': '착공', '준공': '준공' };
@@ -1420,6 +1423,7 @@
       return `<section><h2><i class="dzi" style="background:${c}"></i>${esc(zName(e) || ZSHORT[kind] || '정비구역')}<span>${esc(ZSHORT[kind] || '정비구역')}</span></h2>
         ${zTrack(r)}
         <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+        ${zPage(r) ? `<a class="zlink zpage" href="${zPage(r)}" target="_blank" rel="noopener">이 구역 추진 현황 자세히 · ☆ 관심 구역 담기 ›</a>` : ''}
         ${r && /^https:\/\/cleanup\.seoul\.go\.kr\//.test(r.url) ? `<a class="zlink" href="${esc(r.url)}" target="_blank" rel="noopener">정비사업 정보몽땅에서 조합 소식 보기 ›</a>` : ''}
         <p class="note">${src}. 계획 수치는 진행 중에 바뀔 수 있으니 계약 전에는 구청이나 조합에 꼭 확인해 주세요.</p></section>`;
     }).join('');
