@@ -4,6 +4,7 @@
 //   /api/auth?action=me             → 로그인 상태 { member, nickname }
 //   /api/auth?action=logout         → 로그아웃
 //   POST /api/auth?action=withdraw  → 회원 탈퇴 (저장된 회원 정보 삭제)
+//   /api/auth?action=zfavs · zfav   → 서울 정비사업 관심 구역·추진 알림(이메일)
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail } from './_lib.js';
@@ -126,6 +127,56 @@ export default async function (req, res) {
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
       await redis(['SET', key, JSON.stringify(d)]);
       return send(res, 200, { ok: true, ...d });
+    }
+
+    // 관심 구역 (서울 정비사업, 회원 전용) — 회원별 최대 30곳. 추진 단계 알림은 이메일을 남긴 회원만
+    //   GET  /api/auth?action=zfavs → { member, items:[{id,n,gu,st,alert,at}], email }
+    //   POST /api/auth?action=zfav  { op:'add'|'del'|'alert'|'unalert'|'email'|'noemail', id, n, gu, st, email }
+    if (action === 'zfavs' || action === 'zfav') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return action === 'zfavs' ? send(res, 200, { ok: true, member: false, items: [] }) : fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      const key = `realmap:zfav:${s.id}`;
+      let d; try { const v = await redis(['GET', key]); d = v ? JSON.parse(v) : null; } catch { d = null; }
+      d = d || { items: [], email: '', emailAt: null };
+      // 이메일을 아직 안 남겼으면 카카오 가입 때 받은 이메일을 기본값으로 보여 줌 (저장은 회원이 확인한 뒤에만)
+      let kakaoEmail = '';
+      if (!d.email) { try { const u = await redis(['GET', `realmap:user:${s.id}`]); kakaoEmail = u ? (JSON.parse(u).email || '') : ''; } catch { /* 없음 */ } }
+      const out = () => send(res, 200, { ok: true, member: true, nickname: s.n || '', items: d.items, email: d.email || '', kakaoEmail });
+      if (action === 'zfavs') return out();
+      if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const clean = (v, n) => String(v ?? '').replace(/[<>"]/g, '').trim().slice(0, n);
+      const id = String(body.id || '').replace(/\D/g, '').slice(0, 12);
+      const now = new Date().toISOString();
+      const op = body.op;
+      if (op === 'email' || op === 'alert') {
+        const em = clean(body.email || d.email, 120);
+        if (op === 'email' || body.email) {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) return fail(res, 400, 'bad_email', '이메일 주소를 확인해 주세요.');
+          d.email = em; d.emailAt = now;
+        }
+        if (op === 'alert' && !d.email) return fail(res, 400, 'need_email', '알림은 이메일로 보내 드립니다. 이메일을 먼저 남겨 주세요.');
+      }
+      if (op === 'noemail') { d.email = ''; d.emailAt = null; d.items.forEach(x => { x.alert = false; }); }
+      if (['add', 'del', 'alert', 'unalert'].includes(op)) {
+        if (!id) return fail(res, 400, 'bad_id', '구역 정보가 올바르지 않습니다.');
+        let it = d.items.find(x => x.id === id);
+        if (op === 'del') d.items = d.items.filter(x => x.id !== id);
+        else {
+          if (!it) {
+            if (d.items.length >= 30) return fail(res, 400, 'full', '관심 구역은 30곳까지 저장할 수 있습니다.');
+            it = { id, n: clean(body.n, 40), gu: clean(body.gu, 8), st: clean(body.st, 20), alert: false, at: now };
+            d.items.unshift(it);
+          }
+          if (op === 'alert') it.alert = true;
+          if (op === 'unalert') it.alert = false;
+        }
+      } else if (!['email', 'noemail'].includes(op)) return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+      await redis(['SET', key, JSON.stringify(d)]);
+      try { await redis([d.items.some(x => x.alert) ? 'SADD' : 'SREM', 'realmap:zwatch', String(s.id)]); } catch { /* 알림 목록 갱신 실패는 다음 저장 때 */ }
+      return out();
     }
 
     // 매물장 (PRO 전용) — 회원별 최대 1,000건, 한 덩어리로 저장
@@ -265,7 +316,7 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id))); } catch { /* 무시 */ }
-      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
+      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
     }
