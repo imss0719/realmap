@@ -593,10 +593,15 @@
       return 0;
     };
     const used = rc && rc.vlArea ? rc.vlArea : ts.reduce((s, t) => s + tUsed(t), 0);
-    const site = (rc && rc.platArea) || c.area;
-    const nowRat = rc && rc.vlRat ? rc.vlRat : used && site ? used / site * 100 : 0;
-    const maxF = c.area * fa / 100, maxB = c.area * bc / 100;
-    return { z, bc, fa, maxF, maxB, used, nowRat, est, rest: Math.max(0, maxF - used), floors: Math.max(1, Math.floor(maxF / maxB)), empty: !ts.length, split: c.zone2 && c.zone2 !== '지정되지않음' };
+    // 여러 필지에 걸친 건물(합필·부속지번)은 건축물대장의 대지면적(묶인 필지 전체)을 기준으로 계산
+    const bPlat = (rc && rc.platArea) || Math.max(0, ...ts.map(t => t.platArea || 0));
+    const multi = atchList().length > 0 && bPlat > c.area * 1.02;
+    const base = multi ? bPlat : c.area;
+    const site = (rc && rc.platArea) || bPlat || c.area;
+    const one = ts.length === 1 ? ts[0] : null;
+    const nowRat = rc && rc.vlRat ? rc.vlRat : one && one.vlRat ? one.vlRat : used && site ? used / site * 100 : 0;
+    const maxF = base * fa / 100, maxB = base * bc / 100;
+    return { z, bc, fa, maxF, maxB, used, nowRat, est, multi, base, lots: atchList().length + 1, rest: Math.max(0, maxF - used), floors: Math.max(1, Math.floor(maxF / maxB)), empty: !ts.length, split: c.zone2 && c.zone2 !== '지정되지않음' };
   }
   const BUILDABLE = /^(대|공장용지|창고용지|주차장|주유소용지|잡종지|학교용지|종교용지|체육용지)$/;
   const FARM = /^(전|답|과수원|임야|목장용지)$/;
@@ -643,6 +648,7 @@
         ${full ? `<dt>최대 건축면적</dt><dd>${arI(R.maxB)}</dd><dt>단순 환산 층수</dt><dd>약 ${R.floors}층<small>최대 건축면적으로 꽉 채워 올릴 때</small></dd>` : ''}
       </dl>
       ${road && road.rel === '저촉' ? `<p class="note"><b>도시계획도로(${esc(road.name)})에 일부 저촉</b>되어 있어, 저촉 부분은 건축 면적에서 빠질 수 있습니다.</p>` : ''}
+      ${R.multi ? `<p class="note">이 건물은 <b>${R.lots}개 필지</b>에 걸쳐 지어져 있어, 건축물대장의 대지면적(${ar(R.base, 2)[0]}) 전체를 기준으로 계산했습니다. 필지마다 용도지역이 다르면 실제 상한은 달라질 수 있습니다.</p>` : ''}
       ${R.split ? '<p class="note">이 땅은 용도지역이 둘 이상 걸쳐 있어 실제 상한은 면적 비율에 따라 달라집니다.</p>' : ''}
       ${law && law[1] !== R.fa ? `<p class="note">국토계획법상 ${esc(R.z)} 용적률은 최대 ${law[1]}%이지만, 서울시는 조례로 ${R.fa}%를 기본 상한으로 정하고 있습니다. 재건축·재개발 등 정비사업이나 지구단위계획으로 공공기여·임대주택 등을 하면 법정 최대치까지 완화받을 수 있습니다.${R.nowRat > R.fa * 1.05 ? ' 지금 건물이 조례 상한보다 높은 것은 조례가 생기기 전에 지어졌거나 이런 완화를 받은 경우입니다.' : ''}</p>` : ''}
       <p class="note">지구단위계획, 높이·일조 제한, 주차 기준에 따라 실제로 지을 수 있는 규모는 달라집니다.${full ? ' 신축이나 증축 검토 시 토지이음에서 행위제한을 꼭 확인해 주세요.' : ''}</p></section>`;
