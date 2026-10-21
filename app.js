@@ -104,7 +104,7 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (devHit(la, ln)) return; pick(la, ln); });
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); devHit(la, ln); pick(la, ln); });
 
     const setType = sky => { S.map.setMapTypeId(sky ? K.MapTypeId.HYBRID : K.MapTypeId.ROADMAP); $('mtRoad').setAttribute('aria-pressed', !sky); $('mtSky').setAttribute('aria-pressed', sky); };
     $('mtRoad').onclick = () => setType(false);
@@ -375,10 +375,12 @@
     const p = S.sel; if (!p) return;
     const D = $('detail');
     const coll = isCollective();
-    const tabs = [['land', '토지'], ['plan', '이용계획'], ['bld', '건물'], ...(coll ? [['unit', '동·호수']] : []), ['trade', '실거래']];
+    const jz = zonesHere();
+    const tabs = [['land', '토지'], ['plan', '이용계획'], ...(jz.length ? [['dev', '개발']] : []), ['bld', '건물'], ...(coll ? [['unit', '동·호수']] : []), ['trade', '실거래']];
     const c = chr(), m = mainT(), rc = recap(), o = own(), pr = prices();
     const name = (rc && rc.name) || (m && m.name) || p.bname || '';
     const chips = [];
+    jz.forEach(z => chips.push(`<button type="button" class="chip dz" data-dz style="--zc:${KCOLOR[z.k] || '#868E96'}">${esc(ZSHORT[z.k] || '정비구역')}</button>`));
     if (c && c.zone1) chips.push(`<span class="chip z">${esc(c.zone1)}</span>`);
     if (c && c.jimok) chips.push(`<span class="chip">${esc(c.jimok)}</span>`);
     if (m && m.use) chips.push(`<span class="chip">${esc(m.use)}</span>`);
@@ -396,6 +398,7 @@
     const body = [
       blk('land', '토지', landTab()),
       blk('plan', '이용계획', planTab()),
+      jz.length ? blk('dev', '개발정보', devTab(jz)) : '',
       blk('bld', '건물', bldTab() + (isApt() ? lazy('kapt', kaptSection) : '') + lazy('stores', storeSection)),
       coll ? blk('unit', '동·호수', lazy('unit', unitTab)) : '',
       blk('trade', '실거래', lazy('trade', tradeTab)),
@@ -422,6 +425,7 @@
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => goSec(b.dataset.t));
     $('shareBtn').onclick = () => shareParcel(p, name);
     if ($('rvBtn')) $('rvBtn').onclick = () => setView('rv');
+    D.querySelectorAll('[data-dz]').forEach(b => b.onclick = () => goSec('dev'));
     if ($('favBtn')) $('favBtn').onclick = () => toggleFav(name);
     if ($('homeBtn')) $('homeBtn').onclick = () => toggleHome(name);
     if ($('safeBtn')) $('safeBtn').onclick = () => { S.safeOpen = true; goSec('trade', 'safe'); };
@@ -557,7 +561,7 @@
     const L = S.d.land;
     if (!L) return skel();
     if (L.error) return errBox('', L.error);
-    const out = [zoneSection()];
+    const out = [];
     if (L.use && L.use.ok) {
       const rows = L.use.data;
       const li = a => a.length ? a.map(x => `<li class="${/^UQA/.test(x.code) ? 'k' : ''}">${esc(x.name)}${x.rel && x.rel !== '포함' ? ` <em>(${esc(x.rel)})</em>` : ''}</li>`).join('') : '<li>해당 없음</li>';
@@ -1185,24 +1189,11 @@
 
   // 누른 위치가 어떤 구역·레이어에 속하는지
   function zonesAt(lat, lng) { return (D.zones || []).filter(z => z.geometry && inGeo(z.geometry, lng, lat)); }
-  // 개발지도가 켜져 있을 때 구역 안을 누르면 구역 정보만 보여 줌 (필지 창은 카드의 버튼으로 엶). 구역을 보여 줬으면 true
+  // 개발지도가 켜져 있을 때 누른 자리의 구역을 진하게 표시 (구역 정보는 필지 창 맨 위 안내로 보여 줌)
   function devHit(lat, lng) {
-    if (!D.on) return false;
-    const zs = D.want.zones ? zonesAt(lat, lng) : [];
-    const js = D.want.jb && D.jb ? D.jb.filter(z => D.jbOn[grp(z)] && inGeo(z.g, lng, lat)) : [];
-    const ls = [];
-    for (const k of Object.keys(LCOLOR)) {
-      if (!D.want[k] || !D.tiles[k]) continue;
-      for (const feats of Object.values(D.tiles[k])) for (const f of feats || []) {
-        if (inGeo(f.g, lng, lat)) {
-          const nm = f.p.dgm_nm || f.p.uname || f.p.name || f.p.dgm_ar || '';
-          if (!ls.some(x => x.k === k && x.nm === nm)) ls.push({ k, nm });
-        }
-      }
-    }
-    if (zs.length || ls.length || js.length) { showZones(zs, ls, js, lat, lng); return true; }
-    hideZone();
-    return false;
+    if (!D.on) return;
+    $('zonecard').hidden = true;
+    markZones(D.want.jb && D.jb ? D.jb.filter(z => D.jbOn[grp(z)] && inGeo(z.g, lng, lat)) : []);
   }
   // 고른 구역을 진하게 표시
   function markZones(js) {
@@ -1243,6 +1234,46 @@
     if (mobile()) { $('devpanel').hidden = true; $('panel').classList.add('closed'); }
     $('zcClose').onclick = hideZone;
     const go = $('zcGo'); if (go) go.onclick = () => { hideZone(); pick(lat, lng); };
+  }
+  // 이 필지가 들어 있는 정비구역 (서울). 자료를 아직 안 불러왔으면 불러온 뒤 다시 그림
+  const ZSHORT = { '재개발': '재개발', '도시정비형 재개발': '도시정비형 재개발', '재정비촉진(뉴타운)': '재정비촉진(뉴타운)', '재건축': '재건축', '역세권 재개발': '역세권개발', '주거환경개선': '주거환경개선', '사업완료': '정비사업 완료', '정비구역': '정비구역' };
+  function zonesHere() {
+    const p = S.sel;
+    if (!p || !p.c || !String(p.pnu).startsWith('11')) return [];
+    if (!D.jb) { loadJB().then(j => { if (j && S.sel === p) render(); }); return []; }
+    return D.jb.filter(z => inGeo(z.g, p.c.lng, p.c.lat));
+  }
+  // 구역 면적(㎡) 대략 계산 (경위도 → 평면 근사)
+  function geoArea(g) {
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    let sum = 0;
+    for (const poly of polys) poly.forEach((ring, ri) => {
+      const lat0 = ring[0][1] * Math.PI / 180, kx = 111320 * Math.cos(lat0), ky = 110540;
+      let a = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) a += (ring[j][0] * kx) * (ring[i][1] * ky) - (ring[i][0] * kx) * (ring[j][1] * ky);
+      sum += (ri === 0 ? 1 : -1) * Math.abs(a / 2);
+    });
+    return sum;
+  }
+  // 개발정보 칸: 고시 정보 · 구역 설정 · 추진 현황
+  function devTab(jz) {
+    return jz.map(z => {
+      const c = KCOLOR[z.k] || '#868E96';
+      const area = z.g ? geoArea(z.g) : 0;
+      const rows = [
+        ['구역명', z.named ? z.n : '국토부 자료에 이름 미등록'],
+        ['사업 구분', z.k === '정비구역' ? '정비구역 (세부 종류 미등록)' : z.k],
+        ['고시일', z.d || (z.y ? `${z.y}년` : '')],
+        ['자치구', `서울특별시 ${z.gu}`],
+        ['구역 면적', area ? `약 ${ar(Math.round(area / 10) * 10, 0)[0]}` : ''],
+        ['추진 단계', z.stage || ''],
+        ['단계 일자', z.stageDate || ''],
+        ['예정 세대수', z.households ? `${n(z.households)}세대` : ''],
+      ].filter(r => r[1]);
+      return `<section><h2><i class="dzi" style="background:${c}"></i>${esc(z.named ? z.n : ZSHORT[z.k] || '정비구역')}<span>${esc(ZSHORT[z.k] || '정비구역')}</span></h2>
+        <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+        <p class="note">국토교통부 정비구역 연속주제도 (${esc(D.jbUpdated || '')} 기준). 추진 단계와 권리 관계는 해당 구청이나 조합에서 확인해 주세요. 계획은 변경될 수 있습니다.</p></section>`;
+    }).join('');
   }
   // 이용계획 탭에 붙일 개발정보
   function zoneSection() {
