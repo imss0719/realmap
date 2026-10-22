@@ -188,6 +188,57 @@ export default async function (req, res) {
       return out();
     }
 
+    // 단지 장부 (PRO 전용) — 자주 보는 아파트 단지와 호별 메모
+    //   GET  /api/auth?action=cx → { items:[{id,name,places:[{pnu,addr,lat,lng}],at}], memos:{'단지id|pnu|동|호':{t,up}} }
+    //   POST /api/auth?action=cx  { op:'add', name, place } | { op:'addplace', id, place } | { op:'delplace', id, pnu } | { op:'rename', id, name } | { op:'del', id } | { op:'memo', id, key, text }
+    if (action === 'cx') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '유료회원 전용 기능입니다.');
+      const key = `realmap:cx:${s.id}`;
+      let d; try { const v = await redis(['GET', key]); d = v ? JSON.parse(v) : null; } catch { d = null; }
+      d = d || { items: [], memos: {} };
+      if (req.method !== 'POST') return send(res, 200, { ok: true, ...d });
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const str = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
+      const place = p => { const pnu = String(p && p.pnu || '').replace(/\D/g, ''); return /^\d{19}$/.test(pnu) ? { pnu, addr: str(p.addr, 80), lat: Number(p.lat) || null, lng: Number(p.lng) || null } : null; };
+      const now = new Date().toISOString();
+      const id = str(body.id, 20).replace(/[^\w-]/g, '');
+      const it = d.items.find(x => x.id === id);
+      if (body.op === 'add') {
+        const pl = place(body.place); if (!pl) return fail(res, 400, 'bad_pnu', '단지 주소를 먼저 골라 주세요.');
+        if (d.items.length >= 30) return fail(res, 400, 'full', '단지는 30곳까지 등록할 수 있습니다.');
+        const dup = d.items.find(x => x.places.some(p => p.pnu === pl.pnu));
+        if (dup) return send(res, 200, { ok: true, ...d, id: dup.id });
+        const nid = Date.now().toString(36) + crypto.randomBytes(2).toString('hex');
+        d.items.unshift({ id: nid, name: str(body.name, 40) || pl.addr, places: [pl], at: now });
+        await redis(['SET', key, JSON.stringify(d)]);
+        return send(res, 200, { ok: true, ...d, id: nid });
+      }
+      if (!it) return fail(res, 404, 'nocx', '단지를 찾지 못했습니다.');
+      if (body.op === 'addplace') {
+        const pl = place(body.place); if (!pl) return fail(res, 400, 'bad_pnu', '주소가 올바르지 않습니다.');
+        if (!it.places.some(p => p.pnu === pl.pnu)) { if (it.places.length >= 12) return fail(res, 400, 'full', '한 단지에 필지는 12개까지 넣을 수 있습니다.'); it.places.push(pl); }
+      } else if (body.op === 'delplace') {
+        if (it.places.length > 1) it.places = it.places.filter(p => p.pnu !== String(body.pnu || ''));
+      } else if (body.op === 'rename') {
+        it.name = str(body.name, 40) || it.name;
+      } else if (body.op === 'del') {
+        d.items = d.items.filter(x => x.id !== id);
+        for (const k of Object.keys(d.memos)) if (k.startsWith(id + '|')) delete d.memos[k];
+      } else if (body.op === 'memo') {
+        const mk = str(body.key, 80);
+        if (!mk.startsWith(id + '|')) return fail(res, 400, 'bad_key', '메모 위치가 올바르지 않습니다.');
+        const t = str(body.text, 500);
+        if (t) d.memos[mk] = { t, up: now }; else delete d.memos[mk];
+        if (Object.keys(d.memos).length > 5000) return fail(res, 400, 'full', '메모가 너무 많습니다. 필요 없는 메모를 정리해 주세요.');
+      } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+      await redis(['SET', key, JSON.stringify(d)]);
+      return send(res, 200, { ok: true, ...d });
+    }
+
     // 매물장 (PRO 전용) — 회원별 최대 1,000건, 한 덩어리로 저장
     if (action === 'listings' || action === 'listing') {
       const s = readSession(req);
@@ -325,7 +376,7 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id))); } catch { /* 무시 */ }
-      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
+      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['DEL', `realmap:cx:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
     }

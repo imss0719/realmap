@@ -106,7 +106,7 @@ export default handler(async (req, res) => {
       // 단지명이 같으면 같은 단지로 인정 (대표지번이 다른 경우)
       if (!m && name && name.length >= 2 && ['apt', 'aptRent', 'rh', 'rhRent', 'offi', 'offiRent'].includes(kind)) {
         const nm = normName(raw.aptNm || raw.mhouseNm || raw.offiNm);
-        if (nm && nm === name) m = 'name';
+        if (nm && (nm === name || (req.query.np === '1' && name.length >= 4 && nm.startsWith(name)))) m = 'name';   // np=1: '마포래미안푸르지오' → 1~4단지 모두
       }
       if (!m) continue;
       const t = map(kind, raw);
