@@ -1050,7 +1050,10 @@
       D.jbUpdated = j.updated;
       return loadSZ().then(sz => { enrichJB(sz); return j; });
     }).then(() => {
+      // 경계가 없는 서울시 정비사업(한남뉴타운·신통 대상지 등)은 점으로 표시
+      D.pins = (D.sz && D.sz.rows || []).filter(r => r.lat && r.lng && !(r.jb && r.jb.length)).map(r => ({ r, k: SZKIND[r.k] || '정비구역' }));
       const cnt = {}; D.jb.forEach(z => { cnt[grp(z)] = (cnt[grp(z)] || 0) + 1; });
+      D.pins.forEach(p => { const g = grp(p); cnt[g] = (cnt[g] || 0) + 1; });
       document.querySelectorAll('[data-cnt]').forEach(e => e.textContent = cnt[e.dataset.cnt] || 0);
       return D.jb;
     }).catch(() => { jbLoading = null; D.jb = null; toast('정비구역 자료를 불러오지 못했습니다'); return null; });
@@ -1068,7 +1071,33 @@
       if (!z.named && r.n) { z.n = r.n; z.named = true; }
     }
   }
+  // 경계 없는 사업: 점 + (확대하면) 이름표
+  const ZST = { '대상지선정': '대상지', '기획완료': '기획완료', '정비계획수립': '계획수립', '열람공고': '열람공고', '구역지정': '구역지정', '추진위구성': '추진위', '조합설립인가': '조합설립', '건축심의': '건축심의', '사업시행인가': '사업시행', '관리처분계획인가': '관리처분', '착공': '착공', '준공(일부)': '일부준공', '준공': '준공' };
+  function drawPins() {
+    D.pinOv = D.pinOv || new Map();
+    const show = D.on && D.want.jb && D.pins;
+    if (!show) { D.pinOv.forEach(o => o.setMap(null)); return; }
+    const K = kakao.maps, lvl = S.map.getLevel(), b = S.map.getBounds();
+    D.pins.forEach((p, i) => {
+      const ll = new K.LatLng(p.r.lat, p.r.lng);
+      const on = D.jbOn[grp(p)] && b.contain(ll) && lvl <= 8;
+      let o = D.pinOv.get(i);
+      if (!on) { if (o) o.setMap(null); return; }
+      if (!o) {
+        const el = document.createElement('button');
+        el.type = 'button'; el.className = 'zpin'; el.style.setProperty('--c', KCOLOR[p.k] || '#868E96');
+        el.innerHTML = `<i></i><span>${esc(p.r.n)}${p.r.st ? ` · ${esc(ZST[p.r.st] || p.r.st)}` : ''}</span>`;
+        el.title = `${p.r.n} (${p.r.k}${p.r.st ? ' · ' + p.r.st : ''}) — 구역 경계 자료가 없어 대표 위치로 표시합니다`;
+        el.onclick = ev => { ev.stopPropagation(); pick(p.r.lat, p.r.lng); };
+        o = new K.CustomOverlay({ position: ll, content: el, xAnchor: 0, yAnchor: .5, zIndex: 2, clickable: true });
+        D.pinOv.set(i, o);
+      }
+      o.getContent().classList.toggle('lab', lvl <= 5);
+      if (!o.getMap()) o.setMap(S.map);
+    });
+  }
   function drawJB() {
+    drawPins();
     const K = kakao.maps;
     const show = D.on && D.want.jb && D.jb;
     if (!show) { D.jbShapes.forEach(o => o.setMap(null)); D.jbLabels.forEach(o => o.setMap(null)); return; }
