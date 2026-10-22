@@ -2204,6 +2204,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (PM.mode === 'vol') return v && v[1] ? { v: v[1], n: v[1], g } : null;   // 거래량: 최근 6개월 매매 건수
     if (PM.mode === 'jr') {                                                       // 전세가율: 전세 보증금 ㎡당 ÷ 매매 ㎡당 (각 3건 이상)
       const j = e && e[PM.kind + 'J'];
+      if (j && j.length >= 4) return j[2] != null ? { v: j[2], n: j[3], g } : null;   // 같은 단지·평형끼리 비교한 값 (짝 3건 이상)
       return v && v[0] && v[1] >= 3 && j && j[0] && j[1] >= 3 ? { v: j[0] / v[0] * 100, n: v[1] + j[1], g } : null;
     }
     if (!v || !v[0] || v[1] < 3) return null;
@@ -2320,7 +2321,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const q = PM.qv[key] || [0, 0, 0, 0, 0, 0];
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 거래량 <small>${per} · 6개월 매매 건수</small></b><div class="pml">${VCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${n(q[0])}건 이하</span><span>${n(q[5])}건 이상</span></div>${hint}`;
     } else if (PM.mode === 'jr') {
-      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전세가율 <small>${per} · 전세 보증금 ÷ 매매가 (㎡당)</small></b><div class="pml">${JCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>50%↓</span><span>60</span><span>70</span><span>80%↑</span></div>${hint}`;
+      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전세가율 <small>${per} · 같은 단지·평형의 전세 ÷ 매매</small></b><div class="pml">${JCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>50%↓</span><span>60</span><span>70</span><span>80%↑</span></div>${hint}`;
       const has = Object.values(pmSrc(ly)).some(e => e && e[PM.kind + 'J']);
       if (!has) el.querySelector('.pmx').innerHTML = '<span>전세가율은 다음 자동 갱신 때 채워집니다</span>';
     } else {
@@ -2334,7 +2335,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     PM.sel = `${ly}:${f.c}`; if (prev && prev !== PM.sel) pmPaint(prev[0], prev.slice(2)); pmPaint(ly, f.c);
     const row = (k, nm) => { const v = e[k]; if (!v || !v[0]) return `<tr><th>${nm}</th><td colspan="2" class="n">최근 6개월 거래 없음</td></tr>`;
       const ch = v[2] && v[3] >= 3 && v[1] >= 3 ? (v[0] / v[2] - 1) * 100 : null;
-      return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[3] ? ` (1년 전 ${n(v[3])}건)` : ''}${v[1] < 3 ? ' · 적음' : ''}</small>${(() => { const j = e[k + 'J']; return j && j[0] && j[1] >= 3 && v[1] >= 3 ? `<small class="jrl">전세가율 <b>${Math.round(j[0] / v[0] * 100)}%</b> · 전세 ${n(Math.round(j[0] * PY3 / 10) * 10)}만/평</small>` : ''; })()}</td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
+      return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[3] ? ` (1년 전 ${n(v[3])}건)` : ''}${v[1] < 3 ? ' · 적음' : ''}</small>${(() => { const j = e[k + 'J']; if (!j || !j[0]) return ''; const r = j.length >= 4 ? j[2] : (j[1] >= 3 && v[1] >= 3 ? j[0] / v[0] * 100 : null); return r != null ? `<small class="jrl">전세가율 <b>${Math.round(r)}%</b>${j.length >= 4 ? ` <span>(같은 단지 ${n(j[3])}건 비교)</span>` : ''}</small>` : ''; })()}</td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
     const nm = ly === 'g' ? f.n : (PM.price.d[f.c] && PM.price.d[f.c].n) || f.n;
     const gu = ly === 'd' && PM.price.g[f.c.slice(0, 5)] ? PM.price.g[f.c.slice(0, 5)].n : '';
     const sdn = (PSIDO[f.c.slice(0, 2)] || {}).n || '';

@@ -524,7 +524,7 @@ a.favbtn{text-decoration:none}
 .pmcard .pmc-h button{border:0;background:var(--soft);width:28px;height:28px;border-radius:50%;cursor:pointer;color:var(--fg)}
 .pmcard table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}.pmcard th,.pmcard td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
 .pmcard thead th{font-size:11px;color:var(--muted);font-weight:600}.pmcard td small{display:block;font-size:11px;color:var(--muted)}
-.pmcard td small.jrl{color:var(--accent)}.pmcard td small.jrl b{font-weight:700}
+.pmcard td small.jrl{color:var(--accent)}.pmcard td small.jrl span{color:var(--muted);font-weight:400}.pmcard td small.jrl b{font-weight:700}
 .pmlegend .pmseg button{padding:6px 6px}
 .pmcard td.up{color:#E03131;font-weight:700}.pmcard td.dn{color:#1864AB;font-weight:700}.pmcard td.n{color:var(--muted)}
 .pmcard .pmc-n{font-size:11px;color:var(--muted);margin:6px 0}
