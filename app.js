@@ -2053,7 +2053,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     setOn(T.on);
     // 실거래 버튼: 꺼져 있으면 켜고 선택 창 열기 → 켜져 있고 창이 닫혀 있으면 창 열기 → 창이 열려 있으면 끄기
     $('mtTrade').onclick = () => {
-      if (!T.on) { setOn(true); openTPanel(); if (S.map.getLevel() > 9) toast('조금 더 확대하면 동별 시세와 건물별 실거래가가 보입니다'); }
+      if (!T.on) { setOn(true); openTPanel(); if (S.map.getLevel() > 11) toast('조금 더 확대하면 구별·동별 시세와 건물별 실거래가가 보입니다'); }
       else if ($('tpanel').hidden) openTPanel();
       else { setOn(false); $('tpanel').hidden = true; }
       tradeRefresh(); priceRefresh();
@@ -2069,98 +2069,150 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     document.querySelectorAll('[data-pm]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.pm === PM.mode); b.onclick = () => { PM.mode = b.dataset.pm; document.querySelectorAll('[data-pm]').forEach(x => x.setAttribute('aria-pressed', x === b)); pmSave(); priceRefresh(true); }; });
     tradeRefresh();
   }
-  // ---------- 동별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
-  // data/umd-11.json(법정동 경계) + data/price-11.json(동별 전용 ㎡당 중간값, GitHub가 매주 갱신)
-  const PM = { kind: 'apt', mode: 'price', polys: new Map(), labels: new Map(), loading: null, umd: null, price: null };
-  const PMIN = MAXLV + 1, PMAX = 9;
+  // ---------- 동별·구별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
+  // 레벨 6~8: 법정동별 (data/umd-11.json) · 레벨 9~11: 구별 (data/sgg-11.json)
+  // 값은 data/price-11.json (전용 ㎡당 중간값, GitHub가 매주 갱신)
+  const PM = { kind: 'apt', mode: 'price', loading: null, umd: null, sgg: null, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, sel: null, hov: null };
+  const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
   const PY3 = 3.305785;
   const pmActive = () => T.on && S.map.getLevel() >= PMIN && S.map.getLevel() <= PMAX;
+  const pmLayer = () => S.map.getLevel() >= PGU ? 'g' : 'd';
   function pmLoad() {
-    if (PM.umd && PM.price) return Promise.resolve(true);
-    if (!PM.loading) PM.loading = Promise.all([fetch('/data/umd-11.json').then(r => r.json()), fetch('/data/price-11.json').then(r => r.json())])
-      .then(([u, p]) => { PM.umd = u.f; PM.price = p; return true; }).catch(() => { PM.loading = null; return false; });
+    if (PM.umd && PM.sgg && PM.price) return Promise.resolve(true);
+    if (!PM.loading) PM.loading = Promise.all(['/data/umd-11.json', '/data/sgg-11.json', '/data/price-11.json'].map(u => fetch(u).then(r => r.json())))
+      .then(([u, s, p]) => {
+        const box = f => { let a = 180, b = 90, c = -180, d = -90; f.g.forEach(r => r.forEach(([x, y]) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); })); f.bb = [a, b, c, d]; f.ctr = pmCenter(f.g); return f; };
+        PM.umd = u.f.map(box); PM.sgg = s.f.map(box); PM.price = p;
+        if (!p.g) p.g = pmGuFallback(p.d, s.f);
+        return true;
+      }).catch(() => { PM.loading = null; return false; });
     return PM.loading;
+  }
+  // 구별 값이 아직 없을 때(자동 갱신 전)는 동별 값을 거래 건수로 가중평균해 임시로 씁니다
+  function pmGuFallback(d, gus) {
+    const g = {}; gus.forEach(f => { g[f.c] = { n: f.n }; });
+    for (const k of ['apt', 'rh', 'offi']) {
+      const acc = {};
+      for (const [c, e] of Object.entries(d)) {
+        const v = e[k]; if (!v) continue;
+        const a = acc[c.slice(0, 5)] || (acc[c.slice(0, 5)] = [0, 0, 0, 0]);
+        if (v[0]) { a[0] += v[0] * v[1]; a[1] += v[1]; }
+        if (v[2]) { a[2] += v[2] * v[3]; a[3] += v[3]; }
+      }
+      for (const [c, a] of Object.entries(acc)) if (g[c]) g[c][k] = [a[1] ? Math.round(a[0] / a[1]) : null, a[1], a[3] ? Math.round(a[2] / a[3]) : null, a[3]];
+    }
+    return g;
   }
   const PCOL = ['#FFF3BF', '#FFE066', '#FFC53D', '#FFA94D', '#FF8A3D', '#F76707', '#D9480F'];
   const CCOL = [[-10, '#1864AB'], [-5, '#4C8FD6'], [-2, '#A5C8F0'], [2, '#DEE2E6'], [5, '#FFC9C9'], [10, '#FA7A7A'], [Infinity, '#E03131']];
-  function pmVal(c) {
-    const e = PM.price && PM.price.d[c], v = e && e[PM.kind];
+  const pmSrc = ly => ly === 'g' ? PM.price.g : PM.price.d;
+  function pmVal(ly, c) {
+    const e = pmSrc(ly)[c], v = e && e[PM.kind];
     if (!v || !v[0] || v[1] < 3) return null;
     if (PM.mode === 'price') return { v: v[0] * PY3, n: v[1] };
     if (!v[2] || v[3] < 3) return null;
     return { v: (v[0] / v[2] - 1) * 100, n: v[1] };
   }
-  function pmColor(x) {
+  function pmColor(ly, x) {
     if (!x) return null;
     if (PM.mode === 'chg') return CCOL.find(([t]) => x.v < t)[1];
-    const q = PM.q || [];
+    const q = PM.q[ly] || [];
     let i = 0; while (i < q.length && x.v > q[i]) i++;
     return PCOL[Math.min(i, PCOL.length - 1)];
   }
-  const pmTxt = x => PM.mode === 'chg' ? `${x.v >= 0 ? '+' : ''}${x.v.toFixed(1)}%` : n(Math.round(x.v / 10) * 10);
+  const pmTxt = x => PM.mode === 'chg' ? `${x.v >= 0 ? '+' : ''}${x.v.toFixed(1)}%` : `${n(Math.round(x.v / 10) * 10)}만`;
+  const pmCls = x => PM.mode === 'chg' ? (x.v >= 2 ? ' up' : x.v <= -2 ? ' dn' : '') : '';
   function pmCenter(rings) {
     let best = rings[0]; rings.forEach(r => { if (r.length > best.length) best = r; });
     let x = 0, y = 0; best.forEach(([a, b]) => { x += a; y += b; }); return [x / best.length, y / best.length];
   }
-  async function priceRefresh(restyle) {
-    const show = pmActive();
-    if (!show) { PM.polys.forEach(ps => ps.forEach(o => o.setMap(null))); PM.labels.forEach(o => o.setMap(null)); $('pmLegend').hidden = true; $('pmCard').hidden = true; return; }
-    if (!(await pmLoad()) || !pmActive()) return;
-    const K = kakao.maps, b = S.map.getBounds(), lvl = S.map.getLevel();
-    // 가격 구간: 서울 전체 값의 분위수로 7단계
-    if (restyle || PM.qKey !== PM.kind) {
-      const vs = Object.values(PM.price.d).map(e => e[PM.kind]).filter(v => v && v[0] && v[1] >= 3).map(v => v[0] * PY3).sort((a, z) => a - z);
-      PM.q = [1, 2, 3, 4, 5, 6].map(k => vs[Math.floor(vs.length * k / 7)] || 0); PM.qKey = PM.kind; restyle = true;
-    }
-    for (const f of PM.umd) {
-      const c = f.c, ctr = pmCenter(f.g), ll = new K.LatLng(ctr[1], ctr[0]);
-      const near = b.contain(ll) || f.g.some(r => r.some(([x, y]) => b.contain(new K.LatLng(y, x))));
-      let ps = PM.polys.get(c);
-      if (!near) { if (ps) ps.forEach(o => o.setMap(null)); const L = PM.labels.get(c); if (L) L.setMap(null); continue; }
-      const x = pmVal(c), col = pmColor(x);
-      const style = col ? { strokeWeight: 1, strokeColor: '#ffffff', strokeOpacity: .9, fillColor: col, fillOpacity: .62 } : { strokeWeight: 1, strokeColor: '#ADB5BD', strokeOpacity: .7, strokeStyle: 'shortdash', fillColor: '#ADB5BD', fillOpacity: .06 };
-      if (!ps) {
-        ps = f.g.map(r => new K.Polygon({ path: r.map(([a, z]) => new K.LatLng(z, a)), zIndex: 1, ...style }));
-        ps.forEach(o => K.event.addListener(o, 'click', () => pmCardShow(f)));
-        PM.polys.set(c, ps);
-      } else if (restyle) ps.forEach(o => o.setOptions(style));
-      ps.forEach(o => { if (!o.getMap()) o.setMap(S.map); });
-      // 이름표: 많이 축소하면 숨김
-      let L = PM.labels.get(c);
-      if (lvl <= 8 && x) {
-        const html = `<b>${esc(f.n.replace(/(\d*)동$|가$/, '$1'))}</b>${pmTxt(x)}`;
-        if (!L) { const el = document.createElement('div'); el.className = 'pmlab'; L = new K.CustomOverlay({ position: ll, content: el, yAnchor: .5, zIndex: 2 }); PM.labels.set(c, L); }
-        const el = L.getContent(); if (restyle || !el.innerHTML) el.innerHTML = html;
-        if (!L.getMap()) L.setMap(S.map);
-      } else if (L) L.setMap(null);
-    }
-    pmLegend();
+  // 경계선 모양: 기본 / 마우스를 올렸을 때 / 선택했을 때
+  function pmStyle(ly, c) {
+    const col = pmColor(ly, pmVal(ly, c)), on = PM.sel === `${ly}:${c}`, hv = PM.hov === `${ly}:${c}`;
+    const base = col ? { strokeWeight: ly === 'g' ? 1.5 : 1, strokeColor: '#ffffff', strokeOpacity: .95, strokeStyle: 'solid', fillColor: col, fillOpacity: ly === 'g' ? .68 : .62 }
+      : { strokeWeight: 1, strokeColor: '#ADB5BD', strokeOpacity: .7, strokeStyle: 'shortdash', fillColor: '#ADB5BD', fillOpacity: .06 };
+    if (on) return { ...base, strokeWeight: 3, strokeColor: '#14212E', strokeOpacity: 1, strokeStyle: 'solid', fillOpacity: base.fillOpacity + .12 };
+    if (hv) return { ...base, strokeWeight: 2.5, strokeColor: '#14212E', strokeOpacity: .85, strokeStyle: 'solid' };
+    return base;
   }
-  function pmLegend() {
+  function pmPaint(ly, c) { const ps = PM.L[ly].polys.get(c); if (ps) { const st = pmStyle(ly, c); ps.forEach(o => { o.setOptions(st); o.setZIndex(PM.sel === `${ly}:${c}` || PM.hov === `${ly}:${c}` ? 3 : 1); }); } }
+  function pmHide(ly) { const L = PM.L[ly]; L.polys.forEach(ps => ps.forEach(o => o.setMap(null))); L.labels.forEach(o => o.setMap(null)); }
+  async function priceRefresh(restyle) {
+    if (!pmActive()) { pmHide('d'); pmHide('g'); $('pmLegend').hidden = true; $('pmCard').hidden = true; PM.sel = null; return; }
+    if (!(await pmLoad()) || !pmActive()) return;
+    const K = kakao.maps, b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), ly = pmLayer();
+    pmHide(ly === 'g' ? 'd' : 'g');
+    if (PM.sel && !PM.sel.startsWith(ly + ':')) { const o = PM.sel; PM.sel = null; pmPaint(o[0], o.slice(2)); $('pmCard').hidden = true; }
+    // 가격 구간: 동은 서울 전체 동끼리, 구는 25개 구끼리 분위수로 7단계
+    if (restyle || PM.qKey !== PM.kind) {
+      for (const k of ['d', 'g']) {
+        const vs = Object.values(pmSrc(k)).map(e => e[PM.kind]).filter(v => v && v[0] && v[1] >= 3).map(v => v[0] * PY3).sort((a, z) => a - z);
+        PM.q[k] = [1, 2, 3, 4, 5, 6].map(i => vs[Math.floor(vs.length * i / 7)] || 0);
+      }
+      PM.qKey = PM.kind; restyle = true;
+    }
+    const proj = S.map.getProjection();
+    const px = (x, y) => proj.containerPointFromCoords(new K.LatLng(y, x));
+    const L = PM.L[ly], feats = ly === 'g' ? PM.sgg : PM.umd;
+    for (const f of feats) {
+      const c = f.c, [x0, y0, x1, y1] = f.bb;
+      const near = x1 >= sw.getLng() && x0 <= ne.getLng() && y1 >= sw.getLat() && y0 <= ne.getLat();
+      let ps = L.polys.get(c), lab = L.labels.get(c);
+      if (!near) { if (ps) ps.forEach(o => o.setMap(null)); if (lab) lab.setMap(null); continue; }
+      if (!ps) {
+        ps = f.g.map(r => new K.Polygon({ path: r.map(([a, z]) => new K.LatLng(z, a)), zIndex: 1, ...pmStyle(ly, c) }));
+        ps.forEach(o => {
+          K.event.addListener(o, 'click', () => pmCardShow(ly, f));
+          K.event.addListener(o, 'mouseover', () => { const was = PM.hov; PM.hov = `${ly}:${c}`; if (was && was !== PM.hov) pmPaint(was[0], was.slice(2)); pmPaint(ly, c); });
+          K.event.addListener(o, 'mouseout', () => { if (PM.hov === `${ly}:${c}`) { PM.hov = null; pmPaint(ly, c); } });
+        });
+        L.polys.set(c, ps);
+      } else if (restyle) pmPaint(ly, c);
+      ps.forEach(o => { if (!o.getMap()) o.setMap(S.map); });
+      // 이름표: 이름(○○동·○○구)과 값. 경계 안에 들어갈 만큼 넓을 때만 보입니다
+      const x = pmVal(ly, c);
+      const p0 = px(x0, y1), p1 = px(x1, y0), w = Math.abs(p1.x - p0.x), h = Math.abs(p1.y - p0.y);
+      const nm = ly === 'g' ? f.n : (PM.price.d[c] && PM.price.d[c].n) || f.n;
+      const need = Math.max(nm.length * (ly === 'g' ? 13 : 11.5), x ? pmTxt(x).length * 7.5 : 0) + 10;
+      if (w * .85 >= need && h >= (x ? 30 : 16)) {
+        if (!lab) { const el = document.createElement('div'); lab = new K.CustomOverlay({ position: new K.LatLng(f.ctr[1], f.ctr[0]), content: el, yAnchor: .5, zIndex: 4 }); L.labels.set(c, lab); }
+        const el = lab.getContent();
+        if (restyle || !el.innerHTML) { el.className = `pmlab${ly === 'g' ? ' gu' : ''}${x ? '' : ' none'}`; el.innerHTML = `<b>${esc(nm)}</b>${x ? `<span class="v${pmCls(x)}">${pmTxt(x)}</span>` : ''}`; }
+        if (!lab.getMap()) lab.setMap(S.map);
+      } else if (lab) lab.setMap(null);
+    }
+    pmLegend(ly);
+  }
+  function pmLegend(ly) {
     const el = $('pmLegend'), P = PM.price;
-    const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind];
-    const per = `${P.cur[0].slice(0, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(0, 4)}.${P.cur[1].slice(4)}`;
+    const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind], U = ly === 'g' ? '구별' : '동별';
+    const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}`;
+    const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
     if (PM.mode === 'price') {
-      const q = PM.q, f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}`;
-      el.innerHTML = `<b>${KN} 전용 평당가 <small>만원 · ${per}</small></b><div class="pml">${PCOL.map((c, i) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])}↓</span><span>${f(q[5])}↑</span></div><small class="pmn">점선: 거래 3건 미만</small>`;
+      const q = PM.q[ly], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
+      el.innerHTML = `<b><em>${U}</em> ${KN} 전용 평당가 <small>${per}</small></b><div class="pml">${PCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])} 이하</span><span>${f(q[5])} 이상</span></div>${hint}`;
     } else {
-      el.innerHTML = `<b>${KN} 1년 변동 <small>${per} vs 1년 전</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div><small class="pmn">점선: 비교할 거래 부족</small>`;
+      el.innerHTML = `<b><em>${U}</em> ${KN} 1년 변동 <small>${per} · 1년 전 대비</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div>${hint}`;
     }
     el.hidden = false;
   }
-  function pmCardShow(f) {
-    const e = PM.price.d[f.c] || {}, P = PM.price;
+  function pmCardShow(ly, f) {
+    const e = pmSrc(ly)[f.c] || {}, P = PM.price, prev = PM.sel;
+    PM.sel = `${ly}:${f.c}`; if (prev && prev !== PM.sel) pmPaint(prev[0], prev.slice(2)); pmPaint(ly, f.c);
     const row = (k, nm) => { const v = e[k]; if (!v || !v[0]) return `<tr><th>${nm}</th><td colspan="2" class="n">최근 6개월 거래 없음</td></tr>`;
       const ch = v[2] && v[3] >= 3 && v[1] >= 3 ? (v[0] / v[2] - 1) * 100 : null;
-      return `<tr><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${v[1]}건${v[1] < 3 ? ' · 적음' : ''}</small></td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
+      return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[1] < 3 ? ' · 적음' : ''}</small></td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
+    const nm = ly === 'g' ? f.n : (PM.price.d[f.c] && PM.price.d[f.c].n) || f.n;
+    const gu = ly === 'd' && PM.price.g[f.c.slice(0, 5)] ? PM.price.g[f.c.slice(0, 5)].n : '';
     const el = $('pmCard');
-    el.innerHTML = `<div class="pmc-h"><b>${esc(f.n)}</b><button type="button" aria-label="닫기" id="pmClose">×</button></div>
+    el.innerHTML = `<div class="pmc-h"><div><small>${ly === 'g' ? '서울특별시' : `서울특별시 ${esc(gu)}`}</small><b>${esc(nm)}</b></div><button type="button" aria-label="닫기" id="pmClose">×</button></div>
       <table><thead><tr><th></th><th>전용 평당 (중간값)</th><th>1년 전 대비</th></tr></thead><tbody>${row('apt', '아파트')}${row('rh', '빌라')}${row('offi', '오피스텔')}</tbody></table>
       <p class="pmc-n">${P.cur[0].slice(0, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(0, 4)}.${P.cur[1].slice(4)} 국토교통부 실거래 기준 · 매주 갱신</p>
-      <button type="button" class="pmc-go" id="pmGo">확대해서 건물별 실거래 보기</button>`;
+      <button type="button" class="pmc-go" id="pmGo">${ly === 'g' ? `${esc(nm)} 동별 시세 보기` : '확대해서 건물별 실거래 보기'}</button>`;
     el.hidden = false;
-    $('pmClose').onclick = () => { el.hidden = true; };
-    $('pmGo').onclick = () => { const c = pmCenter(f.g); el.hidden = true; S.map.setLevel(4); S.map.setCenter(new kakao.maps.LatLng(c[1], c[0])); };
+    const close = () => { el.hidden = true; const o = PM.sel; PM.sel = null; if (o) pmPaint(o[0], o.slice(2)); };
+    $('pmClose').onclick = close;
+    $('pmGo').onclick = () => { close(); S.map.setLevel(ly === 'g' ? 7 : 4); S.map.setCenter(new kakao.maps.LatLng(f.ctr[1], f.ctr[0])); };
   }
   function openTPanel() { $('devpanel').hidden = true; $('tpanel').hidden = false; }
   function regionAt(lat, lng) {
