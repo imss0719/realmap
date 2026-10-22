@@ -2080,8 +2080,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // ---------- 동별·구별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
   // 서울·인천·경기. 레벨 6~8: 법정동별 (data/umd-<시도>.json) · 레벨 9~11: 구별 (data/sgg-<시도>.json)
   // 값은 data/price-<시도>.json (전용 ㎡당 중간값, GitHub가 매주 갱신). 시세 파일은 작아서 처음에 모두 받고,
-  // 경계 파일은 지도가 그 시도를 비출 때만 받습니다. 색 구간은 수도권 전체를 한 기준으로 나눕니다.
-  const PSIDO = { '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] } };
+  // 경계 파일은 지도가 그 시도를 비출 때만 받습니다. 색 구간은 권역(수도권·부산)마다 따로 나눕니다.
+  const PSIDO = { '26': { n: '부산광역시', bb: [128.79, 34.99, 129.3, 35.39] }, '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] } };
   const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, qv: {}, sel: null, hov: null };
   const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
   const PY3 = 3.305785;
@@ -2139,18 +2139,21 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const PCOL = ['#FFF3BF', '#FFE066', '#FFC53D', '#FFA94D', '#FF8A3D', '#F76707', '#D9480F'];
   const CCOL = [[-10, '#1864AB'], [-5, '#4C8FD6'], [-2, '#A5C8F0'], [2, '#DEE2E6'], [5, '#FFC9C9'], [10, '#FA7A7A'], [Infinity, '#E03131']];
   const pmSrc = ly => ly === 'g' ? PM.price.g : PM.price.d;
+  // 색 구간은 권역마다 따로 나눕니다: 수도권(서울·인천·경기) / 부산
+  const pmGrp = c => String(c).slice(0, 2) === '26' ? 'b' : 'm';
+  const PGRP = { m: '수도권', b: '부산' };
   function pmVal(ly, c) {
-    const e = pmSrc(ly)[c], v = e && e[PM.kind];
-    if (PM.mode === 'vol') return v && v[1] ? { v: v[1], n: v[1] } : null;   // 거래량: 최근 6개월 매매 건수
+    const e = pmSrc(ly)[c], v = e && e[PM.kind], g = pmGrp(c);
+    if (PM.mode === 'vol') return v && v[1] ? { v: v[1], n: v[1], g } : null;   // 거래량: 최근 6개월 매매 건수
     if (!v || !v[0] || v[1] < 3) return null;
-    if (PM.mode === 'price') return { v: v[0] * PY3, n: v[1] };
+    if (PM.mode === 'price') return { v: v[0] * PY3, n: v[1], g };
     if (!v[2] || v[3] < 3) return null;
-    return { v: (v[0] / v[2] - 1) * 100, n: v[1] };
+    return { v: (v[0] / v[2] - 1) * 100, n: v[1], g };
   }
   function pmColor(ly, x) {
     if (!x) return null;
     if (PM.mode === 'chg') return CCOL.find(([t]) => x.v < t)[1];
-    const vol = PM.mode === 'vol', q = (vol ? PM.qv[ly] : PM.q[ly]) || [], C = vol ? VCOL : PCOL;
+    const vol = PM.mode === 'vol', q = (vol ? PM.qv : PM.q)[ly + x.g] || [], C = vol ? VCOL : PCOL;
     let i = 0; while (i < q.length && x.v > q[i]) i++;
     return C[Math.min(i, C.length - 1)];
   }
@@ -2189,11 +2192,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (PM.sel && !PM.sel.startsWith(ly + ':')) { const o = PM.sel; PM.sel = null; pmPaint(o[0], o.slice(2)); $('pmCard').hidden = true; }
     // 가격 구간: 동은 서울 전체 동끼리, 구는 25개 구끼리 분위수로 7단계
     if (PM.qVer !== PM.ver || PM.qKey !== PM.kind) {
-      for (const k of ['d', 'g']) {
-        const vs = Object.values(pmSrc(k)).map(e => e[PM.kind]).filter(v => v && v[0] && v[1] >= 3).map(v => v[0] * PY3).sort((a, z) => a - z);
-        PM.q[k] = [1, 2, 3, 4, 5, 6].map(i => vs[Math.floor(vs.length * i / 7)] || 0);
-        const ns = Object.values(pmSrc(k)).map(e => e[PM.kind]).filter(v => v && v[1]).map(v => v[1]).sort((a, z) => a - z);
-        PM.qv[k] = [1, 2, 3, 4, 5, 6].map(i => ns[Math.floor(ns.length * i / 7)] || 0);
+      for (const k of ['d', 'g']) for (const g of Object.keys(PGRP)) {
+        const es = Object.entries(pmSrc(k)).filter(([c]) => pmGrp(c) === g).map(([, e]) => e[PM.kind]);
+        const vs = es.filter(v => v && v[0] && v[1] >= 3).map(v => v[0] * PY3).sort((a, z) => a - z);
+        PM.q[k + g] = [1, 2, 3, 4, 5, 6].map(i => vs[Math.floor(vs.length * i / 7)] || 0);
+        const ns = es.filter(v => v && v[1]).map(v => v[1]).sort((a, z) => a - z);
+        PM.qv[k + g] = [1, 2, 3, 4, 5, 6].map(i => ns[Math.floor(ns.length * i / 7)] || 0);
       }
       PM.qKey = PM.kind; PM.qVer = PM.ver;
     }
@@ -2241,18 +2245,20 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function pmLegend(ly) {
     const el = $('pmLegend'), P = PM.price;
     const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind], U = ly === 'g' ? '구별' : '동별';
-    const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}`;
+    const grp = S.map.getCenter().getLat() < 36 ? 'b' : 'm', key = ly + grp;
+    const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}${PM.mode === 'chg' ? '' : ` · ${PGRP[grp]} 기준`}`;
     const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button></div>`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
     if (PM.mode === 'price') {
-      const q = PM.q[ly], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
+      const q = PM.q[key] || [0, 0, 0, 0, 0, 0], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전용 평당가 <small>${per}</small></b><div class="pml">${PCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])} 이하</span><span>${f(q[5])} 이상</span></div>${hint}`;
     } else if (PM.mode === 'vol') {
-      const q = PM.qv[ly];
+      const q = PM.qv[key] || [0, 0, 0, 0, 0, 0];
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 거래량 <small>${per} · 6개월 매매 건수</small></b><div class="pml">${VCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${n(q[0])}건 이하</span><span>${n(q[5])}건 이상</span></div>${hint}`;
     } else {
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 1년 상승률 <small>${per} · 1년 전 같은 기간 대비</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div>${hint}`;
     }
+    if (PM.mode !== 'chg' && !((PM.mode === 'vol' ? PM.qv : PM.q)[key] || [])[5]) el.querySelector('.pmx').innerHTML = '<span>이 지역 시세는 다음 자동 갱신 때 채워집니다</span>';
     el.hidden = false;
   }
   function pmCardShow(ly, f) {
