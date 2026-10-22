@@ -2070,23 +2070,40 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     tradeRefresh();
   }
   // ---------- 동별·구별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
-  // 레벨 6~8: 법정동별 (data/umd-11.json) · 레벨 9~11: 구별 (data/sgg-11.json)
-  // 값은 data/price-11.json (전용 ㎡당 중간값, GitHub가 매주 갱신)
-  const PM = { kind: 'apt', mode: 'price', loading: null, umd: null, sgg: null, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, sel: null, hov: null };
+  // 서울·인천·경기. 레벨 6~8: 법정동별 (data/umd-<시도>.json) · 레벨 9~11: 구별 (data/sgg-<시도>.json)
+  // 값은 data/price-<시도>.json (전용 ㎡당 중간값, GitHub가 매주 갱신). 시세 파일은 작아서 처음에 모두 받고,
+  // 경계 파일은 지도가 그 시도를 비출 때만 받습니다. 색 구간은 수도권 전체를 한 기준으로 나눕니다.
+  const PSIDO = { '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] } };
+  const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, sel: null, hov: null };
   const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
   const PY3 = 3.305785;
   const pmActive = () => T.on && S.map.getLevel() >= PMIN && S.map.getLevel() <= PMAX;
   const pmLayer = () => S.map.getLevel() >= PGU ? 'g' : 'd';
+  const pmBox = f => { let a = 180, b = 90, c = -180, d = -90; f.g.forEach(r => r.forEach(([x, y]) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); })); f.bb = [a, b, c, d]; f.ctr = pmCenter(f.g); return f; };
+  // 시세 파일 (세 시도 모두, 작음)
   function pmLoad() {
-    if (PM.umd && PM.sgg && PM.price) return Promise.resolve(true);
-    if (!PM.loading) PM.loading = Promise.all(['/data/umd-11.json', '/data/sgg-11.json', '/data/price-11.json'].map(u => fetch(u).then(r => r.json())))
-      .then(([u, s, p]) => {
-        const box = f => { let a = 180, b = 90, c = -180, d = -90; f.g.forEach(r => r.forEach(([x, y]) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); })); f.bb = [a, b, c, d]; f.ctr = pmCenter(f.g); return f; };
-        PM.umd = u.f.map(box); PM.sgg = s.f.map(box); PM.price = p;
-        if (!p.g) p.g = pmGuFallback(p.d, s.f);
-        return true;
-      }).catch(() => { PM.loading = null; return false; });
+    if (PM.price) return Promise.resolve(true);
+    if (!PM.loading) PM.loading = Promise.all(Object.keys(PSIDO).map(sd => fetch(`/data/price-${sd}.json`).then(r => r.ok ? r.json() : null).catch(() => null)))
+      .then(ps => {
+        const P = { d: {}, g: {}, cur: null };
+        ps.forEach(p => { if (!p) return; Object.assign(P.d, p.d); if (p.g) Object.assign(P.g, p.g); if (!P.cur) { P.cur = p.cur; P.prev = p.prev; } });
+        if (!P.cur) { PM.loading = null; return false; }
+        PM.price = P; return true;
+      });
     return PM.loading;
+  }
+  // 경계 파일 (지도가 비추는 시도만)
+  function pmBounds(sw, ne) {
+    // 서울 안쪽만 보고 있으면 경기·인천 경계는 받지 않습니다 (경기 경계 파일이 커서)
+    const inSeoul = sw.getLng() >= 126.91 && ne.getLng() <= 127.09 && sw.getLat() >= 37.49 && ne.getLat() <= 37.64;
+    const need = Object.entries(PSIDO).filter(([k, v]) => (k === '11' || !inSeoul) && v.bb[2] >= sw.getLng() && v.bb[0] <= ne.getLng() && v.bb[3] >= sw.getLat() && v.bb[1] <= ne.getLat()).map(([k]) => k);
+    return Promise.all(need.map(sd => PM.bnd[sd] || (PM.bnd[sd] = Promise.all([`/data/umd-${sd}.json`, `/data/sgg-${sd}.json`].map(u => fetch(u).then(r => r.json())))
+      .then(([u, g]) => {
+        PM.umd.push(...u.f.map(pmBox)); PM.sgg.push(...g.f.map(pmBox));
+        // 구별 값이 아직 없는 시도(자동 갱신 전)는 동별 값을 거래 건수로 가중평균해 임시로 씁니다
+        if (PM.price && !g.f.some(f => PM.price.g[f.c])) Object.assign(PM.price.g, pmGuFallback(PM.price.d, g.f));
+        return true;
+      }).catch(() => { delete PM.bnd[sd]; return false; }))));
   }
   // 구별 값이 아직 없을 때(자동 갱신 전)는 동별 값을 거래 건수로 가중평균해 임시로 씁니다
   function pmGuFallback(d, gus) {
@@ -2094,6 +2111,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     for (const k of ['apt', 'rh', 'offi']) {
       const acc = {};
       for (const [c, e] of Object.entries(d)) {
+        if (!g[c.slice(0, 5)]) continue;
         const v = e[k]; if (!v) continue;
         const a = acc[c.slice(0, 5)] || (acc[c.slice(0, 5)] = [0, 0, 0, 0]);
         if (v[0]) { a[0] += v[0] * v[1]; a[1] += v[1]; }
@@ -2140,7 +2158,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   async function priceRefresh(restyle) {
     if (!pmActive()) { pmHide('d'); pmHide('g'); $('pmLegend').hidden = true; $('pmCard').hidden = true; PM.sel = null; return; }
     if (!(await pmLoad()) || !pmActive()) return;
-    const K = kakao.maps, b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), ly = pmLayer();
+    let K = kakao.maps, b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast();
+    const nb = PM.umd.length;
+    await pmBounds(sw, ne);
+    if (!pmActive()) return;
+    if (PM.umd.length !== nb) { b = S.map.getBounds(); sw = b.getSouthWest(); ne = b.getNorthEast(); restyle = true; }
+    const ly = pmLayer();
     pmHide(ly === 'g' ? 'd' : 'g');
     if (PM.sel && !PM.sel.startsWith(ly + ':')) { const o = PM.sel; PM.sel = null; pmPaint(o[0], o.slice(2)); $('pmCard').hidden = true; }
     // 가격 구간: 동은 서울 전체 동끼리, 구는 25개 구끼리 분위수로 7단계
@@ -2172,7 +2195,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       // 이름표: 이름(○○동·○○구)과 값. 경계 안에 들어갈 만큼 넓을 때만 보입니다
       const x = pmVal(ly, c);
       const p0 = px(x0, y1), p1 = px(x1, y0), w = Math.abs(p1.x - p0.x), h = Math.abs(p1.y - p0.y);
-      const nm = ly === 'g' ? f.n : (PM.price.d[c] && PM.price.d[c].n) || f.n;
+      const nm = ly === 'g' ? f.n.split(' ').pop() : (PM.price.d[c] && PM.price.d[c].n) || f.n;
       const need = Math.max(nm.length * (ly === 'g' ? 13 : 11.5), x ? pmTxt(x).length * 7.5 : 0) + 10;
       if (w * .85 >= need && h >= (x ? 30 : 16)) {
         if (!lab) { const el = document.createElement('div'); lab = new K.CustomOverlay({ position: new K.LatLng(f.ctr[1], f.ctr[0]), content: el, yAnchor: .5, zIndex: 4 }); L.labels.set(c, lab); }
@@ -2204,11 +2227,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[1] < 3 ? ' · 적음' : ''}</small></td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
     const nm = ly === 'g' ? f.n : (PM.price.d[f.c] && PM.price.d[f.c].n) || f.n;
     const gu = ly === 'd' && PM.price.g[f.c.slice(0, 5)] ? PM.price.g[f.c.slice(0, 5)].n : '';
+    const sdn = (PSIDO[f.c.slice(0, 2)] || {}).n || '';
     const el = $('pmCard');
-    el.innerHTML = `<div class="pmc-h"><div><small>${ly === 'g' ? '서울특별시' : `서울특별시 ${esc(gu)}`}</small><b>${esc(nm)}</b></div><button type="button" aria-label="닫기" id="pmClose">×</button></div>
+    el.innerHTML = `<div class="pmc-h"><div><small>${ly === 'g' ? sdn : `${sdn} ${esc(gu)}`}</small><b>${esc(nm)}</b></div><button type="button" aria-label="닫기" id="pmClose">×</button></div>
       <table><thead><tr><th></th><th>전용 평당 (중간값)</th><th>1년 전 대비</th></tr></thead><tbody>${row('apt', '아파트')}${row('rh', '빌라')}${row('offi', '오피스텔')}</tbody></table>
       <p class="pmc-n">${P.cur[0].slice(0, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(0, 4)}.${P.cur[1].slice(4)} 국토교통부 실거래 기준 · 매주 갱신</p>
-      <button type="button" class="pmc-go" id="pmGo">${ly === 'g' ? `${esc(nm)} 동별 시세 보기` : '확대해서 건물별 실거래 보기'}</button>`;
+      <button type="button" class="pmc-go" id="pmGo">${ly === 'g' ? `${esc(nm.split(' ').pop())} 동별 시세 보기` : '확대해서 건물별 실거래 보기'}</button>`;
     el.hidden = false;
     const close = () => { el.hidden = true; const o = PM.sel; PM.sel = null; if (o) pmPaint(o[0], o.slice(2)); };
     $('pmClose').onclick = close;
