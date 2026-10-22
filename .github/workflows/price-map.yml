@@ -1,5 +1,5 @@
 name: realmap-price-map
-# 동별·구별 시세 지도 자료(data/price-11·28·41.json: 서울·인천·경기) 만들기 — 매주 월요일 새벽 4시(한국시간) + 수동 실행
+# 동별·구별 시세 지도 자료(data/price-11·41·28·26.json: 서울·경기·인천·부산) 만들기 — 매주 월요일 새벽 4시(한국시간) + 수동 실행
 on:
   schedule:
     - cron: '0 19 * * 0'
@@ -16,9 +16,11 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/price-map.mjs
+        continue-on-error: true   # 일부 지역이 실패해도 받은 지역은 저장
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
       - name: 바뀐 자료 저장
+        if: always()
         run: |
           git config user.name "realmap-bot"
           git config user.email "actions@users.noreply.github.com"
