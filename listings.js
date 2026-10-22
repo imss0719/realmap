@@ -58,7 +58,7 @@
     const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
     th(); addEventListener('resize', th);
     loadMap();
-    try { S.items = (await api('/api/auth?action=listings')).items || []; } catch (e) { toast(e.message, 4000); }
+    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; } catch (e) { toast(e.message, 4000); }
     draw();
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
     let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
@@ -76,6 +76,7 @@
       <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
       <div class="side" style="display:grid;gap:12px">
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
+        <div id="bkLine"></div>
         <div class="tabs" id="tabs"></div>
         <div class="tabs" id="kinds"></div>
         <input class="find" id="find" type="search" placeholder="매물번호, 주소, 건물명, 연락처, 메모로 찾기">
@@ -188,7 +189,7 @@
       if (!ids.length) return toast('이미 그 상태입니다');
       if (!confirm(`${ids.length}건을 '${STAT[st]}'(으)로 바꿀까요?`)) return;
       let ok = 0;
-      for (const id of ids) { try { const j = await api('/api/auth?action=listing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'status', id, status: st }) }); S.items = j.items || S.items; ok++; } catch (e) { toast(e.message, 3500); break; } }
+      for (const id of ids) { try { took(await api('/api/auth?action=listing', post({ op: 'status', id, status: st }))); ok++; } catch (e) { toast(e.message, 3500); break; } }
       LV.sel = []; draw(); toast(`${ok}건을 ${STAT[st]}(으)로 바꿨습니다`);
     });
   }
@@ -199,7 +200,7 @@
     return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind) && (S.mode !== 'list' || lvPass(x))
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawTabs(); drawList(); drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list') drawLv(); }
+  function draw() { drawBk(); drawTabs(); drawList(); drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list') drawLv(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
@@ -233,19 +234,25 @@
       <div class="cbtns">
         <button type="button" data-edit="${x.id}">수정</button>
         <button type="button" data-next="${x.id}">${x.status === 'on' ? '계약 완료로' : '진행 중으로'}</button>
-        <a href="/?pnu=${x.pnu}" target="_blank" rel="noopener">리얼맵 정보</a>
+        ${pubBtn(x)}
       </div>
-      <div class="meta" style="margin-top:8px;font-size:13px">등록 ${ymd(x.at)}${x.up !== x.at ? ' · 수정 ' + ymd(x.up) : ''}</div>
+      ${pubLine(x)}
+      <div class="meta" style="margin-top:8px;font-size:13px">등록 ${ymd(x.at)}${x.up !== x.at ? ' · 수정 ' + ymd(x.up) : ''} · <a href="/?pnu=${x.pnu}" target="_blank" rel="noopener" style="color:inherit">리얼맵 필지 정보</a></div>
     </div>`; }).join('');
     $('list').querySelectorAll('[data-view]').forEach(b => b.onclick = () => { const [id, i] = b.dataset.view.split(':'); const x = S.items.find(y => y.id === id); viewer(x.photos.map(p => p.url), +i); });
     $('list').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openForm(S.items.find(x => x.id === b.dataset.edit)));
     $('list').querySelectorAll('[data-next]').forEach(b => b.onclick = async () => {
       const x = S.items.find(i => i.id === b.dataset.next); const st = x.status === 'on' ? 'done' : 'on';
-      try { S.items = (await api('/api/auth?action=listing', post({ op: 'status', id: x.id, status: st }))).items; draw(); toast(`${STAT[st]}(으)로 바꿨습니다`); } catch (e) { toast(e.message, 4000); }
+      try { took(await api('/api/auth?action=listing', post({ op: 'status', id: x.id, status: st }))); draw(); toast(`${STAT[st]}(으)로 바꿨습니다`); } catch (e) { toast(e.message, 4000); }
     });
+    $('list').querySelectorAll('[data-pub]').forEach(b => b.onclick = () => pubFlow(S.items.find(x => x.id === b.dataset.pub)));
+    $('list').querySelectorAll('[data-renew]').forEach(b => b.onclick = () => pubOp(b.dataset.renew, 'renew'));
+    $('list').querySelectorAll('[data-unpub]').forEach(b => b.onclick = () => { if (confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물장에는 그대로 남습니다)')) pubOp(b.dataset.unpub, 'unpub'); });
     $('list').querySelectorAll('.card').forEach(c => c.onclick = e => { if (e.target.closest('button,a')) return; focusItem(c.id.slice(2), false); });
   }
   const post = body => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  // 매물장 저장 결과 받기 (게시 중 매물이 필수 항목 부족으로 내려가면 알려 드림)
+  function took(j) { S.items = j.items || S.items; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // ---------- 지도 ----------
   async function loadMap() {
@@ -303,7 +310,7 @@
   // ---------- 등록 · 수정 ----------
   // 거래 종류별 금액 칸 [키, 이름, 필수 여부]
   const MONEY = {
-    sale: [['price', '매매가', 1], ['curDep', '기보증금', 0], ['curRent', '기월세', 0], ['loan', '융자금', 0]],
+    sale: [['price', '매매가', 1], ['curDep', '기보증금', 0], ['curRent', '기월세', 0], ['loan', '융자금', 0], ['mgmt', '관리비 (월)', 0]],
     jeonse: [['deposit', '전세 보증금', 1], ['mgmt', '관리비', 0], ['loan', '융자금 (선순위)', 0]],
     wolse: [['deposit', '보증금', 0], ['rent', '월세', 1], ['mgmt', '관리비', 0], ['premium', '권리금', 0]],
     presale: [['price', '분양가', 1], ['pr', '프리미엄 (P)', 1], ['paid', '납입한 금액', 0], ['loan', '중도금 대출', 0]],
@@ -344,6 +351,9 @@
         if (!F.it.bname && P.bname) F.it.bname = P.bname;
         if (t && t.road && !F.it.road) F.it.road = String(t.road).replace(/^서울특별시\s*/, '서울 ');
         if (!F.touchedType) F.it.ptype = guessType(t);
+        const ad = F.it.ad || (F.it.ad = {});
+        if (t && t.grnd && !ad.tfl) ad.tfl = String(t.grnd);
+        if (t && t.useAprDay && !ad.appr) { const d = String(t.useAprDay).replace(/\D/g, ''); if (d.length === 8) ad.appr = `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}`; }
       }
       const ts = (b.titles && b.titles.data) || [];
       // 건물 전체로 할 때 쓸 연면적·대지면적
@@ -422,6 +432,7 @@
     P.ak = 'ex';
     if (!ho) { P.ho = ''; U.sel = ''; P._msg = ''; return renderForm(true); }
     P.dong = U.cur.replace(/동$/, ''); P.ho = ho; U.sel = ho; P._msg = '전용면적을 불러오는 중…';
+    { const L = U.lists[U.byDong ? U.cur : '*'], u = Array.isArray(L) && L.find(z => z.ho === ho); if (u && u.flr != null && F.it.places[0] === P) { F.it.ad = F.it.ad || {}; F.it.ad.fl = (u.flrGb === '지하' ? 'B' : '') + u.flr; } }
     renderForm(true);
     try {
       const j = await api(`/api/units?pnu=${P.pnu}&dong=${encodeURIComponent(U.cur)}&ho=${encodeURIComponent(ho)}`);
@@ -467,6 +478,7 @@
     if (!Array.isArray(it.contacts)) it.contacts = x.owner || x.phone ? [{ role: '소유자', name: x.owner || '', phone: x.phone || '' }] : [];
     if (!Array.isArray(it.rents)) it.rents = [];
     if (!Array.isArray(it.photos)) it.photos = [];
+    it.ad = it.ad || {};
     return it;
   }
   function openForm(item, pnu, preset) {
@@ -476,7 +488,7 @@
       renderForm(true); toast('작성하던 내용을 불러왔습니다'); return;
     }
     if (!item && pnu) S.draft = null;
-    S.form = { edit: !!item, it: item ? upgrade(item) : { kind: 'sale', status: 'on', ptype: '', places: [], contacts: [{ role: '소유자', name: '', phone: '' }], rents: [], photos: [] }, newPhotos: [], upN: 0, results: null, picking: false, adding: !item, touchedType: !!item };
+    S.form = { edit: !!item, it: item ? upgrade(item) : { kind: 'sale', status: 'on', ptype: '', places: [], contacts: [{ role: '소유자', name: '', phone: '' }], rents: [], photos: [], ad: {} }, newPhotos: [], upN: 0, results: null, picking: false, adding: !item, touchedType: !!item };
     S.form.newPhotos = S.form.newPhotos || []; S.form.upN = 0;
     if (!S.form.it.contacts.length) S.form.it.contacts.push({ role: '소유자', name: '', phone: '' });
     $('shTitle').textContent = item ? '매물 수정' : '매물 등록';
@@ -614,6 +626,7 @@
         ${it.ptype === '기타' ? `<input class="in" id="f_ptypeTx" value="${esc(it.ptypeTx || '')}" maxlength="20" placeholder="예) 숙박시설, 지식산업센터, 주유소" style="margin-top:8px">` : ''}</div>
       <div class="two"><div class="fld"><label for="f_no">매물번호<small>비우면 자동</small></label><input class="in" id="f_no" value="${esc(it.no || '')}" maxlength="20" placeholder="${F.edit ? '' : '자동 (예: 2610-001)'}"></div>
         <div class="fld"><label for="f_bname">매물 이름<small>선택</small></label><input class="in" id="f_bname" value="${esc(it.bname || '')}" maxlength="40"></div></div>
+      ${adBlock(F)}
       <div class="fld"><span class="lb">연락처<small>소유자·임차인·관리인 등 여러 명 가능</small></span>
         ${it.contacts.map((c, i) => `<div class="crow">
           <select class="in" id="c${i}_role" aria-label="관계">${ROLES.map(r => `<option ${c.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
@@ -669,6 +682,8 @@
     on('[data-pr]', b => b.onclick = () => mv(+b.dataset.pr, 1));
     $('addContact').onclick = () => { collect(); F.it.contacts.push({ role: '임차인', name: '', phone: '' }); renderForm(true); };
     on('[data-cdel]', b => b.onclick = () => { collect(); F.it.contacts.splice(+b.dataset.cdel, 1); renderForm(true); });
+    on('[data-flx]', b => b.onclick = () => { collect(); F.it.ad.flx = b.dataset.flx; renderForm(true); });
+    if (F.scrollAd && $('adSec')) { F.scrollAd = false; setTimeout(() => $('adSec').scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); }
     $('fSave').onclick = save;
     if ($('fDel')) $('fDel').onclick = del;
   }
@@ -683,6 +698,9 @@
     ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan', 'pr', 'paid'].forEach(k => { const x = v('m_' + k); if (x !== undefined) it[k] = num(x); });
     { const x = v('f_ptypeTx'); if (x !== undefined) it.ptypeTx = x.trim(); }
     ['bname', 'memo', 'no'].forEach(k => { const x = v('f_' + k); if (x !== undefined) it[k] = x.trim(); });
+    it.ad = it.ad || {};
+    ['fl', 'tfl', 'dir', 'rooms', 'baths', 'movein', 'park', 'appr', 'desc'].forEach(k => { const x = v('a_' + k); if (x !== undefined) it.ad[k] = x.trim(); });
+    if ($('a_nomgmt')) it.ad.nomgmt = $('a_nomgmt').checked;
   }
   async function save() {
     collect();
@@ -699,7 +717,8 @@
     $('fSave').disabled = true; $('fSave').textContent = '저장 중…';
     try {
       const j = await api('/api/auth?action=listing', post({ op: 'save', id: S.form.edit ? it.id : '', item: body }));
-      const wasEdit = S.form.edit; S.items = j.items; if (!wasEdit) S.draft = null; closeForm();
+      const wasEdit = S.form.edit, pa = S.form.pubAfter; took(j); if (!wasEdit) S.draft = null; closeForm();
+      if (pa) { draw(); const y = S.items.find(i => i.id === pa); if (y && y.status === 'on' && !adMissing(y, S.bk).length) return pubFlow(y); }
       if (!wasEdit) { S.tab = it.status; S.kind = 'all'; }
       draw(); if (!wasEdit) focusItem(S.items[0].id, true);
       toast(wasEdit ? '수정했습니다' : '매물장에 등록했습니다');
@@ -707,7 +726,108 @@
   }
   async function del() {
     if (!confirm('이 매물을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return;
-    try { S.items = (await api('/api/auth?action=listing', post({ op: 'del', id: S.form.it.id }))).items; closeForm(); draw(); toast('삭제했습니다'); } catch (e) { toast(e.message, 4000); }
+    try { took(await api('/api/auth?action=listing', post({ op: 'del', id: S.form.it.id }))); closeForm(); draw(); toast('삭제했습니다'); } catch (e) { toast(e.message, 4000); }
+  }
+
+
+  // ---------- 리얼맵 지도에 매물 올리기 (광고) ----------
+  // 인터넷 표시·광고 명시사항: 서버(api/auth.js adMissing)와 같은 규칙
+  const RESID = ['아파트', '빌라', '오피스텔', '주택'];
+  const DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
+  function adMissing(x, bk) {
+    const miss = [], a = x.ad || {};
+    if (!bk || !bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel) miss.push('중개사무소 정보');
+    if (!x.addr && !(x.places && x.places[0] && x.places[0].addr)) miss.push('소재지');
+    if (!x.area && !(x.places || []).some(p => p.area)) miss.push('면적');
+    if (!x.ptype) miss.push('매물 종류');
+    const price = x.kind === 'sale' ? x.price : x.kind === 'jeonse' ? x.deposit : x.kind === 'wolse' ? x.rent : x.price && x.pr;
+    if (!price) miss.push('가격');
+    if (x.ptype && x.ptype !== '토지') {
+      if (!a.tfl) miss.push('총 층수');
+      if (!a.fl) miss.push('해당 층');
+      if (x.kind !== 'presale' && !a.appr) miss.push('사용승인일');
+      if (!a.dir) miss.push('방향');
+      if (!a.movein) miss.push('입주 가능일');
+      if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
+      if (RESID.includes(x.ptype)) {
+        if (a.rooms == null || a.rooms === '') miss.push('방 수');
+        if (a.baths == null || a.baths === '') miss.push('욕실 수');
+        if (!x.mgmt && !a.nomgmt) miss.push('관리비');
+      }
+    }
+    return miss;
+  }
+  const isPub = x => x.pub && x.pub.on && x.status === 'on';
+  const pubLive = x => isPub(x) && x.pub.exp > new Date().toISOString();
+  function adBlock(F) {
+    const it = F.it, a = it.ad || {};
+    if (!it.ptype) return '';
+    const land = it.ptype === '토지', res = RESID.includes(it.ptype);
+    const miss = adMissing(it, S.bk).filter(m => m !== '중개사무소 정보');
+    const inp = (k, lb, ph, extra = '') => `<div><label class="sl" for="a_${k}">${lb}</label><input class="in" id="a_${k}" value="${esc(a[k] ?? '')}" placeholder="${ph}" ${extra}></div>`;
+    return `<div class="fld adsec${F.missing ? ' need' : ''}" id="adSec"><span class="lb">리얼맵 광고 정보<small>지도에 올릴 때 필요 · 매물장에만 둘 거면 비워도 됩니다</small></span>
+      ${F.missing ? (miss.length ? `<div class="adwarn">광고에 꼭 들어가야 할 항목이 빠져 있습니다: <b>${esc(miss.join(', '))}</b></div>` : '<div class="adok">모두 채웠습니다. 저장하면 이어서 리얼맵 지도에 올립니다.</div>') : miss.length ? `<div class="meta">아직 빈 항목: ${esc(miss.join(', '))}</div>` : `<div class="meta" style="color:#1F7A4D;font-weight:700">필수 항목을 모두 채웠습니다</div>`}
+      ${land ? '' : `<div class="two" style="margin-top:8px">${inp('fl', '해당 층', '12 (지하는 B1)', 'maxlength="8"')}${inp('tfl', '총 층수', '25', 'inputmode="numeric" maxlength="3"')}</div>
+      <div class="seg" style="margin-top:8px"><button type="button" data-flx="exact" aria-pressed="${a.flx !== 'lmh'}">층 그대로 공개</button><button type="button" data-flx="lmh" aria-pressed="${a.flx === 'lmh'}">저·중·고층으로 공개</button></div>
+      <div class="two" style="margin-top:8px"><div><label class="sl" for="a_dir">방향 <small>거실 기준</small></label><select class="in" id="a_dir"><option value="">선택</option>${DIRS.map(d => `<option ${a.dir === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>${inp('movein', '입주 가능일', '즉시 / 협의 / 2026.12', 'maxlength="20"')}</div>
+      ${res ? `<div class="two" style="margin-top:8px">${inp('rooms', '방 수', '3', 'inputmode="numeric" maxlength="2"')}${inp('baths', '욕실 수', '2', 'inputmode="numeric" maxlength="2"')}</div>` : ''}
+      ${it.kind === 'presale' ? '' : `<div class="two" style="margin-top:8px">${inp('park', '주차 대수', '세대당 1.2대 / 1대', 'maxlength="20"')}${inp('appr', '사용승인일', '2014.09.30', 'maxlength="10"')}</div>`}
+      ${res ? `<label class="ck2" style="margin-top:8px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="a_nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음 <small class="meta">(있으면 위 금액 칸에 월 관리비 입력)</small></label>` : ''}`}
+      <div style="margin-top:8px"><label class="sl" for="a_desc">광고 소개글 <small>지도에 공개 · 선택</small></label><textarea class="in" id="a_desc" rows="2" maxlength="300" placeholder="예) 남향 로열층, 올수리, 역 도보 5분">${esc(a.desc || '')}</textarea></div>
+      <div class="meta" style="margin-top:6px">호수·소유자 연락처·메모는 지도에 공개되지 않습니다.</div></div>`;
+  }
+  function pubBtn(x) {
+    if (!S.canPub || x.status !== 'on') return `<a href="/?pnu=${x.pnu}" target="_blank" rel="noopener">리얼맵 정보</a>`;
+    return isPub(x) ? `<button type="button" data-renew="${x.id}">${pubLive(x) ? '게시 연장' : '다시 게시'}</button>` : `<button type="button" class="pubgo" data-pub="${x.id}">리얼맵 등록</button>`;
+  }
+  function pubLine(x) {
+    if (!isPub(x)) return '';
+    const live = pubLive(x);
+    return `<div class="publine${live ? '' : ' off'}"><span>${live ? `● 리얼맵 지도 게시 중 · ${ymd(x.pub.exp).slice(5)}까지 · 확인 ${ymd(x.pub.chk).slice(5)}` : '게시 기간이 끝났습니다 · 아직 거래 가능하면 다시 게시해 주세요'}</span>
+      ${live ? `<a href="/?pnu=${x.pnu}&lst=1" target="_blank" rel="noopener">지도에서 보기</a>` : ''}<button type="button" data-unpub="${x.id}">내리기</button></div>`;
+  }
+  async function pubOp(id, op) {
+    try { took(await api('/api/auth?action=listing', post({ op, id }))); draw();
+      toast(op === 'unpub' ? '리얼맵 지도에서 내렸습니다' : op === 'renew' ? '30일 연장했습니다 (확인일 오늘)' : '리얼맵 지도에 올렸습니다. 1분 안에 지도에 나타납니다', 3500);
+    } catch (e) {
+      if (e.code === 'missing') { const x = S.items.find(i => i.id === id); if (x) { openForm(x); S.form.missing = adMissing(x, S.bk); S.form.scrollAd = true; S.form.pubAfter = x.id; renderForm(true); } }
+      toast(e.message, 5000);
+    }
+  }
+  function pubFlow(x) {
+    if (!x) return;
+    if (!S.bk) return openBk(() => pubFlow(S.items.find(i => i.id === x.id)));
+    const miss = adMissing(x, S.bk);
+    if (miss.length) { openForm(x); S.form.missing = miss; S.form.scrollAd = true; S.form.pubAfter = x.id; renderForm(true); return toast('광고에 필요한 항목을 채운 뒤 저장하고, 다시 리얼맵 등록을 눌러 주세요', 4500); }
+    const a = x.ad || {};
+    const fl = !a.fl ? '' : a.flx === 'lmh' ? '저·중·고층으로 표시' : `${a.fl}층 표시`;
+    if (!confirm(`리얼맵 지도에 이 매물을 30일 동안 올릴까요?\n\n공개: ${priceText(x)} · ${x.area ? x.area + '㎡' : ''}${fl ? ' · ' + fl : ''} · 사진 ${(x.photos || []).length}장\n중개사무소: ${S.bk.office} (${S.bk.tel})\n\n호수·소유자 연락처·메모는 공개되지 않습니다.\n계약 완료로 바꾸면 지도에서 자동으로 내려갑니다.`)) return;
+    pubOp(x.id, 'pub');
+  }
+  function drawBk() {
+    const el = $('bkLine'); if (!el) return;
+    if (!S.canPub) { el.innerHTML = ''; return; }
+    const n = S.items.filter(pubLive).length;
+    el.innerHTML = `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" id="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
+    $('bkEdit').onclick = () => openBk();
+  }
+  function openBk(then) {
+    const b = S.bk || {};
+    S.form = null;
+    $('shTitle').textContent = '중개사무소 정보';
+    $('sheet').hidden = false; document.body.style.overflow = 'hidden';
+    const f = (k, lb, ph, t = 'text') => `<div class="fld"><label for="b_${k}">${lb}</label><input class="in" id="b_${k}" type="${t}" value="${esc(b[k] || '')}" placeholder="${ph}"></div>`;
+    $('form').innerHTML = `<div class="meta" style="margin-bottom:12px">리얼맵 지도에 올린 매물마다 아래 정보가 함께 표시됩니다. (공인중개사법상 인터넷 광고 필수 표시 항목)</div>
+      ${f('office', '중개사무소 명칭', '리얼워커스공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 마포구 신촌로34길 39')}
+      <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
+      ${f('tel', '연락처', '02-000-0000', 'tel')}
+      <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>`;
+    $('bSave').onclick = async () => {
+      const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel'].map(k => [k, $('b_' + k).value.trim()]));
+      $('bSave').disabled = true;
+      try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; closeForm(); draw(); toast('중개사무소 정보를 저장했습니다'); if (then) then(); }
+      catch (e) { toast(e.message, 4000); $('bSave').disabled = false; }
+    };
   }
 
   // ---------- 엑셀(CSV) 저장 ----------

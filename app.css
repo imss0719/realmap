@@ -531,3 +531,32 @@ a.favbtn{text-decoration:none}
 .pmcard .pmc-go{width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;font:inherit;font-weight:700;padding:9px;cursor:pointer}
 @media (max-width:760px){.pmlegend{top:118px;bottom:auto;left:16px}}
 .bar a.share{text-decoration:none}
+
+/* 지도 위 매물 (중개사 광고) — 실거래(진한 바탕)와 구분: 흰 바탕 + 노란 테두리 */
+.llabel{position:relative;display:flex;align-items:center;gap:6px;padding:3px 9px 3px 4px;border:2px solid #F2B705;border-radius:10px;background:#fff;color:#14212E;font:inherit;line-height:1.15;cursor:pointer;box-shadow:0 2px 8px rgba(20,33,46,.25);white-space:nowrap}
+.llabel::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#F2B705}
+.llabel>span{display:flex;flex-direction:column;align-items:flex-start}
+.llabel b{font-size:13px;font-weight:800;letter-spacing:-.01em}
+.llabel small{font-size:10px;color:#5E6A77}
+.llabel em{position:absolute;right:-9px;top:-10px;min-width:18px;height:18px;border-radius:9px;background:#F2B705;color:#14212E;font-style:normal;font-size:11px;font-weight:800;display:grid;place-items:center;padding:0 4px}
+.llabel:hover{background:#FFF8DD}
+.llabel i,.lhd i{font-style:normal;font-size:11px;font-weight:800;color:#fff;border-radius:6px;padding:2px 5px;background:#1C64C8}
+.lk-jeonse{background:#1F7A4D!important}.lk-wolse{background:#D9480F!important}.lk-presale{background:#6741B8!important}
+.lbubble{border:2px solid #F2B705;background:#fff;color:#14212E;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(20,33,46,.25);cursor:pointer;white-space:nowrap}
+.lbubble b{color:#B07F00;font-size:15px;margin-left:2px}
+.lsec .blkh span{font-size:.8em;color:var(--muted);font-weight:600;margin-left:4px}
+.lnote{font-size:13px;color:var(--muted);margin:0 0 10px}
+.lcard{border:2px solid #F2B705;border-radius:14px;padding:12px;margin-bottom:12px;background:var(--surface,#fff)}
+.lph{display:flex;gap:6px;overflow-x:auto;margin:-2px -2px 10px;scroll-snap-type:x mandatory}
+.lph a{flex:0 0 auto;scroll-snap-align:start}.lph img{height:120px;width:auto;max-width:200px;object-fit:cover;border-radius:10px;display:block}
+.lhd{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700}.lhd span{flex:1;min-width:0}.lhd small{color:var(--muted);font-weight:600}
+.lpr{font-size:22px;font-weight:800;margin:6px 0 2px}
+.lcmp{font-size:13px;color:var(--muted);margin-bottom:6px}.lcmp b{color:var(--fg)}
+.ldesc{margin:6px 0;font-size:14px;white-space:pre-wrap}
+.lfacts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:8px 0;font-size:14px}
+.lfacts dt{color:var(--muted)}.lfacts dd{margin:0}
+.lbk{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding-top:10px;margin-top:6px}
+.lbk>div:first-child{flex:1;min-width:0;font-size:14px}.lbk small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.lbtn{display:flex;gap:6px}.lbtn a{background:#14212E;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px;text-decoration:none}
+.lbtn a+a{background:#fff;color:#14212E;border:1px solid var(--line)}
+.lft{font-size:12px;color:var(--muted);margin-top:8px}.lft a{color:inherit}
