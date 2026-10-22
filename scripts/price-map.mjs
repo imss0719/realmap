@@ -16,6 +16,8 @@ if (!process.env.DATA_GO_KR_KEY) { console.log('DATA_GO_KR_KEY 비밀값이 비�
 const SIDOS = ['11', '28', '41', '26'];
 const OLD = { '28': { '28110': ['28125', '28155'], '28140': ['28125'], '28260': ['28275', '28290'] }, '41': { '41590': ['41591', '41593', '41595', '41597'] } };
 const KINDS = ['apt', 'rh', 'offi'];
+// 전세가율용 전월세 (최근 6개월만): 월세 없는 신규 전세 계약의 보증금 ㎡당 중간값
+const RENT = { aptRent: 'apt', rhRent: 'rh', offiRent: 'offi' };
 const clean = s => String(s ?? '').trim();
 const med = a => { if (!a.length) return null; a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
 
@@ -37,6 +39,7 @@ for (const sido of SIDOS) {
   const d = {};                        // 법정동 8자리 → { n, apt:{c:[], p:[]}, ... }
   const jobs = [];
   for (const sgg of sggs) for (const k of KINDS) for (const ym of [...CUR, ...PREV]) jobs.push([sgg, k, ym]);
+  for (const sgg of sggs) for (const k of Object.keys(RENT)) for (const ym of CUR) jobs.push([sgg, k, ym]);
   let fails = 0;
   const seen = new Set();              // 같은 거래가 옛 코드·새 코드로 두 번 오면 한 번만 셉니다
   const rs = await pool(jobs, 5, ([sgg, k, ym]) => month(k, sgg, ym));
@@ -45,10 +48,13 @@ for (const sido of SIDOS) {
     if (!r.ok) { fails++; return; }
     const isCur = CUR.includes(ym);
     const succ = (OLD[sido] || {})[sgg];
+    const base = RENT[k];                                                 // 전월세면 'apt' 등, 매매면 undefined
     for (const x of r.v) {
       if (clean(x.cdealType) === 'O' || clean(x.cdealDay)) continue;       // 해제된 거래
-      const price = num(x.dealAmount), ex = num(x.excluUseAr);
+      const ex = num(x.excluUseAr);
+      const price = base ? num(x.deposit) : num(x.dealAmount);
       if (!price || !ex || ex < 10) continue;
+      if (base && (num(x.monthlyRent) > 0 || clean(x.contractType) === '갱신')) continue;   // 월세 낀 계약·갱신 계약 제외
       const nm = clean(x.umdNm);
       const key = [k, x.dealYear, x.dealMonth, x.dealDay, price, ex, clean(x.floor), nm, clean(x.jibun), clean(x.aptNm || x.mhouseNm || x.offiNm)].join('|');
       if (seen.has(key)) continue; seen.add(key);
@@ -61,6 +67,7 @@ for (const sido of SIDOS) {
       }
       if (!emd) continue;
       const e = d[emd] || (d[emd] = { n: nm });
+      if (base) { (e[base + 'J'] || (e[base + 'J'] = [])).push(price / ex); continue; }   // 전세 보증금 만원/㎡
       const b = e[k] || (e[k] = { c: [], p: [] });
       (isCur ? b.c : b.p).push(price / ex);                               // 만원/㎡(전용)
     }
@@ -72,13 +79,15 @@ for (const sido of SIDOS) {
   for (const [emd, e] of Object.entries(d)) {
     const g = gu[emd.slice(0, 5)] || (gu[emd.slice(0, 5)] = { n: GUNM[emd.slice(0, 5)] || emd.slice(0, 5) });
     for (const k of KINDS) if (e[k]) { const b = g[k] || (g[k] = { c: [], p: [] }); b.c.push(...e[k].c); b.p.push(...e[k].p); }
+    for (const k of KINDS) if (e[k + 'J']) (g[k + 'J'] || (g[k + 'J'] = [])).push(...e[k + 'J']);
   }
   const gout = {};
-  for (const [c, g] of Object.entries(gu)) { const o = { n: g.n }; for (const k of KINDS) if (g[k]) o[k] = sum(g[k]); gout[c] = o; }
+  const jsum = a => [Math.round(med(a)), a.length];                      // [전세 ㎡당 중간값, 건수]
+  for (const [c, g] of Object.entries(gu)) { const o = { n: g.n }; for (const k of KINDS) { if (g[k]) o[k] = sum(g[k]); if (g[k + 'J']) o[k + 'J'] = jsum(g[k + 'J']); } gout[c] = o; }
   const out = {};
   for (const [emd, e] of Object.entries(d)) {
     const o = { n: e.n };
-    for (const k of KINDS) if (e[k]) o[k] = sum(e[k]);
+    for (const k of KINDS) { if (e[k]) o[k] = sum(e[k]); if (e[k + 'J']) o[k + 'J'] = jsum(e[k + 'J']); }
     out[emd] = o;
   }
   const json = { updated: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), cur: [CUR[CUR.length - 1], CUR[0]], prev: [PREV[PREV.length - 1], PREV[0]], unit: '만원/전용㎡', d: out, g: gout };
