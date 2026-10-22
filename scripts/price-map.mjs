@@ -3,7 +3,7 @@
 // 전용면적 ㎡당 거래가 중간값을 '최근 6개월'과 '1년 전 같은 6개월'로 비교합니다.
 // 결과: data/price-<시도코드>.json  (화면은 이 파일만 읽으므로 리얼맵 서버 부담이 없습니다)
 // 필요한 비밀값: DATA_GO_KR_KEY (공공데이터포털 인증키, Vercel과 같은 값)
-import { writeFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import { month, monthsBack } from '../api/trades.js';
 import { pool, num } from '../api/_lib.js';
 
@@ -23,6 +23,9 @@ const CUR = all.slice(1, 7), PREV = all.slice(13, 19);
 const t0 = Date.now();
 
 for (const [sido, sggs] of Object.entries(SIDO)) {
+  // 빌라·오피스텔 자료에는 법정동 코드(umdCd)가 없는 경우가 있어, 법정동 경계 파일의 이름으로 코드를 찾습니다
+  const byName = {};
+  try { for (const f of JSON.parse(await readFile(`data/umd-${sido}.json`, 'utf8')).f) byName[`${f.c.slice(0, 5)}|${f.n}`] = f.c; } catch { /* 경계 파일 없음 */ }
   const d = {};                        // 법정동 8자리 → { n, apt:{c:[], p:[]}, ... }
   const jobs = [];
   for (const sgg of sggs) for (const k of KINDS) for (const ym of [...CUR, ...PREV]) jobs.push([sgg, k, ym]);
@@ -37,8 +40,8 @@ for (const [sido, sggs] of Object.entries(SIDO)) {
       const price = num(x.dealAmount), ex = num(x.excluUseAr);
       if (!price || !ex || ex < 10) continue;
       const ud = clean(x.umdCd), sc = clean(x.sggCd) || sgg;
-      if (!/^\d{5}$/.test(ud)) continue;
-      const emd = (sc + ud).slice(0, 8);
+      const emd = /^\d{5}$/.test(ud) ? (sc + ud).slice(0, 8) : byName[`${sgg}|${clean(x.umdNm)}`];
+      if (!emd) continue;
       const e = d[emd] || (d[emd] = { n: clean(x.umdNm) });
       const b = e[k] || (e[k] = { c: [], p: [] });
       (isCur ? b.c : b.p).push(price / ex);                               // 만원/㎡(전용)
