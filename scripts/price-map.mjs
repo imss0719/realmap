@@ -66,12 +66,24 @@ for (const sido of SIDOS) {
         if (!emd || (valid.size && !valid.has(emd))) emd = byName[`${sgg}|${nm}`] || null;
       }
       if (!emd) continue;
-      const e = d[emd] || (d[emd] = { n: nm });
-      if (base) { (e[base + 'J'] || (e[base + 'J'] = [])).push(price / ex); continue; }   // 전세 보증금 만원/㎡
+      const e = d[emd] || (d[emd] = { n: nm, m: new Map() });
+      // 전세가율은 '같은 단지·같은 평형'끼리만 비교합니다 (동 안에서 오래된 단지 매매 vs 새 단지 전세처럼 섞이면 100%를 넘는 왜곡이 생겨서)
+      const kk = base || k, cname = clean(x.aptNm || x.mhouseNm || x.offiNm), jb = clean(x.jibun);
+      const mkey = `${kk}|${cname}|${jb}|${Math.round(ex / 3)}`;
+      if (base) {
+        (e[base + 'J'] || (e[base + 'J'] = [])).push(price / ex);       // 전세 보증금 만원/㎡
+        if (cname || jb) { const m = e.m.get(mkey) || (e.m.set(mkey, { s: [], j: [] }), e.m.get(mkey)); m.j.push(price / ex); }
+        continue;
+      }
       const b = e[k] || (e[k] = { c: [], p: [] });
       (isCur ? b.c : b.p).push(price / ex);                               // 만원/㎡(전용)
+      if (isCur && (cname || jb)) { const m = e.m.get(mkey) || (e.m.set(mkey, { s: [], j: [] }), e.m.get(mkey)); m.s.push(price / ex); }
     }
   });
+  // 같은 단지·평형 짝들의 전세가율 → 가중 중간값 (가중치 = 짝의 거래 수 중 작은 쪽)
+  const pairs = (m, k) => { const out = []; for (const [key, v] of m) if (key.startsWith(k + '|') && v.s.length && v.j.length) out.push([med(v.j) / med(v.s) * 100, Math.min(v.s.length, v.j.length)]); return out; };
+  const wmed = ps => { const a = [...ps].sort((x, y) => x[0] - y[0]), tot = a.reduce((t, p) => t + p[1], 0); let c = 0; for (const p of a) { c += p[1]; if (c >= tot / 2) return p[0]; } return null; };
+  const jsumM = (arr, ps) => { const w = ps.reduce((t, p) => t + p[1], 0); return [Math.round(med(arr)), arr.length, w >= 3 ? Math.round(wmed(ps) * 10) / 10 : null, w]; };   // [전세 ㎡당, 건수, 같은 단지 전세가율(%), 짝 거래 수]
   // 동별 요약: [최근 중간값, 최근 건수, 1년 전 중간값, 1년 전 건수]
   const sum = b => [b.c.length ? Math.round(med(b.c)) : null, b.c.length, b.p.length ? Math.round(med(b.p)) : null, b.p.length];
   // 구별 요약: 동별 값을 다시 평균내지 않고, 구 안의 모든 거래로 중간값을 냅니다
@@ -79,15 +91,14 @@ for (const sido of SIDOS) {
   for (const [emd, e] of Object.entries(d)) {
     const g = gu[emd.slice(0, 5)] || (gu[emd.slice(0, 5)] = { n: GUNM[emd.slice(0, 5)] || emd.slice(0, 5) });
     for (const k of KINDS) if (e[k]) { const b = g[k] || (g[k] = { c: [], p: [] }); b.c.push(...e[k].c); b.p.push(...e[k].p); }
-    for (const k of KINDS) if (e[k + 'J']) (g[k + 'J'] || (g[k + 'J'] = [])).push(...e[k + 'J']);
+    for (const k of KINDS) if (e[k + 'J']) { (g[k + 'J'] || (g[k + 'J'] = [])).push(...e[k + 'J']); (g[k + 'P'] || (g[k + 'P'] = [])).push(...pairs(e.m, k)); }
   }
   const gout = {};
-  const jsum = a => [Math.round(med(a)), a.length];                      // [전세 ㎡당 중간값, 건수]
-  for (const [c, g] of Object.entries(gu)) { const o = { n: g.n }; for (const k of KINDS) { if (g[k]) o[k] = sum(g[k]); if (g[k + 'J']) o[k + 'J'] = jsum(g[k + 'J']); } gout[c] = o; }
+  for (const [c, g] of Object.entries(gu)) { const o = { n: g.n }; for (const k of KINDS) { if (g[k]) o[k] = sum(g[k]); if (g[k + 'J']) o[k + 'J'] = jsumM(g[k + 'J'], g[k + 'P'] || []); } gout[c] = o; }
   const out = {};
   for (const [emd, e] of Object.entries(d)) {
     const o = { n: e.n };
-    for (const k of KINDS) { if (e[k]) o[k] = sum(e[k]); if (e[k + 'J']) o[k + 'J'] = jsum(e[k + 'J']); }
+    for (const k of KINDS) { if (e[k]) o[k] = sum(e[k]); if (e[k + 'J']) o[k + 'J'] = jsumM(e[k + 'J'], pairs(e.m, k)); }
     out[emd] = o;
   }
   const json = { updated: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), cur: [CUR[CUR.length - 1], CUR[0]], prev: [PREV[PREV.length - 1], PREV[0]], unit: '만원/전용㎡', d: out, g: gout };
