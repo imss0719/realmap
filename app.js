@@ -104,7 +104,7 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); devHit(la, ln); pick(la, ln); });
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (pmActive()) return; devHit(la, ln); pick(la, ln); });
 
     const setType = sky => { S.map.setMapTypeId(sky ? K.MapTypeId.HYBRID : K.MapTypeId.ROADMAP); $('mtRoad').setAttribute('aria-pressed', !sky); $('mtSky').setAttribute('aria-pressed', sky); };
     $('mtRoad').onclick = () => setType(false);
@@ -2053,14 +2053,114 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     setOn(T.on);
     // 실거래 버튼: 꺼져 있으면 켜고 선택 창 열기 → 켜져 있고 창이 닫혀 있으면 창 열기 → 창이 열려 있으면 끄기
     $('mtTrade').onclick = () => {
-      if (!T.on) { setOn(true); openTPanel(); if (S.map.getLevel() > MAXLV) toast('조금 더 확대하면 실거래가가 보입니다'); }
+      if (!T.on) { setOn(true); openTPanel(); if (S.map.getLevel() > 9) toast('조금 더 확대하면 동별 시세와 건물별 실거래가가 보입니다'); }
       else if ($('tpanel').hidden) openTPanel();
       else { setOn(false); $('tpanel').hidden = true; }
-      tradeRefresh();
+      tradeRefresh(); priceRefresh();
     };
     $('tClose').onclick = () => { $('tpanel').hidden = true; };
     kakao.maps.event.addListener(S.map, 'idle', tradeRefresh);
+    kakao.maps.event.addListener(S.map, 'idle', priceRefresh);
+    // 동별 시세 설정
+    try { const v = JSON.parse(localStorage.getItem('rm.pm') || 'null'); if (v) { PM.kind = v.kind || 'apt'; PM.mode = v.mode || 'price'; } } catch { /* 저장소 없음 */ }
+    $('pmKind').value = PM.kind;
+    const pmSave = () => { try { localStorage.setItem('rm.pm', JSON.stringify({ kind: PM.kind, mode: PM.mode })); } catch { /* 무시 */ } };
+    $('pmKind').onchange = () => { PM.kind = $('pmKind').value; pmSave(); priceRefresh(true); };
+    document.querySelectorAll('[data-pm]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.pm === PM.mode); b.onclick = () => { PM.mode = b.dataset.pm; document.querySelectorAll('[data-pm]').forEach(x => x.setAttribute('aria-pressed', x === b)); pmSave(); priceRefresh(true); }; });
     tradeRefresh();
+  }
+  // ---------- 동별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
+  // data/umd-11.json(법정동 경계) + data/price-11.json(동별 전용 ㎡당 중간값, GitHub가 매주 갱신)
+  const PM = { kind: 'apt', mode: 'price', polys: new Map(), labels: new Map(), loading: null, umd: null, price: null };
+  const PMIN = MAXLV + 1, PMAX = 9;
+  const PY3 = 3.305785;
+  const pmActive = () => T.on && S.map.getLevel() >= PMIN && S.map.getLevel() <= PMAX;
+  function pmLoad() {
+    if (PM.umd && PM.price) return Promise.resolve(true);
+    if (!PM.loading) PM.loading = Promise.all([fetch('/data/umd-11.json').then(r => r.json()), fetch('/data/price-11.json').then(r => r.json())])
+      .then(([u, p]) => { PM.umd = u.f; PM.price = p; return true; }).catch(() => { PM.loading = null; return false; });
+    return PM.loading;
+  }
+  const PCOL = ['#FFF3BF', '#FFE066', '#FFC53D', '#FFA94D', '#FF8A3D', '#F76707', '#D9480F'];
+  const CCOL = [[-10, '#1864AB'], [-5, '#4C8FD6'], [-2, '#A5C8F0'], [2, '#DEE2E6'], [5, '#FFC9C9'], [10, '#FA7A7A'], [Infinity, '#E03131']];
+  function pmVal(c) {
+    const e = PM.price && PM.price.d[c], v = e && e[PM.kind];
+    if (!v || !v[0] || v[1] < 3) return null;
+    if (PM.mode === 'price') return { v: v[0] * PY3, n: v[1] };
+    if (!v[2] || v[3] < 3) return null;
+    return { v: (v[0] / v[2] - 1) * 100, n: v[1] };
+  }
+  function pmColor(x) {
+    if (!x) return null;
+    if (PM.mode === 'chg') return CCOL.find(([t]) => x.v < t)[1];
+    const q = PM.q || [];
+    let i = 0; while (i < q.length && x.v > q[i]) i++;
+    return PCOL[Math.min(i, PCOL.length - 1)];
+  }
+  const pmTxt = x => PM.mode === 'chg' ? `${x.v >= 0 ? '+' : ''}${x.v.toFixed(1)}%` : n(Math.round(x.v / 10) * 10);
+  function pmCenter(rings) {
+    let best = rings[0]; rings.forEach(r => { if (r.length > best.length) best = r; });
+    let x = 0, y = 0; best.forEach(([a, b]) => { x += a; y += b; }); return [x / best.length, y / best.length];
+  }
+  async function priceRefresh(restyle) {
+    const show = pmActive();
+    if (!show) { PM.polys.forEach(ps => ps.forEach(o => o.setMap(null))); PM.labels.forEach(o => o.setMap(null)); $('pmLegend').hidden = true; $('pmCard').hidden = true; return; }
+    if (!(await pmLoad()) || !pmActive()) return;
+    const K = kakao.maps, b = S.map.getBounds(), lvl = S.map.getLevel();
+    // 가격 구간: 서울 전체 값의 분위수로 7단계
+    if (restyle || PM.qKey !== PM.kind) {
+      const vs = Object.values(PM.price.d).map(e => e[PM.kind]).filter(v => v && v[0] && v[1] >= 3).map(v => v[0] * PY3).sort((a, z) => a - z);
+      PM.q = [1, 2, 3, 4, 5, 6].map(k => vs[Math.floor(vs.length * k / 7)] || 0); PM.qKey = PM.kind; restyle = true;
+    }
+    for (const f of PM.umd) {
+      const c = f.c, ctr = pmCenter(f.g), ll = new K.LatLng(ctr[1], ctr[0]);
+      const near = b.contain(ll) || f.g.some(r => r.some(([x, y]) => b.contain(new K.LatLng(y, x))));
+      let ps = PM.polys.get(c);
+      if (!near) { if (ps) ps.forEach(o => o.setMap(null)); const L = PM.labels.get(c); if (L) L.setMap(null); continue; }
+      const x = pmVal(c), col = pmColor(x);
+      const style = col ? { strokeWeight: 1, strokeColor: '#ffffff', strokeOpacity: .9, fillColor: col, fillOpacity: .62 } : { strokeWeight: 1, strokeColor: '#ADB5BD', strokeOpacity: .7, strokeStyle: 'shortdash', fillColor: '#ADB5BD', fillOpacity: .06 };
+      if (!ps) {
+        ps = f.g.map(r => new K.Polygon({ path: r.map(([a, z]) => new K.LatLng(z, a)), zIndex: 1, ...style }));
+        ps.forEach(o => K.event.addListener(o, 'click', () => pmCardShow(f)));
+        PM.polys.set(c, ps);
+      } else if (restyle) ps.forEach(o => o.setOptions(style));
+      ps.forEach(o => { if (!o.getMap()) o.setMap(S.map); });
+      // 이름표: 많이 축소하면 숨김
+      let L = PM.labels.get(c);
+      if (lvl <= 8 && x) {
+        const html = `<b>${esc(f.n.replace(/(\d*)동$|가$/, '$1'))}</b>${pmTxt(x)}`;
+        if (!L) { const el = document.createElement('div'); el.className = 'pmlab'; L = new K.CustomOverlay({ position: ll, content: el, yAnchor: .5, zIndex: 2 }); PM.labels.set(c, L); }
+        const el = L.getContent(); if (restyle || !el.innerHTML) el.innerHTML = html;
+        if (!L.getMap()) L.setMap(S.map);
+      } else if (L) L.setMap(null);
+    }
+    pmLegend();
+  }
+  function pmLegend() {
+    const el = $('pmLegend'), P = PM.price;
+    const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind];
+    const per = `${P.cur[0].slice(0, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(0, 4)}.${P.cur[1].slice(4)}`;
+    if (PM.mode === 'price') {
+      const q = PM.q, f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}`;
+      el.innerHTML = `<b>${KN} 전용 평당가 <small>만원 · ${per}</small></b><div class="pml">${PCOL.map((c, i) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])}↓</span><span>${f(q[5])}↑</span></div><small class="pmn">점선: 거래 3건 미만</small>`;
+    } else {
+      el.innerHTML = `<b>${KN} 1년 변동 <small>${per} vs 1년 전</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div><small class="pmn">점선: 비교할 거래 부족</small>`;
+    }
+    el.hidden = false;
+  }
+  function pmCardShow(f) {
+    const e = PM.price.d[f.c] || {}, P = PM.price;
+    const row = (k, nm) => { const v = e[k]; if (!v || !v[0]) return `<tr><th>${nm}</th><td colspan="2" class="n">최근 6개월 거래 없음</td></tr>`;
+      const ch = v[2] && v[3] >= 3 && v[1] >= 3 ? (v[0] / v[2] - 1) * 100 : null;
+      return `<tr><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${v[1]}건${v[1] < 3 ? ' · 적음' : ''}</small></td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
+    const el = $('pmCard');
+    el.innerHTML = `<div class="pmc-h"><b>${esc(f.n)}</b><button type="button" aria-label="닫기" id="pmClose">×</button></div>
+      <table><thead><tr><th></th><th>전용 평당 (중간값)</th><th>1년 전 대비</th></tr></thead><tbody>${row('apt', '아파트')}${row('rh', '빌라')}${row('offi', '오피스텔')}</tbody></table>
+      <p class="pmc-n">${P.cur[0].slice(0, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(0, 4)}.${P.cur[1].slice(4)} 국토교통부 실거래 기준 · 매주 갱신</p>
+      <button type="button" class="pmc-go" id="pmGo">확대해서 건물별 실거래 보기</button>`;
+    el.hidden = false;
+    $('pmClose').onclick = () => { el.hidden = true; };
+    $('pmGo').onclick = () => { const c = pmCenter(f.g); el.hidden = true; S.map.setLevel(4); S.map.setCenter(new kakao.maps.LatLng(c[1], c[0])); };
   }
   function openTPanel() { $('devpanel').hidden = true; $('tpanel').hidden = false; }
   function regionAt(lat, lng) {

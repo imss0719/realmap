@@ -85,6 +85,9 @@
       <label><input type="checkbox" data-tk="apt" checked><i style="background:#14212E"></i>아파트</label>
       <label><input type="checkbox" data-tk="rh" checked><i style="background:#1F7A4D"></i>빌라 (연립·다세대)</label>
       <label><input type="checkbox" data-tk="offi" checked><i style="background:#6741B8"></i>오피스텔</label>
+      <div class="dp-sec">지도를 축소하면 동별 시세 <small>(서울)</small></div>
+      <div class="pm-row"><select id="pmKind" aria-label="시세 유형"><option value="apt">아파트</option><option value="rh">빌라</option><option value="offi">오피스텔</option></select>
+        <span class="pm-seg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="true">평당가</button><button type="button" data-pm="chg" aria-pressed="false">1년 변동</button></span></div>
       <p class="dp-note">국토교통부 실거래가 기준입니다. 단독·다가구, 상가, 토지는 지번 일부가 가려져 공개되어 지도에는 표시하지 않고, 필지를 누르면 실거래 탭에서 확인하실 수 있습니다.</p>
     </div>
     <div class="devpanel" id="devpanel" hidden>
@@ -101,6 +104,8 @@
       <a class="dp-link" href="/seoul/" target="_blank" rel="noopener">서울 정비사업 현황 보기 ›</a>
     </div>
     <div class="zonecard" id="zonecard" hidden></div>
+    <div class="pmcard" id="pmCard" hidden></div>
+    <div class="pmlegend" id="pmLegend" hidden></div>
     <div class="viewtog" role="group" aria-label="보기 전환">
       <button id="vMap" aria-pressed="true">지도</button>
       <button id="vRv" aria-pressed="false">로드뷰</button>
