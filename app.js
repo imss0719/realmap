@@ -2172,26 +2172,30 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   function pmPaint(ly, c) { const ps = PM.L[ly].polys.get(c); if (ps) { const st = pmStyle(ly, c); ps.forEach(o => { o.setOptions(st); o.setZIndex(PM.sel === `${ly}:${c}` || PM.hov === `${ly}:${c}` ? 3 : 1); }); } }
   function pmHide(ly) { const L = PM.L[ly]; L.polys.forEach(ps => ps.forEach(o => o.setMap(null))); L.labels.forEach(o => o.setMap(null)); }
+  // 보는 기준·종류가 바뀌거나 새 지역 자료가 들어오면 '판 번호'(PM.ver)를 올리고,
+  // 경계·이름표마다 마지막으로 칠한 판 번호를 기억해 두었다가 다르면 다시 칠합니다.
+  // (예전에는 그때 화면에 보이던 것만 다시 칠해서, 지도를 옮기면 이전 기준 색이 섞여 보였습니다)
   async function priceRefresh(restyle) {
+    if (restyle) PM.ver = (PM.ver || 0) + 1;
     if (!pmActive()) { pmHide('d'); pmHide('g'); $('pmLegend').hidden = true; $('pmCard').hidden = true; PM.sel = null; return; }
     if (!(await pmLoad()) || !pmActive()) return;
     let K = kakao.maps, b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast();
     const nb = PM.umd.length;
     await pmBounds(sw, ne);
     if (!pmActive()) return;
-    if (PM.umd.length !== nb) { b = S.map.getBounds(); sw = b.getSouthWest(); ne = b.getNorthEast(); restyle = true; }
+    if (PM.umd.length !== nb) { b = S.map.getBounds(); sw = b.getSouthWest(); ne = b.getNorthEast(); PM.ver = (PM.ver || 0) + 1; }
     const ly = pmLayer();
     pmHide(ly === 'g' ? 'd' : 'g');
     if (PM.sel && !PM.sel.startsWith(ly + ':')) { const o = PM.sel; PM.sel = null; pmPaint(o[0], o.slice(2)); $('pmCard').hidden = true; }
     // 가격 구간: 동은 서울 전체 동끼리, 구는 25개 구끼리 분위수로 7단계
-    if (restyle || PM.qKey !== PM.kind) {
+    if (PM.qVer !== PM.ver || PM.qKey !== PM.kind) {
       for (const k of ['d', 'g']) {
         const vs = Object.values(pmSrc(k)).map(e => e[PM.kind]).filter(v => v && v[0] && v[1] >= 3).map(v => v[0] * PY3).sort((a, z) => a - z);
         PM.q[k] = [1, 2, 3, 4, 5, 6].map(i => vs[Math.floor(vs.length * i / 7)] || 0);
         const ns = Object.values(pmSrc(k)).map(e => e[PM.kind]).filter(v => v && v[1]).map(v => v[1]).sort((a, z) => a - z);
         PM.qv[k] = [1, 2, 3, 4, 5, 6].map(i => ns[Math.floor(ns.length * i / 7)] || 0);
       }
-      PM.qKey = PM.kind; restyle = true;
+      PM.qKey = PM.kind; PM.qVer = PM.ver;
     }
     const proj = S.map.getProjection();
     const px = (x, y) => proj.containerPointFromCoords(new K.LatLng(y, x));
@@ -2209,8 +2213,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
           K.event.addListener(o, 'mouseover', () => { const was = PM.hov; PM.hov = `${ly}:${c}`; if (was && was !== PM.hov) pmPaint(was[0], was.slice(2)); pmPaint(ly, c); });
           K.event.addListener(o, 'mouseout', () => { if (PM.hov === `${ly}:${c}`) { PM.hov = null; pmPaint(ly, c); } });
         });
-        L.polys.set(c, ps);
-      } else if (restyle) pmPaint(ly, c);
+        L.polys.set(c, ps); ps.ver = PM.ver;
+      } else if (ps.ver !== PM.ver) { pmPaint(ly, c); ps.ver = PM.ver; }
       ps.forEach(o => { if (!o.getMap()) o.setMap(S.map); });
       // 이름표: 이름(○○동·○○구)과 값. 경계 안에 들어갈 만큼 넓을 때만 보입니다
       const x = pmVal(ly, c);
@@ -2220,7 +2224,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       if (w * .85 >= need && h >= (x ? 30 : 16)) {
         if (!lab) { const el = document.createElement('div'); lab = new K.CustomOverlay({ position: new K.LatLng(f.ctr[1], f.ctr[0]), content: el, yAnchor: .5, zIndex: 4 }); L.labels.set(c, lab); }
         const el = lab.getContent();
-        if (restyle || !el.innerHTML) { el.className = `pmlab${ly === 'g' ? ' gu' : ''}${x ? '' : ' none'}`; el.innerHTML = `<b>${esc(nm)}</b>${x ? `<span class="v${pmCls(x)}">${pmTxt(x)}</span>` : ''}`; }
+        if (lab.ver !== PM.ver || !el.innerHTML) { lab.ver = PM.ver; el.className = `pmlab${ly === 'g' ? ' gu' : ''}${x ? '' : ' none'}`; el.innerHTML = `<b>${esc(nm)}</b>${x ? `<span class="v${pmCls(x)}">${pmTxt(x)}</span>` : ''}`; }
         const cp = px(f.ctr[0], f.ctr[1]);
         cands.push({ lab, x: cp.x, y: cp.y, w: need, h: x ? (ly === 'g' ? 40 : 36) : 18, n: x ? x.n : 0, a: w * h });
       } else if (lab) lab.setMap(null);
