@@ -1610,10 +1610,17 @@
   function drawAcct() {
     const el = $('acct'); if (!el) return;
     if (!S.me.ready) { el.innerHTML = ''; return; }
+    // 휴대폰에서는 동그라미 버튼(사람 아이콘 / 로그인 후 닉네임 첫 글자)만 보이고, 누르면 메뉴가 열립니다
+    const nick = S.me.nickname || '회원';
+    const ic = S.me.member ? `<span class="ac-ic on" aria-hidden="true">${esc(Array.from(nick)[0])}</span>`
+      : '<span class="ac-ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 17.2c.9-3.2 3.5-4.9 6.5-4.9s5.6 1.7 6.5 4.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>';
+    const links = '<a href="/guide.html" target="_blank" rel="noopener">이용 안내</a><a href="/seoul/" target="_blank" rel="noopener">서울 정비사업 현황</a>';
     el.innerHTML = S.me.member
-      ? `<button type="button" id="acctBtn">${esc(S.me.nickname || '회원')}님${S.me.pro ? '<span class="probadge">PRO</span>' : ''}</button><div class="acct-menu" id="acctMenu" hidden>${S.me.pro ? '<a href="/listings.html" target="_blank" rel="noopener"><b>내 매물장</b></a>' : ''}<button type="button" id="favMenu">관심 부동산 · 우리 집</button><a href="/auth/logout?r=${encodeURIComponent(here())}">로그아웃</a><button type="button" id="withdraw">회원 탈퇴</button><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`
-      : `<button type="button" id="acctBtn">로그인</button>`;
-    $('acctBtn').onclick = () => S.me.member ? ($('acctMenu').hidden = !$('acctMenu').hidden) : loginModal();
+      ? `<button type="button" id="acctBtn" class="on" aria-label="${esc(nick)}님 메뉴">${ic}<span class="ac-tx">${esc(nick)}님${S.me.pro ? '<span class="probadge">PRO</span>' : ''}</span></button><div class="acct-menu" id="acctMenu" hidden><div class="ac-who">${esc(nick)}님${S.me.pro ? '<span class="probadge">PRO</span>' : ''}</div>${S.me.pro ? '<a href="/listings.html" target="_blank" rel="noopener"><b>내 매물장</b></a>' : ''}<button type="button" id="favMenu">관심 부동산 · 우리 집</button>${links}<a href="/auth/logout?r=${encodeURIComponent(here())}">로그아웃</a><button type="button" id="withdraw">회원 탈퇴</button><a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div>`
+      : `<button type="button" id="acctBtn" aria-label="로그인">${ic}<span class="ac-tx">로그인</span></button><div class="acct-menu" id="acctMenu" hidden><button type="button" class="ac-login" id="acLogin">카카오로 로그인 · 가입</button>${links}</div>`;
+    const mobile = () => matchMedia('(max-width:760px)').matches;
+    $('acctBtn').onclick = () => { if (!S.me.member && !mobile()) return loginModal(); $('acctMenu').hidden = !$('acctMenu').hidden; };
+    if ($('acLogin')) $('acLogin').onclick = () => { $('acctMenu').hidden = true; loginModal(); };
     if ($('favMenu')) $('favMenu').onclick = () => { $('acctMenu').hidden = true; openFavSheet(); };
     if ($('withdraw')) $('withdraw').onclick = async () => {
       if (!confirm('회원 탈퇴하시겠습니까? 저장된 회원 정보가 바로 삭제됩니다.')) return;
