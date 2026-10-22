@@ -1,5 +1,5 @@
 name: realmap-price-map
-# 동별 시세 지도 자료(data/price-11.json) 만들기 — 매주 월요일 새벽 4시(한국시간) + 수동 실행
+# 동별·구별 시세 지도 자료(data/price-11·28·41.json: 서울·인천·경기) 만들기 — 매주 월요일 새벽 4시(한국시간) + 수동 실행
 on:
   schedule:
     - cron: '0 19 * * 0'
@@ -9,12 +9,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
       - run: node scripts/price-map.mjs
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
