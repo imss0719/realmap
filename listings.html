@@ -134,13 +134,109 @@ details.rents small{color:var(--muted)}
 .viewer .vc{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:#fff;font-weight:700}
 .legend{position:absolute;left:8px;bottom:8px;z-index:3;flex-wrap:wrap;margin-right:50px;background:rgba(255,255,255,.95);border-radius:10px;padding:5px 10px;font-size:13px;font-weight:700;display:flex;gap:10px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.mtog{position:absolute;left:10px;top:10px;z-index:6;display:flex;background:#fff;border-radius:12px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.mtog button{border:0;background:none;border-radius:9px;padding:8px 18px;font-weight:700;font-size:15px;color:var(--muted)}
+.mtog button[aria-pressed=true]{background:var(--navy);color:#fff}
+.dj#dj{position:absolute;inset:0;z-index:4;overflow:auto;background:var(--bg);padding-top:52px}
+.dj#dj[hidden]{display:none}
+.dj .dj-wrap{display:grid;gap:14px;padding:4px 12px 40px}
+body.djmode .legend{display:none}
+@media (max-width:979px){body.djmode .mapbox{height:78vh}}
+.dj .dj-wrap>*,.dj #dj_cxBody>*{min-width:0}
+.dj #dj_cxBody{display:grid;gap:14px;min-width:0}
+.dj .btn{border:0;border-radius:14px;min-height:48px;padding:0 18px;font-weight:700;font-size:16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.dj .btn.main{background:var(--gold);color:var(--navy)}
+.dj .btn.sub{background:var(--card);border:2px solid var(--line)}
+.dj .btn.dark{background:var(--navy);color:#fff}
+.dj .btn.sm{min-height:38px;font-size:14px;padding:0 12px;border-radius:10px}
+.dj .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.dj .chips button{flex:none;border:2px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px;font-weight:700;font-size:16px;white-space:nowrap}
+.dj .chips button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+.dj .chips .add{border-style:dashed;color:var(--muted)}
+.dj .card{background:var(--card);border-radius:18px;padding:18px}
+.dj .card h2{font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dj .card h2 small{font-size:13px;font-weight:500;color:var(--muted)}
+.dj .muted{color:var(--muted);font-size:15px}
+.dj .hd{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.dj .hd .t{flex:1;min-width:220px}
+.dj .hd .t b{font-size:24px;letter-spacing:-.02em;display:block}
+.dj .hd .acts{display:flex;gap:6px;flex-wrap:wrap}
+.dj .places{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.dj .places span{font-size:13px;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:2px 8px;color:var(--muted)}
+.dj .empty{background:var(--card);border-radius:18px;padding:28px 20px;text-align:center;color:var(--muted)}
+.dj .empty b{display:block;color:var(--fg);font-size:19px;margin-bottom:6px}
+.dj .find{width:100%;border:2px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--card);font-size:17px}
+.dj .res{display:grid;gap:6px;margin-top:8px}
+.dj .res button{text-align:left;border:2px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px}
+.dj .res button b{display:block}
+.dj .res button small{color:var(--muted)}
+/* 시세판 */
+.dj .mtab{width:100%;border-collapse:collapse;font-size:15px;margin-top:8px}
+.dj .mtab th,.dj .mtab td{padding:9px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.dj .mtab th:first-child,.dj .mtab td:first-child{text-align:left}
+.dj .mtab thead th{font-size:13px;color:var(--muted);font-weight:600}
+.dj .mtab td b{font-weight:700}
+.dj .mtab td small{display:block;font-size:12px;color:var(--muted)}
+.dj .jr-hi{color:#B42318;font-weight:700}
+.dj .jr-mid{color:#9A6200;font-weight:700}
+.dj .scroll{overflow-x:auto}
+.dj .recent{display:grid;gap:6px;margin-top:10px}
+.dj .recent div{display:flex;gap:10px;align-items:baseline;font-size:15px;border-bottom:1px dashed var(--line);padding-bottom:6px}
+.dj .recent .d{color:var(--muted);font-size:13px;min-width:78px;font-variant-numeric:tabular-nums}
+.dj .recent .k{font-size:12px;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px;flex:none;white-space:nowrap}
+.dj .recent .d{flex:none}
+.dj .recent .p{margin-left:auto;font-weight:700;white-space:nowrap;flex:none}
+.dj .k.s{background:var(--sale)}
+.dj .k.j{background:var(--jeonse)}
+.dj .k.w{background:var(--wolse)}
+/* 동 탭 + 층×라인 표 */
+.dj .dongs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.dj .dongs button{border:2px solid var(--line);background:#fff;border-radius:10px;padding:6px 12px;font-weight:700;font-size:15px}
+.dj .dongs button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+.dj .dongs button small{font-weight:600;opacity:.7;margin-left:3px;font-size:12px}
+.dj .grid{border-collapse:separate;border-spacing:4px;font-size:14px}
+.dj .grid th{font-size:12px;color:var(--muted);font-weight:600;padding:2px 4px;white-space:nowrap}
+.dj .grid th.fl{text-align:right;padding-right:6px;font-size:13px;color:var(--fg)}
+.dj .grid th.ln b{display:block;font-size:13px;color:var(--fg)}
+.dj .cell{min-width:64px;height:44px;border-radius:10px;border:2px solid var(--line);background:#fff;font-weight:700;font-size:14px;position:relative;padding:0 6px;font-variant-numeric:tabular-nums}
+.dj .cell:hover{border-color:var(--navy)}
+.dj .cell.k-sale{background:var(--sale);border-color:var(--sale);color:#fff}
+.dj .cell.k-jeonse{background:var(--jeonse);border-color:var(--jeonse);color:#fff}
+.dj .cell.k-wolse{background:var(--wolse);border-color:var(--wolse);color:#fff}
+.dj .cell.k-presale{background:var(--presale);border-color:var(--presale);color:#fff}
+.dj .cell.k-done{background:#E3E8ED;border-color:#C9D1D9;color:var(--muted)}
+.dj .cell .mdot{position:absolute;right:4px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px #fff}
+.dj .cell .pr{display:block;font-size:11px;font-weight:600;opacity:.9;line-height:1}
+.dj .ftr{font-size:12px;color:var(--muted);white-space:nowrap;padding-left:6px;text-align:left}
+.dj .ftr span{display:inline-block;background:#FFF6D6;color:#7A5200;border-radius:6px;padding:1px 6px;margin:1px 3px 1px 0;font-weight:600}
+.dj .ftr span.j{background:#E9F6EF;color:#1F7A4D}
+.dj .lgd{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}
+.dj .lgd i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:4px;vertical-align:-1px}
+.dj .loading{color:var(--muted);padding:14px 0}
+/* 호 상세 시트 */
+.dj .info{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dj .info div{background:#fff;border-radius:12px;padding:10px 12px}
+.dj .info small{display:block;font-size:12px;color:var(--muted)}
+.dj .info b{font-size:17px}
+.dj .mine{background:#fff;border-radius:14px;padding:12px 14px;border:2px solid var(--line);display:flex;align-items:center;gap:10px;text-decoration:none}
+.dj .mine .kd{color:#fff;font-weight:700;font-size:13px;padding:2px 9px;border-radius:8px}
+.dj .kd.sale{background:var(--sale)}
+.dj .kd.jeonse{background:var(--jeonse)}
+.dj .kd.wolse{background:var(--wolse)}
+.dj .kd.presale{background:var(--presale)}
+.dj .mine em{margin-left:auto;font-style:normal;color:var(--sale);font-weight:700;font-size:14px}
+.dj textarea.in{width:100%;min-height:110px;border:2px solid var(--line);border-radius:12px;padding:10px 12px;font-size:16px;background:#fff;resize:vertical}
+.dj .note{font-size:13px;color:var(--muted);line-height:1.6}
+.dj .tl{display:grid;gap:4px}
+.dj .tl div{display:flex;gap:8px;font-size:15px;background:#fff;border-radius:10px;padding:8px 10px}
+.dj .tl div.same{outline:2px solid var(--gold)}
+.dj .tl .p{margin-left:auto;font-weight:700}
 </style>
 </head>
 <body>
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
   <h1>내 매물장 <span class="pro">PRO</span></h1>
-  <a class="navl" href="/danji.html">단지 장부 ›</a>
   <span class="sp"></span>
   <span class="who" id="who"></span>
 </div>
@@ -153,6 +249,7 @@ details.rents small{color:var(--muted)}
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<script src="danji.js"></script>
 <script src="listings.js"></script>
 </body>
 </html>

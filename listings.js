@@ -50,7 +50,11 @@
     loadMap();
     try { S.items = (await api('/api/auth?action=listings')).items || []; } catch (e) { toast(e.message, 4000); }
     draw();
-    const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit');
+    const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
+    let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
+    setMode(cxadd ? 'danji' : mode);
+    // 리얼맵 지도에서 '단지에 담기'로 넘어온 경우: ?cxadd=PNU
+    if (cxadd && /^\d{19}$/.test(cxadd)) { history.replaceState(null, '', '/listings.html'); window.Danji && Danji.add(cxadd); }
     // 단지 장부에서 넘어온 경우: ?add=PNU&dong=101&ho=1203 (동·호까지 미리 골라 둠) · ?edit=매물id
     if (add && /^\d{19}$/.test(add)) { history.replaceState(null, '', '/listings.html'); openForm(null, add, { dong: (qs.get('dong') || '').slice(0, 20), ho: (qs.get('ho') || '').slice(0, 20) }); }
     else if (edit) { history.replaceState(null, '', '/listings.html'); const x = S.items.find(i => i.id === edit); if (x) openForm(x); }
@@ -59,7 +63,7 @@
 
   function layout() {
     $('root').innerHTML = `<div class="wrap">
-      <div class="mapbox"><div id="map"></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
+      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="mtog" role="group" aria-label="왼쪽 화면"><button type="button" data-mode="map">지도</button><button type="button" data-mode="danji">단지</button></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
       <div class="side" style="display:grid;gap:12px">
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
         <div class="tabs" id="tabs"></div>
@@ -70,6 +74,24 @@
     $('addBtn').onclick = () => openForm(null);
     $('csvBtn').onclick = exportCsv;
     $('find').oninput = e => { S.q = e.target.value.trim(); drawList(); };
+    document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  }
+  // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
+  const DJ_HOST = {
+    items: () => S.items,
+    openAdd: (pnu, dong, ho) => openForm(null, pnu, { dong, ho }),
+    openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
+    toast,
+  };
+  function setMode(m) {
+    S.mode = m === 'danji' ? 'danji' : 'map';
+    try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
+    const dj = S.mode === 'danji';
+    document.body.classList.toggle('djmode', dj);
+    $('dj').hidden = !dj; $('map').style.visibility = dj ? 'hidden' : '';
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === S.mode));
+    if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
+    else setTimeout(() => { if (S.map) { S.map.relayout(); drawPins(); } }, 50);
   }
 
   // ---------- 목록 ----------
@@ -78,7 +100,7 @@
     return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawTabs(); drawList(); drawPins(); }
+  function draw() { drawTabs(); drawList(); drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
