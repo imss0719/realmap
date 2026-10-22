@@ -120,8 +120,37 @@ export default handler(async (req, res) => {
     }
   });
   rows.sort((a, b) => b.date.localeCompare(a.date));
+
+  // 같은 동·같은 종류 최근 1년 비교 사례 (단독·다가구, 상업업무용, 토지 — 지번이 가려져 지도에 못 찍는 거래)
+  // 처음 1년치를 받을 때만 계산합니다 (skip=0)
+  const nearBy = {};
+  if (!skip && umd) {
+    const mine = new Set(rows.map(t => `${t.kind}|${t.date}|${t.price}|${t.jibun}`));
+    const recent = new Set(yms.slice(0, 12));
+    const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length ? (a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2) : null; };
+    for (const kind of kinds.filter(k => ['sh', 'nrg', 'land'].includes(k))) {
+      const list = [];
+      results.forEach((r, i) => {
+        if (!r.ok || jobs[i][0] !== kind || !recent.has(jobs[i][1])) return;
+        for (const raw of r.v) {
+          const u = clean(raw.umdNm);
+          if (!u || (u !== umd && !u.endsWith(umd))) continue;
+          const t = map(kind, raw);
+          if (t.cancel || !t.price || mine.has(`${t.kind}|${t.date}|${t.price}|${t.jibun}`)) continue;
+          const base = kind === 'land' ? t.dealAr : t.plottage;
+          t.share = t.share && t.share !== '-' ? t.share : '';
+          t.unit = base && !t.share && !(kind === 'nrg' && /집합/.test(t.btype)) ? Math.round(t.price / base) : null; // 만원/㎡
+          if (area && base) t.sim = Math.abs(base - area) / area <= 0.3; // 이 필지와 면적이 비슷한 거래
+          list.push(t);
+        }
+      });
+      list.sort((a, b) => b.date.localeCompare(a.date));
+      const units = list.map(t => t.unit).filter(Boolean);
+      nearBy[kind] = { label: KINDS[kind].label, n: list.length, nUnit: units.length, med: med(units), rows: list.slice(0, 30) };
+    }
+  }
   send(res, 200, {
     ok: true, pnu: P.pnu, months, kinds: kinds.map(k => ({ k, label: KINDS[k].label, sale: !!KINDS[k].sale })),
-    rows, errors: [...errors],
+    rows, near: nearBy, errors: [...errors],
   }, errors.size ? 0 : 21600);
 });
