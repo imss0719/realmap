@@ -6,7 +6,7 @@ window.Danji = (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const KIND = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
   const PY = 3.3058;
-  const S = { cx: { items: [], memos: {} }, cur: null, C: {}, results: null, adding: false, el: null, host: null, loaded: false };
+  const S = { boardOpen: (() => { try { return localStorage.getItem('rm.djboard') === '1'; } catch { return false; } })(), cx: { items: [], memos: {} }, cur: null, C: {}, results: null, adding: false, el: null, host: null, loaded: false };
   async function api(url, opt) {
     const r = await fetch(url, { credentials: 'same-origin', ...opt });
     const j = await r.json().catch(() => ({}));
@@ -110,10 +110,44 @@ window.Danji = (() => {
     $('dj_addBtn').onclick = () => { S.adding = S.adding === true ? false : true; S.results = null; draw(); };
   }
 
+  // 필지 하나의 아파트 동 목록 (건축물대장 표제부, 상가·관리동 등 제외)
+  async function dongsOf(pnu) {
+    try {
+      const b = await api(`/api/building?pnu=${pnu}`);
+      return ((b.titles && b.titles.data) || []).filter(t => t.mainAtch !== '부속건축물' && t.dong && /\d/.test(t.dong) && !/상가|관리|경로|어린이|커뮤니티|주민|근린/.test(t.dong + (t.use || '')))
+        .map(t => ({ pnu, dong: String(t.dong).trim(), grnd: t.grnd, ho: t.ho, hhld: t.hhld, use: t.use, apr: t.useApr }));
+    } catch { return []; }
+  }
+  // 같은 이름 계열 단지(1단지·2단지…)의 지번을 실거래에서 찾아 자동으로 붙입니다
+  async function discover(cx, C) {
+    const base = baseName(cx.name); if (base.length < 3) return;
+    const known = new Set(cx.places.map(p => p.pnu)), p0 = cx.places[0], cand = new Map();
+    for (const r of C.trades || []) {
+      if (r.kind !== 'apt' || !r.jibun || !normName(r.name).startsWith(base)) continue;
+      const m = String(r.jibun).match(/^(산\s*)?(\d+)(?:-(\d+))?$/); if (!m) continue;
+      const bjd = /^\d{5}$/.test(r.sgg || '') && /^\d{5}$/.test(r.umdCd || '') ? r.sgg + r.umdCd : p0.pnu.slice(0, 10);
+      const pnu = bjd + (m[1] ? '2' : '1') + m[2].padStart(4, '0') + (m[3] || '0').padStart(4, '0');
+      if (!known.has(pnu)) cand.set(pnu, r.name);
+    }
+    let added = 0;
+    for (const pnu of [...cand.keys()].slice(0, 8)) {
+      const ds = await dongsOf(pnu);
+      if (!ds.length) continue;
+      try {
+        const pl = await placeOf({ pnu });
+        const j = await post({ op: 'addplace', id: cx.id, place: pl });
+        S.cx = { items: j.items, memos: j.memos }; cx.places = (j.items.find(x => x.id === cx.id) || cx).places;
+      } catch { continue; }
+      const seen = new Set(C.dongs.map(d => d.pnu + '|' + d.dong));
+      ds.forEach(d => { if (!seen.has(d.pnu + '|' + d.dong)) C.dongs.push(d); });
+      added++;
+    }
+    if (added) { C.dongs.sort((a, b) => nat(a.dong, b.dong)); C.auto = added; if (S.cur === cx.id) { toast(`같은 단지의 다른 지번 ${added}곳을 찾아 동 목록에 더했습니다`); drawComplex(cx); } }
+  }
   async function loadComplex(cx) {
     const C = S.C[cx.id] = { dongs: null, trades: null, units: {}, lines: {}, cur: null, err: null };
     // 1) 건축물대장 표제부 → 동 목록 (필지마다)
-    const lists = await Promise.all(cx.places.map(p => api(`/api/building?pnu=${p.pnu}`).then(b => ((b.titles && b.titles.data) || []).filter(t => t.mainAtch !== '부속건축물' && t.dong && /\d/.test(t.dong) && !/상가|관리|경로|어린이|커뮤니티|주민|근린/.test(t.dong + (t.use || ''))).map(t => ({ pnu: p.pnu, dong: String(t.dong).trim(), grnd: t.grnd, ho: t.ho, hhld: t.hhld, use: t.use, apr: t.useApr }))).catch(() => [])));
+    const lists = await Promise.all(cx.places.map(p => dongsOf(p.pnu)));
     const seen = new Set();
     C.dongs = lists.flat().filter(d => { const k = d.pnu + '|' + d.dong; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => nat(a.dong, b.dong));
     C.cur = C.dongs[0] ? C.dongs[0].pnu + '|' + C.dongs[0].dong : null;
@@ -125,6 +159,7 @@ window.Danji = (() => {
       C.trades = (j.rows || []).filter(r => !r.cancel);
     } catch (e) { C.trades = []; C.err = e.message; }
     if (S.cur === cx.id) drawComplex(cx);
+    discover(cx, C);
   }
 
   function drawComplex(cx) {
@@ -132,17 +167,19 @@ window.Danji = (() => {
     if (!C) { loadComplex(cx); $('dj_cxBody').innerHTML = '<div class="card loading">단지 정보를 불러오는 중…</div>'; return; }
     const hhld = (C.dongs || []).reduce((a, d) => a + (d.hhld || d.ho || 0), 0);
     const apr = (C.dongs || []).map(d => d.apr).filter(Boolean).sort()[0];
+    const open = S.boardOpen;
     $('dj_cxBody').innerHTML = `
-      <div class="card"><div class="hd"><div class="t"><b>${esc(cx.name)}</b>
-        <div class="muted">${C.dongs ? `${C.dongs.length}개 동${hhld ? ` · ${hhld.toLocaleString()}세대` : ''}${apr ? ` · ${esc(String(apr).slice(0, 4))}년 사용승인` : ''}` : '동 정보를 불러오는 중…'}</div>
-        <div class="places">${cx.places.map(p => `<span>${esc(p.addr)}</span>`).join('')}</div></div>
-        <div class="acts"><button class="btn sub sm" id="dj_addPl" type="button">＋ 필지 추가</button><button class="btn sub sm" id="dj_ren" type="button">이름 바꾸기</button><button class="btn sub sm" id="dj_delCx" type="button">빼기</button></div></div></div>
-      <div class="card" id="dj_board">${board(C)}</div>
-      <div class="card"><h2>동별 호 현황<small>층 × 라인 · 내 매물과 메모 표시</small></h2>
-        <div class="dongs" id="dj_dongs">${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = countMine(cx, d); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${k === C.cur}">${esc(d.dong)}${n ? `<small>매물 ${n}</small>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다. 필지 추가로 단지 지번을 더 넣어 보세요.</span>' : '')}</div>
+      <div class="card hdc"><div class="hd"><div class="t"><b>${esc(cx.name)}</b>
+        <span class="muted">${C.dongs ? `${C.dongs.length}개 동${hhld ? ` · ${hhld.toLocaleString()}세대` : ''}${apr ? ` · ${esc(String(apr).slice(0, 4))}년` : ''}` : '동 정보를 불러오는 중…'}</span></div>
+        <div class="acts"><button class="btn ghost sm" id="dj_ren" type="button">이름 바꾸기</button><button class="btn ghost sm" id="dj_delCx" type="button">빼기</button></div></div>
+        <div class="sum">${summary(C)}<button type="button" class="lnk" id="dj_bt">${open ? '시세 접기 ▴' : '시세 자세히 ▾'}</button></div>
+        ${open ? `<div id="dj_board">${board(C)}</div>` : ''}</div>
+      <div class="card gcard">
+        <div class="dongs" id="dj_dongs">${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = countMine(cx, d); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${k === C.cur}">${esc(d.dong)}${n ? `<small>매물 ${n}</small>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
         <div id="dj_gridBox"></div>
-        <div class="lgd"><span><i style="background:var(--sale)"></i>내 매물 매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:#E3E8ED"></i>계약 완료</span><span><i style="background:var(--gold);border-radius:50%"></i>메모</span><span><i style="background:#FFF6D6"></i>이 층 실거래(1년)</span></div>
+        <div class="lgd"><span><i style="background:var(--sale)"></i>내 매물 매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:#E3E8ED"></i>계약 완료</span><span><i style="background:var(--gold);border-radius:50%"></i>메모</span><span><i style="background:#FFF6D6"></i>이 층 실거래(1년)</span><button type="button" class="lnk" id="dj_addPl">빠진 동이 있나요?</button></div>
       </div>`;
+    $('dj_bt').onclick = () => { S.boardOpen = !S.boardOpen; try { localStorage.setItem('rm.djboard', S.boardOpen ? '1' : ''); } catch { /* 무시 */ } drawComplex(cx); };
     $('dj_addPl').onclick = () => { S.adding = 'place'; S.results = null; draw(); };
     $('dj_ren').onclick = async () => { const nm = prompt('단지 이름', cx.name); if (!nm || nm === cx.name) return; try { const j = await post({ op: 'rename', id: cx.id, name: nm }); S.cx = { items: j.items, memos: j.memos }; delete S.C[cx.id]; draw(); } catch (e) { toast(e.message); } };
     $('dj_delCx').onclick = async () => { if (!confirm(`${cx.name}을(를) 단지 장부에서 뺄까요? 이 단지에 남긴 호별 메모도 함께 지워집니다.`)) return; try { const j = await post({ op: 'del', id: cx.id }); S.cx = { items: j.items, memos: j.memos }; S.cur = (S.cx.items[0] || {}).id; draw(); } catch (e) { toast(e.message); } };
@@ -151,6 +188,16 @@ window.Danji = (() => {
   }
 
   // ---------- 시세판 ----------
+  // 한 줄 요약: 거래 많은 평형 3개의 최근 6개월 매매 중간값 + 전세가율
+  function summary(C) {
+    if (!C.trades) return '<span class="muted">실거래를 모으는 중…</span>';
+    const since = (() => { const d = new Date(Date.now() + 9 * 3600e3); d.setUTCMonth(d.getUTCMonth() - 6); return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`; })();
+    const g = new Map();
+    for (const r of C.trades) { if (!r.ex) continue; const k = Math.round(r.ex); let e = g.get(k); if (!e) g.set(k, e = { ex: k, s: [], j: [] }); if (r.kind === 'apt') e.s.push(r); else if (!r.rent && r.deposit) e.j.push(r); }
+    const top = [...g.values()].filter(e => e.s.length).sort((a, b) => b.s.length - a.s.length).slice(0, 3).sort((a, b) => a.ex - b.ex);
+    if (!top.length) return '<span class="muted">최근 1년 매매가 없습니다</span>';
+    return top.map(e => { const ss = e.s.filter(r => r.date >= since).map(r => r.price), jj = e.j.filter(r => r.date >= since).map(r => r.deposit); const sm = med(ss.length ? ss : e.s.map(r => r.price)), jm = med(jj.length ? jj : e.j.map(r => r.deposit)); const jr = sm && jm ? Math.round(jm / sm * 100) : null; return `<span class="chip"><b>${e.ex}㎡</b> ${shortWon(sm)}${jr ? ` <small class="${jr >= 80 ? 'jr-hi' : jr >= 70 ? 'jr-mid' : ''}">전세 ${jr}%</small>` : ''}</span>`; }).join('');
+  }
   function board(C) {
     if (!C.trades) return '<h2>단지 시세판<small>최근 1년 실거래</small></h2><div class="loading">국토교통부 실거래를 모으는 중…</div>';
     const T = C.trades;

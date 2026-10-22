@@ -38,6 +38,16 @@
   const py = m2 => m2 ? `${m2}㎡ (${(m2 / 3.3058).toFixed(1)}평)` : '';
   const ymd = iso => iso ? iso.slice(0, 10).replace(/-/g, '.') : '';
 
+  // ---------- 글씨 크기 (가− / 가+), 이 기기에 기억 ----------
+  const FZ = [0.9, 1, 1.1, 1.2, 1.32];
+  function setFz(i) {
+    i = Math.max(0, Math.min(FZ.length - 1, i)); S.fz = i;
+    document.documentElement.style.setProperty('--fz', FZ[i]);
+    try { localStorage.setItem('rm.fz', String(i)); } catch { /* 무시 */ }
+    $('fzDn').disabled = i === 0; $('fzUp').disabled = i === FZ.length - 1;
+  }
+  (() => { let i = 1; try { const v = localStorage.getItem('rm.fz'); if (v !== null) i = +v; } catch { /* 무시 */ } setFz(i); $('fzDn').onclick = () => setFz(S.fz - 1); $('fzUp').onclick = () => setFz(S.fz + 1); })();
+
   // ---------- 시작 ----------
   async function init() {
     try { S.me = await api('/api/auth?action=me'); } catch { S.me = { member: false }; }
@@ -63,7 +73,7 @@
 
   function layout() {
     $('root').innerHTML = `<div class="wrap">
-      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="mtog" role="group" aria-label="왼쪽 화면"><button type="button" data-mode="map">지도</button><button type="button" data-mode="danji">단지</button></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
+      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
       <div class="side" style="display:grid;gap:12px">
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
         <div class="tabs" id="tabs"></div>
