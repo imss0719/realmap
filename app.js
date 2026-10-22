@@ -878,10 +878,25 @@
     out.push(trendChart(list, S.tradeMode));
     if (T.partial) out.push(`<p class="note loadmore"><span class="spin"></span>최근 ${T.partial.done / 12}년치를 먼저 보여 드리고, 나머지 ${(T.partial.total - T.partial.done) / 12}년치를 이어서 불러오는 중입니다.</p>`);
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'sale' ? '매매' : '전월세'} 거래가 없습니다.</div>`);
+    if (S.tradeMode === 'sale') out.push(nearSection(T));
     if (T.errors && T.errors.length) { console.warn('[리얼맵] 실거래', T.errors); out.push(`<div class="err soft"><span>일부 기간의 거래 자료를 불러오지 못해 빠진 거래가 있을 수 있습니다.</span><button type="button" data-retry>다시 불러오기</button></div>`); }
     out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
     out.push(src(['국토교통부 실거래가 공개시스템']));
     return out.join('');
+  }
+  // 같은 동·같은 종류 비교 사례 (단독·다가구, 상업업무용, 토지)
+  function nearSection(T) {
+    const N = T.near || {}, dong = S.sel.dongName || '';
+    const NAME = { sh: '단독·다가구', nrg: '상가·업무 건물', land: '토지' }, BASE = { sh: '대지', nrg: '대지', land: '토지' };
+    return Object.entries(N).map(([k, v]) => {
+      if (!v || !v.n) return `<section class="near"><h2>${esc(dong)} ${NAME[k]} 비교 사례<span>최근 1년</span></h2><div class="empty">최근 1년 동안 ${esc(dong)}에서 신고된 ${NAME[k]} 매매가 없습니다.</div></section>`;
+      const unitTxt = v.med ? `${BASE[k]} ${S.unit === 'm2' ? '㎡' : '평'}당 <b>${n(Math.round(S.unit === 'm2' ? v.med : v.med / 0.3025))}만원</b>` : '';
+      const rows = v.rows.map(r => saleRow({ ...r, _loc: `${dong} ${r.jibun || ''}`.trim() }).replace('<li class="', `<li class="${r.sim ? 'sim ' : ''}`)).join('');
+      return `<section class="near"><h2>${esc(dong)} ${NAME[k]} 비교 사례<span>최근 1년 · ${v.n}건</span></h2>
+        ${unitTxt ? `<p class="near-med">${unitTxt} <small>중간값 · ${v.nUnit}건 기준${v.nUnit < 3 ? ' · <em>거래 적음</em>' : ''}</small></p>` : ''}
+        <ul class="trades">${rows}</ul>
+        <p class="note">같은 동에서 신고된 ${NAME[k]} 매매입니다. 지번은 국토부가 일부를 가려 공개합니다. 노란 표시는 이 필지와 ${BASE[k]}면적이 비슷한(±30%) 거래이고, 단가 중간값은 지분 거래${k === 'nrg' ? '·집합건물(구분 상가)' : ''}를 빼고 계산했습니다.</p></section>`;
+    }).join('');
   }
   // 전세가율: 같은 면적대의 매매가 중간값 대비 전세 보증금 중간값
   function jeonseRatio(rows) {
@@ -984,6 +999,7 @@
       sub = `거래면적 ${ar(r.dealAr)[0]}${r.zone ? ' · ' + esc(r.zone) : ''}`;
       if (r.dealAr && r.price) unitP = `${S.unit === 'm2' ? '㎡' : '평'}당 ${n(Math.round(r.price / (S.unit === 'm2' ? r.dealAr : toPy(r.dealAr))))}만원`;
     }
+    if (r._loc) sub = `${esc(r._loc)} · ${sub}`;
     return `<li class="${r.cancel ? 'x' : ''}"><span class="d">${esc(r.date)}</span><span class="w">${what}${badge(r)}<br><span class="s">${sub}</span></span><span class="p">${won(r.price)}<small>${unitP}</small></span></li>`;
   }
   function rentRow(r) {
