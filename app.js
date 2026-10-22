@@ -576,7 +576,8 @@
       </div><p class="note">괄호 안 '저촉'은 일부가 걸쳐 있다는 뜻이고, '접함'은 경계에 붙어 있다는 뜻입니다.</p></section>`);
     } else out.push(errBox('토지이용계획', L.use && L.use.message));
 
-    out.push(roomSection(true));
+    // 건축 여유는 한 화면에 한 번만: 일반 건물·땅은 '토지' 칸에, 집합건물(아파트 등)만 여기에
+    if (isCollective()) out.push(roomSection(true));
     out.push(`<p class="src">출처 · 브이월드 토지이용계획 · <a href="https://www.eum.go.kr/web/ar/lu/luLandDet.jsp?isNoScr=script&mode=search&pnu=${esc(S.sel.pnu)}" target="_blank" rel="noopener">토지이음에서 원문 보기</a></p>`);
     return out.join('');
   }
