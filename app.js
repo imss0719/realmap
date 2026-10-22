@@ -2064,9 +2064,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     // 동별 시세 설정
     try { const v = JSON.parse(localStorage.getItem('rm.pm') || 'null'); if (v) { PM.kind = v.kind || 'apt'; PM.mode = v.mode || 'price'; } } catch { /* 저장소 없음 */ }
     $('pmKind').value = PM.kind;
-    const pmSave = () => { try { localStorage.setItem('rm.pm', JSON.stringify({ kind: PM.kind, mode: PM.mode })); } catch { /* 무시 */ } };
     $('pmKind').onchange = () => { PM.kind = $('pmKind').value; pmSave(); priceRefresh(true); };
-    document.querySelectorAll('[data-pm]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.pm === PM.mode); b.onclick = () => { PM.mode = b.dataset.pm; document.querySelectorAll('[data-pm]').forEach(x => x.setAttribute('aria-pressed', x === b)); pmSave(); priceRefresh(true); }; });
+    document.querySelectorAll('#tpanel [data-pm]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.pm === PM.mode); b.onclick = () => pmSetMode(b.dataset.pm); });
+    // 범례 위 평당가/상승률 전환 버튼 (범례는 다시 그려지므로 범례 상자에서 한 번에 받습니다)
+    $('pmLegend').addEventListener('click', e => { const b = e.target.closest('[data-pm]'); if (b) pmSetMode(b.dataset.pm); });
     tradeRefresh();
   }
   // ---------- 동별·구별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
@@ -2077,6 +2078,13 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, sel: null, hov: null };
   const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
   const PY3 = 3.305785;
+  const pmSave = () => { try { localStorage.setItem('rm.pm', JSON.stringify({ kind: PM.kind, mode: PM.mode })); } catch { /* 무시 */ } };
+  function pmSetMode(m) {
+    if (PM.mode === m) return;
+    PM.mode = m; pmSave();
+    document.querySelectorAll('[data-pm]').forEach(x => x.setAttribute('aria-pressed', x.dataset.pm === m));
+    priceRefresh(true);
+  }
   const pmActive = () => T.on && S.map.getLevel() >= PMIN && S.map.getLevel() <= PMAX;
   const pmLayer = () => S.map.getLevel() >= PGU ? 'g' : 'd';
   const pmBox = f => { let a = 180, b = 90, c = -180, d = -90; f.g.forEach(r => r.forEach(([x, y]) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); })); f.bb = [a, b, c, d]; f.ctr = pmCenter(f.g); return f; };
@@ -2177,6 +2185,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const proj = S.map.getProjection();
     const px = (x, y) => proj.containerPointFromCoords(new K.LatLng(y, x));
     const L = PM.L[ly], feats = ly === 'g' ? PM.sgg : PM.umd;
+    const cands = [];
     for (const f of feats) {
       const c = f.c, [x0, y0, x1, y1] = f.bb;
       const near = x1 >= sw.getLng() && x0 <= ne.getLng() && y1 >= sw.getLat() && y0 <= ne.getLat();
@@ -2201,21 +2210,30 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         if (!lab) { const el = document.createElement('div'); lab = new K.CustomOverlay({ position: new K.LatLng(f.ctr[1], f.ctr[0]), content: el, yAnchor: .5, zIndex: 4 }); L.labels.set(c, lab); }
         const el = lab.getContent();
         if (restyle || !el.innerHTML) { el.className = `pmlab${ly === 'g' ? ' gu' : ''}${x ? '' : ' none'}`; el.innerHTML = `<b>${esc(nm)}</b>${x ? `<span class="v${pmCls(x)}">${pmTxt(x)}</span>` : ''}`; }
-        if (!lab.getMap()) lab.setMap(S.map);
+        const cp = px(f.ctr[0], f.ctr[1]);
+        cands.push({ lab, x: cp.x, y: cp.y, w: need, h: x ? (ly === 'g' ? 40 : 36) : 18, n: x ? x.n : 0, a: w * h });
       } else if (lab) lab.setMap(null);
     }
+    // 이름표끼리 많이 겹치면 거래가 많은 지역 것만 남깁니다 (살짝 겹치는 정도는 둡니다)
+    const put = [];
+    cands.sort((p, q) => q.n - p.n || q.a - p.a).forEach(o => {
+      const hit = put.some(r => Math.abs(r.x - o.x) * 2 < r.w + o.w - 4 && Math.abs(r.y - o.y) * 2 < r.h + o.h - 14);
+      if (hit) { o.lab.setMap(null); return; }
+      put.push(o); if (!o.lab.getMap()) o.lab.setMap(S.map);
+    });
     pmLegend(ly);
   }
   function pmLegend(ly) {
     const el = $('pmLegend'), P = PM.price;
     const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind], U = ly === 'g' ? '구별' : '동별';
     const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}`;
+    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button></div>`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
     if (PM.mode === 'price') {
       const q = PM.q[ly], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
-      el.innerHTML = `<b><em>${U}</em> ${KN} 전용 평당가 <small>${per}</small></b><div class="pml">${PCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])} 이하</span><span>${f(q[5])} 이상</span></div>${hint}`;
+      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전용 평당가 <small>${per}</small></b><div class="pml">${PCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])} 이하</span><span>${f(q[5])} 이상</span></div>${hint}`;
     } else {
-      el.innerHTML = `<b><em>${U}</em> ${KN} 1년 변동 <small>${per} · 1년 전 대비</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div>${hint}`;
+      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 1년 상승률 <small>${per} · 1년 전 같은 기간 대비</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div>${hint}`;
     }
     el.hidden = false;
   }

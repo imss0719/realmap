@@ -487,6 +487,10 @@ a.favbtn{text-decoration:none}
 .pmlab.gu b{font-size:14px;font-weight:800}
 .pmlab.gu .v{font-size:12.5px;padding:2px 9px}
 .pmlegend{position:absolute;left:12px;bottom:26px;z-index:12;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.14);padding:8px 10px;font-size:12px;min-width:190px}
+.pmlegend .pmseg{display:flex;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:3px;margin:0 0 9px;gap:2px}
+.pmlegend .pmseg button{flex:1;border:0;background:transparent;font:inherit;font-size:13px;font-weight:700;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.pmlegend .pmseg button[aria-pressed="true"]{background:var(--accent);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.pmlegend .pmseg button:not([aria-pressed="true"]):hover{color:var(--fg)}
 .pmlegend b{display:block;margin-bottom:6px}.pmlegend b small{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:1px}
 .pmlegend b em{font-style:normal;font-size:10.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;margin-right:3px;vertical-align:1px}
 .pmlegend .pml{display:flex;gap:1px}.pmlegend .pml i{flex:1;height:9px}.pmlegend .pml i:first-child{border-radius:3px 0 0 3px}.pmlegend .pml i:last-child{border-radius:0 3px 3px 0}
