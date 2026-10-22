@@ -13,7 +13,7 @@ if (!process.env.DATA_GO_KR_KEY) { console.log('DATA_GO_KR_KEY 비밀값이 비�
 // 시군구 목록은 data/sgg-<시도>.json(구별 경계)에서 읽습니다
 // 행정구역이 바뀐 곳은 예전 코드로 신고된 거래도 받아서, 동 이름으로 새 구에 넣습니다
 //   인천: 중구·동구 → 제물포구·영종구, 서구 → 서구·검단구 (2026.7)   화성시 → 만세·효행·병점·동탄구 (2026.2)
-const SIDOS = ['11', '28', '41', '26'];
+const SIDOS = ['11', '41', '28', '26'];   // 중요한 순서대로 (시간이 모자라면 뒤쪽은 지난번 자료를 그대로 둡니다)
 const OLD = { '28': { '28110': ['28125', '28155'], '28140': ['28125'], '28260': ['28275', '28290'] }, '41': { '41590': ['41591', '41593', '41595', '41597'] } };
 const KINDS = ['apt', 'rh', 'offi'];
 // 전세가율용 전월세 (최근 6개월만): 월세 없는 신규 전세 계약의 보증금 ㎡당 중간값
@@ -25,6 +25,12 @@ const med = a => { if (!a.length) return null; a = [...a].sort((x, y) => x - y);
 const all = monthsBack(19);           // [이번달, 지난달, …]
 const CUR = all.slice(1, 7), PREV = all.slice(13, 19);
 const t0 = Date.now();
+// 시간 제한: 공공데이터포털이 느린 날에도 워크플로(60분)가 끊기기 전에 끝내고, 받은 만큼은 저장합니다
+const DEADLINE = Number(process.env.PM_MINUTES || 40) * 60e3;
+const late = () => Date.now() - t0 > DEADLINE;
+// '1년 전 같은 6개월' 자료는 한 달 동안 바뀌지 않으므로, 요약을 data/price-prev-<시도>.json에 보관해 두고
+// 같은 기간이면 다시 받지 않습니다 (매주 요청 약 1/3 절약)
+const PREV_KEY = PREV.join(',');
 
 for (const sido of SIDOS) {
   const t1 = Date.now();
@@ -36,16 +42,19 @@ for (const sido of SIDOS) {
   const byName = {};
   try { for (const f of JSON.parse(await readFile(`data/umd-${sido}.json`, 'utf8')).f) byName[`${f.c.slice(0, 5)}|${f.n}`] = f.c; } catch { /* 경계 파일 없음 */ }
   const valid = new Set(Object.values(byName));
+  if (late()) { console.log(`[${sido}] 시간이 모자라 이번에는 건너뜁니다 (지난번 자료 유지)`); continue; }
+  let prevC = null;
+  try { const c = JSON.parse(await readFile(`data/price-prev-${sido}.json`, 'utf8')); if (c.range === PREV_KEY) prevC = c; } catch { /* 없음 */ }
   const d = {};                        // 법정동 8자리 → { n, apt:{c:[], p:[]}, ... }
   const jobs = [];
-  for (const sgg of sggs) for (const k of KINDS) for (const ym of [...CUR, ...PREV]) jobs.push([sgg, k, ym]);
+  for (const sgg of sggs) for (const k of KINDS) for (const ym of prevC ? CUR : [...CUR, ...PREV]) jobs.push([sgg, k, ym]);
   for (const sgg of sggs) for (const k of Object.keys(RENT)) for (const ym of CUR) jobs.push([sgg, k, ym]);
-  let fails = 0;
+  let fails = 0, prevFails = 0;
   const seen = new Set();              // 같은 거래가 옛 코드·새 코드로 두 번 오면 한 번만 셉니다
-  const rs = await pool(jobs, 5, ([sgg, k, ym]) => month(k, sgg, ym));
+  const rs = await pool(jobs, 6, ([sgg, k, ym]) => { if (late()) throw new Error('시간 초과'); return month(k, sgg, ym); });
   rs.forEach((r, i) => {
     const [sgg, k, ym] = jobs[i];
-    if (!r.ok) { fails++; return; }
+    if (!r.ok) { fails++; if (PREV.includes(ym)) prevFails++; return; }
     const isCur = CUR.includes(ym);
     const succ = (OLD[sido] || {})[sgg];
     const base = RENT[k];                                                 // 전월세면 'apt' 등, 매매면 undefined
@@ -84,8 +93,12 @@ for (const sido of SIDOS) {
   const pairs = (m, k) => { const out = []; for (const [key, v] of m) if (key.startsWith(k + '|') && v.s.length && v.j.length) out.push([med(v.j) / med(v.s) * 100, Math.min(v.s.length, v.j.length)]); return out; };
   const wmed = ps => { const a = [...ps].sort((x, y) => x[0] - y[0]), tot = a.reduce((t, p) => t + p[1], 0); let c = 0; for (const p of a) { c += p[1]; if (c >= tot / 2) return p[0]; } return null; };
   const jsumM = (arr, ps) => { const w = ps.reduce((t, p) => t + p[1], 0); return [Math.round(med(arr)), arr.length, w >= 3 ? Math.round(wmed(ps) * 10) / 10 : null, w]; };   // [전세 ㎡당, 건수, 같은 단지 전세가율(%), 짝 거래 수]
-  // 동별 요약: [최근 중간값, 최근 건수, 1년 전 중간값, 1년 전 건수]
-  const sum = b => [b.c.length ? Math.round(med(b.c)) : null, b.c.length, b.p.length ? Math.round(med(b.p)) : null, b.p.length];
+  // 실패가 많으면 이번 결과로 덮어쓰지 않습니다 (지난번 자료가 더 정확)
+  if (fails > jobs.length * 0.15) { console.log(`[${sido}] 요청 ${jobs.length}건 중 ${fails}건 실패 → 지난번 자료를 그대로 둡니다`); continue; }
+  // 동별 요약: [최근 중간값, 최근 건수, 1년 전 중간값, 1년 전 건수] — 1년 전 값은 보관해 둔 요약을 쓸 수 있음
+  const prevOf = (src, key, k, b) => b.p.length ? [Math.round(med(b.p)), b.p.length] : (prevC && prevC[src][key] && prevC[src][key][k]) || [null, 0];
+  const sumD = (key, k, b) => { const pv = prevOf('d', key, k, b); return [b.c.length ? Math.round(med(b.c)) : null, b.c.length, pv[0], pv[1]]; };
+  const sumG = (key, k, b) => { const pv = prevOf('g', key, k, b); return [b.c.length ? Math.round(med(b.c)) : null, b.c.length, pv[0], pv[1]]; };
   // 구별 요약: 동별 값을 다시 평균내지 않고, 구 안의 모든 거래로 중간값을 냅니다
   const gu = {};
   for (const [emd, e] of Object.entries(d)) {
@@ -94,15 +107,21 @@ for (const sido of SIDOS) {
     for (const k of KINDS) if (e[k + 'J']) { (g[k + 'J'] || (g[k + 'J'] = [])).push(...e[k + 'J']); (g[k + 'P'] || (g[k + 'P'] = [])).push(...pairs(e.m, k)); }
   }
   const gout = {};
-  for (const [c, g] of Object.entries(gu)) { const o = { n: g.n }; for (const k of KINDS) { if (g[k]) o[k] = sum(g[k]); if (g[k + 'J']) o[k + 'J'] = jsumM(g[k + 'J'], g[k + 'P'] || []); } gout[c] = o; }
+  for (const [c, g] of Object.entries(gu)) { const o = { n: g.n }; for (const k of KINDS) { if (g[k]) o[k] = sumG(c, k, g[k]); if (g[k + 'J']) o[k + 'J'] = jsumM(g[k + 'J'], g[k + 'P'] || []); } gout[c] = o; }
   const out = {};
   for (const [emd, e] of Object.entries(d)) {
     const o = { n: e.n };
-    for (const k of KINDS) { if (e[k]) o[k] = sum(e[k]); if (e[k + 'J']) o[k + 'J'] = jsumM(e[k + 'J'], pairs(e.m, k)); }
+    for (const k of KINDS) { if (e[k]) o[k] = sumD(emd, k, e[k]); if (e[k + 'J']) o[k + 'J'] = jsumM(e[k + 'J'], pairs(e.m, k)); }
     out[emd] = o;
   }
   const json = { updated: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), cur: [CUR[CUR.length - 1], CUR[0]], prev: [PREV[PREV.length - 1], PREV[0]], unit: '만원/전용㎡', d: out, g: gout };
   await writeFile(`data/price-${sido}.json`, JSON.stringify(json));
-  console.log(`[${sido}] 동 ${Object.keys(out).length}곳 · 요청 ${jobs.length}건 · 실패 ${fails}건 · ${Math.round((Date.now() - t1) / 1000)}초 (누적 ${Math.round((Date.now() - t0) / 1000)}초)`);
-  if (fails > jobs.length * 0.2) { console.log('실패가 많아 저장은 했지만 다음 실행 때 다시 받습니다.'); }
+  // 1년 전 요약 보관 (이번에 새로 받았고 거의 다 받았을 때만)
+  if (!prevC && prevFails <= sggs.length * KINDS.length * PREV.length * 0.03) {
+    const pd = {}, pg = {};
+    for (const [emd, e] of Object.entries(d)) for (const k of KINDS) if (e[k] && e[k].p.length) (pd[emd] || (pd[emd] = {}))[k] = [Math.round(med(e[k].p)), e[k].p.length];
+    for (const [c, g] of Object.entries(gu)) for (const k of KINDS) if (g[k] && g[k].p.length) (pg[c] || (pg[c] = {}))[k] = [Math.round(med(g[k].p)), g[k].p.length];
+    await writeFile(`data/price-prev-${sido}.json`, JSON.stringify({ range: PREV_KEY, d: pd, g: pg }));
+  }
+  console.log(`[${sido}] 동 ${Object.keys(out).length}곳 · 1년 전 자료 ${prevC ? '보관본 사용' : '새로 받음'} · 요청 ${jobs.length}건 · 실패 ${fails}건 · ${Math.round((Date.now() - t1) / 1000)}초 (누적 ${Math.round((Date.now() - t0) / 1000)}초)`);
 }
