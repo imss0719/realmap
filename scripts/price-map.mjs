@@ -14,6 +14,7 @@ const SIDO = {
   '11': ['11110', '11140', '11170', '11200', '11215', '11230', '11260', '11290', '11305', '11320', '11350', '11380', '11410', '11440', '11470', '11500', '11530', '11545', '11560', '11590', '11620', '11650', '11680', '11710', '11740'],
 };
 const KINDS = ['apt', 'rh', 'offi'];
+const GUNM = { '11110': '종로구', '11140': '중구', '11170': '용산구', '11200': '성동구', '11215': '광진구', '11230': '동대문구', '11260': '중랑구', '11290': '성북구', '11305': '강북구', '11320': '도봉구', '11350': '노원구', '11380': '은평구', '11410': '서대문구', '11440': '마포구', '11470': '양천구', '11500': '강서구', '11530': '구로구', '11545': '금천구', '11560': '영등포구', '11590': '동작구', '11620': '관악구', '11650': '서초구', '11680': '강남구', '11710': '송파구', '11740': '강동구' };
 const clean = s => String(s ?? '').trim();
 const med = a => { if (!a.length) return null; a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
 
@@ -48,13 +49,22 @@ for (const [sido, sggs] of Object.entries(SIDO)) {
     }
   });
   // 동별 요약: [최근 중간값, 최근 건수, 1년 전 중간값, 1년 전 건수]
+  const sum = b => [b.c.length ? Math.round(med(b.c)) : null, b.c.length, b.p.length ? Math.round(med(b.p)) : null, b.p.length];
+  // 구별 요약: 동별 값을 다시 평균내지 않고, 구 안의 모든 거래로 중간값을 냅니다
+  const gu = {};
+  for (const [emd, e] of Object.entries(d)) {
+    const g = gu[emd.slice(0, 5)] || (gu[emd.slice(0, 5)] = { n: GUNM[emd.slice(0, 5)] || emd.slice(0, 5) });
+    for (const k of KINDS) if (e[k]) { const b = g[k] || (g[k] = { c: [], p: [] }); b.c.push(...e[k].c); b.p.push(...e[k].p); }
+  }
+  const gout = {};
+  for (const [c, g] of Object.entries(gu)) { const o = { n: g.n }; for (const k of KINDS) if (g[k]) o[k] = sum(g[k]); gout[c] = o; }
   const out = {};
   for (const [emd, e] of Object.entries(d)) {
     const o = { n: e.n };
     for (const k of KINDS) if (e[k]) { const { c, p } = e[k]; o[k] = [c.length ? Math.round(med(c)) : null, c.length, p.length ? Math.round(med(p)) : null, p.length]; }
     out[emd] = o;
   }
-  const json = { updated: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), cur: [CUR[CUR.length - 1], CUR[0]], prev: [PREV[PREV.length - 1], PREV[0]], unit: '만원/전용㎡', d: out };
+  const json = { updated: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), cur: [CUR[CUR.length - 1], CUR[0]], prev: [PREV[PREV.length - 1], PREV[0]], unit: '만원/전용㎡', d: out, g: gout };
   await writeFile(`data/price-${sido}.json`, JSON.stringify(json));
   console.log(`[${sido}] 동 ${Object.keys(out).length}곳 · 요청 ${jobs.length}건 · 실패 ${fails}건 · ${Math.round((Date.now() - t0) / 1000)}초`);
   if (fails > jobs.length * 0.2) { console.log('실패가 많아 저장은 했지만 다음 실행 때 다시 받습니다.'); }
