@@ -135,14 +135,14 @@ details.rents small{color:var(--muted)}
 .legend{position:absolute;left:8px;bottom:8px;z-index:3;flex-wrap:wrap;margin-right:50px;background:rgba(255,255,255,.95);border-radius:10px;padding:5px 10px;font-size:13px;font-weight:700;display:flex;gap:10px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
 .mtog{display:inline-flex;background:rgba(255,255,255,.12);border-radius:10px;padding:3px;margin-left:6px}
-.mtog button{border:0;background:none;border-radius:8px;padding:6px 14px;font-weight:700;font-size:15px;color:rgba(255,255,255,.75)}
+.mtog button{white-space:nowrap;border:0;background:none;border-radius:8px;padding:6px 14px;font-weight:700;font-size:15px;color:rgba(255,255,255,.75)}
 .mtog button[aria-pressed=true]{background:#fff;color:var(--navy)}
-@media (max-width:600px){.top .who{display:none}.top h1{font-size:18px}.top h1 .pro{display:none}.mtog button{padding:6px 10px}}
+@media (max-width:600px){.top .who{display:none}.top h1{font-size:18px}.top h1 .pro{display:none}.mtog button{padding:6px 9px;font-size:14px}.top h1,.mtog button{white-space:nowrap}.top h1{font-size:17px}.fz button{width:34px}}
 .dj#dj{position:absolute;inset:0;z-index:4;overflow:auto;background:var(--bg)}
 .dj#dj[hidden]{display:none}
 .dj .dj-wrap{display:grid;gap:14px;padding:4px 12px 40px}
-body.djmode .legend{display:none}
-@media (max-width:979px){body.djmode .mapbox{height:78vh}}
+body.djmode .legend,body.lvmode .legend{display:none}
+@media (max-width:979px){body.djmode .mapbox,body.lvmode .mapbox{height:78vh}}
 .dj .dj-wrap>*,.dj #dj_cxBody>*{min-width:0}
 .dj #dj_cxBody{display:grid;gap:14px;min-width:0}
 .dj .btn{border:0;border-radius:14px;min-height:48px;padding:0 18px;font-weight:700;font-size:16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
@@ -248,16 +248,50 @@ body.djmode .legend{display:none}
 .fz{display:inline-flex;gap:4px}
 .fz button{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:8px;width:40px;height:34px;font-weight:700;font-size:15px}
 .fz button:disabled{opacity:.35}
-.side,.dj .dj-wrap,.sheet .sbox{zoom:var(--fz,1)}
+.side,.dj .dj-wrap,.lv .lv-wrap,.sheet .sbox{zoom:var(--fz,1)}
 @media (min-width:980px){.side{width:calc(500px / var(--fz,1))!important}}
 @media (min-width:1500px){.side{width:calc(560px / var(--fz,1))!important}}
+/* 리스트 모드 */
+.lv#lv{position:absolute;inset:0;z-index:4;overflow:auto;background:var(--bg)}
+.lv#lv[hidden]{display:none}
+.lv .lv-wrap{padding:10px 12px 40px}
+.lv .lv-f{background:var(--card);border-radius:16px;padding:10px 14px;display:grid;gap:8px;position:sticky;top:0;z-index:3;box-shadow:0 4px 10px -6px rgba(0,0,0,.2)}
+.lv .lv-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:15px}
+.lv .lv-row>b{font-size:15px}
+.lv .lv-row label{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--muted);font-weight:600}
+.lv .lv-row input[type=number]{width:78px}.lv .lv-row input[type=search]{width:150px}
+.lv .lv-row input,.lv .lv-row select{border:2px solid var(--line);border-radius:9px;padding:5px 8px;font-size:15px;background:#fff;color:var(--fg)}
+.lv .lv-row .sp{flex:1}.lv .cnt{font-size:15px}
+.lv .ck2{font-weight:500!important}
+.lv .lnk{background:none;border:0;color:var(--sale);font-weight:700;font-size:14px;padding:4px 2px;white-space:nowrap}
+.lv .bulk{background:#FFF7D6;border-radius:10px;padding:6px 10px}
+.lv .bulk button:not(.lnk){border:2px solid var(--line);background:#fff;border-radius:9px;padding:5px 10px;font-weight:700;font-size:14px}
+.lv .lv-t{margin-top:10px;background:var(--card);border-radius:16px;overflow:auto}
+.lv table{width:100%;border-collapse:collapse;font-size:15px}
+.lv th{position:sticky;top:0;background:#F5F7F9;font-size:13px;color:var(--muted);font-weight:700;text-align:left;padding:9px 8px;white-space:nowrap;cursor:pointer;border-bottom:1px solid var(--line)}
+.lv th.on{color:var(--fg)}
+.lv td{padding:9px 8px;border-bottom:1px solid #EEF1F4;vertical-align:middle;white-space:nowrap}
+.lv td small{display:block;font-size:12px;color:var(--muted)}
+.lv td.c-price,.lv td.c-area{text-align:right}.lv th[data-sort=price],.lv th[data-sort=area]{text-align:right}
+.lv td .mm{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:#33414F}
+.lv tbody tr[data-id]{cursor:pointer}
+.lv tbody tr[data-id]:hover{background:#F7F9FB}
+.lv tbody tr.on{background:#FFF7D6}
+.lv tbody tr.dn{color:var(--muted)}
+.lv tr.gh td{background:#EEF2F6;font-size:14px;padding:7px 10px}.lv tr.gh span{color:var(--muted);margin-left:6px}
+.lv td.ck,.lv th.ck{width:34px;text-align:center}
+.lv td.ed button{border:2px solid var(--line);background:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:13px}
+.lv td.none{text-align:center;color:var(--muted);padding:30px}
+.lv .kd{color:#fff;font-weight:700;font-size:13px;padding:2px 8px;border-radius:7px}
+@media (min-width:980px){body.lvwide .side{display:none}body.lvwide .mapbox{right:16px!important}}
+@media (max-width:700px){.lv .c-ptype,.lv .c-at,.lv th[data-sort=ptype],.lv th[data-sort=at],.lv td.ed,.lv thead th:last-child{display:none}.lv .lv-row input[type=search]{width:120px}}
 </style>
 </head>
 <body>
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
   <h1>내 매물장 <span class="pro">PRO</span></h1>
-  <span class="mtog" role="group" aria-label="왼쪽 화면"><button type="button" data-mode="map">지도</button><button type="button" data-mode="danji">단지</button></span>
+  <span class="mtog" role="group" aria-label="왼쪽 화면"><button type="button" data-mode="map">지도</button><button type="button" data-mode="danji">단지</button><button type="button" data-mode="list">리스트</button></span>
   <span class="sp"></span>
   <span class="fz" role="group" aria-label="글씨 크기"><button type="button" id="fzDn" aria-label="글씨 작게">가−</button><button type="button" id="fzUp" aria-label="글씨 크게">가+</button></span>
   <span class="who" id="who"></span>

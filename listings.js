@@ -39,14 +39,14 @@
   const ymd = iso => iso ? iso.slice(0, 10).replace(/-/g, '.') : '';
 
   // ---------- 글씨 크기 (가− / 가+), 이 기기에 기억 ----------
-  const FZ = [0.9, 1, 1.1, 1.2, 1.32];
+  const FZ = [0.75, 0.8, 0.9, 1, 1.1, 1.2, 1.32];
   function setFz(i) {
     i = Math.max(0, Math.min(FZ.length - 1, i)); S.fz = i;
     document.documentElement.style.setProperty('--fz', FZ[i]);
-    try { localStorage.setItem('rm.fz', String(i)); } catch { /* 무시 */ }
+    try { localStorage.setItem('rm.fz2', String(i)); } catch { /* 무시 */ }
     $('fzDn').disabled = i === 0; $('fzUp').disabled = i === FZ.length - 1;
   }
-  (() => { let i = 1; try { const v = localStorage.getItem('rm.fz'); if (v !== null) i = +v; } catch { /* 무시 */ } setFz(i); $('fzDn').onclick = () => setFz(S.fz - 1); $('fzUp').onclick = () => setFz(S.fz + 1); })();
+  (() => { let i = 3; try { const v = localStorage.getItem('rm.fz2'); const o = localStorage.getItem('rm.fz'); if (v !== null) i = +v; else if (o !== null) i = +o + 2; } catch { /* 무시 */ } setFz(i); $('fzDn').onclick = () => setFz(S.fz - 1); $('fzUp').onclick = () => setFz(S.fz + 1); })();
 
   // ---------- 시작 ----------
   async function init() {
@@ -73,7 +73,7 @@
 
   function layout() {
     $('root').innerHTML = `<div class="wrap">
-      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
+      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
       <div class="side" style="display:grid;gap:12px">
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
         <div class="tabs" id="tabs"></div>
@@ -82,7 +82,7 @@
         <div class="list" id="list"></div>
       </div></div>`;
     $('addBtn').onclick = () => openForm(null);
-    $('csvBtn').onclick = exportCsv;
+    $('csvBtn').onclick = () => exportCsv();
     $('find').oninput = e => { S.q = e.target.value.trim(); drawList(); };
     document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   }
@@ -94,23 +94,112 @@
     toast,
   };
   function setMode(m) {
-    S.mode = m === 'danji' ? 'danji' : 'map';
+    S.mode = ['danji', 'list'].includes(m) ? m : 'map';
     try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
-    const dj = S.mode === 'danji';
-    document.body.classList.toggle('djmode', dj);
-    $('dj').hidden = !dj; $('map').style.visibility = dj ? 'hidden' : '';
+    const dj = S.mode === 'danji', lv = S.mode === 'list';
+    document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv);
+    if (!lv) document.body.classList.remove('lvwide');
+    $('dj').hidden = !dj; $('lv').hidden = !lv; $('map').style.visibility = dj || lv ? 'hidden' : '';
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === S.mode));
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
+    else if (lv) drawLv();
     else setTimeout(() => { if (S.map) { S.map.relayout(); drawPins(); } }, 50);
+    drawList();
+  }
+
+  // ---------- 리스트 모드: 표로 정렬 · 필터(손님 조건) · 묶어 보기 · 한꺼번에 처리 ----------
+  const LV = (() => { let v = null; try { v = JSON.parse(localStorage.getItem('rm.lv') || 'null'); } catch { /* 무시 */ } return Object.assign({ sort: 'at', dir: -1, grp: '', f: {}, cols: ['phone'], sel: [] }, v || {}, { sel: [] }); })();
+  const lvSave = () => { try { localStorage.setItem('rm.lv', JSON.stringify({ ...LV, sel: [] })); } catch { /* 무시 */ } };
+  const mainP = x => x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || x.pr) : x.deposit;     // 만원
+  const pyOf = x => x.area ? x.area / 3.3058 : null;
+  const unitsOf = x => (x.places && x.places.length ? x.places : [x]).map(p => [p.dong && normDong(p.dong), p.ho && String(p.ho).replace(/호$/, '') + '호'].filter(Boolean).join(' ')).filter(Boolean);
+  const normDong = d => /동$/.test(d) ? d : d + '동';
+  const hood = x => { const a = String(x.addr || (x.places && x.places[0] && x.places[0].addr) || ''); return (a.split(' ').find(w => /(동|가|리|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w)) || '').replace(/\d+가$/, '가'); };
+  function lvPass(x) {
+    const f = LV.f, p = mainP(x), py = pyOf(x);
+    if (f.pmin && !(p >= f.pmin)) return false;
+    if (f.pmax && !(p && p <= f.pmax)) return false;
+    if (f.rmax && x.kind === 'wolse' && !(x.rent <= f.rmax)) return false;
+    if (f.amin && !(py >= f.amin)) return false;
+    if (f.amax && !(py && py <= f.amax)) return false;
+    if (f.pt && x.ptype !== f.pt) return false;
+    if (f.where) { const w = f.where.replace(/\s/g, '').toLowerCase(); if (![x.addr, x.road, x.bname, JSON.stringify(x.places || '')].join(' ').replace(/\s/g, '').toLowerCase().includes(w)) return false; }
+    return true;
+  }
+  const COLS = [
+    ['no', '번호', x => esc(x.no || ''), x => x.no || ''],
+    ['kind', '거래', x => `<span class="kd ${x.kind}">${KIND[x.kind]}</span>`, x => x.kind],
+    ['ptype', '유형', x => esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype || ''), x => x.ptype || ''],
+    ['bname', '단지·건물', x => `<b>${esc(x.bname || (x.addr || '').split(' ').slice(-2).join(' '))}</b><small>${esc(hood(x))}</small>`, x => x.bname || x.addr || ''],
+    ['unit', '동·호', x => esc(unitsOf(x).slice(0, 2).join(', ')) + (unitsOf(x).length > 2 ? ` 외 ${unitsOf(x).length - 2}` : ''), x => unitsOf(x)[0] || ''],
+    ['area', '면적', x => x.area ? `${(x.area / 3.3058).toFixed(1)}평<small>${x.area}㎡</small>` : '', x => x.area || 0],
+    ['price', '가격', x => `<b>${esc(priceText(x))}</b>`, x => mainP(x) || 0],
+    ['status', '상태', x => `<span class="st ${x.status}">${STAT[x.status]}</span>`, x => x.status],
+    ['at', '등록일', x => ymd(x.at).slice(2), x => x.at || ''],
+    ['phone', '연락처', x => { const c = (x.contacts && x.contacts[0]) || { name: x.owner, phone: x.phone }; return c && (c.name || c.phone) ? `${esc(c.name || '')}<small>${esc(c.phone || '')}</small>` : ''; }, x => (x.contacts && x.contacts[0] && x.contacts[0].name) || x.owner || '', 1],
+    ['mgmt', '관리비', x => x.mgmt ? shortWon(x.mgmt) : '', x => x.mgmt || 0, 1],
+    ['memo', '메모', x => `<span class="mm">${esc(x.memo || '')}</span>`, x => x.memo || '', 1],
+  ];
+  const GRP = { '': '묶지 않음', bname: '단지·건물별', hood: '동네별', kind: '거래별', status: '상태별', ptype: '유형별' };
+  const gkey = x => LV.grp === 'bname' ? (x.bname || '이름 없음') : LV.grp === 'hood' ? (hood(x) || '동네 미상') : LV.grp === 'kind' ? KIND[x.kind] : LV.grp === 'status' ? STAT[x.status] : LV.grp === 'ptype' ? (x.ptype || '유형 미입력') : '';
+  function drawLv() {
+    const box = $('lv'); if (!box || box.hidden) return;
+    const cols = COLS.filter(c => !c[4] || LV.cols.includes(c[0]));
+    const rows = filtered();
+    const col = COLS.find(c => c[0] === LV.sort) || COLS[8];
+    rows.sort((a, b) => { const A = col[3](a), B = col[3](b); return (typeof A === 'number' && typeof B === 'number' ? A - B : String(A).localeCompare(String(B), 'ko', { numeric: true })) * LV.dir; });
+    const groups = new Map(); rows.forEach(x => { const k = gkey(x); (groups.get(k) || groups.set(k, []).get(k)).push(x); });
+    const avg = list => { const by = {}; list.forEach(x => { const p = mainP(x); if (p) (by[x.kind] || (by[x.kind] = [])).push(p); }); return Object.entries(by).map(([k, v]) => `${KIND[k]} ${v.length} · 평균 ${shortWon(Math.round(v.reduce((a, b) => a + b, 0) / v.length))}`).join(' / '); };
+    const f = LV.f, on = Object.values(f).some(v => v);
+    const sel = new Set(LV.sel);
+    const th = cols.map(c => `<th data-sort="${c[0]}" class="${LV.sort === c[0] ? 'on' : ''}">${c[1]}${LV.sort === c[0] ? (LV.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('');
+    const tr = x => `<tr id="r_${x.id}" data-id="${x.id}" class="${S.hl === x.id ? 'on' : ''}${x.status === 'done' ? ' dn' : ''}"><td class="ck"><input type="checkbox" data-ck="${x.id}" ${sel.has(x.id) ? 'checked' : ''} aria-label="선택"></td>${cols.map(c => `<td class="c-${c[0]}">${c[2](x)}</td>`).join('')}<td class="ed"><button type="button" data-ed="${x.id}">수정</button></td></tr>`;
+    const body = [...groups.entries()].map(([k, list]) => (LV.grp ? `<tr class="gh"><td colspan="${cols.length + 2}"><b>${esc(k)}</b> <span>${list.length}건${avg(list) ? ' · ' + esc(avg(list)) : ''}</span></td></tr>` : '') + list.map(tr).join('')).join('');
+    box.innerHTML = `<div class="lv-wrap">
+      <div class="lv-f">
+        <div class="lv-row"><b>손님 조건</b>
+          <label>가격 <input type="number" inputmode="numeric" data-f="pmin" value="${f.pmin || ''}" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-f="pmax" value="${f.pmax || ''}" placeholder="최대"> 만원</label>
+          <label>월세 <input type="number" inputmode="numeric" data-f="rmax" value="${f.rmax || ''}" placeholder="이하"> 만원</label>
+          <label>면적 <input type="number" inputmode="decimal" data-f="amin" value="${f.amin || ''}" placeholder="최소"> ~ <input type="number" inputmode="decimal" data-f="amax" value="${f.amax || ''}" placeholder="최대"> 평</label>
+          <label>유형 <select data-f="pt"><option value="">전체</option>${PTYPES.map(t => `<option ${f.pt === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+          <label>지역·단지 <input type="search" data-f="where" value="${esc(f.where || '')}" placeholder="예: 아현동, 래미안"></label>
+          ${on ? '<button type="button" class="lnk" id="lvClr">조건 지우기</button>' : ''}</div>
+        <div class="lv-row"><label>묶어 보기 <select id="lvGrp">${Object.entries(GRP).map(([k, t]) => `<option value="${k}" ${LV.grp === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+          <span class="lv-cols">열 추가 ${COLS.filter(c => c[4]).map(c => `<label class="ck2"><input type="checkbox" data-col="${c[0]}" ${LV.cols.includes(c[0]) ? 'checked' : ''}>${c[1]}</label>`).join('')}</span>
+          <span class="sp"></span><b class="cnt">${rows.length}건</b><button type="button" class="lnk" id="lvWide">${document.body.classList.contains('lvwide') ? '오른쪽 카드 펼치기' : '넓게 보기'}</button></div>
+        ${sel.size ? `<div class="lv-row bulk"><b>${sel.size}건 선택</b><button type="button" data-bulk="on">진행 중으로</button><button type="button" data-bulk="hold">보류로</button><button type="button" data-bulk="done">계약 완료로</button><button type="button" id="lvCsv">선택만 엑셀</button><button type="button" class="lnk" id="lvUnsel">선택 해제</button></div>` : ''}
+      </div>
+      <div class="lv-t"><table><thead><tr><th class="ck"><input type="checkbox" id="lvAll" aria-label="모두 선택" ${rows.length && rows.every(x => sel.has(x.id)) ? 'checked' : ''}></th>${th}<th></th></tr></thead><tbody>${body || `<tr><td colspan="${cols.length + 2}" class="none">조건에 맞는 매물이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+    box.querySelectorAll('[data-sort]').forEach(h => h.onclick = () => { if (LV.sort === h.dataset.sort) LV.dir *= -1; else { LV.sort = h.dataset.sort; LV.dir = ['at', 'price', 'area'].includes(LV.sort) ? -1 : 1; } lvSave(); drawLv(); });
+    box.querySelectorAll('[data-f]').forEach(i => i.onchange = () => { const v = i.value.trim(); LV.f[i.dataset.f] = i.dataset.f === 'where' || i.dataset.f === 'pt' ? v : (v ? Number(v) : ''); lvSave(); drawLv(); drawList(); });
+    box.querySelectorAll('input[data-f="where"]').forEach(i => i.oninput = () => { clearTimeout(S.lvT); S.lvT = setTimeout(() => { LV.f.where = i.value.trim(); lvSave(); const pos = i.selectionStart; drawLv(); drawList(); const n = $('lv').querySelector('input[data-f="where"]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 350); });
+    if ($('lvClr')) $('lvClr').onclick = () => { LV.f = {}; lvSave(); drawLv(); drawList(); };
+    $('lvGrp').onchange = e => { LV.grp = e.target.value; lvSave(); drawLv(); };
+    box.querySelectorAll('[data-col]').forEach(c => c.onchange = () => { LV.cols = c.checked ? [...new Set([...LV.cols, c.dataset.col])] : LV.cols.filter(k => k !== c.dataset.col); lvSave(); drawLv(); });
+    $('lvWide').onclick = () => { document.body.classList.toggle('lvwide'); drawLv(); };
+    box.querySelectorAll('[data-ck]').forEach(c => c.onclick = e => { e.stopPropagation(); LV.sel = c.checked ? [...new Set([...LV.sel, c.dataset.ck])] : LV.sel.filter(i => i !== c.dataset.ck); drawLv(); });
+    $('lvAll').onchange = e => { LV.sel = e.target.checked ? rows.map(x => x.id) : []; drawLv(); };
+    box.querySelectorAll('[data-ed]').forEach(b => b.onclick = e => { e.stopPropagation(); const x = S.items.find(i => i.id === b.dataset.ed); if (x) openForm(x); });
+    box.querySelectorAll('tbody tr[data-id]').forEach(r => r.onclick = e => { if (e.target.closest('input,button')) return; focusItem(r.dataset.id, true); });
+    if ($('lvUnsel')) $('lvUnsel').onclick = () => { LV.sel = []; drawLv(); };
+    if ($('lvCsv')) $('lvCsv').onclick = () => exportCsv(S.items.filter(x => sel.has(x.id)));
+    box.querySelectorAll('[data-bulk]').forEach(b => b.onclick = async () => {
+      const st = b.dataset.bulk, ids = [...sel].filter(id => (S.items.find(x => x.id === id) || {}).status !== st);
+      if (!ids.length) return toast('이미 그 상태입니다');
+      if (!confirm(`${ids.length}건을 '${STAT[st]}'(으)로 바꿀까요?`)) return;
+      let ok = 0;
+      for (const id of ids) { try { const j = await api('/api/auth?action=listing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'status', id, status: st }) }); S.items = j.items || S.items; ok++; } catch (e) { toast(e.message, 3500); break; } }
+      LV.sel = []; draw(); toast(`${ok}건을 ${STAT[st]}(으)로 바꿨습니다`);
+    });
   }
 
   // ---------- 목록 ----------
   function filtered() {
     const q = S.q.toLowerCase();
-    return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
+    return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind) && (S.mode !== 'list' || lvPass(x))
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawTabs(); drawList(); drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); }
+  function draw() { drawTabs(); drawList(); drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list') drawLv(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
@@ -206,6 +295,7 @@
     S.hl = id; const x = S.items.find(i => i.id === id);
     document.querySelectorAll('.card.hl').forEach(c => c.classList.remove('hl'));
     const c = $('c_' + id); if (c) { c.classList.add('hl'); if (scroll) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    document.querySelectorAll('#lv tr.on').forEach(r => r.classList.remove('on')); const r = $('r_' + id); if (r) r.classList.add('on');
     drawPins(false);
     if (S.map && x && x.lat) S.map.panTo(new kakao.maps.LatLng(x.lat, x.lng));
   }
@@ -621,11 +711,12 @@
   }
 
   // ---------- 엑셀(CSV) 저장 ----------
-  function exportCsv() {
-    if (!S.items.length) return toast('저장할 매물이 없습니다');
+  function exportCsv(only) {
+    const list = Array.isArray(only) ? only : S.items;
+    if (!list.length) return toast('저장할 매물이 없습니다');
     const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '대지㎡', '건축㎡', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '프리미엄', '납입액', '연락처', '세부 임대료', '사진 수', '메모', '등록일', '수정일', '리얼맵 링크'];
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const rows = S.items.map(x => {
+    const rows = list.map(x => {
       const pl = Array.isArray(x.places) && x.places.length ? x.places : [{ addr: x.addr, dong: x.dong, ho: x.ho }];
       const cs = Array.isArray(x.contacts) ? x.contacts : x.owner || x.phone ? [{ role: '집주인', name: x.owner, phone: x.phone }] : [];
       return [x.no, STAT[x.status], KIND[x.kind], x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype, x.bname, [...new Set(pl.map(p => p.addr))].join(' / '), pl.map(p => [p.dong, p.ho].filter(Boolean).join(' ')).filter(Boolean).join(', '),
