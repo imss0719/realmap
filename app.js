@@ -2070,11 +2070,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     kakao.maps.event.addListener(S.map, 'idle', priceRefresh);
     // 동별 시세 설정
     try { const v = JSON.parse(localStorage.getItem('rm.pm') || 'null'); if (v) { PM.kind = v.kind || 'apt'; PM.mode = v.mode || 'price'; } } catch { /* 저장소 없음 */ }
-    $('pmKind').value = PM.kind;
-    $('pmKind').onchange = () => { PM.kind = $('pmKind').value; pmSave(); priceRefresh(true); };
-    document.querySelectorAll('#tpanel [data-pm]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.pm === PM.mode); b.onclick = () => pmSetMode(b.dataset.pm); });
     // 범례 위 평당가/상승률 전환 버튼 (범례는 다시 그려지므로 범례 상자에서 한 번에 받습니다)
-    $('pmLegend').addEventListener('click', e => { const b = e.target.closest('[data-pm]'); if (b) pmSetMode(b.dataset.pm); });
+    $('pmLegend').addEventListener('click', e => {
+      const b = e.target.closest('[data-pm]'); if (b) return pmSetMode(b.dataset.pm);
+      const k = e.target.closest('[data-pk]'); if (k && k.dataset.pk !== PM.kind) { PM.kind = k.dataset.pk; pmSave(); priceRefresh(true); }
+    });
     tradeRefresh();
   }
   // ---------- 동별·구별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
@@ -2247,7 +2247,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind], U = ly === 'g' ? '구별' : '동별';
     const grp = S.map.getCenter().getLat() < 36 ? 'b' : 'm', key = ly + grp;
     const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}${PM.mode === 'chg' ? '' : ` · ${PGRP[grp]} 기준`}`;
-    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button></div>`;
+    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button></div><div class="pmkind" role="group" aria-label="주택 종류">${[['apt', '아파트'], ['rh', '빌라'], ['offi', '오피스텔']].map(([k, t]) => `<button type="button" data-pk="${k}" aria-pressed="${PM.kind === k}">${t}</button>`).join('')}</div>`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
     if (PM.mode === 'price') {
       const q = PM.q[key] || [0, 0, 0, 0, 0, 0], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
