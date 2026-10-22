@@ -166,7 +166,7 @@
           ${on ? '<button type="button" class="lnk" id="lvClr">조건 지우기</button>' : ''}</div>
         <div class="lv-row"><label>묶어 보기 <select id="lvGrp">${Object.entries(GRP).map(([k, t]) => `<option value="${k}" ${LV.grp === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
           <span class="lv-cols">열 추가 ${COLS.filter(c => c[4]).map(c => `<label class="ck2"><input type="checkbox" data-col="${c[0]}" ${LV.cols.includes(c[0]) ? 'checked' : ''}>${c[1]}</label>`).join('')}</span>
-          <span class="sp"></span><b class="cnt">${rows.length}건</b><button type="button" class="lnk" id="lvWide">${document.body.classList.contains('lvwide') ? '오른쪽 카드 펼치기' : '넓게 보기'}</button></div>
+          <span class="sp"></span><b class="cnt">${rows.length}건</b><button type="button" class="lnk" id="lvWide">${document.body.classList.contains('lvwide') ? '카드 다시 보기' : '넓게 보기'}</button></div>
         ${sel.size ? `<div class="lv-row bulk"><b>${sel.size}건 선택</b><button type="button" data-bulk="on">진행 중으로</button><button type="button" data-bulk="hold">보류로</button><button type="button" data-bulk="done">계약 완료로</button><button type="button" id="lvCsv">선택만 엑셀</button><button type="button" class="lnk" id="lvUnsel">선택 해제</button></div>` : ''}
       </div>
       <div class="lv-t"><table><thead><tr><th class="ck"><input type="checkbox" id="lvAll" aria-label="모두 선택" ${rows.length && rows.every(x => sel.has(x.id)) ? 'checked' : ''}></th>${th}<th></th></tr></thead><tbody>${body || `<tr><td colspan="${cols.length + 2}" class="none">조건에 맞는 매물이 없습니다.</td></tr>`}</tbody></table></div></div>`;
