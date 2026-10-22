@@ -28,6 +28,90 @@ async function isPro(id) {
   try { return !!(await redis(['SISMEMBER', 'realmap:pro', String(id)])); } catch { return false; }
 }
 
+// ---------- 리얼맵 매물 광고 (중개사 매물 → 지도 노출) ----------
+// 공개 목록은 한 덩어리 해시 realmap:pub { '<회원id>:<매물id>': 공개용 요약 JSON } — 호수·소유자 연락처·메모는 절대 넣지 않습니다.
+// 시범 운영: 운영자만 게시 가능. 환경변수 PUB_OPEN=1 이면 중개사 정보를 입력한 PRO 회원 모두 게시 가능.
+const PUB_KEY = 'realmap:pub';
+const PUB_DAYS = 30;
+const RESID = ['아파트', '빌라', '오피스텔', '주택'];
+const canPub = id => (ADMIN_ID && String(id) === ADMIN_ID) || process.env.PUB_OPEN === '1';
+async function pipe(cmds) {
+  if (!cmds.length || !R_URL || !R_TOKEN) return;
+  await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
+}
+// 인터넷 표시·광고 명시사항 점검 → 빠진 항목 이름 목록
+export function adMissing(x, bk) {
+  const miss = [], a = x.ad || {};
+  if (!bk || !bk.office) miss.push('중개사무소 명칭');
+  if (!bk || !bk.addr) miss.push('중개사무소 소재지');
+  if (!bk || !bk.regno) miss.push('중개사무소 등록번호');
+  if (!bk || !bk.ceo) miss.push('대표 공인중개사 성명');
+  if (!bk || !bk.tel) miss.push('중개사무소 연락처');
+  if (!x.addr) miss.push('소재지');
+  if (!x.area) miss.push('면적');
+  if (!x.ptype) miss.push('매물 종류');
+  const price = x.kind === 'sale' ? x.price : x.kind === 'jeonse' ? x.deposit : x.kind === 'wolse' ? x.rent : x.price && x.pr;
+  if (!price) miss.push('가격');
+  if (x.ptype && x.ptype !== '토지') {
+    if (!a.tfl) miss.push('총 층수');
+    if (!a.fl) miss.push('해당 층');
+    if (x.kind !== 'presale' && !a.appr) miss.push('사용승인일');
+    if (!a.dir) miss.push('방향');
+    if (!a.movein) miss.push('입주 가능일');
+    if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
+    if (RESID.includes(x.ptype)) {
+      if (a.rooms == null || a.rooms === '') miss.push('방 수');
+      if (a.baths == null || a.baths === '') miss.push('욕실 수');
+      if (!x.mgmt && !a.nomgmt) miss.push('관리비');
+    }
+  }
+  return miss;
+}
+// 해당 층 → 공개용 표기 (정확한 층 또는 저·중·고층)
+function floorText(a) {
+  const f = String(a.fl || '').trim(); if (!f) return '';
+  const under = /^(b|지하)/i.test(f), n = Number(f.replace(/\D/g, ''));
+  if (a.flx !== 'lmh') return under ? `지하 ${n || ''}층`.replace(' 층', '층') : `${n || f}층`;
+  if (under) return '지하';
+  const t = Number(a.tfl) || 0;
+  if (!t || !n) return '';
+  return n <= t / 3 ? '저층' : n <= t * 2 / 3 ? '중층' : '고층';
+}
+function pubSummary(uid, x, bk) {
+  const a = x.ad || {}, p0 = (x.places && x.places[0]) || {};
+  return {
+    k: `${uid}:${x.id}`, no: x.no || '', kind: x.kind, ptype: x.ptype, ptypeTx: x.ptypeTx || '',
+    price: x.price || null, deposit: x.deposit || null, rent: x.rent || null, pr: x.pr || null, mgmt: x.mgmt || null, premium: x.premium || null, nomgmt: !!a.nomgmt,
+    area: x.area || null, ak: p0.land ? 'land' : p0.ak || 'ex', n: (x.places || []).length || 1,
+    pnu: x.pnu, lat: x.lat, lng: x.lng, addr: x.addr, road: x.road || '', bname: x.bname || '',
+    dong: x.ptype === '아파트' || x.ptype === '오피스텔' ? (p0.dong || '') : '',   // 호수는 공개하지 않음
+    flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
+    photos: (x.photos || []).slice(0, 10).map(p => p.url),
+    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel },
+    at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
+  };
+}
+// 매물장이 바뀔 때마다 공개 목록을 맞춥니다: 진행 중 + 게시 + 필수 항목 완비 → 올림, 아니면 내림
+async function syncPub(uid, items, bk) {
+  const set = [], del = [];
+  for (const x of items) {
+    if (!x.pub) continue;
+    const field = `${uid}:${x.id}`;
+    if (x.pub.on && x.status === 'on' && canPub(uid) && !adMissing(x, bk).length) set.push(field, JSON.stringify(pubSummary(uid, x, bk)));
+    else { if (x.pub.on && x.status !== 'on') x.pub.on = false; del.push(field); }
+  }
+  await pipe([...(set.length ? [['HSET', PUB_KEY, ...set]] : []), ...(del.length ? [['HDEL', PUB_KEY, ...del]] : [])]);
+}
+function cleanAd(a) {
+  a = a || {};
+  const t = (v, n) => String(v ?? '').replace(/[<>"]/g, '').trim().slice(0, n);
+  const int = v => { const x = parseInt(String(v ?? '').replace(/\D/g, ''), 10); return Number.isFinite(x) ? Math.min(x, 999) : null; };
+  const DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
+  return { fl: t(a.fl, 8), tfl: int(a.tfl), flx: a.flx === 'lmh' ? 'lmh' : 'exact', dir: DIRS.includes(a.dir) ? a.dir : '', rooms: int(a.rooms), baths: int(a.baths),
+    movein: t(a.movein, 20), park: t(a.park, 20), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300) };
+}
+async function loadBk(uid) { try { const v = await redis(['GET', `realmap:bk:${uid}`]); return v ? JSON.parse(v) : null; } catch { return null; } }
+
 function origin(req) {
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const proto = req.headers['x-forwarded-proto'] || 'https';
@@ -239,6 +323,36 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, ...d });
     }
 
+    // 지도에 게시된 매물 (누구나 볼 수 있음) — 1분 캐시
+    if (action === 'pubs') {
+      if (!R_URL || !R_TOKEN) return send(res, 200, { ok: true, items: [] });
+      const raw = (await redis(['HGETALL', PUB_KEY])) || [];
+      const now = new Date().toISOString(), gone = new Date(Date.now() - 30 * 86400e3).toISOString(), items = [], old = [];
+      for (let i = 0; i < raw.length; i += 2) { try { const v = JSON.parse(raw[i + 1]); if (v.exp > now) items.push(v); else if (v.exp < gone) old.push(raw[i]); } catch { old.push(raw[i]); } }
+      // 게시 기간이 끝나고 30일 더 지난 매물은 공개 목록에서 지웁니다 (매물장에서 '연장'하면 다시 올라감)
+      if (old.length) try { await redis(['HDEL', PUB_KEY, ...old]); } catch { /* 다음에 */ }
+      return send(res, 200, { ok: true, items }, 60);
+    }
+
+    // 중개사무소 정보 (매물 광고에 표시) — PRO 전용
+    if (action === 'bk') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '유료회원 전용 기능입니다.');
+      if (req.method !== 'POST') return send(res, 200, { ok: true, bk: await loadBk(s.id), canPub: canPub(s.id) });
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const b = body.bk || {};
+      const str = (v, n) => String(v ?? '').replace(/[<>"]/g, '').trim().slice(0, n);
+      const bk = { office: str(b.office, 40), addr: str(b.addr, 80), regno: str(b.regno, 30).replace(/[^\w-]/g, ''), ceo: str(b.ceo, 20), tel: str(b.tel, 20).replace(/[^\d-]/g, ''), up: new Date().toISOString() };
+      if (!bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel) return fail(res, 400, 'need', '다섯 칸을 모두 입력해 주세요.');
+      if (!/\d{4,}/.test(bk.regno)) return fail(res, 400, 'regno', '등록번호를 확인해 주세요. (예: 11440-2025-00123)');
+      await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
+      try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk); } catch { /* 다음 저장 때 반영 */ }
+      return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
+    }
+
     // 매물장 (PRO 전용) — 회원별 최대 1,000건, 한 덩어리로 저장
     if (action === 'listings' || action === 'listing') {
       const s = readSession(req);
@@ -266,7 +380,7 @@ export default async function (req, res) {
         [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
         await redis(['SET', key, JSON.stringify(items)]);
       }
-      if (action === 'listings') return send(res, 200, { ok: true, items });
+      if (action === 'listings') return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id) });
       if (req.query.op === 'photodel') { // 저장하지 않고 닫은 사진 정리 (저장된 매물에 쓰인 사진은 지우지 않음)
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
         const used = new Set(items.flatMap(x => (x.photos || []).map(p => p.url)));
@@ -312,6 +426,7 @@ export default async function (req, res) {
           price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
           curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
           memo: str(it.memo, 1000), status, at: prev ? prev.at : now, up: now,
+          ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
         };
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
         if (prev && prev.photos) { const keep = new Set(photos.map(p => p.url)); await dropPhotos(prev.photos.map(p => p.url).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }
@@ -319,13 +434,34 @@ export default async function (req, res) {
         const st = ['on', 'hold', 'done'].includes(body.status) ? body.status : null;
         if (!st) return fail(res, 400, 'status', '상태가 올바르지 않습니다.');
         items = items.map(x => (x.id === id ? { ...x, status: st, up: now } : x));
+      } else if (body.op === 'pub' || body.op === 'renew') {
+        // 리얼맵 지도에 게시 / 기간 연장 (연장 = '아직 거래 가능' 확인)
+        const x = items.find(i => i.id === id);
+        if (!x) return fail(res, 404, 'none', '매물을 찾지 못했습니다.');
+        if (!canPub(s.id)) return fail(res, 403, 'pilot', '지금은 시범 운영 중이라 게시할 수 없습니다.');
+        if (x.status !== 'on') return fail(res, 400, 'status', '진행 중인 매물만 게시할 수 있습니다.');
+        const miss = adMissing(x, await loadBk(s.id));
+        if (miss.length) return fail(res, 400, 'missing', `광고에 꼭 들어가야 할 항목이 빠져 있습니다: ${miss.join(', ')}`, { missing: miss });
+        const exp = new Date(Date.now() + PUB_DAYS * 86400e3).toISOString();
+        x.pub = { on: true, at: x.pub && x.pub.on && body.op === 'renew' ? x.pub.at : now, chk: now, exp };
+      } else if (body.op === 'unpub') {
+        const x = items.find(i => i.id === id);
+        if (x && x.pub) x.pub.on = false;
       } else if (body.op === 'del') {
         const gone = items.find(x => x.id === id);
+        if (gone && gone.pub) { gone.pub.on = false; try { await redis(['HDEL', PUB_KEY, `${s.id}:${gone.id}`]); } catch { /* 무시 */ } }
         items = items.filter(x => x.id !== id);
         if (gone && gone.photos) await dropPhotos(gone.photos.map(p => p.url).filter(u => ownPhoto(u, s.id)));
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+      const bk = await loadBk(s.id);
+      let warn = '';
+      if (body.op === 'save' || body.op === 'status') { // 게시 중인 매물이 바뀌어 필수 항목이 빠지면 지도에서 내림
+        const x = items.find(i => i.id === (id || (items[0] && items[0].id)));
+        if (x && x.pub && x.pub.on && x.status === 'on') { const miss = adMissing(x, bk); if (miss.length) { x.pub.on = false; warn = `필수 항목(${miss.join(', ')})이 빠져 리얼맵 지도에서 내렸습니다.`; } }
+      }
       await redis(['SET', key, JSON.stringify(items)]);
-      return send(res, 200, { ok: true, items });
+      try { await syncPub(s.id, items, bk); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
+      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn });
     }
 
     if (action === 'login') {
@@ -376,7 +512,9 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id))); } catch { /* 무시 */ }
-      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['DEL', `realmap:cx:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
+      try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['DEL', `realmap:cx:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]);
+        try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); const f = ls.map(x => `${s.id}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
+        await redis(['DEL', `realmap:bk:${s.id}`]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
     }
