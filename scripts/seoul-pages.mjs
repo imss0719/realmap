@@ -88,7 +88,7 @@ rows.forEach(r => { r.title = dupe.get(r.gu + '|' + r.n) > 1 ? `${r.n} (${r.addr
 const byGu = new Map(GU_ORDER.map(g => [g, rows.filter(r => r.gu === g)]));
 const sortRows = a => a.slice().sort((x, y) => rank(y.st) - rank(x.st) || (y.hh || 0) - (x.hh || 0) || x.n.localeCompare(y.n, 'ko'));
 const zoneUrl = r => `/seoul/${r.slug}/${r.id}.html`;
-const mapUrl = r => r.lat ? `/?lat=${r.lat}&lng=${r.lng}` : '';
+const mapUrl = r => r.lat ? `/?lat=${r.lat}&lng=${r.lng}&from=seoul` : '';
 const dist = (a, b) => Math.hypot((a.lat - b.lat) * 111, (a.lng - b.lng) * 88);
 
 // ---------- 공통 틀 ----------
@@ -114,7 +114,7 @@ function page({ path, title, desc, h1, lead, crumbs, body, faq = [], hero = '' }
 <script src="/seoul/seoul.js" defer></script>
 ${ld.map(x => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, '\\u003c')}</script>`).join('\n')}
 </head><body>
-<header class="top"><a class="brand" href="/">${LOGO}<b>리얼맵</b></a><a class="mapbtn" href="/">지도 열기</a></header>
+<header class="top"><a class="brand" href="/">${LOGO}<b>리얼맵</b></a><a class="mapbtn" href="/?from=seoul">지도 열기</a></header>
 ${hero}
 <main>
 <nav class="crumb" aria-label="현재 위치">${crumbs.map((c, i) => i < crumbs.length - 1 ? `<a href="${c[1]}">${esc(c[0])}</a>` : `<span>${esc(c[0])}</span>`).join(' › ')}</nav>
@@ -230,7 +230,7 @@ ${near.length ? `<section><h2>가까운 정비사업</h2><ul class="cards">${nea
   if (others.length) groups.push(['기타', others]);
   const dongs = [...new Set(list.map(r => r.dong).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   const body = `
-<div class="hero"><p class="intro">${intro}</p><div class="btns"><a class="cta" href="/">리얼맵 지도에서 정비구역 보기</a></div></div>
+<div class="hero"><p class="intro">${intro}</p><div class="btns"><a class="cta" href="/?from=seoul">리얼맵 지도에서 정비구역 보기</a></div></div>
 <section><h2>추진 단계 한눈에</h2>${stageBar(list)}</section>
 ${recent.length ? `<section><h2>최근 1년 사이 단계가 진행된 곳</h2><ul class="cards">${recent.map(r => card(r)).join('')}</ul></section>` : ''}
 <nav class="toc" aria-label="종류별 바로가기">${groups.map(([k, l], i) => `<a href="#k${i}">${esc(kindOf(k).s)} ${l.length}</a>`).join('')}</nav>
@@ -289,7 +289,7 @@ function heroArt() {
     <div><b><em data-count="${hhMan}">${num(hhMan)}</em>만</b><span>계획 세대수</span></div>
     <div><b data-count="${stn}">${num(stn)}</b><span>신속통합기획</span></div>
   </div>
-  <div class="lh-btns"><a class="cta y" href="/">리얼맵 지도에서 보기</a><a class="cta2 w" href="#gumap">구별 현황 보기</a></div>
+  <div class="lh-btns"><a class="cta y" href="/?from=seoul">리얼맵 지도에서 보기</a><a class="cta2 w" href="#gumap">구별 현황 보기</a></div>
 </div></section>`;
   const body = `
 <section class="mine" data-myzones hidden><h2 class="my-hi">관심 구역</h2><p class="my-mail note"></p><ul class="my-list"></ul></section>

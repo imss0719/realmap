@@ -7,6 +7,24 @@
   const SLUG = { '종로구': 'jongno', '중구': 'jung', '용산구': 'yongsan', '성동구': 'seongdong', '광진구': 'gwangjin', '동대문구': 'dongdaemun', '중랑구': 'jungnang', '성북구': 'seongbuk', '강북구': 'gangbuk', '도봉구': 'dobong', '노원구': 'nowon', '은평구': 'eunpyeong', '서대문구': 'seodaemun', '마포구': 'mapo', '양천구': 'yangcheon', '강서구': 'gangseo', '구로구': 'guro', '금천구': 'geumcheon', '영등포구': 'yeongdeungpo', '동작구': 'dongjak', '관악구': 'gwanak', '서초구': 'seocho', '강남구': 'gangnam', '송파구': 'songpa', '강동구': 'gangdong' };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // ---------- 방문 통계 (리얼맵과 같은 임의 번호, 개인정보 없음 · 운영자 기기는 세지 않음) ----------
+  (function hit() {
+    let v = '', op = false;
+    try { op = localStorage.getItem('rm.op') === '1'; v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
+    if (op) return;
+    const m = location.pathname.match(/^\/seoul\/(?:([a-z]+)(?:\/(\d+))?\.html)?$/);
+    const pg = !m ? 'idx' : m[2] ? `${m[1]}/${m[2]}` : m[1] || 'idx';
+    let src = '';
+    try { if (!sessionStorage.getItem('rm.ssrc')) {
+      const ua = navigator.userAgent || ''; let h = ''; try { h = document.referrer ? new URL(document.referrer).hostname : ''; } catch { /* 없음 */ }
+      src = /Instagram/i.test(ua) ? 'insta' : /KAKAOTALK/i.test(ua) ? 'kakao' : !h || h === location.hostname ? 'direct'
+        : /blog\.naver\.com$/.test(h) ? 'blog' : /search\.naver\.com$/.test(h) ? 'nsearch' : /naver\.(com|me)$/.test(h) ? 'naver'
+        : /google\./.test(h) ? 'google' : /daum\.net$/.test(h) ? 'daum' : /instagram\.com$/.test(h) ? 'insta' : /youtube\.com$|youtu\.be$/.test(h) ? 'youtube' : 'etc';
+      sessionStorage.setItem('rm.ssrc', src);
+    } } catch { /* 무시 */ }
+    try { fetch(`/api/auth?action=hit&k=s&v=${encodeURIComponent(v)}&pg=${encodeURIComponent(pg)}${src ? '&src=' + src : ''}`, { keepalive: true }).catch(() => {}); } catch { /* 무시 */ }
+  })();
+
   // ---------- 움직임 ----------
   function countUp(el) {
     const end = +el.dataset.count, dur = 1100, t0 = performance.now();
