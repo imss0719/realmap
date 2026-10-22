@@ -28,7 +28,29 @@ export default async function (req, res) {
     }
     if (ids.length === 0 && (await redis(['PING'])) === null) return fail(res, 500, 'no_storage', '회원 저장소(Upstash)가 연결되지 않았습니다.');
     rows.sort((a, b) => String(b.joined).localeCompare(String(a.joined)));
-    send(res, 200, { ok: true, total: rows.length, marketing: rows.filter(r => r.marketing).length, rows, stats: await stats() });
+    // 회원별 활동: 관심 부동산 개수, 관심 구역·추진 알림
+    const zones = new Map(), alerts = [];
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i + 200);
+      const [fv, zv] = await Promise.all([
+        redis(['MGET', ...chunk.map(r => `realmap:fav:${r.id}`)]).catch(() => []),
+        redis(['MGET', ...chunk.map(r => `realmap:zfav:${r.id}`)]).catch(() => []),
+      ]);
+      chunk.forEach((r, k) => {
+        try { r.favs = fv && fv[k] ? (JSON.parse(fv[k]).items || []).length : 0; } catch { r.favs = 0; }
+        let z = null; try { z = zv && zv[k] ? JSON.parse(zv[k]) : null; } catch { z = null; }
+        const items = (z && z.items) || [];
+        r.zones = items.length; r.zalerts = items.filter(x => x.alert).length; r.zemail = (z && z.email) || '';
+        for (const x of items) {
+          const e = zones.get(x.id) || { id: x.id, n: x.n, gu: x.gu, st: x.st, cnt: 0, alert: 0 };
+          e.cnt++; if (x.alert) e.alert++; zones.set(x.id, e);
+          if (x.alert && z.email) alerts.push({ nickname: r.nickname || '', email: z.email, zone: x.n, gu: x.gu, st: x.st, at: x.at || '', emailAt: z.emailAt || '' });
+        }
+      });
+    }
+    const zrank = [...zones.values()].sort((a, b) => b.cnt - a.cnt || b.alert - a.alert).slice(0, 30);
+    send(res, 200, { ok: true, total: rows.length, marketing: rows.filter(r => r.marketing).length, rows, stats: await stats(),
+      zsum: { members: rows.filter(r => r.zones).length, alertMembers: rows.filter(r => r.zalerts && r.zemail).length, zones: zones.size }, zrank, alerts });
   } catch (e) {
     fail(res, 502, 'storage', '회원 저장소를 읽지 못했습니다: ' + e.message);
   }
@@ -39,8 +61,10 @@ async function stats() {
   try {
     const days = [];
     for (let i = 0; i < 30; i++) days.push(new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, ''));
-    const N = 6;
-    const cmds = days.flatMap(d => [['PFCOUNT', `rm:st:${d}:uv`], ['GET', `rm:st:${d}:pv`], ['GET', `rm:st:${d}:pcl`], ['PFCOUNT', `rm:st:${d}:mem`], ['HGETALL', `rm:st:${d}:src`], ['HGETALL', `rm:st:${d}:gu`]]);
+    const N = 10;
+    const cmds = days.flatMap(d => [['PFCOUNT', `rm:st:${d}:uv`], ['GET', `rm:st:${d}:pv`], ['GET', `rm:st:${d}:pcl`], ['PFCOUNT', `rm:st:${d}:mem`], ['HGETALL', `rm:st:${d}:src`], ['HGETALL', `rm:st:${d}:gu`],
+      ['PFCOUNT', `rm:st:${d}:suv`], ['GET', `rm:st:${d}:spv`], ['HGETALL', `rm:st:${d}:spg`], ['HGETALL', `rm:st:${d}:ssrc`]]);
+    cmds.push(['PFCOUNT', ...days.slice(0, 7).map(d => `rm:st:${d}:suv`)], ['PFCOUNT', ...days.map(d => `rm:st:${d}:suv`)]);
     cmds.push(['PFCOUNT', ...days.slice(0, 7).map(d => `rm:st:${d}:uv`)], ['PFCOUNT', ...days.map(d => `rm:st:${d}:uv`)], ['DBSIZE']);
     const r = await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
     const out = await r.json();
@@ -48,9 +72,11 @@ async function stats() {
     // HGETALL 결과는 [이름, 값, 이름, 값…] 또는 {이름: 값}
     const hash = o => { const r = o && o.result, m = {}; if (Array.isArray(r)) for (let k = 0; k < r.length; k += 2) m[r[k]] = Number(r[k + 1]) || 0; else if (r && typeof r === 'object') for (const [k, v] of Object.entries(r)) m[k] = Number(v) || 0; return m; };
     return {
-      days: days.map((d, i) => ({ d, uv: val(i * N), pv: val(i * N + 1), pcl: val(i * N + 2), mem: val(i * N + 3), src: hash(out[i * N + 4]), gu: hash(out[i * N + 5]) })),
-      uv7: val(days.length * N), uv30: val(days.length * N + 1),
-      keys: val(days.length * N + 2), maxKeys: MAX_KEYS,
+      days: days.map((d, i) => ({ d, uv: val(i * N), pv: val(i * N + 1), pcl: val(i * N + 2), mem: val(i * N + 3), src: hash(out[i * N + 4]), gu: hash(out[i * N + 5]),
+        suv: val(i * N + 6), spv: val(i * N + 7), spg: hash(out[i * N + 8]), ssrc: hash(out[i * N + 9]) })),
+      suv7: val(days.length * N), suv30: val(days.length * N + 1),
+      uv7: val(days.length * N + 2), uv30: val(days.length * N + 3),
+      keys: val(days.length * N + 4), maxKeys: MAX_KEYS,
       guNames: await guNames(days.map((d, i) => hash(out[i * N + 5]))),
     };
   } catch { return null; }

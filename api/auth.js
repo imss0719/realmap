@@ -87,8 +87,17 @@ export default async function (req, res) {
       if (s && ADMIN_ID && s.id === ADMIN_ID) return send(res, 200, { ok: true, skip: 'op' }); // 운영자 본인은 세지 않음
       const ex = String(400 * 86400);
       // 유입 경로: 방문(세션)마다 첫 화면에서 한 번만 보냅니다
-      const SRC = ['blog', 'nsearch', 'naver', 'insta', 'kakao', 'youtube', 'google', 'daum', 'direct', 'etc'];
+      const SRC = ['blog', 'nsearch', 'naver', 'insta', 'kakao', 'youtube', 'google', 'daum', 'seoul', 'direct', 'etc'];
       const src = SRC.includes(req.query.src) ? req.query.src : '';
+      // 정비사업 안내 페이지(/seoul/) 방문: 방문자·열람·페이지별·유입 경로를 따로 셉니다
+      if (req.query.k === 's') {
+        const pg = String(req.query.pg || '').replace(/[^a-z0-9/_-]/gi, '').slice(0, 40) || 'idx';
+        const sc = [['INCR', `rm:st:${day}:spv`], ['EXPIRE', `rm:st:${day}:spv`, ex], ['HINCRBY', `rm:st:${day}:spg`, pg, '1'], ['EXPIRE', `rm:st:${day}:spg`, ex],
+          ...(v ? [['PFADD', `rm:st:${day}:suv`, v], ['EXPIRE', `rm:st:${day}:suv`, ex]] : []),
+          ...(src ? [['HINCRBY', `rm:st:${day}:ssrc`, src, '1'], ['EXPIRE', `rm:st:${day}:ssrc`, ex]] : [])];
+        try { await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(sc) }); } catch { /* 통계 실패는 무시 */ }
+        return send(res, 200, { ok: true });
+      }
       const cmds = kind === 'p'
         ? [['INCR', `rm:st:${day}:pcl`], ['EXPIRE', `rm:st:${day}:pcl`, ex],
            ...(/^\d{5}$/.test(String(req.query.g || '')) ? [['HINCRBY', `rm:st:${day}:gu`, String(req.query.g), '1'], ['EXPIRE', `rm:st:${day}:gu`, ex]] : [])]
