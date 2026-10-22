@@ -64,7 +64,7 @@
   // 어디서 들어왔는지: 링크에 붙인 ?from=, 앱 안 브라우저, 이전 페이지 주소 순으로 판단
   function visitSrc() {
     const from = (new URLSearchParams(location.search).get('from') || '').toLowerCase();
-    const MAP = { blog: 'blog', insta: 'insta', instagram: 'insta', reels: 'insta', kakao: 'kakao', youtube: 'youtube', yt: 'youtube' };
+    const MAP = { blog: 'blog', insta: 'insta', instagram: 'insta', reels: 'insta', kakao: 'kakao', youtube: 'youtube', yt: 'youtube', seoul: 'seoul' };
     if (MAP[from]) return MAP[from];
     const ua = navigator.userAgent || '';
     if (/Instagram/i.test(ua)) return 'insta';
