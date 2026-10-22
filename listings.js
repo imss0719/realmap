@@ -50,8 +50,10 @@
     loadMap();
     try { S.items = (await api('/api/auth?action=listings')).items || []; } catch (e) { toast(e.message, 4000); }
     draw();
-    const add = new URLSearchParams(location.search).get('add');
-    if (add && /^\d{19}$/.test(add)) { history.replaceState(null, '', '/listings.html'); openForm(null, add); }
+    const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit');
+    // 단지 장부에서 넘어온 경우: ?add=PNU&dong=101&ho=1203 (동·호까지 미리 골라 둠) · ?edit=매물id
+    if (add && /^\d{19}$/.test(add)) { history.replaceState(null, '', '/listings.html'); openForm(null, add, { dong: (qs.get('dong') || '').slice(0, 20), ho: (qs.get('ho') || '').slice(0, 20) }); }
+    else if (edit) { history.replaceState(null, '', '/listings.html'); const x = S.items.find(i => i.id === edit); if (x) openForm(x); }
   }
   function gate(h, p, btn) { $('root').innerHTML = `<div class="gate"><h2>${h}</h2><p>${p}</p>${btn}</div>`; }
 
@@ -259,6 +261,7 @@
       if (S.form !== F) return;
       collect();
       const P = { pnu: p.bldPnu || p.pnu, addr: p.addr || label || '', lat, lng, bname: '', dong: '', ho: '', area: null };
+      if (F.preset) { P.dong = String(F.preset.dong || '').replace(/동$/, ''); P.ho = String(F.preset.ho || '').replace(/호$/, ''); F.preset = null; }
       F.it.places.push(P); F.adding = false; F.picking = false; F.results = null;
       renderForm(true);
       await loadBld(F, P);
@@ -286,6 +289,8 @@
         if (!U.dongs.includes(U.cur)) U.cur = U.dongs.find(d => /\d/.test(d)) || U.dongs[0] || '';
       }
       U.lists[key] = units;
+      // 미리 고른 호(단지 장부에서 넘어온 경우)는 전용면적까지 바로 채움
+      if (U.sel && !P.area && units.some(u => String(u.ho).replace(/호$/, '') === String(U.sel).replace(/호$/, ''))) { const h = units.find(u => String(u.ho).replace(/호$/, '') === String(U.sel).replace(/호$/, '')).ho; if (alive(F, P)) return pickUnit(F, P, h); }
     } catch { U.lists[key] = 'error'; }
     if (alive(F, P)) renderForm();
   }
@@ -342,7 +347,7 @@
     if (!Array.isArray(it.photos)) it.photos = [];
     return it;
   }
-  function openForm(item, pnu) {
+  function openForm(item, pnu, preset) {
     if (!item && !pnu && S.draft) { // 닫기 전에 쓰던 내용 이어서
       S.form = S.draft; S.draft = null;
       $('shTitle').textContent = '매물 등록'; $('sheet').hidden = false; document.body.style.overflow = 'hidden'; $('form').innerHTML = '';
@@ -356,6 +361,7 @@
     $('sheet').hidden = false; document.body.style.overflow = 'hidden';
     $('form').innerHTML = '';
     renderForm();
+    S.form.preset = preset && (preset.dong || preset.ho) ? preset : null;
     if (pnu) addPlace(null, null, '', pnu);
     else if (item) S.form.it.places.forEach(P => loadBld(S.form, P));
     else setTimeout(() => $('fq') && $('fq').focus(), 50);

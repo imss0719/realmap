@@ -20,6 +20,7 @@ a{color:inherit}
 .pro{display:inline-block;background:var(--gold);color:var(--navy);font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.04em}
 .top .sp{flex:1}
 .top .who{font-size:14px;opacity:.8}
+.top .navl{color:#fff;text-decoration:none;font-weight:700;font-size:15px;background:rgba(255,255,255,.12);padding:6px 12px;border-radius:999px;white-space:nowrap}
 .wrap{max-width:1180px;margin:0 auto;padding:14px 16px 120px;display:grid;gap:14px}
 /* 넓은 화면: 왼쪽은 지도로 꽉 채우고, 오른쪽에 목록 */
 @media (min-width:980px){.wrap{display:block;max-width:none;padding-left:0}.mapbox{position:fixed!important;left:16px;top:68px;bottom:16px;right:532px;height:auto!important}.side{width:500px;margin-left:auto}}
@@ -139,6 +140,7 @@ details.rents small{color:var(--muted)}
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
   <h1>내 매물장 <span class="pro">PRO</span></h1>
+  <a class="navl" href="/danji.html">단지 장부 ›</a>
   <span class="sp"></span>
   <span class="who" id="who"></span>
 </div>
