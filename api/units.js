@@ -20,10 +20,11 @@ export default handler(async (req, res) => {
   // 동 하나의 호 목록만 (큰 단지에서 빠르게): GET /api/units?pnu=...&dong=101동
   if (!ho && dong) {
     const D = String(dong).trim();
-    const list = await cached(`unitsd:${P.pnu}:${D}`, 24 * 3600e3, async () => {
+    // 큰 단지는 쪽수가 많아 예전 15쪽 제한에서 호가 일부 빠졌습니다 → 80쪽까지, 저장 키도 새로(예전 목록 재사용 안 함)
+    const list = await cached(`unitsd2:${P.pnu}:${D}`, 24 * 3600e3, async () => {
       const tries = [...new Set([D, D.replace(/동$/, ''), /동$/.test(D) ? '' : D + '동', D.replace(/^제/, '')].filter(Boolean))];
       for (const nm of tries) {
-        const rows = (await dataGoKrAll(HUB + 'getBrExposInfo', { ...q, dongNm: nm }, { maxPages: 15 })).filter(r => sameTok(r.dongNm, D));
+        const rows = (await dataGoKrAll(HUB + 'getBrExposInfo', { ...q, dongNm: nm }, { maxPages: 80 })).filter(r => sameTok(r.dongNm, D));
         if (rows.length) {
           const seen = new Set(), out = [];
           for (const r of rows) { const x = toRow(r); const k = x.dong + '|' + x.ho; if (!x.ho || seen.has(k)) continue; seen.add(k); out.push(x); }
@@ -36,8 +37,8 @@ export default handler(async (req, res) => {
   }
 
   if (!ho) {
-    const list = await cached('units:' + P.pnu, 24 * 3600e3, async () => {
-      const rows = await dataGoKrAll(HUB + 'getBrExposInfo', q, { maxPages: 60 });
+    const list = await cached('units2:' + P.pnu, 24 * 3600e3, async () => {
+      const rows = await dataGoKrAll(HUB + 'getBrExposInfo', q, { maxPages: 80 });
       const seen = new Set(), out = [];
       for (const r of rows) {
         const dn = String(r.dongNm || '').trim(), hn = String(r.hoNm || '').trim();
