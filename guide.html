@@ -3,87 +3,348 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>리얼맵 이용 안내 - 토지이용계획·건축물대장·실거래가·전세 안전 점검</title>
-<meta name="description" content="리얼맵 사용법 안내. 지도에서 필지를 누르면 토지이용계획, 건축물대장, 공시지가, 아파트·빌라·오피스텔 실거래가, 전세가율과 전세 안전 점검, 우리 집 시세를 무료로 확인할 수 있습니다.">
+<title>리얼맵 이용 가이드 - 필지정보·토지이용계획·실거래가·시세지도·재개발·전세 안전 점검</title>
+<meta name="description" content="리얼맵 사용법을 실제 화면으로 안내합니다. 필지를 누르면 토지이용계획·건축물대장·공시지가·실거래가를 한 번에, 동별·구별 시세 지도, 재개발·재건축 개발지도, 전세 안전 점검까지 무료로 이용하는 방법.">
 <link rel="canonical" href="https://realmap.online/guide.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="리얼맵">
-<meta property="og:title" content="리얼맵 이용 안내">
-<meta property="og:description" content="필지 하나 누르면 토지·건물·실거래가·전세 안전 점검까지 한 번에.">
+<meta property="og:title" content="리얼맵 이용 가이드 - 실제 화면으로 보는 사용법">
+<meta property="og:description" content="필지 하나 누르면 토지·건물·실거래가·개발정보·전세 안전 점검까지 한 번에.">
 <meta property="og:url" content="https://realmap.online/guide.html">
-<meta property="og:image" content="https://realmap.online/og.png">
+<meta property="og:image" content="https://realmap.online/guide/map.webp">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"리얼맵은 무료인가요?","acceptedAnswer":{"@type":"Answer","text":"네, 모든 기능이 무료입니다. 일부 기능(전세 안전 점검 전체 결과, 3년·5년 실거래, 관심 부동산 저장 등)은 카카오 계정으로 회원 가입만 하시면 무료로 쓰실 수 있습니다."}},
+{"@type":"Question","name":"자료는 어디에서 가져오나요?","acceptedAnswer":{"@type":"Answer","text":"국토교통부 실거래가 공개 자료, 건축물대장, 토지이용계획, 공시지가, 국토교통부 정비구역 연속주제도, 서울시 정비사업 현황 등 공공데이터를 사용합니다."}},
+{"@type":"Question","name":"단독주택이나 토지 실거래가는 왜 지도에 안 보이나요?","acceptedAnswer":{"@type":"Answer","text":"단독·다가구, 상가, 토지 거래는 지번 일부가 가려진 채로 공개되어 정확한 위치를 지도에 표시할 수 없습니다. 대신 필지를 누르면 실거래 탭에서 주변 비슷한 거래를 확인하실 수 있습니다."}},
+{"@type":"Question","name":"동별·구별 시세 지도는 어느 지역까지 보이나요?","acceptedAnswer":{"@type":"Answer","text":"현재 서울·인천·경기를 지원하며, 국토교통부 실거래가를 바탕으로 매주 갱신합니다."}}
+]}
+</script>
 <style>
-:root{--bg:#EEF1F4;--surface:#fff;--fg:#14212E;--muted:#5E6A77;--line:#DCE2E8;--accent:#F2B705}
-@media (prefers-color-scheme: dark){:root{--bg:#0E1317;--surface:#151C22;--fg:#E5EAEF;--muted:#94A1AE;--line:#26313A}}
+:root{--bg:#EEF1F4;--surface:#fff;--fg:#14212E;--muted:#5E6A77;--line:#DCE2E8;--soft:#F5F7F9;--accent:#0B6E69;--accent-soft:#E2F1EF;--y:#F2B705;--y-soft:#FFF6D6;--red:#C92A2A;--red-soft:#FFF0F0}
+@media (prefers-color-scheme: dark){:root{--bg:#0E1317;--surface:#151C22;--fg:#E5EAEF;--muted:#94A1AE;--line:#26313A;--soft:#1B242B;--accent:#4BBDB2;--accent-soft:#16302E;--y-soft:#2C2610;--red:#FF8787;--red-soft:#2E1B1B}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.8;font-size:16px}
-main{max-width:760px;margin:24px auto;background:var(--surface);padding:36px 40px;border-radius:12px}
-@media (max-width:640px){main{margin:0;border-radius:0;padding:24px 16px}}
-header a{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;font-weight:700}
-h1{font-size:26px;margin:14px 0 6px;letter-spacing:-.02em}
-h2{font-size:19px;margin:34px 0 8px;padding-top:18px;border-top:1px solid var(--line)}
-p,li{margin:6px 0}
-.lead{color:var(--muted)}
-.cta{display:inline-block;margin:14px 0 4px;background:#14212E;color:#fff;padding:12px 22px;border-radius:999px;font-weight:700;text-decoration:none}
-@media (prefers-color-scheme: dark){.cta{background:var(--accent);color:#14212E}}
-.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:#FFF3D6;color:#9A6200;margin-left:6px;vertical-align:2px}
-.muted{color:var(--muted);font-size:13px}
-footer{margin-top:36px;font-size:13px;color:var(--muted)}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.8;font-size:17px;word-break:keep-all}
+a{color:var(--accent)}
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+@media (prefers-color-scheme: dark){.top{background:rgba(21,28,34,.92)}}
+.top .in{max-width:960px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:14px}
+.top .brand{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;font-weight:700;font-size:17px}
+.top .go{margin-left:auto;background:#14212E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:8px 16px;border-radius:999px}
+@media (prefers-color-scheme: dark){.top .go{background:var(--y);color:#14212E}}
+.hero{max-width:960px;margin:0 auto;padding:44px 20px 18px}
+.hero .k{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.02em}
+.hero h1{font-size:36px;line-height:1.3;margin:8px 0 12px;letter-spacing:-.03em}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--y) 62%)}
+.hero p{color:var(--muted);margin:0;max-width:640px}
+.toc{max-width:960px;margin:22px auto 0;padding:0 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.toc a{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--fg);font-weight:600;font-size:15px;line-height:1.35}
+.toc a:hover{border-color:var(--accent)}
+.toc a b{flex:none;width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:14px}
+main{max-width:960px;margin:0 auto;padding:10px 20px 40px}
+section{background:var(--surface);border-radius:18px;padding:34px 36px;margin:22px 0;border:1px solid var(--line)}
+@media (max-width:640px){section{padding:24px 18px;border-radius:14px}.hero h1{font-size:28px}}
+h2{font-size:25px;margin:0 0 6px;letter-spacing:-.02em;display:flex;align-items:center;gap:12px;line-height:1.35}
+h2 .n{flex:none;width:36px;height:36px;border-radius:10px;background:#14212E;color:#fff;display:grid;place-items:center;font-size:17px}
+@media (prefers-color-scheme: dark){h2 .n{background:var(--y);color:#14212E}}
+h3{font-size:19px;margin:28px 0 6px}
+.lead{color:var(--muted);margin:4px 0 18px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--y-soft);color:#9A6200;vertical-align:3px}
+@media (prefers-color-scheme: dark){.tag{color:var(--y)}}
+/* 화면 그림 + 번호 */
+.shot{margin:14px 0 6px}
+.fig{position:relative;display:block;width:100%;border-radius:14px;overflow:visible}
+.fig img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);box-shadow:0 10px 30px rgba(20,33,46,.10);background:#fff}
+.mk{position:absolute;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--y);color:#14212E;border:2.5px solid #fff;font-size:14px;font-weight:700;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.35);line-height:1}
+@media (max-width:640px){.mk{width:22px;height:22px;font-size:12px;border-width:2px}}
+figcaption{font-size:13px;color:var(--muted);margin-top:8px;text-align:center}
+.pair{display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:30px;align-items:start}
+.pair.rev{grid-template-columns:1fr minmax(0,420px)}
+.pair.rev .shot{order:2}
+@media (max-width:780px){.pair,.pair.rev{grid-template-columns:1fr}.pair.rev .shot{order:0}.pair .shot{max-width:440px;margin-left:auto;margin-right:auto;width:100%}}
+ol.pts{list-style:none;padding:0;margin:14px 0;counter-reset:p}
+ol.pts li{position:relative;padding:2px 0 12px 40px;margin:0}
+ol.pts li::before{counter-increment:p;content:counter(p);position:absolute;left:0;top:3px;width:26px;height:26px;border-radius:50%;background:var(--y);color:#14212E;font-size:13px;font-weight:700;display:grid;place-items:center}
+ol.pts li > b{display:block;font-size:17px}
+ol.pts li span.tag{display:inline-block;color:#9A6200;font-size:12px;margin-left:4px}
+ol.pts li > span:not(.tag){display:block;color:var(--muted);font-size:15.5px;line-height:1.7}
+.tip{background:var(--accent-soft);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:15.5px;line-height:1.7}
+.tip b{color:var(--accent)}
+.warn{background:var(--red-soft);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:15.5px;line-height:1.7}
+.warn b{color:var(--red)}
+.keys{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.keys span{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--soft);border:1px solid var(--line)}
+.keys i{width:13px;height:13px;border-radius:4px;display:inline-block}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+@media (max-width:640px){.steps{grid-template-columns:1fr}}
+.steps div{background:var(--soft);border-radius:12px;padding:16px;font-size:15px;line-height:1.6}
+.steps div b{display:block;font-size:16px;margin-bottom:4px}
+.steps div em{font-style:normal;display:inline-block;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px}
+details{border:1px solid var(--line);border-radius:12px;padding:0 18px;margin:10px 0;background:var(--surface)}
+details summary{cursor:pointer;font-weight:700;padding:15px 0;list-style:none;display:flex;justify-content:space-between;gap:10px}
+details summary::after{content:"+";color:var(--muted);font-weight:400;font-size:22px;line-height:1}
+details[open] summary::after{content:"−"}
+details p{margin:0 0 16px;color:var(--muted);font-size:15.5px}
+.cta{display:inline-block;margin:10px 0 0;background:#14212E;color:#fff;padding:14px 28px;border-radius:999px;font-weight:700;text-decoration:none;font-size:17px}
+@media (prefers-color-scheme: dark){.cta{background:var(--y);color:#14212E}}
+.end{text-align:center}
+.end p{color:var(--muted)}
+footer{max-width:960px;margin:0 auto;padding:0 20px 40px;font-size:13px;color:var(--muted)}
 footer a{color:inherit}
 </style>
 </head>
 <body>
+<div class="top"><div class="in"><a class="brand" href="/"><img src="/favicon.svg" width="28" height="28" alt="">리얼맵</a><a class="go" href="/">지도 열기</a></div></div>
+
+<div class="hero">
+  <div class="k">리얼맵 이용 가이드</div>
+  <h1>땅 한 번 누르면,<br><em>부동산 공공정보가 한 화면에</em></h1>
+  <p>토지이용계획, 건축물대장, 공시지가, 실거래가, 재개발 정보까지. 여러 사이트를 돌아다니며 찾던 정보를 리얼맵 한 곳에서 보실 수 있습니다. 실제 화면으로 하나씩 안내해 드립니다.</p>
+</div>
+<nav class="toc" aria-label="목차">
+  <a href="#screen"><b>1</b>화면 둘러보기</a>
+  <a href="#parcel"><b>2</b>필지 정보 보기</a>
+  <a href="#plan"><b>3</b>토지이용계획·규제</a>
+  <a href="#room"><b>4</b>건축 여유·면적 재기</a>
+  <a href="#trade"><b>5</b>실거래가</a>
+  <a href="#price"><b>6</b>동별·구별 시세 지도</a>
+  <a href="#dev"><b>7</b>재개발·재건축 개발지도</a>
+  <a href="#safe"><b>8</b>전세 안전 점검</a>
+  <a href="#save"><b>9</b>관심 부동산·우리 집</a>
+  <a href="#faq"><b>?</b>자주 묻는 질문</a>
+</nav>
+
 <main>
-<header><a href="/"><img src="/favicon.svg" width="28" height="28" alt="">리얼맵</a></header>
-<h1>리얼맵 이용 안내</h1>
-<p class="lead">리얼맵은 지도에서 땅이나 건물을 한 번 누르면, 여러 사이트를 돌아다니며 찾아야 했던 부동산 공공정보를 한 화면에 모아 보여 드리는 무료 서비스입니다.</p>
-<a class="cta" href="/">리얼맵 지도 열기</a>
 
-<h2>1. 필지 정보 한 번에 보기</h2>
-<p>지도에서 필지를 누르거나, 위쪽 검색창에 주소·지번·건물명을 입력하시면 다음 정보를 바로 보여 드립니다.</p>
-<ul>
-<li><b>토지 정보</b> - 지목, 면적, 공시지가와 최근 추이</li>
-<li><b>토지이용계획</b> - 용도지역, 지구·구역, 도시계획도로 저촉 여부</li>
-<li><b>건축물대장</b> - 건물 용도, 연면적, 층별 개요, 호별 전용면적, 사용승인일</li>
-<li><b>로드뷰</b> - 현장 모습을 바로 확인</li>
-<li><b>묶음 필지</b> - 건물 하나가 여러 지번에 걸쳐 있으면 함께 표시</li>
-</ul>
+<section id="screen">
+  <h2><span class="n">1</span>화면 둘러보기</h2>
+  <p class="lead">리얼맵을 열면 왼쪽에 정보 창, 오른쪽에 지도가 나옵니다. 휴대폰에서는 지도가 먼저 보이고, 필지를 누르면 아래에서 정보 창이 올라옵니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/map.webp" width="1600" height="798" alt="리얼맵 첫 화면 - 왼쪽 검색창과 정보 창, 지도 위 실거래가 표시, 오른쪽 지도 도구 버튼" loading="lazy">
+    <span class="mk" style="left:11.5%;top:8.3%">1</span>
+    <span class="mk" style="left:58.6%;top:4.2%">2</span>
+    <span class="mk" style="left:95.1%;top:3.8%">3</span>
+    <span class="mk" style="left:95.1%;top:16.6%">4</span>
+    <span class="mk" style="left:95.1%;top:21.3%">5</span>
+    <span class="mk" style="left:95.1%;top:25.9%">6</span>
+    <span class="mk" style="left:95.1%;top:30.5%">7</span>
+    <span class="mk" style="left:54%;top:18.8%">8</span>
+  </div><figcaption>서울 마포구 서교동 일대 화면 · 그림을 누르면 크게 보입니다</figcaption></div>
+  <ol class="pts">
+    <li><b>검색창</b><span>주소, 지번, 건물명으로 찾아가실 수 있습니다. 예) 서교동 447-4, 마포래미안푸르지오</span></li>
+    <li><b>지도 / 로드뷰</b><span>로드뷰로 바꾸면 그 자리의 실제 거리 모습을 보실 수 있습니다.</span></li>
+    <li><b>일반 · 위성 · 지적도</b><span>위성사진으로 현장을 보거나, 지적도를 켜서 필지 경계와 지번을 확인하실 수 있습니다.</span></li>
+    <li><b>★ 관심</b><span>저장해 둔 관심 부동산과 '우리 집'을 모아 봅니다. <span class="tag">회원</span></span></li>
+    <li><b>면적·거리</b><span>여러 필지의 면적을 합치거나, 두 지점 사이 거리를 잽니다.</span></li>
+    <li><b>실거래</b><span>지도 위 실거래가 표시를 켜고 끕니다. 아파트·빌라·오피스텔을 골라 보실 수 있습니다.</span></li>
+    <li><b>개발지도</b><span>재개발·재건축 같은 정비구역을 지도에 색으로 표시합니다.</span></li>
+    <li><b>실거래가 표시</b><span>건물마다 최근 거래가와 전용면적, 거래 연월이 붙습니다. 누르면 거래 내역이 열립니다.</span></li>
+  </ol>
+</section>
 
-<h2>2. 아파트·빌라·오피스텔 실거래가</h2>
-<p>지도 위에 최근 실거래가가 바로 표시됩니다. 아파트, 연립·다세대(빌라), 오피스텔을 골라서 볼 수 있고, 건물을 누르면 매매·전세·월세 거래 내역과 가격 흐름 그래프를 보여 드립니다. 국토교통부 실거래가 공개 자료를 사용합니다.</p>
-<p>최근 1년 거래는 누구나 볼 수 있고, <b>3년·5년 거래 내역</b>은 회원이면 무료로 보실 수 있습니다.<span class="tag">회원</span></p>
+<section id="parcel">
+  <h2><span class="n">2</span>필지 정보 한 번에 보기</h2>
+  <p class="lead">지도에서 땅이나 건물을 누르면, 그 필지의 정보가 왼쪽 창에 정리되어 나옵니다. 누른 필지는 지도에 빨간 테두리로 표시됩니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/parcel.webp" width="847" height="783" alt="필지를 누른 화면 - 주소, 용도지역·지목·건물용도 요약, 대지면적·연면적·공시지가, 탭 메뉴, 여러 필지에 걸친 건물 안내" loading="lazy">
+    <span class="mk" style="left:27.6%;top:17.2%">1</span>
+    <span class="mk" style="left:13.6%;top:32.6%">2</span>
+    <span class="mk" style="left:47.6%;top:36.6%">3</span>
+    <span class="mk" style="left:30.4%;top:54.6%">4</span>
+    <span class="mk" style="left:27%;top:60.4%">5</span>
+    <span class="mk" style="left:21.4%;top:76.1%">6</span>
+    <span class="mk" style="left:92.2%;top:55.6%">7</span>
+  </div></div>
+  <ol class="pts">
+    <li><b>주소 · 저장 · 로드뷰</b><span>지번 주소와 도로명 주소가 함께 나옵니다. ☆ 저장으로 관심 부동산에 담고, 로드뷰로 현장을 바로 봅니다.</span></li>
+    <li><b>한눈에 요약</b><span>용도지역, 지목, 건물 용도, 사용승인 연도, 소유 구분(국·공유지 등)을 칩으로 보여 드립니다.</span></li>
+    <li><b>대지면적 · 연면적 · 공시지가</b><span>오른쪽 아래 ㎡ / 평 버튼으로 단위를 바꿀 수 있습니다.</span></li>
+    <li><b>입지정보 · 브리핑 · 공유</b><span>주변 지하철역·학교·병원·상권을 정리하고(입지정보), 손님께 드릴 매물 자료를 한 장으로 만들고(브리핑), 링크로 보낼 수 있습니다(공유).</span></li>
+    <li><b>탭 메뉴</b><span>토지 · 이용계획 · 개발 · 건물 · 동·호수 · 실거래 순서로 자세한 내용을 봅니다. 해당 자료가 있는 탭만 나타납니다.</span></li>
+    <li><b>여러 필지에 걸친 건물</b><span>건물 하나가 여러 지번에 걸쳐 지어졌으면 함께 묶어서 보여 드립니다. 지도에는 점선으로 표시됩니다.</span></li>
+    <li><b>선택한 필지</b><span>지금 보고 있는 필지가 지도에 빨간 테두리로 표시됩니다.</span></li>
+  </ol>
+  <div class="tip"><b>이런 분께 좋습니다.</b> 매물 현장에 가기 전에 용도지역과 건물 연식, 공시지가를 미리 확인하실 때, 혹은 손님께 설명드릴 자료를 빠르게 찾으실 때 쓰시면 편합니다.</div>
+</section>
 
-<h2>3. 전세 안전 점검<span class="tag">회원</span></h2>
-<p>자녀가 들어갈 전셋집, 계약 전에 한 번 점검해 보세요. 건물을 누르고 '전세 안전' 버튼을 누르시면 아래 항목을 양호·주의·위험으로 정리해 드립니다.</p>
-<ul>
-<li>전세가율 (매매가 대비 전세가 비율)</li>
-<li>위반건축물 여부</li>
-<li>건물 용도 (근린생활시설을 주거용으로 쓰는 경우 주의)</li>
-<li>등기 형태, 건물 연식</li>
-<li>최근 거래 활발도, 매매가 흐름</li>
-</ul>
-<p>계약 전에 꼭 챙길 확인 목록(등기부등본, 선순위 권리, 전세보증보험 가입 가능 여부 등)도 함께 보여 드립니다.</p>
-<p class="muted">점검 결과는 공공데이터를 바탕으로 한 참고 자료이며, 실제 계약 전에는 등기부등본 등 원본 서류를 반드시 확인하시기 바랍니다.</p>
+<section id="plan">
+  <h2><span class="n">3</span>토지이용계획 · 꼭 알아야 할 규제</h2>
+  <div class="pair">
+    <div class="shot"><div class="fig"><img src="/guide/plan.webp" width="420" height="576" alt="이용계획 탭 - 주의할 규제(건축허가·착공제한지역) 경고와 토지이용계획 지역·지구 목록" loading="lazy">
+      <span class="mk" style="left:97%;top:10.5%">1</span>
+      <span class="mk" style="left:76.5%;top:64.3%">2</span>
+      <span class="mk" style="left:94%;top:96.5%">3</span>
+    </div></div>
+    <div>
+      <p class="lead">'이용계획' 탭에서는 토지이음(eum.go.kr)의 토지이용계획을 그대로 정리해 드립니다.</p>
+      <ol class="pts">
+        <li><b>주의할 규제</b><span>건축허가·착공제한지역, 개발행위허가제한지역처럼 거래나 건축에 큰 영향을 주는 규제는 빨간 상자로 먼저 알려 드리고, 무슨 뜻인지 쉽게 풀어 드립니다.</span></li>
+        <li><b>지역·지구 목록</b><span>용도지역은 초록색으로 강조됩니다. 국토계획법에 따른 것과 다른 법령에 따른 것을 나눠서 보여 드립니다.</span></li>
+        <li><b>저촉 · 접합</b><span>'저촉'은 일부가 걸쳐 있다는 뜻이고, '접합'은 경계에 붙어 있다는 뜻입니다. 도시계획도로에 일부 저촉되면 그만큼 건축 면적에서 빠질 수 있습니다.</span></li>
+      </ol>
+      <div class="warn"><b>계약 전 확인</b> 규제의 기간과 대상은 고시마다 다릅니다. 실제 계약 전에는 토지이음의 고시 원문이나 구청에서 꼭 다시 확인해 주세요.</div>
+    </div>
+  </div>
+</section>
 
-<h2>4. 관심 부동산 · 우리 집 시세<span class="tag">회원</span></h2>
-<p>마음에 드는 부동산은 ☆ 버튼으로 저장해 두고 언제든 다시 보실 수 있습니다. 사시는 집을 '우리 집'으로 지정해 두시면, 리얼맵에 들어올 때마다 최근 거래가, 반년 전 대비 변동, 1년 거래 건수, 전세가율을 카드로 보여 드립니다.</p>
+<section id="room">
+  <h2><span class="n">4</span>건축 여유 · 면적 재기</h2>
+  <div class="pair rev">
+    <div class="shot"><div class="fig"><img src="/guide/room.webp" width="421" height="603" alt="건축 여유 - 상한까지 약 33평을 더 지을 수 있다는 안내와 용적률 막대, 용도지역별 건폐율·용적률" loading="lazy">
+      <span class="mk" style="left:97%;top:8.3%">1</span>
+      <span class="mk" style="left:97%;top:16.4%">2</span>
+      <span class="mk" style="left:97%;top:30.5%">3</span>
+      <span class="mk" style="left:97%;top:77.4%">4</span>
+    </div></div>
+    <div>
+      <p class="lead">'토지' 탭의 건축 여유는, 지금 지어진 건물 대비 법적으로 더 지을 수 있는 면적을 대략 계산해 드립니다.</p>
+      <ol class="pts">
+        <li><b>한 줄 요약</b><span>"상한까지 약 33평을 더 지을 수 있는 땅입니다"처럼 결론부터 보여 드립니다.</span></li>
+        <li><b>용적률 막대</b><span>현재 용적률이 조례 상한의 어디쯤인지 막대로 보여 드립니다. 여러 필지에 걸친 건물은 필지를 합쳐서 계산합니다.</span></li>
+        <li><b>계산 근거</b><span>용도지역, 서울시 조례 기준 건폐율·용적률, 최대 지상 연면적과 남은 연면적을 ㎡와 평으로 함께 보여 드립니다.</span></li>
+        <li><b>도로 저촉 · 완화 안내</b><span>도시계획도로에 걸친 부분, 지구단위계획이나 정비사업으로 완화받을 수 있는 경우를 함께 알려 드립니다.</span></li>
+      </ol>
+      <h3>면적·거리 재기</h3>
+      <p>오른쪽 <b>면적·거리</b> 버튼을 누른 뒤 지도에서 필지를 하나씩 누르면 면적이 계속 더해집니다. 여러 필지를 묶어 땅 규모를 가늠하실 때 편합니다. '거리 재기'로 바꾸면 지점을 이어서 거리를 잴 수 있습니다.</p>
+      <div class="tip"><b>참고</b> 건축 여유는 추정치입니다. 일조·높이 제한, 주차 기준, 지구단위계획에 따라 실제로 지을 수 있는 규모는 달라집니다.</div>
+    </div>
+  </div>
+</section>
 
-<h2>5. 건축 여유와 면적 재기</h2>
-<p>땅을 누르면 지금 건물 대비 법적으로 더 지을 수 있는 면적(건축 여유)을 대략 계산해 드립니다. 지도의 '면적' 도구로 여러 필지를 이어서 누르면 합계 면적도 바로 나옵니다.</p>
+<section id="trade">
+  <h2><span class="n">5</span>아파트 · 빌라 · 오피스텔 실거래가</h2>
+  <p class="lead">지도를 조금 확대하면 건물마다 최근 6개월 매매 실거래가가 표시됩니다. 국토교통부 실거래가 공개 자료를 사용합니다.</p>
+  <div class="keys"><span><i style="background:#14212E"></i>아파트</span><span><i style="background:#1F7A4D"></i>빌라 (연립·다세대)</span><span><i style="background:#6741B8"></i>오피스텔</span></div>
+  <p>표시 하나에는 <b>거래가 · 전용면적 · 거래 연월</b>이 들어 있습니다. 예를 들어 "5.8억 / 66㎡ · 26.07"은 2026년 7월에 전용 66㎡가 5억 8천만 원에 거래됐다는 뜻입니다. 오른쪽 <b>실거래</b> 버튼을 누르면 종류별로 켜고 끌 수 있습니다.</p>
+  <div class="pair">
+    <div class="shot"><div class="fig"><img src="/guide/trade.webp" width="418" height="643" alt="실거래 탭 - 매매·전월세 선택, 1년·3년·5년 기간, 평형별 매매가 추이 그래프와 거래 목록" loading="lazy">
+      <span class="mk" style="left:37%;top:3.4%">1</span>
+      <span class="mk" style="left:59%;top:3.4%">2</span>
+      <span class="mk" style="left:94.5%;top:15.6%">3</span>
+      <span class="mk" style="left:97%;top:56%">4</span>
+    </div></div>
+    <div>
+      <h3 style="margin-top:0">건물을 누르면 거래 내역이 열립니다</h3>
+      <ol class="pts">
+        <li><b>매매 · 전월세</b><span>매매와 전세·월세 거래를 나눠서 봅니다. 숫자는 거래 건수입니다.</span></li>
+        <li><b>기간</b><span>최근 1년은 누구나, 3년·5년은 회원이면 무료로 보실 수 있습니다. <span class="tag">회원</span></span></li>
+        <li><b>가격 흐름 그래프</b><span>평형별로 월별 중간값을 이어 그려서, 같은 단지라도 평형마다 어떻게 움직였는지 비교됩니다.</span></li>
+        <li><b>거래 목록</b><span>거래일, 층, 전용면적, 거래가, ㎡당 가격, 중개거래 여부와 매도·매수 구분까지 보여 드립니다.</span></li>
+      </ol>
+      <div class="tip"><b>단독주택·토지는요?</b> 단독·다가구, 상가, 토지 거래는 지번 일부가 가려져 공개되어 지도에는 표시하지 않습니다. 대신 필지를 누르고 실거래 탭을 보시면 주변 비슷한 거래를 모아 보여 드립니다.</div>
+    </div>
+  </div>
+</section>
 
-<h2>6. 입지정보와 브리핑 자료</h2>
-<p>주변 지하철역, 학교, 병원, 상권 같은 입지정보를 정리해 드리고, 공인중개사분들이 손님께 드릴 수 있는 매물 브리핑 자료(매매·전세·월세)를 한 장으로 만들어 드립니다.</p>
+<section id="price">
+  <h2><span class="n">6</span>동별 · 구별 시세 지도 <span class="tag">서울·인천·경기</span></h2>
+  <p class="lead">실거래를 켠 상태에서 지도를 축소하면, 동네마다 시세가 색으로 칠해집니다. 많이 축소하면 구·시 단위로, 조금 확대하면 동 단위로 바뀝니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/price.webp" width="1219" height="945" alt="구별 시세 지도 - 서울·인천·경기 시군구를 아파트 전용 평당가로 색칠한 화면" loading="lazy"></div><figcaption>구별 아파트 전용 평당가 (최근 6개월 실거래 중간값)</figcaption></div>
+  <div class="pair rev" style="margin-top:22px">
+    <div class="shot"><div class="fig"><img src="/guide/legend.webp" width="474" height="346" alt="시세 지도 범례 - 평당가·상승률·거래량 전환 버튼과 색 구간" loading="lazy" style="max-width:340px;margin:0 auto"></div><figcaption>지도 왼쪽 아래 범례</figcaption></div>
+    <div>
+      <h3 style="margin-top:0">세 가지 기준으로 볼 수 있습니다</h3>
+      <div class="steps" style="grid-template-columns:1fr">
+        <div><em>평당가</em><b>얼마인가</b>전용면적 기준 평당 가격의 중간값입니다. 색이 진할수록 비쌉니다.</div>
+        <div><em>상승률</em><b>올랐나, 내렸나</b>1년 전 같은 6개월과 비교한 변동률입니다. 빨간색은 상승, 파란색은 하락입니다.</div>
+        <div><em>거래량</em><b>얼마나 거래됐나</b>최근 6개월 매매 건수입니다. 지역을 누르면 1년 전 건수와 비교해 드립니다.</div>
+      </div>
+      <p>범례 위 버튼으로 바로 바꾸실 수 있고, 아파트·빌라·오피스텔은 <b>실거래</b> 창에서 고르실 수 있습니다. 동이나 구를 누르면 세 종류의 평당가와 1년 전 대비 변동을 한 장의 카드로 보여 드립니다.</p>
+    </div>
+  </div>
+  <div class="tip"><b>매주 갱신</b> 국토교통부 실거래가를 바탕으로 매주 월요일 새벽에 새로 계산합니다. 거래가 3건 미만인 곳은 점선으로 표시해 숫자를 너무 믿지 않으시도록 구분했습니다.</div>
+</section>
 
-<h2>7. 재개발·재건축 개발정보</h2>
-<p>정비구역 안의 필지를 누르면 주소 아래에 '재개발', '재건축', '신속통합기획', '모아타운' 같은 표시가 붙고, 개발정보 칸에서 구역명, 추진 단계, 계획 세대수·층수·용적률을 확인하실 수 있습니다. 건축허가·착공제한, 개발행위허가제한처럼 꼭 알아야 할 규제는 빨간 경고로 알려 드립니다. 서울 25개 구의 정비사업은 <a href="/seoul/">서울 재개발·재건축 정비사업 현황</a>에서 구별로 모아 보실 수 있습니다.</p>
+<section id="dev">
+  <h2><span class="n">7</span>재개발 · 재건축 개발지도</h2>
+  <p class="lead">오른쪽 <b>개발지도</b> 버튼을 누르면 정비구역이 사업 종류별 색으로 표시됩니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/dev.webp" width="1003" height="942" alt="개발지도 - 용산구 이촌동 일대 재개발·재건축 정비구역과 사업 종류별 선택 창" loading="lazy">
+    <span class="mk" style="left:66.6%;top:3.6%">1</span>
+    <span class="mk" style="left:14.5%;top:36%">2</span>
+    <span class="mk" style="left:9.3%;top:13.6%">3</span>
+    <span class="mk" style="left:26.6%;top:52.4%">4</span>
+    <span class="mk" style="left:74.8%;top:66.7%">5</span>
+    <span class="mk" style="left:84.4%;top:38.8%">6</span>
+  </div><figcaption>서울 용산구 이촌동 일대</figcaption></div>
+  <ol class="pts">
+    <li><b>사업 종류 고르기</b><span>재개발, 도시정비형 재개발, 재정비촉진(뉴타운), 재건축, 역세권 재개발, 주거환경개선, 신속통합기획을 켜고 끌 수 있습니다. 옆 숫자는 구역 수입니다.</span></li>
+    <li><b>정비구역</b><span>구역이 사업 종류 색으로 칠해집니다. 그림의 파란 구역은 재건축 정비구역입니다.</span></li>
+    <li><b>누른 필지</b><span>빨간 실선은 지금 누른 필지이고, 빨간 점선은 같은 건물(단지)이 걸쳐 있는 나머지 필지입니다.</span></li>
+    <li><b>구역 이름표</b><span>구역명이 지도에 바로 붙어 어디가 어느 구역인지 한눈에 보입니다.</span></li>
+    <li><b>핀 표시</b><span>경계가 공개되지 않은 사업은 위치에 핀으로 표시하고, 추진 단계를 함께 적어 드립니다.</span></li>
+    <li><b>서울 정비사업 현황</b><span>서울 830여 곳의 사업을 구별로 모아 보는 페이지로 이어집니다.</span></li>
+  </ol>
+  <h3>구역 안 필지를 누르면</h3>
+  <p>주소 아래에 <b>'재개발'</b>, <b>'재건축'</b>, <b>'신속통합기획'</b> 같은 표시가 붙고, '개발' 탭에서 구역명, 계획 세대수·층수·용적률과 함께 지금 어느 단계까지 왔는지 보여 드립니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/stage.webp" width="833" height="250" alt="추진 단계 표시 - 대상지, 기획, 구역지정, 추진위, 조합설립, 사업시행, 관리처분, 착공, 준공" loading="lazy"></div><figcaption>추진 단계와 다음 단계 안내</figcaption></div>
+  <div class="tip"><b>관심 구역 알림</b> <a href="/seoul/">서울 재개발·재건축 정비사업 현황</a>에서 구역을 관심 구역으로 담고 추진 알림을 신청하시면, 단계가 바뀔 때 이메일로 알려 드립니다. <span class="tag">회원</span></div>
+</section>
 
-<h2>회원 가입</h2>
-<p>카카오 계정으로 3초면 가입하실 수 있고, 모든 기능은 무료입니다. 가입 시 카카오 회원번호와 닉네임만 받으며, 탈퇴하시면 바로 삭제됩니다.</p>
-<a class="cta" href="/">리얼맵 지도 열기</a>
+<section id="safe">
+  <h2><span class="n">8</span>전세 안전 점검 <span class="tag">회원</span></h2>
+  <div class="pair">
+    <div class="shot"><div class="fig"><img src="/guide/safe.webp" width="411" height="830" alt="전세 안전 점검 결과 - 전세가율, 위반건축물, 건물 용도, 등기 형태, 건물 연식, 거래 활발도, 매매가 흐름을 양호·주의·위험으로 표시" loading="lazy">
+      <span class="mk" style="left:72%;top:12%">1</span>
+      <span class="mk" style="left:94%;top:16.6%">2</span>
+      <span class="mk" style="left:94%;top:80%">3</span>
+    </div></div>
+    <div>
+      <p class="lead">자녀가 들어갈 전셋집, 계약하기 전에 한 번 점검해 보세요. 주거용 건물을 누르면 <b>전세 안전</b> 버튼이 나옵니다.</p>
+      <ol class="pts">
+        <li><b>한눈에 결과</b><span>위험 · 주의 · 양호 · 직접 확인 항목이 몇 개인지 먼저 보여 드립니다.</span></li>
+        <li><b>항목별 점검</b><span>전세가율(매매가 대비 전세가), 위반건축물, 건물 용도(근린생활시설 주의), 등기 형태, 건물 연식, 거래 활발도, 매매가 흐름을 하나씩 판정합니다.</span></li>
+        <li><b>계약 전 꼭 확인하세요</b><span>등기사항전부증명서, 전입세대 열람, 전세보증보험 가입 가능 여부, 임대인 세금 완납 증명 등 직접 챙기셔야 할 서류를 정리해 드립니다.</span></li>
+      </ol>
+      <div class="warn"><b>참고용 결과입니다</b> 공공데이터로 자동 분석한 결과라 선순위 권리나 실제 시세는 반영되지 않을 수 있습니다. 계약 전에는 반드시 원본 서류와 현장을 확인해 주세요.</div>
+    </div>
+  </div>
+</section>
 
-<footer>리얼맵 · 운영 주식회사 드림인베스트 · 문의 realwalkers@naver.com · <a href="/privacy.html">개인정보처리방침</a></footer>
+<section id="save">
+  <h2><span class="n">9</span>관심 부동산 · 우리 집 시세 <span class="tag">회원</span></h2>
+  <div class="pair rev">
+    <div class="shot"><div class="fig"><img src="/guide/save.webp" width="414" height="412" alt="저장됨, 우리 집으로, 로드뷰, 입지정보, 브리핑, 전세 안전, 공유 버튼이 있는 필지 정보 상단" loading="lazy">
+      <span class="mk" style="left:16%;top:11.5%">1</span>
+      <span class="mk" style="left:42%;top:11.5%">2</span>
+      <span class="mk" style="left:76.3%;top:85.7%">3</span>
+    </div></div>
+    <div>
+      <ol class="pts">
+        <li><b>저장</b><span>☆ 저장을 누르면 ★ 저장됨으로 바뀌고, 오른쪽 ★ 관심 버튼에서 언제든 다시 열어 보실 수 있습니다.</span></li>
+        <li><b>우리 집으로</b><span>사시는 집을 '우리 집'으로 지정해 두시면, 리얼맵에 들어올 때마다 최근 거래가, 반년 전 대비 변동, 1년 거래 건수, 전세가율을 카드로 보여 드립니다.</span></li>
+        <li><b>전세 안전 · 브리핑</b><span>주거용 건물이면 전세 안전 점검을 바로 할 수 있고, 브리핑으로 매매·전세·월세 매물 자료를 한 장으로 만들 수 있습니다.</span></li>
+      </ol>
+      <h3>회원 가입은 3초면 됩니다</h3>
+      <p>카카오 계정으로 가입하시면 모든 기능을 무료로 쓰실 수 있습니다. 가입할 때 카카오 회원번호와 닉네임만 받으며, 탈퇴하시면 바로 삭제됩니다.</p>
+      <div class="steps" style="grid-template-columns:1fr 1fr">
+        <div><em>회원 혜택</em><b>전세 안전 점검</b>전체 결과와 계약 전 확인 목록</div>
+        <div><em>회원 혜택</em><b>3년·5년 실거래</b>오래된 거래와 가격 흐름까지</div>
+        <div><em>회원 혜택</em><b>관심 · 우리 집</b>저장과 시세 카드</div>
+        <div><em>회원 혜택</em><b>입지정보 · 브리핑</b>횟수 제한 없이</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <h2><span class="n">?</span>자주 묻는 질문</h2>
+  <details><summary>리얼맵은 무료인가요?</summary><p>네, 모든 기능이 무료입니다. 일부 기능은 카카오 계정으로 회원 가입만 하시면 무료로 쓰실 수 있습니다.</p></details>
+  <details><summary>자료는 어디에서 가져오나요? 얼마나 자주 바뀌나요?</summary><p>국토교통부 실거래가 공개 자료, 건축물대장, 토지이용계획, 공시지가, 정비구역 연속주제도, 서울시 정비사업 현황 등 공공데이터를 사용합니다. 실거래가는 신고되는 대로 반영되고, 동별·구별 시세는 매주, 서울 정비사업 현황은 분기마다 새로 받습니다.</p></details>
+  <details><summary>단독주택이나 토지 실거래가는 왜 지도에 안 보이나요?</summary><p>단독·다가구, 상가, 토지 거래는 지번 일부가 가려진 채로 공개되어 정확한 위치를 지도에 표시할 수 없습니다. 필지를 누르고 실거래 탭을 보시면 주변 비슷한 거래를 모아 보여 드립니다.</p></details>
+  <details><summary>시세 지도는 어느 지역까지 보이나요?</summary><p>지금은 서울·인천·경기를 지원합니다. 다른 지역은 차례로 넓혀 갈 예정입니다.</p></details>
+  <details><summary>휴대폰에서도 쓸 수 있나요?</summary><p>네. 휴대폰 브라우저에서 realmap.online에 들어오시면 됩니다. 필지를 누르면 아래에서 정보 창이 올라옵니다. 홈 화면에 추가해 두시면 앱처럼 쓰실 수 있습니다.</p></details>
+  <details><summary>건축 여유나 전세 안전 점검 결과를 그대로 믿어도 되나요?</summary><p>공공데이터를 바탕으로 자동 계산한 참고 자료입니다. 지구단위계획, 일조·높이 제한, 선순위 권리 등은 반영되지 않을 수 있으니, 중요한 결정 전에는 원본 서류와 전문가 확인을 꼭 거쳐 주세요.</p></details>
+</section>
+
+<section class="end">
+  <h2 style="justify-content:center">지금 바로 지도에서 확인해 보세요</h2>
+  <p>궁금한 땅이나 건물을 검색창에 입력하시거나, 지도에서 바로 눌러 보시면 됩니다.</p>
+  <a class="cta" href="/">리얼맵 지도 열기</a>
+</section>
+
 </main>
+<script>document.querySelectorAll('.fig img').forEach(function(i){i.style.cursor='zoom-in';i.title='누르면 크게 볼 수 있습니다';i.addEventListener('click',function(){window.open(i.src,'_blank')})});</script>
+<footer>리얼맵 · 운영 주식회사 드림인베스트 · 문의 realwalkers@naver.com · <a href="/privacy.html">개인정보처리방침</a> · <a href="/seoul/">서울 정비사업 현황</a></footer>
 </body>
 </html>
