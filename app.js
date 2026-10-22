@@ -1047,17 +1047,43 @@
     const get = u => fetch(u).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
     if (!jbLoading) jbLoading = get('/data/jeongbi-seoul.json').catch(() => get('/jeongbi-seoul.json')).then(j => {
       D.jb = j.features.map(f => ({ ...f.properties, g: f.geometry, c: geoCenter(f.geometry) }));
-      D.jbUpdated = j.updated;
+      D.jbUpdated = j.updated; D.jbSeoulN = D.jb.length;
       return loadSZ().then(sz => { enrichJB(sz); return j; });
     }).then(() => {
       // 경계가 없는 서울시 정비사업(한남뉴타운·신통 대상지 등)은 점으로 표시
       D.pins = (D.sz && D.sz.rows || []).filter(r => r.lat && r.lng && !(r.jb && r.jb.length)).map(r => ({ r, k: SZKIND[r.k] || '정비구역' }));
       const cnt = {}; D.jb.forEach(z => { cnt[grp(z)] = (cnt[grp(z)] || 0) + 1; });
       D.pins.forEach(p => { const g = grp(p); cnt[g] = (cnt[g] || 0) + 1; });
+      D.cntBase = cnt;
       document.querySelectorAll('[data-cnt]').forEach(e => e.textContent = cnt[e.dataset.cnt] || 0);
       return D.jb;
     }).catch(() => { jbLoading = null; D.jb = null; toast('정비구역 자료를 불러오지 못했습니다'); return null; });
     return jbLoading;
+  }
+  // 서울 밖 정비구역: 시·도별 파일(data/jeongbi-<시도코드>.json)을 보고 있는 지역만 불러옴
+  const PROV = { '26': '26', '27': '27', '28': '28', '29': '12', '46': '12', '12': '12', '30': '30', '31': '31', '36': '36', '41': '41', '43': '43', '44': '44', '47': '47', '48': '48', '50': '50', '42': '51', '51': '51', '45': '52', '52': '52' };
+  D.prov = {};
+  function loadProv(code) {
+    const f = PROV[String(code).slice(0, 2)];
+    if (!f || D.prov[f]) return D.prov[f] || Promise.resolve(null);
+    D.prov[f] = loadJB().then(() => fetch(`/data/jeongbi-${f}.json`)).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(j => {
+      const add = j.features.map(x => ({ ...x.properties, g: x.geometry, c: geoCenter(x.geometry) }));
+      D.jb.push(...add);
+      const cnt = { ...(D.cntBase || {}) };
+      D.jb.forEach((z, i) => { if (i >= D.jbSeoulN) { const g = grp(z); cnt[g] = (cnt[g] || 0) + 1; } });
+      D.cntBase && document.querySelectorAll('[data-cnt]').forEach(e => e.textContent = cnt[e.dataset.cnt] || 0);
+      return add;
+    }).catch(() => { delete D.prov[f]; return null; });
+    return D.prov[f];
+  }
+  // 지금 화면 가운데·모서리가 속한 시·도 자료 불러오기
+  async function provForView() {
+    if (!D.on || !D.want.jb) return;
+    const b = S.map.getBounds(), c = S.map.getCenter(), sw = b.getSouthWest(), ne = b.getNorthEast();
+    const pts = [[c.getLat(), c.getLng()], [sw.getLat(), sw.getLng()], [ne.getLat(), ne.getLng()]];
+    const codes = new Set((await Promise.all(pts.map(([a, o]) => regionAt(a, o)))).filter(Boolean).map(r => r.lawd.slice(0, 2)).filter(x => x !== '11'));
+    const got = await Promise.all([...codes].map(loadProv));
+    if (got.some(Boolean)) drawJB();
   }
   // 서울시 정비사업 현황으로 국토부 구역의 종류·이름 보충 (국토부에 종류가 '정비구역'으로만 된 곳, 이름 없는 곳)
   const SZKIND = { '재개발(주택정비형)': '재개발', '재개발(도시정비형)': '도시정비형 재개발', '재건축(공동)': '재건축', '재건축(단독)': '재건축', '주거환경개선(관리형)': '주거환경개선', '주거환경개선(정비형)': '주거환경개선', '신속통합기획': '신속통합기획' };
@@ -1101,8 +1127,9 @@
     const K = kakao.maps;
     const show = D.on && D.want.jb && D.jb;
     if (!show) { D.jbShapes.forEach(o => o.setMap(null)); D.jbLabels.forEach(o => o.setMap(null)); return; }
-    if (!D.jbShapes.length) {
+    {
       for (const z of D.jb) {
+        if (z.drawn) continue; z.drawn = true;
         const c = KCOLOR[z.k] || '#868E96';
         for (const path of geoToPaths(z.g)) { const o = new K.Polygon({ path, strokeWeight: 2, strokeColor: c, strokeOpacity: .9, fillColor: c, fillOpacity: z.k === '사업완료' ? .05 : .16 }); o.grp = grp(z); o.z = z; D.jbShapes.push(o); }
       }
@@ -1209,6 +1236,7 @@
   async function devRefresh() {
     drawZones();
     if (D.on && D.want.jb && !D.jb) loadJB().then(() => drawJB()); else drawJB();
+    provForView();
     const K = kakao.maps;
     const keys = Object.keys(LCOLOR);
     const lvl = S.map.getLevel();
@@ -1349,6 +1377,11 @@
     const out = [], used = new Set();
     const seoul = String(p.pnu).startsWith('11');
     if (seoul && (!D.jb || !D.sz)) Promise.all([loadJB(), loadSZ()]).then(([j]) => { if (j && S.sel === p) render(); });
+    const pc = PROV[String(p.pnu).slice(0, 2)];
+    if (!seoul && pc) {
+      if (!D.prov[pc]) loadProv(p.pnu).then(a => { if (a && S.sel === p) render(); });
+      else if (D.jb) for (const z of D.jb.filter((z, i) => i >= (D.jbSeoulN || 0) && inGeo(z.g, p.c.lng, p.c.lat))) out.push({ z, r: null });
+    }
     if (seoul && D.jb && D.sz) {
       for (const z of D.jb.filter(z => inGeo(z.g, p.c.lng, p.c.lat))) {
         const rs = (D.sz.byJb.get(z.id) || []).slice().sort((a, b) => (b.sd || '').localeCompare(a.sd || ''));
@@ -1441,7 +1474,7 @@
         ['사업 구분', kind === '정비구역' ? '정비구역 (세부 종류 미등록)' : kind],
         ['추진 단계', r && r.st ? `${r.st}${r.sd ? ` (${r.sd})` : ''}` : ''],
         ['정비구역 고시', z ? (z.d || (z.y ? `${z.y}년` : '')) : ''],
-        ['위치', r && r.a ? `서울특별시 ${r.gu} ${r.a} 일대` : z ? `서울특별시 ${z.gu}` : ''],
+        ['위치', r && r.a ? `서울특별시 ${r.gu} ${r.a} 일대` : z && z.gu ? `서울특별시 ${z.gu}` : String(S.sel && S.sel.addr || '').split(' ').slice(0, -1).join(' ')],
         ['구역 면적', area ? `${r && r.ar ? '' : '약 '}${ar(area, 0)[0]}` : ''],
         ['용도지역', zoneChg],
         ['계획 용적률', r && r.far ? zPct(r.far) : ''],
