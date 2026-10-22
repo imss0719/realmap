@@ -2075,7 +2075,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 값은 data/price-<시도>.json (전용 ㎡당 중간값, GitHub가 매주 갱신). 시세 파일은 작아서 처음에 모두 받고,
   // 경계 파일은 지도가 그 시도를 비출 때만 받습니다. 색 구간은 수도권 전체를 한 기준으로 나눕니다.
   const PSIDO = { '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] } };
-  const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, sel: null, hov: null };
+  const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, qv: {}, sel: null, hov: null };
   const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
   const PY3 = 3.305785;
   const pmSave = () => { try { localStorage.setItem('rm.pm', JSON.stringify({ kind: PM.kind, mode: PM.mode })); } catch { /* 무시 */ } };
@@ -2134,6 +2134,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const pmSrc = ly => ly === 'g' ? PM.price.g : PM.price.d;
   function pmVal(ly, c) {
     const e = pmSrc(ly)[c], v = e && e[PM.kind];
+    if (PM.mode === 'vol') return v && v[1] ? { v: v[1], n: v[1] } : null;   // 거래량: 최근 6개월 매매 건수
     if (!v || !v[0] || v[1] < 3) return null;
     if (PM.mode === 'price') return { v: v[0] * PY3, n: v[1] };
     if (!v[2] || v[3] < 3) return null;
@@ -2142,11 +2143,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function pmColor(ly, x) {
     if (!x) return null;
     if (PM.mode === 'chg') return CCOL.find(([t]) => x.v < t)[1];
-    const q = PM.q[ly] || [];
+    const vol = PM.mode === 'vol', q = (vol ? PM.qv[ly] : PM.q[ly]) || [], C = vol ? VCOL : PCOL;
     let i = 0; while (i < q.length && x.v > q[i]) i++;
-    return PCOL[Math.min(i, PCOL.length - 1)];
+    return C[Math.min(i, C.length - 1)];
   }
-  const pmTxt = x => PM.mode === 'chg' ? `${x.v >= 0 ? '+' : ''}${x.v.toFixed(1)}%` : `${n(Math.round(x.v / 10) * 10)}만`;
+  const VCOL = ['#E3F2EF', '#BFE3DC', '#8FCFC2', '#5CB5A6', '#2E978A', '#0E776B', '#075A51'];
+  const pmTxt = x => PM.mode === 'chg' ? `${x.v >= 0 ? '+' : ''}${x.v.toFixed(1)}%` : PM.mode === 'vol' ? `${n(x.v)}건` : `${n(Math.round(x.v / 10) * 10)}만`;
   const pmCls = x => PM.mode === 'chg' ? (x.v >= 2 ? ' up' : x.v <= -2 ? ' dn' : '') : '';
   function pmCenter(rings) {
     let best = rings[0]; rings.forEach(r => { if (r.length > best.length) best = r; });
@@ -2179,6 +2181,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       for (const k of ['d', 'g']) {
         const vs = Object.values(pmSrc(k)).map(e => e[PM.kind]).filter(v => v && v[0] && v[1] >= 3).map(v => v[0] * PY3).sort((a, z) => a - z);
         PM.q[k] = [1, 2, 3, 4, 5, 6].map(i => vs[Math.floor(vs.length * i / 7)] || 0);
+        const ns = Object.values(pmSrc(k)).map(e => e[PM.kind]).filter(v => v && v[1]).map(v => v[1]).sort((a, z) => a - z);
+        PM.qv[k] = [1, 2, 3, 4, 5, 6].map(i => ns[Math.floor(ns.length * i / 7)] || 0);
       }
       PM.qKey = PM.kind; restyle = true;
     }
@@ -2227,11 +2231,14 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const el = $('pmLegend'), P = PM.price;
     const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind], U = ly === 'g' ? '구별' : '동별';
     const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}`;
-    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button></div>`;
+    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button></div>`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
     if (PM.mode === 'price') {
       const q = PM.q[ly], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전용 평당가 <small>${per}</small></b><div class="pml">${PCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])} 이하</span><span>${f(q[5])} 이상</span></div>${hint}`;
+    } else if (PM.mode === 'vol') {
+      const q = PM.qv[ly];
+      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 거래량 <small>${per} · 6개월 매매 건수</small></b><div class="pml">${VCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${n(q[0])}건 이하</span><span>${n(q[5])}건 이상</span></div>${hint}`;
     } else {
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 1년 상승률 <small>${per} · 1년 전 같은 기간 대비</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div>${hint}`;
     }
@@ -2242,7 +2249,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     PM.sel = `${ly}:${f.c}`; if (prev && prev !== PM.sel) pmPaint(prev[0], prev.slice(2)); pmPaint(ly, f.c);
     const row = (k, nm) => { const v = e[k]; if (!v || !v[0]) return `<tr><th>${nm}</th><td colspan="2" class="n">최근 6개월 거래 없음</td></tr>`;
       const ch = v[2] && v[3] >= 3 && v[1] >= 3 ? (v[0] / v[2] - 1) * 100 : null;
-      return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[1] < 3 ? ' · 적음' : ''}</small></td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
+      return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[3] ? ` (1년 전 ${n(v[3])}건)` : ''}${v[1] < 3 ? ' · 적음' : ''}</small></td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
     const nm = ly === 'g' ? f.n : (PM.price.d[f.c] && PM.price.d[f.c].n) || f.n;
     const gu = ly === 'd' && PM.price.g[f.c.slice(0, 5)] ? PM.price.g[f.c.slice(0, 5)].n : '';
     const sdn = (PSIDO[f.c.slice(0, 2)] || {}).n || '';
