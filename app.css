@@ -244,6 +244,17 @@ select{height:40px;border:1px solid var(--line);border-radius:8px;background:var
 .room-msg b{color:#14212E;background:linear-gradient(transparent 60%,#F9DC72 60%)}
 
 /* 전세가율 */
+.gapbox .seg.sm{display:inline-flex;width:auto;margin:2px 0 8px}
+.gapbox .seg.sm button{font-size:12px;padding:4px 10px}
+.gapsum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 4px}
+.gapsum div{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:8px 8px 7px;min-width:0}
+.gapsum small{display:block;font-size:11px;color:var(--muted)}
+.gapsum b{display:block;font-size:15px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.gapsum div:nth-child(3){background:#FFF6D6;border-color:#F5DE8C}
+.gapsum.mid div:nth-child(4) b{color:#9A6200}.gapsum.hi div:nth-child(4) b{color:#B42318}.gapsum.hi div:nth-child(4){border-color:#F3B8B0;background:#FDE4E1}
+.trend .gapfill{fill:#F2B705;fill-opacity:.16;stroke:none}
+.tlegend .gapkey{background:rgba(242,183,5,.35)}
+@media (prefers-color-scheme: dark){.gapsum div:nth-child(3){background:#2C2610;border-color:#5A4A12}}
 .jr{border-radius:12px;padding:14px 14px 10px;border:1px solid var(--line);background:var(--soft)}
 .jr-top{display:flex;align-items:baseline;gap:10px}
 .jr-top b{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
@@ -513,6 +524,8 @@ a.favbtn{text-decoration:none}
 .pmcard .pmc-h button{border:0;background:var(--soft);width:28px;height:28px;border-radius:50%;cursor:pointer;color:var(--fg)}
 .pmcard table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}.pmcard th,.pmcard td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
 .pmcard thead th{font-size:11px;color:var(--muted);font-weight:600}.pmcard td small{display:block;font-size:11px;color:var(--muted)}
+.pmcard td small.jrl{color:var(--accent)}.pmcard td small.jrl b{font-weight:700}
+.pmlegend .pmseg button{padding:6px 6px}
 .pmcard td.up{color:#E03131;font-weight:700}.pmcard td.dn{color:#1864AB;font-weight:700}.pmcard td.n{color:var(--muted)}
 .pmcard .pmc-n{font-size:11px;color:var(--muted);margin:6px 0}
 .pmcard .pmc-go{width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;font:inherit;font-weight:700;padding:9px;cursor:pointer}

@@ -868,17 +868,21 @@
     const sale = T.rows.filter(r => !/Rent$/.test(r.kind)), rent = T.rows.filter(r => /Rent$/.test(r.kind));
     const hasRent = T.kinds.some(x => !x.sale);
     if (!hasRent) S.tradeMode = 'sale';
-    const list = S.tradeMode === 'sale' ? sale : rent;
-    const segM = hasRent ? `<span class="seg" role="group" aria-label="거래 구분"><button data-m="sale" aria-pressed="${S.tradeMode === 'sale'}">매매 ${sale.length}</button><button data-m="rent" aria-pressed="${S.tradeMode === 'rent'}">전월세 ${rent.length}</button></span>` : '';
+    // 매매+전세 겹쳐 보기: 주택(아파트·빌라·오피스텔)에 매매와 전세가 모두 있을 때만
+    const canGap = hasRent && sale.some(r => ['apt', 'rh', 'offi'].includes(r.kind)) && rent.some(r => !r.rent && r.deposit);
+    if (S.tradeMode === 'gap' && !canGap) S.tradeMode = 'sale';
+    const gap = S.tradeMode === 'gap';
+    const list = S.tradeMode === 'rent' ? rent : sale;
+    const segM = hasRent ? `<span class="seg" role="group" aria-label="거래 구분"><button data-m="sale" aria-pressed="${S.tradeMode === 'sale'}">매매 ${sale.length}</button><button data-m="rent" aria-pressed="${S.tradeMode === 'rent'}">전월세 ${rent.length}</button>${canGap ? `<button data-m="gap" aria-pressed="${gap}">매매+전세</button>` : ''}</span>` : '';
     const lockI = '<svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" style="margin-left:3px;vertical-align:-1px"><rect x="2" y="5.5" width="8" height="5.5" rx="1" fill="currentColor"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
     const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년${m > 12 && S.me.ready && !S.me.member ? lockI : ''}</button>`).join('')}</span>`;
-    const items = list.slice(0, S.showAll ? 500 : 40).map(r => S.tradeMode === 'sale' ? saleRow(r) : rentRow(r)).join('');
+    const items = list.slice(0, S.showAll ? 500 : 40).map(r => S.tradeMode === 'rent' ? rentRow(r) : saleRow(r)).join('');
     const safe = safeSection(T);
     const out = [safe || jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`];
-    out.push(trendChart(list, S.tradeMode));
+    out.push(gap ? gapChart(T.rows) : trendChart(list, S.tradeMode));
     if (T.partial) out.push(`<p class="note loadmore"><span class="spin"></span>최근 ${T.partial.done / 12}년치를 먼저 보여 드리고, 나머지 ${(T.partial.total - T.partial.done) / 12}년치를 이어서 불러오는 중입니다.</p>`);
-    out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'sale' ? '매매' : '전월세'} 거래가 없습니다.</div>`);
-    if (S.tradeMode === 'sale') out.push(nearSection(T));
+    out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'rent' ? '전월세' : '매매'} 거래가 없습니다.</div>`);
+    if (S.tradeMode !== 'rent') out.push(nearSection(T));
     if (T.errors && T.errors.length) { console.warn('[리얼맵] 실거래', T.errors); out.push(`<div class="err soft"><span>일부 기간의 거래 자료를 불러오지 못해 빠진 거래가 있을 수 있습니다.</span><button type="button" data-retry>다시 불러오기</button></div>`); }
     out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
     out.push(src(['국토교통부 실거래가 공개시스템']));
@@ -969,6 +973,58 @@
     const legend = series.map((s, k) => { const lp = s.pts[s.pts.length - 1]; return `<span><i style="background:${COL[k]}"></i>전용 ${s.ex}㎡<small>(${s.ex ? Math.round(s.ex / PY) : ''}평) 최근 ${eokS(lp.v)}</small></span>`; }).join('');
     return `<section><h2>${mode === 'sale' ? '매매가' : '전세가'} 추이<span>평형별 월 중간값</span></h2>${svg}<div class="tlegend">${legend}</div></section>`;
   }
+  // 매매·전세 겹쳐 보기 (같은 평형의 월별 중간값, 두 선 사이 = 갭)
+  function gapChart(rows) {
+    const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+    const g = new Map();
+    for (const r of rows) {
+      if (!r.ex || r.cancel || !['apt', 'rh', 'offi', 'aptRent', 'rhRent', 'offiRent'].includes(r.kind)) continue;
+      const rent = /Rent$/.test(r.kind);
+      if (rent ? (r.rent || !r.deposit) : !r.price) continue;
+      const k = Math.round(r.ex); let e = g.get(k); if (!e) g.set(k, e = { ex: k, s: [], j: [] });
+      (rent ? e.j : e.s).push(r);
+    }
+    const types = [...g.values()].filter(e => e.s.length && e.j.length).sort((a, b) => (b.s.length + b.j.length) - (a.s.length + a.j.length)).slice(0, 3);
+    if (!types.length) return '<div class="empty">같은 평형의 매매와 전세 거래가 함께 있어야 겹쳐 볼 수 있습니다.</div>';
+    const E = types.find(e => e.ex === S.gapEx) || types[0];
+    const ym = r => r.date.slice(0, 7);
+    const monthly = (arr, f) => { const by = new Map(); arr.forEach(r => (by.get(ym(r)) || by.set(ym(r), []).get(ym(r))).push(f(r))); return new Map([...by.entries()].sort().map(([m, v]) => [m, med(v)])); };
+    const sm = monthly(E.s, r => r.price), jm = monthly(E.j, r => r.deposit);
+    const months = [...new Set([...sm.keys(), ...jm.keys()])].sort();
+    const first = months[0], last = months[months.length - 1];
+    const toIdx = m => (Number(m.slice(0, 4)) - Number(first.slice(0, 4))) * 12 + Number(m.slice(5, 7)) - Number(first.slice(5, 7));
+    const span = Math.max(1, toIdx(last));
+    const vals = [...sm.values(), ...jm.values()];
+    const mn = Math.min(...vals) * 0.92, mx = Math.max(...vals) * 1.04;
+    const W = 360, H = 180, L = 44, R = 10, T = 12, B = 24;
+    const X = i => L + i / span * (W - L - R), Y = v => T + (1 - (v - mn) / (mx - mn || 1)) * (H - T - B);
+    const pts = mp => [...mp.entries()].map(([m, v]) => [X(toIdx(m)), Y(v), m, v]);
+    const sp = pts(sm), jp = pts(jm), CS = '#E4572E', CJ = '#0B6E69';
+    let svg = `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="매매가와 전세가 추이">`;
+    for (let k = 0; k <= 3; k++) { const v = mn + (mx - mn) * k / 3, y = Y(v); svg += `<line class="gr" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="ax" x="${L - 6}" y="${y + 4}" text-anchor="end">${eokS(v)}</text>`; }
+    svg += `<text class="ax" x="${L}" y="${H - 6}">${first}</text><text class="ax" x="${W - R}" y="${H - 6}" text-anchor="end">${last}</text>`;
+    if (sp.length > 1 && jp.length > 1) svg += `<polygon class="gapfill" points="${[...sp, ...[...jp].reverse()].map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')}"/>`;
+    const line = (P, c) => (P.length > 1 ? `<polyline fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round" points="${P.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')}"/>` : '');
+    svg += line(sp, CS) + line(jp, CJ);
+    const tip = (m) => { const a = sm.get(m), b = jm.get(m); return `${m} · 전용 ${E.ex}㎡${a ? ` · 매매 ${won(a)}` : ''}${b ? ` · 전세 ${won(b)}` : ''}${a && b ? ` · 전세가율 ${Math.round(b / a * 100)}%` : ''}`; };
+    sp.forEach(p => { svg += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="${CS}"><title>${tip(p[2])}</title></circle>`; });
+    jp.forEach(p => { svg += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="${CJ}"><title>${tip(p[2])}</title></circle>`; });
+    svg += '</svg>';
+    // 요약: 최근 6개월 중간값 (거래가 없으면 최근 1년, 그래도 없으면 전체)
+    const since = k => { const d = new Date(Date.now() + 9 * 3600e3); d.setUTCMonth(d.getUTCMonth() - k); return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
+    let per = '최근 6개월', ss, jj;
+    for (const [k, lab] of [[6, '최근 6개월'], [12, '최근 1년'], [999, `최근 ${S.months / 12}년`]]) {
+      const c = since(k); ss = E.s.filter(r => r.date >= c).map(r => r.price); jj = E.j.filter(r => r.date >= c).map(r => r.deposit);
+      if (ss.length && jj.length) { per = lab; break; }
+    }
+    const sv = med(ss), jv = med(jj), gp = sv - jv, rt = jv / sv * 100;
+    const lv = rt >= 80 ? 'hi' : rt >= 70 ? 'mid' : 'lo';
+    const pick = types.length > 1 ? `<span class="seg sm" role="group" aria-label="평형">${types.map(e => `<button data-gx="${e.ex}" aria-pressed="${e === E}">${e.ex}㎡</button>`).join('')}</span>` : '';
+    return `<section class="gapbox"><h2>매매가·전세가 함께 보기<span>전용 ${E.ex}㎡(${Math.round(E.ex / PY)}평) · 월 중간값</span></h2>${pick}
+      <div class="gapsum ${lv}"><div><small>매매</small><b>${eokS(sv)}</b></div><div><small>전세</small><b>${eokS(jv)}</b></div><div><small>갭</small><b>${gp > 0 ? eokS(gp) : '없음'}</b></div><div><small>전세가율</small><b>${Math.round(rt)}%</b></div></div>
+      <p class="note">${per} 같은 평형 거래의 중간값입니다 (매매 ${ss.length}건 · 전세 ${jj.length}건). 갭은 전세를 끼고 살 때 필요한 대략의 금액이고, 전세가율이 높을수록 집값이 내릴 때 보증금 위험이 커집니다.</p>
+      ${svg}<div class="tlegend"><span><i style="background:${CS}"></i>매매</span><span><i style="background:${CJ}"></i>전세 (월세 없는 계약)</span><span><i class="gapkey"></i>두 선 사이 = 갭</span></div></section>`;
+  }
   const eokS = man => man >= 10000 ? `${String(Math.round(man / 1000) / 10)}억` : `${n(Math.round(man))}만`;
   function badge(r) {
     let s = '';
@@ -1041,6 +1097,7 @@
     const ud = D.querySelector('#uDong'); if (ud) ud.onchange = () => { S.uDong = ud.value === '단일동' ? '' : ud.value; S.uHo = null; S.uHoManual = false; render(); };
     const uh = D.querySelector('#uHo'); if (uh) uh.onchange = () => { S.uHo = uh.value; S.uHoManual = false; loadUnit(); render(); };
     D.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.tradeMode = b.dataset.m; render(); });
+    D.querySelectorAll('[data-gx]').forEach(b => b.onclick = () => { S.gapEx = +b.dataset.gx; render(); });
     D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { if (+b.dataset.mo > 12 && S.me.ready && !S.me.member) return loginModal('trade'); S.months = +b.dataset.mo; render(); });
     const mt = D.querySelector('#moreT'); if (mt) mt.onclick = () => { S.showAll = true; render(); };
     const sl = D.querySelector('#safeLogin'); if (sl) sl.onclick = () => loginModal('safe');
@@ -2123,7 +2180,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 구별 값이 아직 없을 때(자동 갱신 전)는 동별 값을 거래 건수로 가중평균해 임시로 씁니다
   function pmGuFallback(d, gus) {
     const g = {}; gus.forEach(f => { g[f.c] = { n: f.n }; });
-    for (const k of ['apt', 'rh', 'offi']) {
+    for (const k of ['apt', 'rh', 'offi', 'aptJ', 'rhJ', 'offiJ']) {
       const acc = {};
       for (const [c, e] of Object.entries(d)) {
         if (!g[c.slice(0, 5)]) continue;
@@ -2132,7 +2189,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         if (v[0]) { a[0] += v[0] * v[1]; a[1] += v[1]; }
         if (v[2]) { a[2] += v[2] * v[3]; a[3] += v[3]; }
       }
-      for (const [c, a] of Object.entries(acc)) if (g[c]) g[c][k] = [a[1] ? Math.round(a[0] / a[1]) : null, a[1], a[3] ? Math.round(a[2] / a[3]) : null, a[3]];
+      for (const [c, a] of Object.entries(acc)) if (g[c]) g[c][k] = /J$/.test(k) ? [a[1] ? Math.round(a[0] / a[1]) : null, a[1]] : [a[1] ? Math.round(a[0] / a[1]) : null, a[1], a[3] ? Math.round(a[2] / a[3]) : null, a[3]];
     }
     return g;
   }
@@ -2145,6 +2202,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function pmVal(ly, c) {
     const e = pmSrc(ly)[c], v = e && e[PM.kind], g = pmGrp(c);
     if (PM.mode === 'vol') return v && v[1] ? { v: v[1], n: v[1], g } : null;   // 거래량: 최근 6개월 매매 건수
+    if (PM.mode === 'jr') {                                                       // 전세가율: 전세 보증금 ㎡당 ÷ 매매 ㎡당 (각 3건 이상)
+      const j = e && e[PM.kind + 'J'];
+      return v && v[0] && v[1] >= 3 && j && j[0] && j[1] >= 3 ? { v: j[0] / v[0] * 100, n: v[1] + j[1], g } : null;
+    }
     if (!v || !v[0] || v[1] < 3) return null;
     if (PM.mode === 'price') return { v: v[0] * PY3, n: v[1], g };
     if (!v[2] || v[3] < 3) return null;
@@ -2153,13 +2214,16 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function pmColor(ly, x) {
     if (!x) return null;
     if (PM.mode === 'chg') return CCOL.find(([t]) => x.v < t)[1];
+    if (PM.mode === 'jr') return JCOL.find(([t]) => x.v < t)[1];
     const vol = PM.mode === 'vol', q = (vol ? PM.qv : PM.q)[ly + x.g] || [], C = vol ? VCOL : PCOL;
     let i = 0; while (i < q.length && x.v > q[i]) i++;
     return C[Math.min(i, C.length - 1)];
   }
   const VCOL = ['#E3F2EF', '#BFE3DC', '#8FCFC2', '#5CB5A6', '#2E978A', '#0E776B', '#075A51'];
-  const pmTxt = x => PM.mode === 'chg' ? `${x.v >= 0 ? '+' : ''}${x.v.toFixed(1)}%` : PM.mode === 'vol' ? `${n(x.v)}건` : `${n(Math.round(x.v / 10) * 10)}만`;
-  const pmCls = x => PM.mode === 'chg' ? (x.v >= 2 ? ' up' : x.v <= -2 ? ' dn' : '') : '';
+  // 전세가율 색: 전세 안전 점검과 같은 기준 (70% 주의 · 80% 위험)
+  const JCOL = [[50, '#2F9E44'], [60, '#8CD08F'], [70, '#FFE066'], [80, '#FF922B'], [Infinity, '#E03131']];
+  const pmTxt = x => PM.mode === 'jr' ? `${Math.round(x.v)}%` : PM.mode === 'chg' ? `${x.v >= 0 ? '+' : ''}${x.v.toFixed(1)}%` : PM.mode === 'vol' ? `${n(x.v)}건` : `${n(Math.round(x.v / 10) * 10)}만`;
+  const pmCls = x => PM.mode === 'jr' ? (x.v >= 80 ? ' up' : '') : PM.mode === 'chg' ? (x.v >= 2 ? ' up' : x.v <= -2 ? ' dn' : '') : '';
   function pmCenter(rings) {
     let best = rings[0]; rings.forEach(r => { if (r.length > best.length) best = r; });
     let x = 0, y = 0; best.forEach(([a, b]) => { x += a; y += b; }); return [x / best.length, y / best.length];
@@ -2246,8 +2310,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const el = $('pmLegend'), P = PM.price;
     const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind], U = ly === 'g' ? '구별' : '동별';
     const grp = S.map.getCenter().getLat() < 36 ? 'b' : 'm', key = ly + grp;
-    const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}${PM.mode === 'chg' ? '' : ` · ${PGRP[grp]} 기준`}`;
-    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button></div><div class="pmkind" role="group" aria-label="주택 종류">${[['apt', '아파트'], ['rh', '빌라'], ['offi', '오피스텔']].map(([k, t]) => `<button type="button" data-pk="${k}" aria-pressed="${PM.kind === k}">${t}</button>`).join('')}</div>`;
+    const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}${PM.mode === 'chg' || PM.mode === 'jr' ? '' : ` · ${PGRP[grp]} 기준`}`;
+    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button><button type="button" data-pm="jr" aria-pressed="${PM.mode === 'jr'}">전세가율</button></div><div class="pmkind" role="group" aria-label="주택 종류">${[['apt', '아파트'], ['rh', '빌라'], ['offi', '오피스텔']].map(([k, t]) => `<button type="button" data-pk="${k}" aria-pressed="${PM.kind === k}">${t}</button>`).join('')}</div>`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
     if (PM.mode === 'price') {
       const q = PM.q[key] || [0, 0, 0, 0, 0, 0], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
@@ -2255,10 +2319,14 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     } else if (PM.mode === 'vol') {
       const q = PM.qv[key] || [0, 0, 0, 0, 0, 0];
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 거래량 <small>${per} · 6개월 매매 건수</small></b><div class="pml">${VCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${n(q[0])}건 이하</span><span>${n(q[5])}건 이상</span></div>${hint}`;
+    } else if (PM.mode === 'jr') {
+      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전세가율 <small>${per} · 전세 보증금 ÷ 매매가 (㎡당)</small></b><div class="pml">${JCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>50%↓</span><span>60</span><span>70</span><span>80%↑</span></div>${hint}`;
+      const has = Object.values(pmSrc(ly)).some(e => e && e[PM.kind + 'J']);
+      if (!has) el.querySelector('.pmx').innerHTML = '<span>전세가율은 다음 자동 갱신 때 채워집니다</span>';
     } else {
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 1년 상승률 <small>${per} · 1년 전 같은 기간 대비</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div>${hint}`;
     }
-    if (PM.mode !== 'chg' && !((PM.mode === 'vol' ? PM.qv : PM.q)[key] || [])[5]) el.querySelector('.pmx').innerHTML = '<span>이 지역 시세는 다음 자동 갱신 때 채워집니다</span>';
+    if (PM.mode !== 'chg' && PM.mode !== 'jr' && !((PM.mode === 'vol' ? PM.qv : PM.q)[key] || [])[5]) el.querySelector('.pmx').innerHTML = '<span>이 지역 시세는 다음 자동 갱신 때 채워집니다</span>';
     el.hidden = false;
   }
   function pmCardShow(ly, f) {
@@ -2266,7 +2334,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     PM.sel = `${ly}:${f.c}`; if (prev && prev !== PM.sel) pmPaint(prev[0], prev.slice(2)); pmPaint(ly, f.c);
     const row = (k, nm) => { const v = e[k]; if (!v || !v[0]) return `<tr><th>${nm}</th><td colspan="2" class="n">최근 6개월 거래 없음</td></tr>`;
       const ch = v[2] && v[3] >= 3 && v[1] >= 3 ? (v[0] / v[2] - 1) * 100 : null;
-      return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[3] ? ` (1년 전 ${n(v[3])}건)` : ''}${v[1] < 3 ? ' · 적음' : ''}</small></td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
+      return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[3] ? ` (1년 전 ${n(v[3])}건)` : ''}${v[1] < 3 ? ' · 적음' : ''}</small>${(() => { const j = e[k + 'J']; return j && j[0] && j[1] >= 3 && v[1] >= 3 ? `<small class="jrl">전세가율 <b>${Math.round(j[0] / v[0] * 100)}%</b> · 전세 ${n(Math.round(j[0] * PY3 / 10) * 10)}만/평</small>` : ''; })()}</td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
     const nm = ly === 'g' ? f.n : (PM.price.d[f.c] && PM.price.d[f.c].n) || f.n;
     const gu = ly === 'd' && PM.price.g[f.c.slice(0, 5)] ? PM.price.g[f.c.slice(0, 5)].n : '';
     const sdn = (PSIDO[f.c.slice(0, 2)] || {}).n || '';
