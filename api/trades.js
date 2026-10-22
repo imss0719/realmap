@@ -74,7 +74,7 @@ function map(kind, r) {
     prevDeposit: num(r.preDeposit), prevRent: num(r.preMonthlyRent),
     houseType: clean(r.houseType), btype: clean(r.buildingType), use: clean(r.buildingUse),
     jimok: clean(r.jimok), zone: clean(r.landUse), share: clean(r.shareDealingType),
-    buildYear: clean(r.buildYear), jibun: clean(r.jibun), umd: clean(r.umdNm),
+    buildYear: clean(r.buildYear), jibun: clean(r.jibun), umd: clean(r.umdNm), sgg: clean(r.sggCd), umdCd: clean(r.umdCd),
   };
 }
 
