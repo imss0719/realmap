@@ -203,8 +203,19 @@
     if (!U) {
       box.innerHTML = '<div class="loading">호 목록을 불러오는 중…</div>';
       C.units[C.cur] = 'loading';
-      try { const j = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`); C.units[C.cur] = j.units || []; }
-      catch { C.units[C.cur] = 'error'; }
+      try {
+        let us = (await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`)).units || [];
+        // 건축물대장 표제부의 호 수보다 적게 오면, 필지 전체 호 목록에서 이 동을 한 번 더 모아 합칩니다
+        const d = (C.dongs || []).find(x => x.pnu === pnu && x.dong === dong), want = d && (d.ho || d.hhld);
+        if (want && us.length < want) {
+          try {
+            const all = ((await api(`/api/units?pnu=${pnu}`)).units || []).filter(u => normD(u.dong) === normD(dong));
+            const seen = new Set(us.map(u => normH(u.ho)));
+            all.forEach(u => { if (!seen.has(normH(u.ho))) { seen.add(normH(u.ho)); us.push(u); } });
+          } catch { /* 합치기 실패는 무시 */ }
+        }
+        C.units[C.cur] = us; C.want = C.want || {}; C.want[C.cur] = want || 0;
+      } catch { C.units[C.cur] = 'error'; }
       if (S.cur === cx.id && C.cur === `${pnu}|${dong}`) drawGrid(cx);
       return;
     }
@@ -232,7 +243,9 @@
       const pr = x ? (x.kind === 'sale' ? shortWon(x.price) : x.kind === 'jeonse' ? shortWon(x.deposit) : x.kind === 'wolse' ? `${shortWon(x.deposit)}/${x.rent || ''}` : shortWon(x.pr)) : '';
       return `<td><button type="button" class="cell ${cls}" data-ho="${esc(u.ho)}" title="${esc(dong)} ${esc(u.ho)}">${esc(normH(u.ho))}${pr ? `<span class="pr">${esc(pr)}</span>` : ''}${memo ? '<i class="memo"></i>' : ''}</button></td>`;
     }).join('')}<td class="ftr">${(byFloor.get(f) || []).slice(0, 2).map(r => `<span class="${r.kind === 'apt' ? '' : 'j'}">${r.kind === 'apt' ? '매' : r.rent ? '월' : '전'} ${r.kind === 'apt' ? shortWon(r.price) : shortWon(r.deposit)} · ${Math.round(r.ex)}㎡ · ${esc(r.date.slice(2, 7))}</span>`).join('')}</td></tr>`).join('');
-    box.innerHTML = `<div class="scroll"><table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    const want = (C.want || {})[C.cur], got = U.filter(u => digits(u.ho)).length;
+    const cnt = `<p class="note">건축물대장 호 ${got.toLocaleString()}개${want ? ` / 표제부 기준 ${want.toLocaleString()}호${got < want ? ' · 일부 호가 공공데이터에 없어 빈칸으로 보일 수 있습니다' : ''}` : ''}</p>`;
+    box.innerHTML = cnt + `<div class="scroll"><table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
     box.querySelectorAll('[data-ho]').forEach(b => b.onclick = () => openUnit(cx, pnu, dong, b.dataset.ho, units, LA));
     // 라인 면적 채우기 (아직 없는 라인만, 3개씩)
     const need = lines.filter(l => LA[l] === undefined);
