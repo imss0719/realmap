@@ -22,10 +22,43 @@ const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const blobLib = () => import('@vercel/blob');
 const ownPhoto = (u, id) => { try { const x = new URL(u); return x.protocol === 'https:' && /\.public\.blob\.vercel-storage\.com$/.test(x.hostname) && x.pathname.startsWith(`/ls/${id}/`); } catch { return false; } };
 async function dropPhotos(urls) { if (!urls.length) return; try { const { del } = await blobLib(); await del(urls); } catch { /* 지우기 실패는 무시 (용량만 조금 남음) */ } }
-async function isPro(id) {
-  if (!id) return false;
-  if (ADMIN_ID && String(id) === ADMIN_ID) return true;
-  try { return !!(await redis(['SISMEMBER', 'realmap:pro', String(id)])); } catch { return false; }
+// ---------- 중개사 서비스 요금제 ----------
+// 무료(계속) · 2주 무료 체험 · Basic · Premium · VIP. 저장: realmap:plan:<회원id> { plan, until, trialUsed, at }
+// 시작하지 않은 회원은 매물장을 쓸 수 없고 소개 페이지(/pro.html)로 갑니다. 예전 realmap:pro 목록 회원은 Basic으로 봅니다.
+export const PLANS = {
+  free: { name: '무료', ls: 10, ad: 3, adv: false },
+  trial: { name: '2주 무료 체험', ls: 1000, ad: 300, adv: true },
+  basic: { name: 'Basic', ls: 1000, ad: 300, adv: true },
+  premium: { name: 'Premium', ls: 10000, ad: 1000, adv: true },
+  vip: { name: 'VIP', ls: 1e9, ad: 1e9, adv: true },
+};
+const TRIAL_DAYS = 14;
+async function planOf(id) {
+  const out = (plan, extra = {}) => ({ plan, ...PLANS[plan] || PLANS.free, started: true, ...extra });
+  if (!id) return { plan: 'none', ...PLANS.free, started: false };
+  if (ADMIN_ID && String(id) === ADMIN_ID) return out('vip', { op: true });
+  let rec = null;
+  try { const v = await redis(['GET', `realmap:plan:${id}`]); rec = v ? JSON.parse(v) : null; } catch { rec = null; }
+  const now = new Date().toISOString();
+  if (rec) {
+    const live = !rec.until || rec.until > now;
+    if (PLANS[rec.plan] && rec.plan !== 'free' && live) return out(rec.plan, { until: rec.until || null, trialUsed: !!rec.trialUsed });
+    return out('free', { ended: rec.plan !== 'free' ? rec.plan : '', endedAt: rec.until || null, trialUsed: !!rec.trialUsed });
+  }
+  try { if (await redis(['SISMEMBER', 'realmap:pro', String(id)])) return out('basic', { legacy: true }); } catch { /* 없음 */ }
+  return { plan: 'none', ...PLANS.free, started: false };
+}
+async function isPro(id) { return (await planOf(id)).adv; }
+const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
+// 중개사무소 정보 확인 (시작하기·정보 수정 공용)
+function cleanBk(b) {
+  b = b || {};
+  const str = (v, n) => String(v ?? '').replace(/[<>"]/g, '').trim().slice(0, n);
+  const bk = { office: str(b.office, 40), addr: str(b.addr, 80), regno: str(b.regno, 30).replace(/[^\w-]/g, ''), ceo: str(b.ceo, 20), tel: str(b.tel, 20).replace(/[^\d-]/g, ''), mobile: str(b.mobile, 20).replace(/[^\d-]/g, ''), up: new Date().toISOString() };
+  if (!bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel || !bk.mobile) return [null, '여섯 칸을 모두 입력해 주세요.'];
+  if (!/^01\d-?\d{3,4}-?\d{4}$/.test(bk.mobile)) return [null, '휴대폰 번호를 확인해 주세요. (문자 문의를 받을 번호)'];
+  if (!/\d{4,}/.test(bk.regno)) return [null, '중개사무소 등록번호를 확인해 주세요. (예: 11440-2025-00123)'];
+  return [bk, ''];
 }
 
 // ---------- 리얼맵 매물 광고 (중개사 매물 → 지도 노출) ----------
@@ -98,11 +131,15 @@ function pubSummary(uid, x, bk) {
   };
 }
 // 매물장이 바뀔 때마다 공개 목록을 맞춥니다: 진행 중 + 게시 + 필수 항목 완비 → 올림, 아니면 내림
-async function syncPub(uid, items, bk) {
-  const set = [], del = [];
+async function syncPub(uid, items, bk, P) {
+  const set = [], del = [], now = new Date().toISOString();
+  // 요금제 광고 한도: 먼저 게시한 순서대로 남기고, 넘치는 것은 내림 (무료로 내려갔을 때 등)
+  const cap = P ? P.ad : 1e9;
+  const keep = new Set(items.filter(x => x.pub && x.pub.on && x.status === 'on' && x.pub.exp > now).sort((a, b) => String(a.pub.at).localeCompare(String(b.pub.at))).slice(0, cap).map(x => x.id));
   for (const x of items) {
     if (!x.pub) continue;
     const field = `${uid}:${x.id}`;
+    if (x.pub.on && x.status === 'on' && x.pub.exp > now && !keep.has(x.id)) x.pub.on = false;
     if (x.pub.on && x.status === 'on' && canPub(uid) && !adMissing(x, bk).length) set.push(field, JSON.stringify(pubSummary(uid, x, bk)));
     else { if (x.pub.on && x.status !== 'on') x.pub.on = false; del.push(field); }
   }
@@ -167,7 +204,8 @@ export default async function (req, res) {
   try {
     if (action === 'me') {
       const s = readSession(req);
-      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: s ? await isPro(s.id) : false, op: !!(s && ADMIN_ID && s.id === ADMIN_ID) });
+      const P = s ? await planOf(s.id) : null;
+      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && s.id === ADMIN_ID) });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
@@ -291,7 +329,7 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
-      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '유료회원 전용 기능입니다.');
+      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '단지 모드는 Basic 요금제부터 쓸 수 있습니다.');
       const key = `realmap:cx:${s.id}`;
       let d; try { const v = await redis(['GET', key]); d = v ? JSON.parse(v) : null; } catch { d = null; }
       d = d || { items: [], memos: {} };
@@ -345,23 +383,56 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, items }, 60);
     }
 
-    // 중개사무소 정보 (매물 광고에 표시) — PRO 전용
+    // 중개사 서비스 시작: 중개사무소 정보를 받고 2주 무료 체험을 엽니다 (체험은 한 번만)
+    //   POST /api/auth?action=start { bk:{office,addr,regno,ceo,tel,mobile} }
+    if (action === 'start') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const [bk, err] = cleanBk(body.bk);
+      if (!bk) return fail(res, 400, 'need', err);
+      await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
+      let P = await planOf(s.id);
+      if (!P.started) {
+        const now = Date.now();
+        await redis(['SET', `realmap:plan:${s.id}`, JSON.stringify({ plan: 'trial', until: new Date(now + TRIAL_DAYS * 86400e3).toISOString(), trialUsed: true, at: new Date(now).toISOString() })]);
+        P = await planOf(s.id);
+      }
+      return send(res, 200, { ok: true, plan: planView(P), bk });
+    }
+    // 운영자: 요금제 직접 지정 (계좌이체 회원 등) — POST { uid, plan, days }
+    if (action === 'plan') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s || !ADMIN_ID || s.id !== ADMIN_ID) return fail(res, 403, 'op', '운영자만 쓸 수 있습니다.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const uid = String(body.uid || req.query.uid || '').replace(/\D/g, '');
+      if (!uid) return fail(res, 400, 'uid', '회원 번호가 필요합니다.');
+      if (req.method !== 'POST') return send(res, 200, { ok: true, plan: planView(await planOf(uid)) });
+      if (!PLANS[body.plan]) return fail(res, 400, 'plan', '요금제 이름을 확인해 주세요. (free, trial, basic, premium, vip)');
+      const days = Number(body.days) || 0;
+      const prev = JSON.parse((await redis(['GET', `realmap:plan:${uid}`])) || 'null');
+      await redis(['SET', `realmap:plan:${uid}`, JSON.stringify({ plan: body.plan, until: days ? new Date(Date.now() + days * 86400e3).toISOString() : null, trialUsed: true, at: new Date().toISOString(), by: 'op', prev: prev && prev.plan })]);
+      return send(res, 200, { ok: true, plan: planView(await planOf(uid)) });
+    }
+
+    // 중개사무소 정보 (매물 광고에 표시)
     if (action === 'bk') {
       res.setHeader('Cache-Control', 'no-store');
       const s = readSession(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
-      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '유료회원 전용 기능입니다.');
+      const P = await planOf(s.id);
+      if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
       if (req.method !== 'POST') return send(res, 200, { ok: true, bk: await loadBk(s.id), canPub: canPub(s.id) });
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const b = body.bk || {};
-      const str = (v, n) => String(v ?? '').replace(/[<>"]/g, '').trim().slice(0, n);
-      const bk = { office: str(b.office, 40), addr: str(b.addr, 80), regno: str(b.regno, 30).replace(/[^\w-]/g, ''), ceo: str(b.ceo, 20), tel: str(b.tel, 20).replace(/[^\d-]/g, ''), mobile: str(b.mobile, 20).replace(/[^\d-]/g, ''), up: new Date().toISOString() };
-      if (!bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel || !bk.mobile) return fail(res, 400, 'need', '여섯 칸을 모두 입력해 주세요.');
-      if (!/^01\d-?\d{3,4}-?\d{4}$/.test(bk.mobile)) return fail(res, 400, 'mobile', '휴대폰 번호를 확인해 주세요. (문자 문의를 받을 번호)');
-      if (!/\d{4,}/.test(bk.regno)) return fail(res, 400, 'regno', '등록번호를 확인해 주세요. (예: 11440-2025-00123)');
+      const [bk, err] = cleanBk(body.bk);
+      if (!bk) return fail(res, 400, 'need', err);
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
-      try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk); } catch { /* 다음 저장 때 반영 */ }
+      try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk, P); await redis(['SET', `realmap:ls:${s.id}`, JSON.stringify(ls)]); } catch { /* 다음 저장 때 반영 */ }
       return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
     }
 
@@ -370,7 +441,8 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
-      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '유료회원 전용 기능입니다.');
+      const P = await planOf(s.id);
+      if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
       // 사진 올리기: 브라우저에서 줄인 JPEG를 받아 저장하고 주소를 돌려줍니다
       if (action === 'listing' && req.query.op === 'photo') {
         if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
@@ -392,7 +464,7 @@ export default async function (req, res) {
         [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
         await redis(['SET', key, JSON.stringify(items)]);
       }
-      if (action === 'listings') return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id) });
+      if (action === 'listings') return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id), plan: planView(P) });
       if (req.query.op === 'photodel') { // 저장하지 않고 닫은 사진 정리 (저장된 매물에 쓰인 사진은 지우지 않음)
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
         const used = new Set(items.flatMap(x => (x.photos || []).map(p => p.url)));
@@ -422,7 +494,9 @@ export default async function (req, res) {
         const kind = ['sale', 'jeonse', 'wolse', 'presale'].includes(it.kind) ? it.kind : 'sale';
         const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
         const prev = id ? items.find(x => x.id === id) : null;
-        if (!prev && items.length >= 1000) return fail(res, 400, 'full', '매물은 1,000건까지 저장할 수 있습니다. 거래완료된 매물을 정리해 주세요.');
+        if (!prev && items.length >= P.ls) return fail(res, 400, 'limit', P.plan === 'free'
+          ? `무료 이용은 매물 ${P.ls}건까지입니다. Basic(월 9,900원)으로 올리시면 1,000건까지 등록하실 수 있습니다.`
+          : `${P.name} 요금제는 매물 ${P.ls.toLocaleString()}건까지입니다. 거래완료된 매물을 정리하시거나 요금제를 올려 주세요.`, { plan: planView(P) });
         const p0 = places[0], c0 = contacts[0] || {};
         let no = str(it.no, 20);
         if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) return fail(res, 400, 'dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`);
@@ -454,6 +528,11 @@ export default async function (req, res) {
         if (x.status !== 'on') return fail(res, 400, 'status', '진행 중인 매물만 게시할 수 있습니다.');
         const miss = adMissing(x, await loadBk(s.id));
         if (miss.length) return fail(res, 400, 'missing', `광고에 꼭 들어가야 할 항목이 빠져 있습니다: ${miss.join(', ')}`, { missing: miss });
+        const nowIso = new Date().toISOString();
+        const live = items.filter(i => i.id !== x.id && i.pub && i.pub.on && i.status === 'on' && i.pub.exp > nowIso).length;
+        if (live >= P.ad) return fail(res, 400, 'adlimit', P.plan === 'free'
+          ? `무료 이용은 지도 광고 ${P.ad}건까지입니다. Basic(월 9,900원)이면 300건까지 올리실 수 있습니다.`
+          : `${P.name} 요금제는 지도 광고 ${P.ad.toLocaleString()}건까지입니다.`, { plan: planView(P) });
         const exp = new Date(Date.now() + PUB_DAYS * 86400e3).toISOString();
         x.pub = { on: true, at: x.pub && x.pub.on && body.op === 'renew' ? x.pub.at : now, chk: now, exp };
       } else if (body.op === 'unpub') {
@@ -472,8 +551,8 @@ export default async function (req, res) {
         if (x && x.pub && x.pub.on && x.status === 'on') { const miss = adMissing(x, bk); if (miss.length) { x.pub.on = false; warn = `필수 항목(${miss.join(', ')})이 빠져 리얼맵 지도에서 내렸습니다.`; } }
       }
       await redis(['SET', key, JSON.stringify(items)]);
-      try { await syncPub(s.id, items, bk); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
-      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn });
+      try { const before = items.filter(i => i.pub && i.pub.on).length; await syncPub(s.id, items, bk, P); if (items.filter(i => i.pub && i.pub.on).length < before) await redis(['SET', key, JSON.stringify(items)]); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
+      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P) });
     }
 
     if (action === 'login') {
@@ -526,7 +605,7 @@ export default async function (req, res) {
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id))); } catch { /* 무시 */ }
       try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['DEL', `realmap:cx:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]);
         try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); const f = ls.map(x => `${s.id}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
-        await redis(['DEL', `realmap:bk:${s.id}`]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
+        await redis(['DEL', `realmap:bk:${s.id}`]); await redis(['DEL', `realmap:plan:${s.id}`]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
     }
