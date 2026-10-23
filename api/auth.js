@@ -93,7 +93,7 @@ function pubSummary(uid, x, bk) {
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
-    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel },
+    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '' },
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
   };
 }
@@ -356,8 +356,9 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const b = body.bk || {};
       const str = (v, n) => String(v ?? '').replace(/[<>"]/g, '').trim().slice(0, n);
-      const bk = { office: str(b.office, 40), addr: str(b.addr, 80), regno: str(b.regno, 30).replace(/[^\w-]/g, ''), ceo: str(b.ceo, 20), tel: str(b.tel, 20).replace(/[^\d-]/g, ''), up: new Date().toISOString() };
-      if (!bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel) return fail(res, 400, 'need', '다섯 칸을 모두 입력해 주세요.');
+      const bk = { office: str(b.office, 40), addr: str(b.addr, 80), regno: str(b.regno, 30).replace(/[^\w-]/g, ''), ceo: str(b.ceo, 20), tel: str(b.tel, 20).replace(/[^\d-]/g, ''), mobile: str(b.mobile, 20).replace(/[^\d-]/g, ''), up: new Date().toISOString() };
+      if (!bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel || !bk.mobile) return fail(res, 400, 'need', '여섯 칸을 모두 입력해 주세요.');
+      if (!/^01\d-?\d{3,4}-?\d{4}$/.test(bk.mobile)) return fail(res, 400, 'mobile', '휴대폰 번호를 확인해 주세요. (문자 문의를 받을 번호)');
       if (!/\d{4,}/.test(bk.regno)) return fail(res, 400, 'regno', '등록번호를 확인해 주세요. (예: 11440-2025-00123)');
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk); } catch { /* 다음 저장 때 반영 */ }
@@ -421,7 +422,7 @@ export default async function (req, res) {
         const kind = ['sale', 'jeonse', 'wolse', 'presale'].includes(it.kind) ? it.kind : 'sale';
         const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
         const prev = id ? items.find(x => x.id === id) : null;
-        if (!prev && items.length >= 1000) return fail(res, 400, 'full', '매물은 1,000건까지 저장할 수 있습니다. 계약 완료된 매물을 정리해 주세요.');
+        if (!prev && items.length >= 1000) return fail(res, 400, 'full', '매물은 1,000건까지 저장할 수 있습니다. 거래완료된 매물을 정리해 주세요.');
         const p0 = places[0], c0 = contacts[0] || {};
         let no = str(it.no, 20);
         if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) return fail(res, 400, 'dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`);
