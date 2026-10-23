@@ -100,6 +100,9 @@ export default handler(async (req, res) => {
     if (bjd && jm) pnu = bjd + (/^산/.test(jibun) ? '2' : '1') + jm[1].padStart(4, '0') + (jm[2] || '0').padStart(4, '0');
     if (!g) byKey.set(key, g = { n: name, umd, jibun, a: `${region} ${umd} ${jibun}`.trim(), c: 0, d: '', pnu });
     g.c++;
+    // 국민평형(전용 84㎡ 전후, 80~86㎡) 최근 거래가 — 화면의 '이 지역 아파트 평균'에 씀
+    const ar = num(x.excluUseAr);
+    if (ar >= 80 && ar <= 86 && date > (g.d84 || '')) { g.d84 = date; g.p84 = price; }
     if (date > g.d) { g.d = date; g.p = price; g.ar = num(x.excluUseAr); g.f = clean(x.floor); g.y = clean(x.buildYear); }
   }
   const list = [...byKey.values()];
