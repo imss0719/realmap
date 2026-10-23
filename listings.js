@@ -380,7 +380,7 @@
       if (ts.some(x => x.regstr === '집합') || (b.recap && b.recap.data && b.recap.data.length)) {
         const nat = (a, c) => String(a).localeCompare(String(c), 'ko', { numeric: true });
         const dongs = [...new Set(ts.map(x => String(x.dong || '').trim()).filter(Boolean))].sort(nat);
-        const want = P.dong ? dongs.find(d => d.replace(/동$/, '') === String(P.dong).replace(/동$/, '')) : null;
+        const want = P.dong ? dongPick(dongs, P.dong) : null;
         P._U = { mode: F.edit && !P.ho ? 'whole' : 'unit', lists: {}, byDong: dongs.length >= 2, dongs, cur: want || dongs.find(d => /\d/.test(d)) || dongs[0] || '', sel: P.ho || '' };
         if (P._U.mode === 'whole' && !P.ak) P.ak = 'tot';
         loadUnits(F, P);
@@ -470,11 +470,17 @@
       const units = j.units || [];
       if (!U.byDong) {
         U.dongs = [...new Set(units.map(u => String(u.dong || '').trim()))];
-        if (!U.dongs.includes(U.cur)) U.cur = U.dongs.find(d => /\d/.test(d)) || U.dongs[0] || '';
+        const w = P.dong ? dongPick(U.dongs, P.dong) : null;
+        if (w != null) U.cur = w;
+        else if (!U.dongs.includes(U.cur)) U.cur = U.dongs.find(d => /\d/.test(d)) || U.dongs[0] || '';
       }
       U.lists[key] = units;
-      // 미리 고른 호(단지 장부에서 넘어온 경우)는 전용면적까지 바로 채움
-      if (U.sel && !P.area && units.some(u => String(u.ho).replace(/호$/, '') === String(U.sel).replace(/호$/, ''))) { const h = units.find(u => String(u.ho).replace(/호$/, '') === String(U.sel).replace(/호$/, '')).ho; if (alive(F, P)) return pickUnit(F, P, h); }
+      // 미리 고른 동·호(검색창에 '101동 1503호'로 입력했거나 단지 장부에서 넘어온 경우)는 전용면적·층까지 바로 채움
+      if (U.sel && !P.area) {
+        const hit = units.find(u => hoEq(u.ho, U.sel) && (U.byDong || String(u.dong || '').trim() === U.cur));
+        if (hit && alive(F, P)) return pickUnit(F, P, hit.ho);
+        if (!hit) P._msg = `${String(U.sel).replace(/호$/, '')}호를 ${U.cur ? U.cur + '에서 ' : ''}찾지 못했습니다. 아래 목록에서 골라 주세요`;
+      }
     } catch { U.lists[key] = 'error'; }
     if (alive(F, P)) renderForm();
   }
@@ -513,13 +519,37 @@
     }
     return `<div class="seg" style="margin-top:10px"><button type="button" data-umode="${i}:unit" aria-pressed="${U.mode === 'unit'}">호수 고르기</button><button type="button" data-umode="${i}:whole" aria-pressed="${U.mode === 'whole'}">건물 전체</button></div>${body}`;
   }
-  function search(q) {
+  // 동·호 비교는 숫자만 (건축물대장 표기가 '제101동', '101동(상가)', '1503호' 등으로 제각각)
+  const digits = v => (String(v ?? '').match(/\d+/g) || []).join('');
+  const hoEq = (a, b) => !!digits(a) && digits(a) === digits(b);
+  function dongPick(list, want) {
+    const w = digits(want); if (!w) return null;
+    const c = list.filter(d => digits(d) === w);
+    return c.find(d => !/[()]|상가|주차/.test(d)) || c[0] || null;
+  }
+  // 검색어에서 동·호 떼어 내기: '마포래미안푸르지오 101동 1503호', '101-1503', '래미안 1503호'
+  function splitUnit(q) {
+    let dong = '', ho = '', m;
+    if ((m = q.match(/(\d{1,4})\s*동\s*(\d{1,5})\s*호?(?=\s|$)/))) { dong = m[1]; ho = m[2]; }
+    else if ((m = q.match(/(?:^|\s)(\d{2,4})\s*-\s*(\d{3,5})(?=\s|$)/)) && /[가-힣a-zA-Z]{2,}/.test(q.replace(m[0], '')) && !/(동|가|리|읍|면|로|길|번지)\s*$/.test(q.slice(0, m.index).trim())) { dong = m[1]; ho = m[2]; }
+    else if ((m = q.match(/(?:^|\s)(\d{1,5})\s*호(?=\s|$)/))) { ho = m[1]; }
+    if (!ho) return { q, dong: '', ho: '' };
+    const rest = (q.slice(0, m.index) + ' ' + q.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+    return rest ? { q: rest, dong, ho } : { q, dong: '', ho: '' };
+  }
+  function search(q0) {
     const F = S.form;
-    if (!S.kakao || !q) return;
+    if (!S.kakao || !q0) return;
+    const U = splitUnit(q0), q = U.q;
+    F.unitHint = U.ho ? { dong: U.dong, ho: U.ho } : null;
+    F.preset = U.ho ? { dong: U.dong, ho: U.ho } : null;
     F.results = null; renderForm();
     const out = [];
     let left = 2;
-    const done = () => { if (--left) return; const seen = new Set(); F.results = out.filter(r => { const k = r.lat.toFixed(5) + r.lng.toFixed(5); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8); renderForm(); };
+    const done = () => { if (--left) return; const seen = new Set(); F.results = out.filter(r => { const k = r.lat.toFixed(5) + r.lng.toFixed(5); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
+      // 결과가 하나뿐이면 바로 고름 (동·호까지 입력한 경우 전용면적 등이 이어서 채워짐)
+      if (F.results.length === 1 && F.unitHint) { const r = F.results[0]; F.results = null; return addPlace(r.lat, r.lng, r.t); }
+      renderForm(); };
     new kakao.maps.services.Geocoder().addressSearch(q, (r, st) => { if (st === 'OK') r.forEach(a => out.push({ t: a.address_name, s: a.road_address ? a.road_address.address_name : '', lat: +a.y, lng: +a.x })); done(); });
     new kakao.maps.services.Places().keywordSearch(q, (r, st) => { if (st === 'OK') r.slice(0, 6).forEach(a => out.push({ t: a.place_name, s: a.address_name, lat: +a.y, lng: +a.x })); done(); });
   }
@@ -587,9 +617,10 @@
   }
   function searchBox(F) {
     return `<div class="addbox">
-      <input class="in" id="fq" type="search" placeholder="예) 동교동 165-8, 마포래미안푸르지오" enterkeyhint="search">
+      <input class="in" id="fq" type="search" placeholder="예) 마포래미안푸르지오 101동 1503호, 동교동 165-8" enterkeyhint="search">
       <div style="display:flex;gap:8px;margin-top:8px"><button class="btn dark" id="fqBtn" type="button" style="flex:1">주소 찾기</button>${F.it.places.length ? '<button class="btn sub" id="fqCancel" type="button">취소</button>' : ''}</div>
       ${F.picking ? '<div class="meta" style="margin-top:8px">필지를 찾는 중…</div>' : ''}
+      ${F.unitHint && F.results ? `<div class="meta" style="margin-top:8px;color:#1F7A4D;font-weight:700">단지를 고르면 ${F.unitHint.dong ? esc(F.unitHint.dong) + '동 ' : ''}${esc(F.unitHint.ho)}호가 자동으로 선택되고 면적·층이 채워집니다</div>` : ''}
       ${F.results ? (F.results.length ? `<div class="res">${F.results.map((r, i) => `<button type="button" data-r="${i}"><b>${esc(r.t)}</b><small>${esc(r.s)}</small></button>`).join('')}</div>` : '<div class="meta" style="margin-top:8px">검색 결과가 없습니다. 지번이나 도로명으로 다시 입력해 보세요.</div>') : ''}</div>`;
   }
   function moneyField(key, label, val, req) {
