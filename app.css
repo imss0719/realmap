@@ -564,3 +564,28 @@ a.favbtn{text-decoration:none}
 .lbtn .lcopy{background:#fff;color:#14212E;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
 .lbtn{flex-wrap:wrap;justify-content:flex-end}
 .lver{display:inline-block;margin-left:6px;font-size:11px;font-weight:800;color:#1F7A4D;background:#E7F5EC;border-radius:6px;padding:2px 6px;vertical-align:1px}
+
+/* 처음 오신 분 안내 배너: 화면 아래 작은 카드, 한 장씩 넘어감 */
+.wel{position:fixed;right:72px;bottom:28px;z-index:120;width:360px;border-radius:18px;overflow:hidden;background:var(--surface);box-shadow:0 18px 50px rgba(15,30,45,.28),0 0 0 1px rgba(15,30,45,.06);opacity:0;transform:translateY(24px);transition:opacity .3s,transform .35s cubic-bezier(.2,.8,.2,1)}
+.wel.on{opacity:1;transform:none}
+.wel-track{display:flex;transition:transform .5s cubic-bezier(.3,.8,.2,1);touch-action:pan-y}
+.wel-s{flex:0 0 100%;display:flex;gap:14px;align-items:center;padding:18px 18px 16px;text-decoration:none;color:#fff;min-height:118px}
+.wel-s.z{background:linear-gradient(135deg,#FF8A4C 0%,#F25F5C 100%)}
+.wel-s.g{background:linear-gradient(135deg,#2EC4B6 0%,#1A9E8F 100%)}
+.wel-s.p{background:linear-gradient(135deg,#5B8DEF 0%,#3D5AFE 100%)}
+.wel-ic{flex:none;width:54px;height:54px;border-radius:16px;background:rgba(255,255,255,.22);display:grid;place-items:center}
+.wel-ic svg{width:32px;height:32px;color:#fff}
+.wel-tx{min-width:0}
+.wel-tx b{display:block;font-size:16px;font-weight:700;line-height:1.35;letter-spacing:-.01em}
+.wel-tx small{display:block;font-size:13px;opacity:.92;margin-top:3px}
+.wel-tx em{display:inline-block;font-style:normal;font-size:13px;font-weight:700;margin-top:8px;background:#fff;color:#1D2B36;border-radius:999px;padding:4px 12px}
+.wel-bar{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 14px}
+.wel-dots{display:flex;gap:5px;flex:1}
+.wel-dots button{width:7px;height:7px;border-radius:99px;border:0;padding:0;background:var(--line);cursor:pointer;transition:width .3s,background .3s}
+.wel-dots button[aria-current="true"]{width:20px;background:var(--fg)}
+.wel-today{border:0;background:none;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;padding:6px}
+.wel-today:hover{color:var(--fg);text-decoration:underline}
+.wel-x{width:30px;height:30px;border:0;border-radius:50%;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+.wel-x:hover{background:var(--soft)}
+@media (max-width:760px){.wel{left:12px;right:12px;width:auto;bottom:calc(84px + env(safe-area-inset-bottom))}}
+@media (prefers-reduced-motion:reduce){.wel,.wel-track{transition:none}}

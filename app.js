@@ -131,7 +131,63 @@
     else if (qla > 33 && qla < 39 && qln > 124 && qln < 132) { // 정비사업 안내 페이지 등에서 '지도에서 보기'
       S.map.setLevel(3); S.map.setCenter(new K.LatLng(qla, qln)); pick(qla, qln);
     } else toast('필지를 누르면 정보가 열립니다');
+    // 첫 화면으로 그냥 들어온 분께만 안내 창 (공유 링크·정비사업 페이지·매물 보기로 온 경우는 띄우지 않음)
+    if (!pnu && !(qla > 33) && !qs.get('lst') && !qs.get('login') && qs.get('from') !== 'seoul') setTimeout(welcome, 1500);
   }
+
+  // ---------- 처음 오신 분 안내 배너 (한 장씩 넘어가는 작은 카드 · '오늘 하루 보지 않기') ----------
+  function welcome() {
+    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    try { if (localStorage.getItem('rm.op') === '1' || localStorage.getItem('rm.wel') === today) return; } catch { /* 저장 불가 → 그냥 보여 줌 */ }
+    try { if (sessionStorage.getItem('rm.wel')) return; } catch { /* 무시 */ }
+    if (document.querySelector('.lmodal:not([hidden]), .wel')) return;
+    const IC = {
+      zone: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M6 40V20l10-6v26M16 40V10l14 6v24M30 40V22l12 6v12"/><path d="M3 40h42"/></svg>',
+      guide: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M24 43s-14-12.6-14-23a14 14 0 0128 0c0 10.4-14 23-14 23z"/><circle cx="24" cy="20" r="5"/></svg>',
+      pro: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><rect x="8" y="6" width="32" height="38" rx="5"/><path d="M16 16h16M16 24h16M16 32h9"/></svg>',
+    };
+    const SL = [
+      { c: 'z', ic: IC.zone, t: '서울 재개발·재건축 현황,<br>자세히 보고 싶으세요?', s: '정비사업 830곳 진행 단계 한눈에', b: '현황 보기', h: '/seoul/' },
+      { c: 'g', ic: IC.guide, t: '처음 오셨어요?', s: '주소 하나로 땅·건물·실거래가까지', b: '사용법 보기', h: '/guide.html' },
+      { c: 'p', ic: IC.pro, t: '중개사이신가요?', s: '지도 위 매물장, 무료로 시작', b: '매물장 써 보기', h: '/pro.html' },
+    ];
+    const el = document.createElement('div');
+    el.className = 'wel';
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '리얼맵 안내');
+    el.innerHTML = `<div class="wel-track">${SL.map((x, i) => `<a class="wel-s ${x.c}" href="${x.h}" target="_blank" rel="noopener" aria-label="${x.t.replace(/<br>/g, ' ')}" ${i ? 'tabindex="-1"' : ''}>
+        <span class="wel-ic">${x.ic}</span><span class="wel-tx"><b>${x.t}</b><small>${x.s}</small><em>${x.b} ›</em></span></a>`).join('')}</div>
+      <div class="wel-bar"><span class="wel-dots">${SL.map((_, i) => `<button type="button" aria-label="${i + 1}번째 안내"></button>`).join('')}</span>
+        <button type="button" class="wel-today">오늘 하루 보지 않기</button><button type="button" class="wel-x" aria-label="닫기">×</button></div>`;
+    document.body.appendChild(el);
+    const tr = el.querySelector('.wel-track'), dots = [...el.querySelectorAll('.wel-dots button')], sl = [...el.querySelectorAll('.wel-s')];
+    let cur = 0, timer = 0, hold = false;
+    const go = i => {
+      cur = (i + SL.length) % SL.length;
+      tr.style.transform = `translateX(${-cur * 100}%)`;
+      dots.forEach((d, k) => d.setAttribute('aria-current', k === cur));
+      sl.forEach((a, k) => a.tabIndex = k === cur ? 0 : -1);
+    };
+    const auto = () => { clearInterval(timer); timer = setInterval(() => { if (!hold) go(cur + 1); }, 4000); };
+    dots.forEach((d, k) => d.onclick = () => { go(k); auto(); });
+    el.onmouseenter = () => { hold = true; }; el.onmouseleave = () => { hold = false; };
+    // 손가락으로 밀어 넘기기
+    let sx = null, moved = false;
+    tr.addEventListener('touchstart', e => { sx = e.touches[0].clientX; moved = false; hold = true; }, { passive: true });
+    tr.addEventListener('touchmove', e => { if (sx != null && Math.abs(e.touches[0].clientX - sx) > 10) moved = true; }, { passive: true });
+    tr.addEventListener('touchend', e => { const dx = sx == null ? 0 : e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) { go(cur + (dx < 0 ? 1 : -1)); auto(); } sx = null; hold = false; });
+    tr.addEventListener('click', e => { if (moved) { e.preventDefault(); moved = false; } }, true);
+    const close = forDay => {
+      clearInterval(timer);
+      try { if (forDay) localStorage.setItem('rm.wel', today); sessionStorage.setItem('rm.wel', '1'); } catch { /* 무시 */ }
+      el.classList.remove('on'); setTimeout(() => el.remove(), 300);
+    };
+    el.querySelector('.wel-x').onclick = () => close(false);
+    el.querySelector('.wel-today').onclick = () => close(true);
+    sl.forEach(a => a.addEventListener('click', () => { if (!moved) close(true); }));
+    go(0); auto();
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
+  }
+
 
   // ---------- 필지 선택 ----------
   async function pick(lat, lng) {
