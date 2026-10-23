@@ -178,7 +178,7 @@ window.Danji = (() => {
         <div class="sum">${summary(C)}<button type="button" class="lnk" id="dj_bt">${open ? '시세 접기 ▴' : '시세 자세히 ▾'}</button></div>
         ${open ? `<div id="dj_board">${board(C)}</div>` : ''}</div>
       <div class="card gcard">
-        <div class="dongs" id="dj_dongs">${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = countMine(cx, d); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${k === C.cur}">${esc(d.dong)}${n ? `<small>매물 ${n}</small>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
+        <div class="dongs" id="dj_dongs">${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = countMine(cx, d); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${k === C.cur}"${n ? ' class="has"' : ''}>${esc(d.dong)}${n ? `<em>${n}</em>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
         <div id="dj_gridBox"></div>
         <div class="lgd"><span><i style="background:var(--sale)"></i>내 매물 매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:#E3E8ED"></i>거래완료</span><span><i style="background:var(--gold);border-radius:50%"></i>메모</span><span><i style="background:#FFF6D6"></i>이 층 실거래(1년)</span><button type="button" class="lnk" id="dj_addPl">빠진 동이 있나요?</button></div>
       </div>`;
