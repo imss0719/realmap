@@ -51,14 +51,15 @@
   // ---------- 시작 ----------
   async function init() {
     try { S.me = await api('/api/auth?action=me'); } catch { S.me = { member: false }; }
-    if (!S.me.member) return gate('로그인이 필요합니다', '카카오로 로그인하시면 매물장을 이용하실 수 있습니다.', `<a class="btn main" href="/auth/login?r=${encodeURIComponent('/listings.html' + location.search)}">카카오로 로그인</a>`);
+    // 처음 오는 분(로그인 전 · 중개사 서비스 시작 전)은 소개 페이지로
+    if (!S.me.member || !S.me.plan || !S.me.plan.started) return location.replace('/pro.html' + (S.me.member ? '?go=1' : ''));
+    S.plan = S.me.plan;
     $('who').textContent = `${S.me.nickname || '회원'}님`;
-    if (!S.me.pro) return gate('유료회원 전용 기능입니다', '매물장은 PRO 회원에게 제공됩니다. 이용 문의는 realwalkers@naver.com 으로 연락 주세요.', '<a class="btn dark" href="/">리얼맵 지도로 돌아가기</a>');
     layout();
     const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
     th(); addEventListener('resize', th);
     loadMap();
-    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; } catch (e) { toast(e.message, 4000); }
+    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = j.plan; } catch (e) { if (e.code === 'start') return location.replace('/pro.html?go=1'); toast(e.message, 4000); }
     draw();
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
     let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
@@ -94,14 +95,18 @@
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
     toast,
   };
+  // 요금제 안내 (무료 이용자가 Basic 기능을 누르거나 한도에 닿았을 때)
+  function upsell(msg) { if (confirm(`${msg}\n\n요금제 안내를 열어 볼까요?`)) window.open('/pro.html#price', '_blank'); }
+  const adv = () => !S.plan || S.plan.adv;
   function setMode(m) {
+    if (['danji', 'list'].includes(m) && !adv()) { if (S.mode) upsell(`${m === 'danji' ? '단지 모드' : '리스트 모드'}는 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.`); m = 'map'; }
     S.mode = ['danji', 'list'].includes(m) ? m : 'map';
     try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
     const dj = S.mode === 'danji', lv = S.mode === 'list';
     document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv);
     if (!lv) document.body.classList.remove('lvwide');
     $('dj').hidden = !dj; $('lv').hidden = !lv; $('map').style.visibility = dj || lv ? 'hidden' : '';
-    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === S.mode));
+    document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.toggle('lock', b.dataset.mode !== 'map' && !adv()); });
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
     else if (lv) drawLv();
     else setTimeout(() => { if (S.map) { S.map.relayout(); drawPins(); } }, 50);
@@ -255,7 +260,7 @@
   }
   const post = body => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   // 매물장 저장 결과 받기 (게시 중 매물이 필수 항목 부족으로 내려가면 알려 드림)
-  function took(j) { S.items = j.items || S.items; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
+  function took(j) { S.items = j.items || S.items; if (j.plan) S.plan = j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // ---------- 지도 ----------
   async function loadMap() {
@@ -763,7 +768,7 @@
       if (!wasEdit) { S.tab = it.status; S.kind = 'all'; }
       draw(); if (!wasEdit) focusItem(S.items[0].id, true);
       toast(wasEdit ? '수정했습니다' : '매물장에 등록했습니다');
-    } catch (e) { toast(e.message, 4000); $('fSave').disabled = false; $('fSave').textContent = '저장하기'; }
+    } catch (e) { if (e.code === 'limit') { $('fSave').disabled = false; $('fSave').textContent = '저장하기'; return upsell(e.message); } toast(e.message, 4000); $('fSave').disabled = false; $('fSave').textContent = '저장하기'; }
   }
   async function del() {
     if (!confirm('이 매물을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return;
@@ -856,6 +861,7 @@
     try { took(await api('/api/auth?action=listing', post({ op, id }))); draw();
       toast(op === 'unpub' ? '리얼맵 지도에서 내렸습니다' : op === 'renew' ? '30일 연장했습니다 (확인일 오늘)' : '리얼맵 지도에 올렸습니다. 1분 안에 지도에 나타납니다', 3500);
     } catch (e) {
+      if (e.code === 'adlimit') return upsell(e.message);
       if (e.code === 'missing') { const x = S.items.find(i => i.id === id); if (x) { openForm(x); S.form.missing = adMissing(x, S.bk); S.form.scrollAd = true; S.form.pubAfter = x.id; renderForm(true); } }
       toast(e.message, 5000);
     }
@@ -875,6 +881,7 @@
   const manTx = v => { if (!v) return ''; const e = Math.floor(v / 10000), r = Math.round(v % 10000); return (e ? `${e}억` : '') + (r ? `${e ? ' ' : ''}${r.toLocaleString()}만` : ''); };
   function briefOf(x) {
     if (!x) return;
+    if (!adv()) return upsell('손님용 매물 브리핑은 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.');
     const a = x.ad || {}, p0 = (x.places && x.places[0]) || {}, pnu = x.pnu || p0.pnu;
     if (!pnu) return toast('주소(필지)가 없는 매물이라 브리핑을 만들 수 없습니다');
     const T = ['아파트', '빌라', '오피스텔'].includes(x.ptype) ? 'apt' : x.ptype === '토지' ? 'land' : 'bld';
@@ -909,11 +916,21 @@
     if (navigator.share && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) { try { await navigator.share({ title, text: title, url }); return; } catch { /* 취소 */ } }
     try { await navigator.clipboard.writeText(`${title}\n${url}`); toast('링크를 복사했습니다. 카톡에 붙여 넣으세요'); } catch { prompt('이 링크를 복사해 주세요', url); }
   }
+  function planLine() {
+    const P = S.plan; if (!P || P.op) return '';
+    const n = S.items.length, m = S.items.filter(pubLive).length;
+    const left = P.until ? Math.max(0, Math.ceil((new Date(P.until) - Date.now()) / 86400e3)) : null;
+    const txt = P.plan === 'trial' ? `<b>2주 무료 체험 중</b> · ${left}일 남음 (${ymd(P.until).slice(5)}까지) · 끝나면 무료(매물 10건)로 바뀝니다`
+      : P.plan === 'free' ? `<b>무료 이용 중</b> · 매물 ${n}/${P.ls}건 · 지도 광고 ${m}/${P.ad}건${P.ended === 'trial' ? ' · 무료 체험이 끝났습니다' : ''}`
+      : `<b>${esc(P.name)}</b> 이용 중${P.until ? ` · ${ymd(P.until)}까지` : ''}`;
+    return `<div class="planline ${P.plan}"><span>${txt}</span>${P.plan === 'trial' || P.plan === 'free' ? '<a href="/pro.html#price" target="_blank" rel="noopener">요금제 보기</a>' : ''}</div>`;
+  }
   function drawBk() {
     const el = $('bkLine'); if (!el) return;
-    if (!S.canPub) { el.innerHTML = ''; return; }
+    const pl = planLine();
+    if (!S.canPub) { el.innerHTML = pl; return; }
     const n = S.items.filter(pubLive).length;
-    el.innerHTML = `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건${S.bk.mobile ? '' : ' · <b style="color:#B4400B">문자 받을 휴대폰 번호를 넣어 주세요</b>'}</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" id="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
+    el.innerHTML = pl + `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건${S.bk.mobile ? '' : ' · <b style="color:#B4400B">문자 받을 휴대폰 번호를 넣어 주세요</b>'}</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" id="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
     $('bkEdit').onclick = () => openBk();
   }
   function openBk(then) {

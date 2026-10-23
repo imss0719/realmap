@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리얼맵 매물장 · 중개사무소를 위한 지도 위 매물 관리</title>
+<meta name="description" content="주소만 넣으면 면적·층·사용승인일까지 자동 입력. 단지 배치표, 손님 조건 검색, 리얼맵 지도 광고, 손님용 브리핑까지. 2주 무료, 매물 10건까지는 계속 무료.">
+<meta property="og:title" content="리얼맵 매물장 · 2주 무료">
+<meta property="og:description" content="중개사무소 매물 관리, 지도 위에서 한 번에. 매물 10건까지는 계속 무료.">
+<meta property="og:image" content="https://realmap.online/og.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{--navy:#14212E;--navy2:#1C2D3D;--gold:#F2B705;--gold2:#FFF4CC;--bg:#F6F7F9;--fg:#14212E;--muted:#5E6A77;--line:#E1E6EB;--sale:#1C64C8;--jeonse:#1F7A4D;--wolse:#D9480F}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{margin:0;background:#fff;color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;letter-spacing:-.02em;-webkit-font-smoothing:antialiased;overflow-x:hidden;word-break:keep-all}
+a{color:inherit}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+/* 진행 막대 · 상단 */
+.prog{position:fixed;left:0;top:0;height:3px;background:var(--gold);width:0;z-index:60}
+.nav{position:fixed;left:0;right:0;top:0;z-index:50;transition:background .3s,box-shadow .3s}
+.nav.solid{background:rgba(255,255,255,.92);backdrop-filter:blur(10px);box-shadow:0 1px 0 var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:14px;height:64px}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;font-weight:800;font-size:18px;color:#fff}
+.nav.solid .brand{color:var(--navy)}
+.brand em{font-style:normal;font-size:11px;font-weight:800;background:var(--gold);color:var(--navy);border-radius:999px;padding:2px 8px}
+.nav .sp{flex:1}
+.nav a.lk{color:rgba(255,255,255,.8);text-decoration:none;font-weight:600;font-size:15px}
+.nav.solid a.lk{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .2s}
+.btn:active{transform:scale(.97)}
+.btn.gold{background:var(--gold);color:var(--navy);box-shadow:0 8px 24px rgba(242,183,5,.35)}
+.btn.gold:hover{box-shadow:0 10px 30px rgba(242,183,5,.5)}
+.btn.sm{padding:10px 16px;font-size:14px;border-radius:12px}
+.btn.lg{padding:18px 30px;font-size:19px}
+.btn.ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25)}
+/* 첫 화면 */
+.hero{position:relative;min-height:100vh;min-height:100svh;background:var(--navy);color:#fff;overflow:hidden;display:flex;align-items:center}
+.hero .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:56px 56px;mask-image:radial-gradient(ellipse at 70% 50%,#000 30%,transparent 75%)}
+.hero .wrap{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;padding-top:90px;padding-bottom:60px;width:100%}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--gold);background:rgba(242,183,5,.12);border:1px solid rgba(242,183,5,.3);border-radius:999px;padding:6px 14px}
+.hero h1{font-size:clamp(38px,5vw,66px);line-height:1.12;margin:22px 0 22px;font-weight:900;letter-spacing:-.045em}
+.hero h1 .ln{display:block;overflow:hidden;white-space:nowrap;padding-bottom:.06em}
+.hero h1 .ln>span{display:inline-block;transform:translateY(105%);animation:up .9s cubic-bezier(.2,.8,.2,1) forwards}
+.hero h1 .ln:nth-child(2)>span{animation-delay:.12s}
+.hero h1 .ln:nth-child(3)>span{animation-delay:.24s}
+.hero h1 b{color:var(--gold)}
+.hero p.lead{font-size:clamp(17px,1.6vw,21px);line-height:1.65;color:rgba(255,255,255,.78);margin:0 0 34px;max-width:560px;opacity:0;animation:fade .9s .5s forwards}
+.hero .cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;opacity:0;animation:fade .9s .7s forwards}
+.hero .free{margin-top:18px;font-size:15px;color:rgba(255,255,255,.65);opacity:0;animation:fade .9s .9s forwards}
+.hero .free b{color:#fff}
+@keyframes up{to{transform:none}}
+@keyframes fade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.scrollhint{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);color:rgba(255,255,255,.5);font-size:13px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.scrollhint i{width:22px;height:34px;border:2px solid rgba(255,255,255,.35);border-radius:12px;position:relative}
+.scrollhint i::after{content:"";position:absolute;left:50%;top:6px;width:4px;height:8px;margin-left:-2px;border-radius:2px;background:var(--gold);animation:wheel 1.6s infinite}
+@keyframes wheel{0%{opacity:0;transform:translateY(0)}30%{opacity:1}100%{opacity:0;transform:translateY(12px)}}
+/* 첫 화면 그래픽: 지도 위 매물 */
+.hmap{position:relative;aspect-ratio:1/1;max-width:540px;width:100%;justify-self:center}
+.hmap .board{position:absolute;inset:6%;border-radius:28px;background:#EAEFEA;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,.45);transform:perspective(1200px) rotateX(14deg) rotateZ(-6deg);opacity:0;animation:fade 1s .3s forwards}
+.board .rd{position:absolute;background:#fff}
+.board .blk{position:absolute;background:#DCE3DC;border-radius:6px}
+.board .park{position:absolute;background:#CFE5C9;border-radius:50%}
+.board .riv{position:absolute;background:#BFD9EE;transform:rotate(-12deg)}
+.pin{position:absolute;display:flex;align-items:center;gap:6px;background:#fff;border:2.5px solid var(--gold);border-radius:12px;padding:4px 10px 4px 5px;color:var(--navy);box-shadow:0 8px 18px rgba(20,33,46,.25);white-space:nowrap;opacity:0;transform:translateY(10px) scale(.9)}
+.pin::after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:var(--gold)}
+.pin i{font-style:normal;font-size:11px;font-weight:800;color:#fff;border-radius:6px;padding:2px 5px;background:var(--sale)}
+.pin i.j{background:var(--jeonse)}.pin i.w{background:var(--wolse)}
+.pin b{font-size:14px;font-weight:800}
+.pin small{display:block;font-size:10px;color:var(--muted);font-weight:600}
+.hmap .pin{animation:pop .5s cubic-bezier(.3,1.5,.5,1) forwards}
+@keyframes pop{to{opacity:1;transform:none}}
+.tlb{position:absolute;background:var(--navy);color:#fff;border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700;text-align:center;opacity:0;animation:fade .6s forwards;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+.tlb small{display:block;font-size:9px;color:#C9D3DC;font-weight:500}
+/* 공통 구간 */
+section{position:relative;overflow-x:clip}
+.sec{padding:140px 0}
+.sec.alt{background:var(--bg)}
+.kicker{font-size:15px;font-weight:800;color:#B07F00;letter-spacing:.02em}
+.num{font-size:84px;font-weight:900;line-height:1;color:var(--gold2);-webkit-text-stroke:2px var(--gold);letter-spacing:-.04em}
+h2.big{font-size:clamp(32px,4.6vw,58px);line-height:1.18;margin:14px 0 22px;font-weight:900;letter-spacing:-.045em}
+h2.big em{font-style:normal;color:#B07F00;background:linear-gradient(transparent 62%,var(--gold2) 62%)}
+p.desc{font-size:clamp(17px,1.5vw,20px);line-height:1.75;color:var(--muted);margin:0;max-width:520px}
+.pts{list-style:none;padding:0;margin:26px 0 0;display:grid;gap:12px}
+.pts li{display:flex;gap:10px;align-items:flex-start;font-size:17px;font-weight:600}
+.pts li::before{content:"";flex:none;width:22px;height:22px;border-radius:50%;background:var(--gold) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%2314212E' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;margin-top:1px}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
+.feat.rev .txt{order:2}
+/* 나타나기 */
+.rv{opacity:0;transform:translateY(46px);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1);transition-delay:var(--d,0s)}
+.rv.in{opacity:1;transform:none}
+.rv.l{transform:translateX(-60px)}.rv.r{transform:translateX(60px)}.rv.z{transform:scale(.92)}
+.rv.l.in,.rv.r.in,.rv.z.in{transform:none}
+/* 기능 그림 상자 */
+.art{position:relative;border-radius:28px;background:#fff;box-shadow:0 30px 70px rgba(20,33,46,.14),0 0 0 1px var(--line);padding:26px;min-height:380px;overflow:hidden}
+.sec.alt .art{background:#fff}
+.art .bar{display:flex;gap:6px;margin:-8px 0 16px}
+.art .bar i{width:10px;height:10px;border-radius:50%;background:#E1E6EB}
+/* 02 자동 입력 */
+.addr{display:flex;align-items:center;gap:10px;border:2px solid var(--navy);border-radius:14px;padding:14px 16px;font-size:18px;font-weight:700}
+.addr .cur{width:2px;height:22px;background:var(--navy);animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.fld{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#FAFBFC}
+.fld span{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600}
+.fld span em{font-style:normal;font-size:10px;font-weight:800;color:#1F7A4D;background:#E7F5EC;border-radius:5px;padding:1px 5px;opacity:0;transition:opacity .4s}
+.fld b{display:block;font-size:16px;margin-top:3px;min-height:22px;color:var(--fg)}
+.fld b::after{content:attr(data-v);opacity:0;transition:opacity .4s}
+.art.go .fld b::after{opacity:1}.art.go .fld span em{opacity:1}
+.art.go .fld:nth-child(1) b::after,.art.go .fld:nth-child(1) em{transition-delay:.3s}
+.art.go .fld:nth-child(2) b::after,.art.go .fld:nth-child(2) em{transition-delay:.55s}
+.art.go .fld:nth-child(3) b::after,.art.go .fld:nth-child(3) em{transition-delay:.8s}
+.art.go .fld:nth-child(4) b::after,.art.go .fld:nth-child(4) em{transition-delay:1.05s}
+.art.go .fld:nth-child(5) b::after,.art.go .fld:nth-child(5) em{transition-delay:1.3s}
+.art.go .fld:nth-child(6) b::after,.art.go .fld:nth-child(6) em{transition-delay:1.55s}
+.art.go .fld{animation:glow .8s ease both}
+.art.go .fld:nth-child(1){animation-delay:.3s}.art.go .fld:nth-child(2){animation-delay:.55s}.art.go .fld:nth-child(3){animation-delay:.8s}.art.go .fld:nth-child(4){animation-delay:1.05s}.art.go .fld:nth-child(5){animation-delay:1.3s}.art.go .fld:nth-child(6){animation-delay:1.55s}
+@keyframes glow{0%{background:#FAFBFC}40%{background:#FFF7D6;border-color:var(--gold)}100%{background:#FAFBFC}}
+/* 03 단지 배치표 */
+.dj{display:grid;grid-template-columns:auto repeat(4,1fr);gap:5px;font-size:12px}
+.dj .fl{color:var(--muted);font-weight:700;display:grid;place-items:center;padding-right:4px}
+.dj .c{height:34px;border-radius:7px;background:#F1F3F5;display:grid;place-items:center;font-weight:700;color:#9AA4AE;transform:scale(.6);opacity:0;transition:transform .4s cubic-bezier(.3,1.4,.5,1),opacity .4s}
+.art.go .dj .c{transform:none;opacity:1}
+.dj .c.s{background:var(--sale);color:#fff}.dj .c.j{background:var(--jeonse);color:#fff}.dj .c.w{background:var(--wolse);color:#fff}
+.dj .c.m{box-shadow:inset 0 0 0 2px var(--gold)}
+.dj .c.t{background:#FFF6D6;color:#8A6A00}
+.djhead{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.djhead span{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700}
+.djhead span.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.lg{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted);font-weight:600}
+.lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+/* 04 리스트 */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chips span{background:var(--gold2);border:1px solid #F2D77A;color:#6B5200;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:800;opacity:0;transform:translateY(8px);transition:.4s}
+.art.go .chips span{opacity:1;transform:none}
+.art.go .chips span:nth-child(2){transition-delay:.2s}.art.go .chips span:nth-child(3){transition-delay:.4s}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;color:var(--muted);font-size:12px;font-weight:700;padding:8px 6px;border-bottom:1px solid var(--line)}
+.tbl td{padding:10px 6px;border-bottom:1px solid #F1F3F5;font-weight:600;transition:opacity .5s,background .5s}
+.tbl tr.gh td{background:#F5F7F9;font-size:12px;color:var(--muted);font-weight:700}
+.art.go .tbl tr.x td{opacity:.18}
+.art.go .tbl tr.hit td{background:#FFFBEA}
+.kd{display:inline-block;font-size:11px;font-weight:800;color:#fff;border-radius:6px;padding:2px 6px;background:var(--sale)}.kd.j{background:var(--jeonse)}.kd.w{background:var(--wolse)}
+/* 05 광고 */
+.admap{position:relative;height:250px;border-radius:18px;background:#EAEFEA;overflow:hidden}
+.admap .rd{position:absolute;background:#fff}
+.adcard{position:absolute;right:16px;bottom:16px;left:42%;background:#fff;border:2px solid var(--gold);border-radius:16px;padding:12px 14px;box-shadow:0 14px 30px rgba(20,33,46,.18);transform:translateY(30px);opacity:0;transition:.6s .5s}
+.art.go .adcard{transform:none;opacity:1}
+.adcard b{font-size:20px;display:block}
+.adcard small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.chk{list-style:none;padding:0;margin:16px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:14px;font-weight:700}
+.chk li{display:flex;gap:7px;align-items:center;opacity:.25;transition:opacity .4s}
+.chk li::before{content:"✓";display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#E7F5EC;color:#1F7A4D;font-size:11px;font-weight:900}
+.art.go .chk li{opacity:1}
+.art.go .chk li:nth-child(2){transition-delay:.15s}.art.go .chk li:nth-child(3){transition-delay:.3s}.art.go .chk li:nth-child(4){transition-delay:.45s}.art.go .chk li:nth-child(5){transition-delay:.6s}.art.go .chk li:nth-child(6){transition-delay:.75s}
+/* 06 브리핑 */
+.a4wrap{display:grid;place-items:center;padding:10px 0}
+.a4{width:78%;aspect-ratio:210/297;background:#fff;border-radius:6px;box-shadow:0 24px 50px rgba(20,33,46,.22),0 0 0 1px var(--line);overflow:hidden;transform:rotate(-4deg) translateY(30px);opacity:0;transition:transform 1s cubic-bezier(.2,.8,.2,1),opacity .8s}
+.art.go .a4{transform:rotate(-2deg);opacity:1}
+.a4 .h{background:var(--navy);padding:16px 16px 12px;color:#fff}
+.a4 .h i{font-style:normal;font-size:9px;font-weight:800;background:var(--gold);color:var(--navy);border-radius:3px;padding:2px 6px}
+.a4 .h b{display:block;font-size:17px;margin-top:6px}
+.a4 .h strong{display:block;color:var(--gold);font-size:22px;text-align:right;margin-top:-4px}
+.a4 .ph{margin:10px 12px;height:28%;border-radius:4px;background:linear-gradient(135deg,#C9D6E2,#E8EDF2)}
+.a4 .k{display:grid;grid-template-columns:repeat(4,1fr);margin:0 12px;border:1px solid var(--line);border-radius:4px}
+.a4 .k div{padding:6px;font-size:8px;color:var(--muted);border-right:1px solid var(--line)}.a4 .k div:last-child{border:0}
+.a4 .k b{display:block;font-size:11px;color:var(--navy)}
+.a4 .ln{height:6px;border-radius:3px;background:#EEF1F4;margin:8px 12px 0}
+.pdfbtn{position:absolute;right:30px;bottom:34px;background:var(--navy);color:#fff;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:800;box-shadow:0 10px 24px rgba(20,33,46,.3);transform:scale(.6);opacity:0;transition:.5s .9s cubic-bezier(.3,1.5,.5,1)}
+.art.go .pdfbtn{transform:none;opacity:1}
+/* 01 지도 */
+.fmap{position:relative;height:330px;border-radius:18px;background:#EAEFEA;overflow:hidden}
+.fmap .rd{position:absolute;background:#fff}
+.fmap .pin{transition:.5s cubic-bezier(.3,1.5,.5,1)}
+.art.go .fmap .pin{opacity:1;transform:none}
+.art.go .fmap .pin:nth-of-type(2){transition-delay:.15s}
+/* 큰 문장 구간 */
+.statement{background:var(--navy);color:#fff;text-align:center;padding:160px 0}
+.statement h2{font-size:clamp(34px,5.4vw,70px);line-height:1.22;margin:0;font-weight:900;letter-spacing:-.045em}
+.statement h2 span{color:rgba(255,255,255,.22);transition:color .5s}
+.statement h2 span.on{color:#fff}
+.statement h2 span.on.g{color:var(--gold)}
+/* 요금 */
+.price-h{text-align:center;max-width:720px;margin:0 auto 46px}
+.toggle{display:inline-flex;background:#EEF1F4;border-radius:999px;padding:5px;margin-top:22px}
+.toggle button{border:0;background:none;font:inherit;font-weight:800;font-size:16px;padding:10px 22px;border-radius:999px;color:var(--muted);cursor:pointer}
+.toggle button[aria-pressed=true]{background:#fff;color:var(--navy);box-shadow:0 2px 8px rgba(20,33,46,.12)}
+.toggle small{color:#B07F00;font-weight:800;margin-left:4px}
+.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:stretch}
+.plan{position:relative;background:#fff;border:1px solid var(--line);border-radius:24px;padding:28px 24px;display:flex;flex-direction:column}
+.plan.hot{border:3px solid var(--gold);box-shadow:0 30px 60px rgba(242,183,5,.22);transform:translateY(-12px)}
+.plan .tag{position:absolute;top:-15px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--navy);font-size:13px;font-weight:900;border-radius:999px;padding:6px 14px;white-space:nowrap}
+.plan .soon{position:absolute;top:18px;right:18px;font-size:12px;font-weight:800;color:var(--muted);background:#F1F3F5;border-radius:999px;padding:4px 10px}
+.plan h3{margin:0;font-size:22px;font-weight:900}
+.plan .for{color:var(--muted);font-size:14px;margin:4px 0 18px;font-weight:600}
+.plan .amt{font-size:38px;font-weight:900;letter-spacing:-.04em}
+.plan .amt small{font-size:15px;color:var(--muted);font-weight:700;margin-left:2px}
+.plan .yr{font-size:13px;color:#B07F00;font-weight:800;min-height:20px;margin-top:2px}
+.plan ul{list-style:none;padding:0;margin:20px 0 24px;display:grid;gap:10px;font-size:15px;font-weight:600}
+.plan li{display:flex;gap:8px}
+.plan li::before{content:"✓";color:#1F7A4D;font-weight:900}
+.plan li.no{color:#A3ACB5}.plan li.no::before{content:"–";color:#C3CAD1}
+.plan .btn{margin-top:auto;padding:14px;font-size:16px;width:100%}
+.plan .btn.line{background:#fff;color:var(--navy);border:2px solid var(--navy)}
+.plan .btn.off{background:#F1F3F5;color:#8A949E;cursor:default;box-shadow:none}
+.vat{text-align:center;color:var(--muted);font-size:14px;margin-top:22px}
+/* 무료 강조 */
+.freebox{background:linear-gradient(135deg,#FFE27A,var(--gold));color:var(--navy);border-radius:36px;padding:70px 40px;text-align:center;position:relative;overflow:hidden}
+.freebox::before,.freebox::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.25)}
+.freebox::before{width:340px;height:340px;left:-120px;top:-160px}
+.freebox::after{width:260px;height:260px;right:-90px;bottom:-130px}
+.freebox h2{position:relative;font-size:clamp(34px,5vw,64px);line-height:1.2;margin:0 0 18px;font-weight:900;letter-spacing:-.045em}
+.freebox p{position:relative;font-size:clamp(18px,2vw,24px);font-weight:700;margin:0 0 34px}
+.freebox p b{background:var(--navy);color:var(--gold);border-radius:10px;padding:2px 10px}
+.freebox .btn{position:relative;display:flex;width:max-content;max-width:100%;margin:0 auto;background:var(--navy);color:#fff;box-shadow:0 14px 30px rgba(20,33,46,.35)}
+.freebox .small{position:relative;margin-top:16px;font-size:15px;font-weight:600;opacity:.75}
+/* 자주 묻는 질문 */
+.faq{max-width:820px;margin:0 auto}
+.faq details{border-bottom:1px solid var(--line);padding:22px 4px}
+.faq summary{list-style:none;cursor:pointer;font-size:19px;font-weight:800;display:flex;justify-content:space-between;gap:16px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-size:26px;line-height:1;color:#B07F00;transition:transform .3s}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq p{color:var(--muted);font-size:17px;line-height:1.75;margin:14px 0 0}
+footer{background:var(--navy);color:rgba(255,255,255,.6);padding:40px 0;font-size:14px}
+footer a{color:rgba(255,255,255,.8)}
+/* 시작 창 */
+.modal{position:fixed;inset:0;z-index:80;background:rgba(10,18,26,.55);display:grid;place-items:center;padding:16px}
+.modal[hidden]{display:none}
+.mbox{background:#fff;border-radius:24px;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:28px 26px;box-shadow:0 30px 80px rgba(0,0,0,.35);animation:fade .35s}
+.mbox h3{margin:0;font-size:24px;font-weight:900}
+.mbox .sub{color:var(--muted);margin:8px 0 18px;font-size:15px;line-height:1.6}
+.mbox label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 5px}
+.mbox input[type=text],.mbox input[type=tel]{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;font-size:16px}
+.mbox input:focus{outline:none;border-color:var(--navy)}
+.mbox .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mbox .agree{display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:600;color:var(--fg);margin-top:16px;line-height:1.5}
+.mbox .agree input{margin-top:3px;width:18px;height:18px}
+.mbox .err{color:#C92A2A;font-weight:700;font-size:14px;min-height:20px;margin-top:10px}
+.mbox .row{display:flex;gap:10px;margin-top:10px}
+.mbox .row .btn{flex:1;padding:15px;font-size:17px}
+.mbox .x{background:#F1F3F5;color:var(--fg)}
+@media (max-width:960px){
+  .hero .wrap{grid-template-columns:1fr;padding-top:96px;gap:10px}
+  .hmap{max-width:420px;margin-top:10px}
+  .feat,.feat.rev{grid-template-columns:1fr;gap:40px}.feat.rev .txt{order:0}
+  .plans{grid-template-columns:1fr 1fr}.plan.hot{transform:none}
+  .sec{padding:96px 0}
+  .scrollhint{display:none}
+}
+@media (max-width:600px){
+  .wrap{padding:0 18px}
+  .nav a.lk{display:none}
+  .plans{grid-template-columns:1fr}
+  .art{padding:18px;min-height:0;border-radius:22px}
+  .fields{grid-template-columns:1fr 1fr}
+  .num{font-size:64px}
+  .freebox{padding:54px 22px;border-radius:26px}
+  .statement{padding:110px 0}
+  .btn.lg{padding:16px 24px;font-size:17px}
+  .mbox .two{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv,.hero h1 .ln>span,.hero p.lead,.hero .cta,.hero .free,.hmap .board,.pin,.tlb{opacity:1!important;transform:none!important}}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div>
+<header class="nav" id="nav"><div class="wrap">
+  <a class="brand" href="/"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg>리얼맵 <em>매물장</em></a>
+  <span class="sp"></span>
+  <a class="lk" href="#features">기능</a><a class="lk" href="#price">요금</a><a class="lk" href="/">리얼맵 지도</a>
+  <button class="btn gold sm" type="button" data-start>2주 무료로 시작</button>
+</div></header>
+
+<section class="hero">
+  <div class="grid"></div>
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">공인중개사 전용 · 리얼맵 매물장</span>
+      <h1><span class="ln"><span>매물 관리,</span></span><span class="ln"><span><b>지도 위에서</b></span></span><span class="ln"><span>한 번에 끝내세요.</span></span></h1>
+      <p class="lead">주소만 넣으면 면적·층·사용승인일까지 자동으로 채워집니다. 단지 배치표, 손님 조건 검색, 리얼맵 지도 광고, 손님용 브리핑까지 한곳에서.</p>
+      <div class="cta"><button class="btn gold lg" type="button" data-start>2주 무료로 시작하기 →</button><a class="btn ghost lg" href="#features">기능 둘러보기</a></div>
+      <div class="free">결제 정보 없이 시작 · <b>매물 10건까지는 계속 무료</b></div>
+    </div>
+    <div class="hmap" aria-hidden="true">
+      <div class="board">
+        <div class="rd" style="left:0;right:0;top:46%;height:16px"></div><div class="rd" style="top:0;bottom:0;left:38%;width:14px"></div><div class="rd" style="left:0;right:0;top:78%;height:9px"></div><div class="rd" style="top:0;bottom:0;left:76%;width:9px"></div>
+        <div class="blk" style="left:6%;top:8%;width:26%;height:32%"></div><div class="blk" style="left:46%;top:8%;width:24%;height:15%"></div><div class="blk" style="left:46%;top:27%;width:24%;height:14%"></div><div class="blk" style="left:6%;top:54%;width:26%;height:20%"></div><div class="blk" style="left:82%;top:54%;width:14%;height:20%"></div>
+        <div class="park" style="left:48%;top:56%;width:22%;height:18%"></div><div class="riv" style="left:-10%;top:86%;width:130%;height:24px"></div>
+        <div class="tlb" style="left:12%;top:20%;animation-delay:1.4s">8.2억<small>84㎡ · 25.08</small></div>
+        <div class="tlb" style="left:54%;top:30%;animation-delay:1.55s">6.1억<small>59㎡ · 25.07</small></div>
+        <div class="pin" style="left:44%;top:12%;animation-delay:1.1s"><i>매매</i><span><b>8.5억</b><small>84㎡ · 고층</small></span></div>
+        <div class="pin" style="left:8%;top:60%;animation-delay:1.3s"><i class="j">전세</i><span><b>5억</b><small>59㎡ · 12층</small></span></div>
+        <div class="pin" style="left:52%;top:62%;animation-delay:1.5s"><i class="w">월세</i><span><b>1,000/80</b><small>33㎡ · 3층</small></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="scrollhint"><i></i>아래로</div>
+</section>
+
+<section class="sec" id="features"><div class="wrap feat">
+  <div class="txt">
+    <div class="num rv">01</div>
+    <div class="kicker rv" style="--d:.05s">내 매물을 지도 위에</div>
+    <h2 class="big rv" style="--d:.1s">내 매물이<br><em>어디에 있는지</em><br>한눈에 보입니다</h2>
+    <p class="desc rv" style="--d:.15s">엑셀 장부를 뒤질 필요 없이, 등록한 매물이 지도 위에 거래 종류별 색으로 표시됩니다. 누르면 바로 매물 카드가 열립니다.</p>
+  </div>
+  <div class="art rv r" data-art><div class="bar"><i></i><i></i><i></i></div>
+    <div class="fmap">
+      <div class="rd" style="left:0;right:0;top:44%;height:14px"></div><div class="rd" style="top:0;bottom:0;left:40%;width:12px"></div><div class="rd" style="top:0;bottom:0;left:78%;width:8px"></div>
+      <div class="pin" style="left:12%;top:16%"><i>매매</i><span><b>21.5억</b><small>85㎡ · 15층</small></span></div>
+      <div class="pin" style="left:50%;top:22%"><i class="j">전세</i><span><b>8.5억</b><small>85㎡ · 8층</small></span></div>
+      <div class="pin" style="left:20%;top:62%"><i class="w">월세</i><span><b>5,000/180</b><small>33㎡ · 오피스텔</small></span></div>
+      <div class="pin" style="left:56%;top:66%"><i>매매</i><span><b>12.8억</b><small>상가 · 1층</small></span></div>
+    </div>
+  </div>
+</div></section>
+
+<section class="sec alt"><div class="wrap feat rev">
+  <div class="txt">
+    <div class="num rv">02</div>
+    <div class="kicker rv" style="--d:.05s">주소만 넣으면 끝</div>
+    <h2 class="big rv" style="--d:.1s">면적, 층, 사용승인일<br><em>자동으로</em> 채워집니다</h2>
+    <p class="desc rv" style="--d:.15s">건축물대장·토지대장을 하나하나 떼어 볼 필요가 없습니다. 주소와 호수만 고르면 공공데이터에서 바로 불러옵니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>집합건물은 동·호수 목록에서 고르기</li><li>전용면적·해당 층 자동 입력</li><li>건축물 용도·주차·위반건축물 여부까지</li></ul>
+  </div>
+  <div class="art rv l" data-art><div class="bar"><i></i><i></i><i></i></div>
+    <div class="addr">마포래미안푸르지오 101동 1503호<span class="cur"></span></div>
+    <div class="fields">
+      <div class="fld"><span>전용면적 <em>자동</em></span><b data-v="84.97㎡ (25.7평)"></b></div>
+      <div class="fld"><span>해당 층 / 총 층 <em>자동</em></span><b data-v="15층 / 25층"></b></div>
+      <div class="fld"><span>건축물 용도 <em>자동</em></span><b data-v="공동주택 · 아파트"></b></div>
+      <div class="fld"><span>사용승인일 <em>자동</em></span><b data-v="2014.09.30"></b></div>
+      <div class="fld"><span>주차 <em>자동</em></span><b data-v="세대당 1.2대"></b></div>
+      <div class="fld"><span>세대수·승강기 <em>자동</em></span><b data-v="3,885세대 · 2대"></b></div>
+    </div>
+  </div>
+</div></section>
+
+<section class="sec"><div class="wrap feat">
+  <div class="txt">
+    <div class="num rv">03</div>
+    <div class="kicker rv" style="--d:.05s">아파트 단지 모드</div>
+    <h2 class="big rv" style="--d:.1s">단지 전체를<br><em>동·호 배치표</em>로</h2>
+    <p class="desc rv" style="--d:.15s">층과 라인으로 펼친 표 위에 내 매물, 호별 메모, 그 층 실거래가 한 번에 보입니다. 단지 전문 중개사무소라면 이것만으로도 충분합니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>평형별 시세·전세가율 요약</li><li>호마다 메모 (매도 의향, 수리 상태 등)</li><li>빈 호를 누르면 바로 매물 등록</li></ul>
+  </div>
+  <div class="art rv r" data-art><div class="bar"><i></i><i></i><i></i></div>
+    <div class="djhead"><span class="on">101동</span><span>102동</span><span>103동</span><span>104동</span></div>
+    <div class="dj" id="djGrid"></div>
+    <div class="lg"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:#fff;box-shadow:inset 0 0 0 2px var(--gold)"></i>메모</span><span><i style="background:#FFF6D6"></i>그 층 실거래</span></div>
+  </div>
+</div></section>
+
+<section class="sec alt"><div class="wrap feat rev">
+  <div class="txt">
+    <div class="num rv">04</div>
+    <div class="kicker rv" style="--d:.05s">리스트 모드</div>
+    <h2 class="big rv" style="--d:.1s">손님 조건만 넣으면<br><em>딱 맞는 매물</em>만</h2>
+    <p class="desc rv" style="--d:.15s">"5억 이하, 25평 이상, 아현동" 같은 손님 조건으로 거르고, 단지별·동네별로 묶어 평균가까지 봅니다. 여러 건을 골라 한꺼번에 상태를 바꾸거나 엑셀로 받을 수 있습니다.</p>
+  </div>
+  <div class="art rv l" data-art><div class="bar"><i></i><i></i><i></i></div>
+    <div class="chips"><span>매매 12억 이하</span><span>25평 이상</span><span>아현동</span></div>
+    <table class="tbl"><thead><tr><th>거래</th><th>단지</th><th>면적</th><th style="text-align:right">가격</th></tr></thead><tbody>
+      <tr class="gh"><td colspan="4">마포래미안푸르지오 · 평균 10.6억</td></tr>
+      <tr class="hit"><td><span class="kd">매매</span></td><td>101동 고층</td><td>25.7평</td><td style="text-align:right">11억 5,000</td></tr>
+      <tr class="x"><td><span class="kd">매매</span></td><td>103동 중층</td><td>34.5평</td><td style="text-align:right">16억</td></tr>
+      <tr class="hit"><td><span class="kd">매매</span></td><td>102동 저층</td><td>25.7평</td><td style="text-align:right">9억 8,000</td></tr>
+      <tr class="gh"><td colspan="4">아현아이파크 · 평균 11.2억</td></tr>
+      <tr class="x"><td><span class="kd j">전세</span></td><td>105동 고층</td><td>25.6평</td><td style="text-align:right">7억</td></tr>
+      <tr class="hit"><td><span class="kd">매매</span></td><td>106동 중층</td><td>25.6평</td><td style="text-align:right">11억 2,000</td></tr>
+      <tr class="x"><td><span class="kd w">월세</span></td><td>107동 저층</td><td>18.1평</td><td style="text-align:right">5,000/150</td></tr>
+    </tbody></table>
+  </div>
+</div></section>
+
+<section class="statement"><div class="wrap">
+  <h2 id="stmt"><span>매물은</span> <span>장부에만</span> <span>두지 마세요.</span><br><span class="g">리얼맵을 찾는</span> <span class="g">손님에게</span> <span class="g">보여 주세요.</span></h2>
+</div></section>
+
+<section class="sec"><div class="wrap feat">
+  <div class="txt">
+    <div class="num rv">05</div>
+    <div class="kicker rv" style="--d:.05s">리얼맵 지도 광고</div>
+    <h2 class="big rv" style="--d:.1s">버튼 하나로<br><em>리얼맵 지도에</em> 광고</h2>
+    <p class="desc rv" style="--d:.15s">매물장에서 '리얼맵 등록'만 누르면 지도에 내 매물이 올라갑니다. 손님은 같은 평형 최근 실거래와 비교해 보고 바로 전화·문자로 연락합니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>법정 표시·광고 명시사항 자동 점검</li><li>호수·소유자 정보는 절대 비공개</li><li>거래완료로 바꾸면 자동으로 내려감</li></ul>
+  </div>
+  <div class="art rv r" data-art><div class="bar"><i></i><i></i><i></i></div>
+    <div class="admap">
+      <div class="rd" style="left:0;right:0;top:40%;height:12px"></div><div class="rd" style="top:0;bottom:0;left:30%;width:10px"></div>
+      <div class="tlb" style="left:6%;top:12%;animation:none;opacity:1">8.2억<small>84㎡ · 25.08</small></div>
+      <div class="pin" style="left:38%;top:12%;opacity:1;transform:none;animation:none"><i>매매</i><span><b>8.5억</b><small>84㎡ · 고층</small></span></div>
+      <div class="adcard"><b>8억 5,000만원</b><small>같은 평형 최근 실거래 8억 2,000만원 (25.08) · 호가 +3.7%</small><small style="margin-top:8px;color:var(--fg);font-weight:700">리얼워커스공인중개사 · 전화 · 문자</small></div>
+    </div>
+    <ul class="chk"><li>소재지·면적</li><li>가격·거래형태</li><li>총층·해당 층</li><li>사용승인일·방향</li><li>방·욕실·주차</li><li>관리비·위반건축물</li></ul>
+  </div>
+</div></section>
+
+<section class="sec alt"><div class="wrap feat rev">
+  <div class="txt">
+    <div class="num rv">06</div>
+    <div class="kicker rv" style="--d:.05s">손님용 매물 브리핑</div>
+    <h2 class="big rv" style="--d:.1s">A4 한 장 브리핑을<br><em>클릭 한 번</em>으로</h2>
+    <p class="desc rv" style="--d:.15s">매물 사진, 가격, 세대 정보, 토지·건물 정보, 최근 실거래, 위치 지도까지 정리된 브리핑 자료가 바로 만들어집니다. PDF로 저장해 카톡으로 보내거나 인쇄해 상담 때 쓰세요.</p>
+  </div>
+  <div class="art rv l" data-art><div class="bar"><i></i><i></i><i></i></div>
+    <div class="a4wrap"><div class="a4"><div class="h"><i>매매</i><b>마포래미안푸르지오 101동</b><strong>21억 5,000만</strong></div><div class="ph"></div>
+      <div class="k"><div>전용<b>25.7평</b></div><div>방·욕실<b>3 · 2</b></div><div>층<b>15/25</b></div><div>향<b>남향</b></div></div>
+      <div class="ln"></div><div class="ln" style="width:70%"></div><div class="ln"></div><div class="ln" style="width:55%"></div></div></div>
+    <div class="pdfbtn">PDF 저장 ↓</div>
+  </div>
+</div></section>
+
+<section class="sec" id="price"><div class="wrap">
+  <div class="price-h">
+    <div class="kicker rv">요금 안내</div>
+    <h2 class="big rv" style="--d:.05s">커피 두 잔 값으로<br><em>매물장 전부</em></h2>
+    <div class="toggle rv" style="--d:.1s" role="group" aria-label="결제 주기"><button type="button" data-cycle="m" aria-pressed="true">월간</button><button type="button" data-cycle="y" aria-pressed="false">연간<small>2개월 무료</small></button></div>
+  </div>
+  <div class="plans">
+    <div class="plan rv" style="--d:0s"><h3>무료</h3><div class="for">처음 써보는 분</div><div class="amt" data-m="0" data-y="0">0원</div><div class="yr">&nbsp;</div>
+      <ul><li>매물 10건</li><li>지도 광고 3건</li><li>지도 모드</li><li class="no">단지·리스트 모드</li><li class="no">손님용 브리핑</li></ul>
+      <button class="btn line" type="button" data-start>무료로 시작</button></div>
+    <div class="plan hot rv" style="--d:.08s"><span class="tag">가장 많이 선택</span><h3>Basic</h3><div class="for">1인·2인 중개사무소</div><div class="amt" data-m="9900" data-y="99000">9,900원<small>/월</small></div><div class="yr" data-yr="월 8,250원꼴 · 19,800원 절약"></div>
+      <ul><li>매물 1,000건</li><li>지도 광고 300건</li><li>지도·단지·리스트 모드</li><li>손님용 브리핑</li><li>담당자 1명 추가 (+4,900원)</li></ul>
+      <button class="btn gold" type="button" data-start>2주 무료로 써보기</button></div>
+    <div class="plan rv" style="--d:.16s"><span class="soon">오픈 예정</span><h3>Premium</h3><div class="for">직원이 있는 사무소</div><div class="amt" data-m="29900" data-y="299000">29,900원<small>/월</small></div><div class="yr" data-yr="59,800원 절약"></div>
+      <ul><li>매물 10,000건</li><li>지도 광고 1,000건</li><li>Basic 기능 전부</li><li>담당자 5명까지</li><li>사무소 공동 장부</li></ul>
+      <button class="btn off" type="button" disabled>준비 중</button></div>
+    <div class="plan rv" style="--d:.24s"><span class="soon">오픈 예정</span><h3>VIP</h3><div class="for">중개법인·대형 사무소</div><div class="amt" data-m="49900" data-y="499000">49,900원<small>/월</small></div><div class="yr" data-yr="99,800원 절약"></div>
+      <ul><li>매물 무제한</li><li>지도 광고 무제한</li><li>Basic 기능 전부</li><li>담당자 20명까지</li><li>그 이상은 별도 문의</li></ul>
+      <button class="btn off" type="button" disabled>준비 중</button></div>
+  </div>
+  <p class="vat rv">모든 금액은 부가세 포함입니다. 결제는 곧 열립니다. 지금 시작하시면 2주 동안 Basic 기능을 모두 무료로 쓰실 수 있습니다.</p>
+</div></section>
+
+<section class="sec" style="padding-top:20px"><div class="wrap">
+  <div class="freebox rv z">
+    <h2>2주간 무료로 써보고<br>결정하세요.</h2>
+    <p>결제 안 해도 <b>매물 10건까지는 무료!</b></p>
+    <button class="btn lg" type="button" data-start>지금 무료로 시작하기 →</button>
+    <div class="small">카카오 로그인 · 중개사무소 정보 입력 · 1분이면 끝</div>
+  </div>
+</div></section>
+
+<section class="sec alt"><div class="wrap">
+  <div class="price-h"><div class="kicker rv">자주 묻는 질문</div><h2 class="big rv" style="--d:.05s">궁금하신 점</h2></div>
+  <div class="faq">
+    <details class="rv"><summary>제 매물장을 다른 사람이 볼 수 있나요?</summary><p>아니요. 매물장은 로그인한 본인만 볼 수 있습니다. '리얼맵 등록'을 누른 매물만 지도에 광고로 공개되고, 그때도 호수·소유자 연락처·메모는 공개되지 않습니다.</p></details>
+    <details class="rv"><summary>2주 무료 체험이 끝나면 어떻게 되나요?</summary><p>자동으로 결제되지 않습니다. 무료 이용으로 바뀌어 매물 10건, 지도 광고 3건까지 계속 쓰실 수 있고, 그 이상 등록한 매물도 지워지지 않고 그대로 남아 있습니다.</p></details>
+    <details class="rv"><summary>공인중개사가 아니어도 가입할 수 있나요?</summary><p>리얼맵 매물장은 중개사무소 개설등록을 한 공인중개사를 위한 서비스입니다. 시작할 때 중개사무소 명칭·등록번호 등을 입력하며, 지도 광고에도 이 정보가 함께 표시됩니다.</p></details>
+    <details class="rv"><summary>결제는 어떻게 하나요?</summary><p>카드 결제를 준비하고 있습니다. 결제가 열리면 매물장 화면에서 바로 안내해 드립니다. 그 전까지는 체험과 무료 이용으로 마음껏 써 보세요.</p></details>
+    <details class="rv"><summary>엑셀로 정리해 둔 매물도 옮길 수 있나요?</summary><p>지금은 한 건씩 등록하시면 됩니다. 주소만 넣으면 대부분 자동으로 채워져서 생각보다 빠릅니다. 매물장은 언제든 엑셀로 내려받을 수 있습니다.</p></details>
+  </div>
+</div></section>
+
+<footer><div class="wrap">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html">이용 안내</a> · <a href="/privacy.html">개인정보처리방침</a></div></footer>
+
+<div class="modal" id="modal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <h3 id="mTitle">2주 무료 체험 시작</h3>
+  <p class="sub">중개사무소 정보를 한 번만 넣어 주세요. 리얼맵 지도 광고에 함께 표시되는 정보입니다.</p>
+  <label for="b_office">중개사무소 명칭</label><input type="text" id="b_office" placeholder="리얼워커스공인중개사사무소" maxlength="40">
+  <label for="b_addr">중개사무소 소재지</label><input type="text" id="b_addr" placeholder="서울 마포구 신촌로34길 39" maxlength="80">
+  <div class="two"><div><label for="b_regno">등록번호</label><input type="text" id="b_regno" placeholder="11440-2025-00123" maxlength="30"></div><div><label for="b_ceo">대표 공인중개사 성명</label><input type="text" id="b_ceo" placeholder="홍길동" maxlength="20"></div></div>
+  <div class="two"><div><label for="b_tel">사무소 전화</label><input type="tel" id="b_tel" placeholder="02-000-0000" maxlength="20"></div><div><label for="b_mobile">휴대폰 (문자 받을 번호)</label><input type="tel" id="b_mobile" placeholder="010-0000-0000" maxlength="20"></div></div>
+  <label class="agree"><input type="checkbox" id="b_ok">중개사무소 개설등록을 한 개업공인중개사이며, 입력한 정보가 사실임을 확인합니다.</label>
+  <div class="err" id="mErr"></div>
+  <div class="row"><button class="btn x" type="button" id="mClose">닫기</button><button class="btn gold" type="button" id="mGo">무료 체험 시작</button></div>
+</div></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  // ---------- 스크롤: 진행 막대 · 상단 바 ----------
+  const onScroll = () => {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    $('prog').style.width = (h > 0 ? scrollY / h * 100 : 0) + '%';
+    $('nav').classList.toggle('solid', scrollY > innerHeight * .6);
+    // 큰 문장: 화면 가운데를 지나는 만큼 한 단어씩 밝아짐
+    const st = $('stmt'), r = st.getBoundingClientRect(), sp = st.querySelectorAll('span');
+    const k = Math.min(1, Math.max(0, (innerHeight * .85 - r.top) / (r.height + innerHeight * .35)));
+    sp.forEach((s, i) => s.classList.toggle('on', i < Math.round(k * sp.length)));
+  };
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  // ---------- 나타나기 ----------
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); if (e.target.hasAttribute('data-art')) setTimeout(() => e.target.classList.add('go'), 350); io.unobserve(e.target); } }), { threshold: .18, rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.rv,[data-art]').forEach(el => io.observe(el));
+  // ---------- 단지 배치표 그림 ----------
+  (() => {
+    const g = $('djGrid'), S = { '1503': 's', '1201': 'j', '0802': 'w', '1004': 's', '0603': 'j' }, M = ['1402', '0901', '0504'], T = ['1203', '1204', '0703'];
+    let h = '', n = 0;
+    for (let f = 15; f >= 4; f--) { h += `<div class="fl">${f}F</div>`; for (let l = 1; l <= 4; l++) { const ho = String(f).padStart(2, '0') + '0' + l; h += `<div class="c ${S[ho] || ''}${M.includes(ho) ? ' m' : ''}${T.includes(ho) ? ' t' : ''}" style="transition-delay:${(n++ * 0.025).toFixed(3)}s">${f}0${l}</div>`; } }
+    g.innerHTML = h;
+  })();
+  // ---------- 요금 월간/연간 ----------
+  const cycle = c => {
+    document.querySelectorAll('[data-cycle]').forEach(b => b.setAttribute('aria-pressed', b.dataset.cycle === c));
+    document.querySelectorAll('.amt').forEach(a => { const v = +a.dataset[c]; a.innerHTML = v ? `${v.toLocaleString()}원<small>/${c === 'y' ? '년' : '월'}</small>` : '0원'; });
+    document.querySelectorAll('.yr').forEach(y => { y.innerHTML = c === 'y' && y.dataset.yr ? y.dataset.yr : '&nbsp;'; });
+  };
+  document.querySelectorAll('[data-cycle]').forEach(b => b.onclick = () => cycle(b.dataset.cycle));
+  // ---------- 시작하기 ----------
+  let me = null;
+  const ready = fetch('/api/auth?action=me', { credentials: 'same-origin' }).then(r => r.json()).then(j => (me = j)).catch(() => (me = { member: false }));
+  async function start() {
+    await ready;
+    if (!me.member) return location.href = '/auth/login?r=' + encodeURIComponent('/pro.html?go=1');
+    if (me.plan && me.plan.started) return location.href = '/listings.html';
+    $('modal').hidden = false; document.body.style.overflow = 'hidden'; setTimeout(() => $('b_office').focus(), 50);
+  }
+  ready.then(() => {
+    if (me.member && me.plan && me.plan.started) document.querySelectorAll('[data-start]').forEach(b => { if (!b.closest('.plan')) b.innerHTML = b.classList.contains('sm') ? '내 매물장' : '내 매물장 열기 →'; });
+    if (new URLSearchParams(location.search).get('go') && me.member && !(me.plan && me.plan.started)) start();
+  });
+  document.querySelectorAll('[data-start]').forEach(b => b.onclick = start);
+  const close = () => { $('modal').hidden = true; document.body.style.overflow = ''; };
+  $('mClose').onclick = close;
+  $('modal').onclick = e => { if (e.target === $('modal')) close(); };
+  $('b_mobile').oninput = $('b_tel').oninput = e => { const d = e.target.value.replace(/\D/g, ''); if (/^01\d{8,9}$/.test(d)) e.target.value = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`; };
+  $('mGo').onclick = async () => {
+    const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
+    if (Object.values(bk).some(v => !v)) return ($('mErr').textContent = '여섯 칸을 모두 입력해 주세요.');
+    if (!$('b_ok').checked) return ($('mErr').textContent = '개업공인중개사 확인에 체크해 주세요.');
+    $('mErr').textContent = ''; $('mGo').disabled = true; $('mGo').textContent = '시작하는 중…';
+    try {
+      const r = await fetch('/api/auth?action=start', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bk }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.message || '잠시 연결이 원활하지 않습니다.');
+      $('mTitle').textContent = j.plan && j.plan.plan === 'trial' ? '2주 무료 체험이 시작됐습니다!' : '매물장을 열고 있습니다';
+      setTimeout(() => location.href = '/listings.html', 900);
+    } catch (e) { $('mErr').textContent = e.message; $('mGo').disabled = false; $('mGo').textContent = '무료 체험 시작'; }
+  };
+})();
+</script>
+</body>
+</html>
