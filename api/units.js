@@ -21,15 +21,21 @@ export default handler(async (req, res) => {
   // 시간이 모자라거나 일부 쪽이 실패하면 받은 만큼만 돌려주고 partial로 표시합니다 (그때는 저장하지 않음).
   async function expos(params, budgetMs) {
     const t0 = Date.now();
-    const first = await dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: 1000, pageNo: 1 });
+    // 받은 쪽은 이틀 동안 따로 저장 → 시간이 모자라 일부만 받았어도, 다시 부르면 남은 쪽만 이어서 받습니다 (헬리오시티 같은 1만 세대 단지 대응)
+    const slim = it => it.map(r => ({ dongNm: r.dongNm, hoNm: r.hoNm, flrNo: r.flrNo, flrGbCdNm: r.flrGbCdNm }));
+    const pkey = p => `unitsp:${P.pnu}:${params.dongNm || '*'}:${p}`;
+    const first = await cached(pkey(1), 2 * 86400e3, async () => { const f = await dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: 1000, pageNo: 1 }); return { items: slim(f.items), total: f.total || f.items.length }; });
     const per = first.items.length, total = first.total || per;
     let items = first.items, partial = false;
     if (per && per < total) {
       const n = Math.ceil(total / per), nums = [];
-      for (let p = 2; p <= Math.min(n, 150); p++) nums.push(p);
-      if (n > 150) partial = true;
-      const rs = await pool(nums, 8, async p => { if (Date.now() - t0 > budgetMs) throw new Error('budget'); return dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: per, pageNo: p }); });
-      for (const r of rs) { if (r.ok) items = items.concat(r.v.items); else partial = true; }
+      for (let p = 2; p <= Math.min(n, 250); p++) nums.push(p);
+      if (n > 250) partial = true;
+      const rs = await pool(nums, 10, async p => {
+        if (Date.now() - t0 > budgetMs) throw new Error('budget');
+        return cached(pkey(p), 2 * 86400e3, async () => slim((await dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: per, pageNo: p })).items));
+      });
+      for (const r of rs) { if (r.ok) items = items.concat(r.v); else partial = true; }
     }
     return { items, total, partial };
   }
