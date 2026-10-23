@@ -427,7 +427,7 @@
       <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share brief" id="briefBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>브리핑</button>${isHome() ? `<button class="share safe" id="safeBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l5.5 2v4.2c0 3.3-2.3 5.9-5.5 6.8-3.2-.9-5.5-3.5-5.5-6.8V3.5z M5.5 8l1.8 1.8L10.8 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>전세 안전</button>` : ''}${S.me.pro && isApt() ? `<a class="share" href="/listings.html?cxadd=${S.sel.pnu}" target="_blank" rel="noopener" title="내 매물장의 단지 모드에 이 단지를 담습니다"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 14V5l5.5-3 5.5 3v9z M5.5 14v-3h5v3 M5.5 6.5h1.5 M9 6.5h1.5 M5.5 9h1.5 M9 9h1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>단지에 담기</a>` : ''}<button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || 'land') === k}">${l}</button>`).join('')}</div>
-    <div class="body">${groupSection()}${body}${consultCard()}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
+    <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => goSec(b.dataset.t));
@@ -2030,15 +2030,6 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (navigator.clipboard) navigator.clipboard.writeText(`${title}\n${url}`).then(done, () => prompt('아래 링크를 복사해 주세요', url));
     else prompt('아래 링크를 복사해 주세요', url);
   }
-  // 광고문의 안내 (모든 필지 패널 하단)
-  const AD_MAIL = 'realwalkers@naver.com';
-  function consultCard() {
-    if (!S.sel) return '';
-    const href = `mailto:${AD_MAIL}?subject=${encodeURIComponent('[리얼맵] 광고문의')}`;
-    return `<div class="consult"><div><b>광고문의</b><span>리얼맵에 광고 게재를 원하시면 이메일로 문의해 주세요.</span></div>
-      <a href="${href}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 4l6 5 6-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>${AD_MAIL}</a></div>`;
-  }
-
   // ---------- 면적 합산 · 거리 재기 ----------
   const M = { on: false, mode: 'sum', parcels: [], pts: [], line: null, dots: [], tok: 0 };
   // 위경도 다각형 면적(㎡) — 필지 크기에서는 평면 근사로 충분
