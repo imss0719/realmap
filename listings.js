@@ -10,7 +10,7 @@
   async function api(url, opt) {
     const r = await fetch(url, { credentials: 'same-origin', ...opt });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다.'); e.code = j.error; throw e; }
+    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다.'); e.code = j.error; e.data = j; throw e; }
     return j;
   }
   function toast(msg, ms = 2400) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), ms); }
@@ -65,7 +65,12 @@
     const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
     th(); addEventListener('resize', th);
     loadMap();
-    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = S.asPlan || j.plan; } catch (e) { if (e.code === 'start') return location.replace('/pro.html?go=1'); toast(e.message, 4000); }
+    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = S.asPlan || j.plan; } catch (e) {
+      if (e.code === 'start') return location.replace('/pro.html?go=1');
+      // 중개사무소 확인이 안 된 계정: 정보를 등록증과 같게 고치면 바로 열림
+      if (e.code === 'verify') { S.bk = (e.data && e.data.bk) || null; draw(); return openBk(() => location.reload(), e.message); }
+      toast(e.message, 4000);
+    }
     draw();
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
     let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
@@ -979,13 +984,13 @@
     el.innerHTML = pl + `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건${S.bk.mobile ? '' : ' · <b style="color:#B4400B">문자 받을 휴대폰 번호를 넣어 주세요</b>'}</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" id="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
     $('bkEdit').onclick = () => openBk();
   }
-  function openBk(then) {
+  function openBk(then, note) {
     const b = S.bk || {};
     S.form = null;
     $('shTitle').textContent = '중개사무소 정보';
     $('sheet').hidden = false; document.body.style.overflow = 'hidden';
     const f = (k, lb, ph, t = 'text') => `<div class="fld"><label for="b_${k}">${lb}</label><input class="in" id="b_${k}" type="${t}" value="${esc(b[k] || '')}" placeholder="${ph}"></div>`;
-    $('form').innerHTML = `<div class="meta" style="margin-bottom:12px">리얼맵 지도에 올린 매물마다 아래 정보가 함께 표시됩니다. (공인중개사법상 인터넷 광고 필수 표시 항목)</div>
+    $('form').innerHTML = `${note ? `<div style="background:#FFF4E5;border:1px solid #F5C987;color:#8A5300;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px;font-weight:600;line-height:1.5">${esc(note)}</div>` : ''}<div class="meta" style="margin-bottom:12px">리얼맵 지도에 올린 매물마다 아래 정보가 함께 표시됩니다. (공인중개사법상 인터넷 광고 필수 표시 항목)<br>등록번호와 대표 공인중개사 성명은 국가 자료(브이월드)로 확인합니다.</div>
       ${f('office', '중개사무소 명칭', '리얼워커스공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 마포구 신촌로34길 39')}
       <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
       <div class="two">${f('tel', '사무소 전화', '02-000-0000', 'tel')}${f('mobile', '휴대폰 (문자 받을 번호)', '010-0000-0000', 'tel')}</div>

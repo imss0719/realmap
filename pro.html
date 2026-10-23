@@ -237,6 +237,7 @@ footer a{color:rgba(255,255,255,.8)}
 .mbox .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mbox .agree{display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:600;color:var(--fg);margin-top:16px;line-height:1.5}
 .mbox .agree input{margin-top:3px;width:18px;height:18px}
+.mbox .hint{font-size:13px;font-weight:600;color:var(--muted);min-height:0;margin-top:6px;line-height:1.5}.mbox .hint.ok{color:#2B8A3E}.mbox .hint.no{color:#C92A2A}
 .mbox .err{color:#C92A2A;font-weight:700;font-size:14px;min-height:20px;margin-top:10px}
 .mbox .row{display:flex;gap:10px;margin-top:10px}
 .mbox .row .btn{flex:1;padding:15px;font-size:17px}
@@ -460,11 +461,12 @@ footer a{color:rgba(255,255,255,.8)}
 
 <div class="modal" id="modal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <h3 id="mTitle">2주 무료 체험 시작</h3>
-  <p class="sub">중개사무소 정보를 한 번만 넣어 주세요. 리얼맵 지도 광고에 함께 표시되는 정보입니다.</p>
+  <p class="sub">중개사무소 정보를 한 번만 넣어 주세요. 리얼맵 지도 광고에 함께 표시되는 정보입니다.<br>등록번호와 대표 공인중개사 성명은 국가 자료(브이월드)로 바로 확인합니다.</p>
   <label for="b_office">중개사무소 명칭</label><input type="text" id="b_office" placeholder="리얼워커스공인중개사사무소" maxlength="40">
   <label for="b_addr">중개사무소 소재지</label><input type="text" id="b_addr" placeholder="서울 마포구 신촌로34길 39" maxlength="80">
   <div class="two"><div><label for="b_regno">등록번호</label><input type="text" id="b_regno" placeholder="11440-2025-00123" maxlength="30"></div><div><label for="b_ceo">대표 공인중개사 성명</label><input type="text" id="b_ceo" placeholder="홍길동" maxlength="20"></div></div>
   <div class="two"><div><label for="b_tel">사무소 전화</label><input type="tel" id="b_tel" placeholder="02-000-0000" maxlength="20"></div><div><label for="b_mobile">휴대폰 (문자 받을 번호)</label><input type="tel" id="b_mobile" placeholder="010-0000-0000" maxlength="20"></div></div>
+  <div class="hint" id="b_hint"></div>
   <label class="agree"><input type="checkbox" id="b_ok">중개사무소 개설등록을 한 개업공인중개사이며, 입력한 정보가 사실임을 확인합니다.</label>
   <div class="err" id="mErr"></div>
   <div class="row"><button class="btn x" type="button" id="mClose">닫기</button><button class="btn gold" type="button" id="mGo">무료 체험 시작</button></div>
@@ -510,7 +512,9 @@ footer a{color:rgba(255,255,255,.8)}
     await ready;
     if (!me.member) return location.href = '/auth/login?r=' + encodeURIComponent('/pro.html?go=1');
     if (me.plan && me.plan.started) return location.href = '/listings.html';
-    $('modal').hidden = false; document.body.style.overflow = 'hidden'; setTimeout(() => $('b_office').focus(), 50);
+    $('modal').hidden = false; document.body.style.overflow = 'hidden'; setTimeout(() => $('b_regno').focus(), 50);
+    // 확인 대기 중인 신청: 넣었던 정보를 채워 두고 안내 (다시 누르면 다시 확인)
+    if (me.pend) { ['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].forEach(k => { if (me.pend[k]) $('b_' + k).value = me.pend[k]; }); $('mErr').textContent = '확인 대기 중입니다. 운영자가 확인하면 매물장이 열립니다. 지금 다시 확인하시려면 아래 버튼을 눌러 주세요.'; }
   }
   ready.then(() => {
     if (me.member && me.plan && me.plan.started) document.querySelectorAll('[data-start]').forEach(b => { if (!b.closest('.plan')) b.innerHTML = b.classList.contains('sm') ? '내 매물장' : '내 매물장 열기 →'; });
@@ -521,16 +525,32 @@ footer a{color:rgba(255,255,255,.8)}
   $('mClose').onclick = close;
   $('modal').onclick = e => { if (e.target === $('modal')) close(); };
   $('b_mobile').oninput = $('b_tel').oninput = e => { const d = e.target.value.replace(/\D/g, ''); if (/^01\d{8,9}$/.test(d)) e.target.value = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`; };
+  // 등록번호를 넣으면 국가 자료에서 사무소 명칭·소재지를 찾아 채웁니다
+  let lastReg = '';
+  $('b_regno').onchange = $('b_regno').onblur = async () => {
+    const v = $('b_regno').value.trim(), d = v.replace(/\D/g, '');
+    if (d === lastReg) return; lastReg = d;
+    const h = $('b_hint'); h.className = 'hint'; h.textContent = '';
+    if (d.length < 10 || PREVIEW) return;
+    h.textContent = '등록번호 확인 중…';
+    try {
+      const j = await (await fetch('/api/auth?action=bkfind&regno=' + encodeURIComponent(v), { credentials: 'same-origin' })).json();
+      if (j.found) { $('b_office').value = j.office || $('b_office').value; if (!$('b_addr').value.trim() && j.addr) $('b_addr').value = j.addr; h.className = 'hint ok'; h.textContent = `✓ ${j.office}${j.st ? ' · ' + j.st : ''} — 명칭·소재지를 채웠습니다. 대표 공인중개사 성명을 입력해 주세요.`; }
+      else if (j.down) h.textContent = '';
+      else { h.className = 'hint no'; h.textContent = '이 등록번호로 등록된 중개사무소를 찾지 못했습니다. 등록증의 번호를 확인해 주세요.'; }
+    } catch { h.textContent = ''; }
+  };
   $('mGo').onclick = async () => {
     const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
     if (Object.values(bk).some(v => !v)) return ($('mErr').textContent = '여섯 칸을 모두 입력해 주세요.');
     if (!$('b_ok').checked) return ($('mErr').textContent = '개업공인중개사 확인에 체크해 주세요.');
-    $('mErr').textContent = ''; $('mGo').disabled = true; $('mGo').textContent = '시작하는 중…';
+    $('mErr').textContent = ''; $('mGo').disabled = true; $('mGo').textContent = '중개사무소 확인 중…';
     if (PREVIEW && me.op) { $('mTitle').textContent = '2주 무료 체험이 시작됐습니다!'; setTimeout(() => location.href = '/listings.html?as=trial', 900); return; }
     try {
       const r = await fetch('/api/auth?action=start', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bk }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.ok === false) throw new Error(j.message || '잠시 연결이 원활하지 않습니다.');
+      if (j.pend) { $('mTitle').textContent = '확인 대기'; $('mErr').textContent = j.message; $('mGo').disabled = false; $('mGo').textContent = '다시 확인하기'; return; }
       $('mTitle').textContent = j.plan && j.plan.plan === 'trial' ? '2주 무료 체험이 시작됐습니다!' : '매물장을 열고 있습니다';
       setTimeout(() => location.href = '/listings.html', 900);
     } catch (e) { $('mErr').textContent = e.message; $('mGo').disabled = false; $('mGo').textContent = '무료 체험 시작'; }
