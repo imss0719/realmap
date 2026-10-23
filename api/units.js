@@ -1,7 +1,7 @@
 // 집합건물 동·호 목록 (전유부)
 // GET /api/units?pnu=...
 // 호 하나의 면적·공시가격: GET /api/units?pnu=...&dong=101동&ho=1203호
-import { handler, send, need, dataGoKrAll, vworldNed, settle, splitPnu, cached, num, DATA_KEY, VWORLD_KEY } from './_lib.js';
+import { handler, send, need, dataGoKr, dataGoKrAll, vworldNed, settle, splitPnu, cached, num, pool, DATA_KEY, VWORLD_KEY } from './_lib.js';
 
 const HUB = 'https://apis.data.go.kr/1613000/BldRgstHubService/';
 const norm = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/(동|호)$/, '').toUpperCase();
@@ -17,23 +17,50 @@ export default handler(async (req, res) => {
   const nat = (a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true });
   const sortU = out => out.sort((a, b) => nat(a.dong, b.dong) || (b.flr ?? 0) - (a.flr ?? 0) || nat(a.ho, b.ho));
 
-  // 동 하나의 호 목록만 (큰 단지에서 빠르게): GET /api/units?pnu=...&dong=101동
+  // 전유부 목록을 쪽 단위로 모읍니다. 큰 단지(3,000세대 이상)는 쪽이 수십 개라 시간 한도(30초) 안에서 8개씩 동시에 받고,
+  // 시간이 모자라거나 일부 쪽이 실패하면 받은 만큼만 돌려주고 partial로 표시합니다 (그때는 저장하지 않음).
+  async function expos(params, budgetMs) {
+    const t0 = Date.now();
+    const first = await dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: 1000, pageNo: 1 });
+    const per = first.items.length, total = first.total || per;
+    let items = first.items, partial = false;
+    if (per && per < total) {
+      const n = Math.ceil(total / per), nums = [];
+      for (let p = 2; p <= Math.min(n, 150); p++) nums.push(p);
+      if (n > 150) partial = true;
+      const rs = await pool(nums, 8, async p => { if (Date.now() - t0 > budgetMs) throw new Error('budget'); return dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: per, pageNo: p }); });
+      for (const r of rs) { if (r.ok) items = items.concat(r.v.items); else partial = true; }
+    }
+    return { items, total, partial };
+  }
+  const groupByDong = rows => { const m = new Map(); for (const r of rows) { const x = toRow(r); if (!x.ho) continue; const g = m.get(x.dong) || m.set(x.dong, new Map()).get(x.dong); g.set(x.ho, x); } return m; };
+
+  // 동 하나의 호 목록만: GET /api/units?pnu=...&dong=101동
   if (!ho && dong) {
     const D = String(dong).trim();
-    // 큰 단지는 쪽수가 많아 예전 15쪽 제한에서 호가 일부 빠졌습니다 → 80쪽까지, 저장 키도 새로(예전 목록 재사용 안 함)
+    let partial = false;
     const list = await cached(`unitsd2:${P.pnu}:${D}`, 24 * 3600e3, async () => {
       const tries = [...new Set([D, D.replace(/동$/, ''), /동$/.test(D) ? '' : D + '동', D.replace(/^제/, '')].filter(Boolean))];
       for (const nm of tries) {
-        const rows = (await dataGoKrAll(HUB + 'getBrExposInfo', { ...q, dongNm: nm }, { maxPages: 80 })).filter(r => sameTok(r.dongNm, D));
-        if (rows.length) {
-          const seen = new Set(), out = [];
-          for (const r of rows) { const x = toRow(r); const k = x.dong + '|' + x.ho; if (!x.ho || seen.has(k)) continue; seen.add(k); out.push(x); }
-          return sortU(out);
+        const r = await expos({ ...q, dongNm: nm }, 16000);
+        const rows = r.items.filter(x => sameTok(x.dongNm, D));
+        // 공공데이터가 동 이름 조건을 무시하고 단지 전체를 준 경우: 다른 동 목록도 함께 저장해 두면 다음 동은 바로 열립니다
+        if (!r.partial && r.items.length > rows.length * 1.5 + 20) {
+          const all = groupByDong(r.items);
+          await Promise.all([...all.entries()].filter(([dn]) => dn && !sameTok(dn, D)).slice(0, 120)
+            .map(([dn, g]) => cached(`unitsd2:${P.pnu}:${dn}`, 24 * 3600e3, async () => sortU([...g.values()])).catch(() => null)));
         }
+        if (rows.length) {
+          const g = groupByDong(rows), out = sortU([...[...g.values()].flatMap(m => [...m.values()])]);
+          if (r.partial) { partial = true; return { partial: { ok: false }, units: out }; } // 저장하지 않음
+          return out;
+        }
+        if (r.partial) { partial = true; return { partial: { ok: false }, units: [] }; }
       }
       return [];
     });
-    return send(res, 200, { ok: true, pnu: P.pnu, dong: D, count: list.length, units: list }, list.length ? 86400 : 300);
+    const units = Array.isArray(list) ? list : list.units;
+    return send(res, 200, { ok: true, pnu: P.pnu, dong: D, count: units.length, units, partial }, units.length && !partial ? 86400 : 0);
   }
 
   if (!ho) {
