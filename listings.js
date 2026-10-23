@@ -54,12 +54,18 @@
     // 처음 오는 분(로그인 전 · 중개사 서비스 시작 전)은 소개 페이지로
     if (!S.me.member || !S.me.plan || !S.me.plan.started) return location.replace('/pro.html' + (S.me.member ? '?go=1' : ''));
     S.plan = S.me.plan;
+    // 운영자 미리보기: ?as=new(처음 온 회원) · free(무료) · trial(체험) — 화면만 그렇게 보이고 실제 저장 한도는 그대로
+    const AS = S.me.op && new URLSearchParams(location.search).get('as');
+    if (AS === 'new') return location.replace('/pro.html?as=new');
+    if (AS === 'free' || AS === 'trial') S.asPlan = AS === 'free' ? { plan: 'free', name: '무료', ls: 10, ad: 3, adv: false, started: true, ended: 'trial' } : { plan: 'trial', name: '2주 무료 체험', ls: 1000, ad: 300, adv: true, started: true, until: new Date(Date.now() + 14 * 86400e3).toISOString() };
+    if (S.asPlan) { S.plan = S.asPlan; const b = document.createElement('div'); b.className = 'asbar'; b.innerHTML = `운영자 미리보기 · <b>${S.asPlan.name}</b> 회원 화면입니다 (실제 저장 한도는 적용되지 않음) <a href="/listings.html">미리보기 끄기</a>`; document.body.prepend(b); }
     $('who').textContent = `${S.me.nickname || '회원'}님`;
+    { const pb = document.querySelector('.top .pro'), P = S.plan || {}; if (pb) { if (P.plan === 'free') pb.hidden = true; else pb.textContent = P.plan === 'trial' ? '체험' : P.op ? 'PRO' : (P.name || 'PRO').toUpperCase(); } }
     layout();
     const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
     th(); addEventListener('resize', th);
     loadMap();
-    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = j.plan; } catch (e) { if (e.code === 'start') return location.replace('/pro.html?go=1'); toast(e.message, 4000); }
+    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = S.asPlan || j.plan; } catch (e) { if (e.code === 'start') return location.replace('/pro.html?go=1'); toast(e.message, 4000); }
     draw();
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
     let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
@@ -260,7 +266,7 @@
   }
   const post = body => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   // 매물장 저장 결과 받기 (게시 중 매물이 필수 항목 부족으로 내려가면 알려 드림)
-  function took(j) { S.items = j.items || S.items; if (j.plan) S.plan = j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
+  function took(j) { S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // ---------- 지도 ----------
   async function loadMap() {
