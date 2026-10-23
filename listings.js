@@ -546,12 +546,14 @@
     F.results = null; renderForm();
     const out = [];
     let left = 2;
-    const done = () => { if (--left) return; const seen = new Set(); F.results = out.filter(r => { const k = r.lat.toFixed(5) + r.lng.toFixed(5); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
+    const done = () => { if (--left) return; const seen = new Set(); out.sort((a, b) => a.o - b.o); F.results = out.filter(r => { const k = r.lat.toFixed(5) + r.lng.toFixed(5); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
       // 결과가 하나뿐이면 바로 고름 (동·호까지 입력한 경우 전용면적 등이 이어서 채워짐)
       if (F.results.length === 1 && F.unitHint) { const r = F.results[0]; F.results = null; return addPlace(r.lat, r.lng, r.t); }
       renderForm(); };
-    new kakao.maps.services.Geocoder().addressSearch(q, (r, st) => { if (st === 'OK') r.forEach(a => out.push({ t: a.address_name, s: a.road_address ? a.road_address.address_name : '', lat: +a.y, lng: +a.x })); done(); });
-    new kakao.maps.services.Places().keywordSearch(q, (r, st) => { if (st === 'OK') r.slice(0, 6).forEach(a => out.push({ t: a.place_name, s: a.address_name, lat: +a.y, lng: +a.x })); done(); });
+    new kakao.maps.services.Geocoder().addressSearch(q, (r, st) => { if (st === 'OK') r.forEach((a, i) => out.push({ t: a.address_name, s: a.road_address ? a.road_address.address_name : '', lat: +a.y, lng: +a.x, o: 0 + i })); done(); });
+    // 장소 좌표는 건물 출입구 등이라 옆 필지를 가리킬 수 있음 → 장소의 지번 주소로 다시 찾아 정확한 필지 좌표로
+    new kakao.maps.services.Places().keywordSearch(q, (r, st) => { const L = st === 'OK' ? r.slice(0, 6) : []; let n = L.length; if (!n) return done(); const G = new kakao.maps.services.Geocoder();
+      L.forEach((a, i) => G.addressSearch(a.address_name, (g, s2) => { const h = s2 === 'OK' && g && g[0]; out.push({ t: a.place_name, s: a.address_name, lat: h ? +h.y : +a.y, lng: h ? +h.x : +a.x, o: 100 + i }); if (!--n) done(); })); });
   }
   // 예전에 저장한 매물(주소·연락처 하나짜리)도 새 형태로
   function upgrade(x) {

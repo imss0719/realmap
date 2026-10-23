@@ -2626,8 +2626,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
           sg.hidden = false;
           sg.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
             const r = list[+b.dataset.i]; sg.hidden = true; q.blur();
-            const ll = new K.LatLng(r.lat, r.lng); S.map.setLevel(2); S.map.setCenter(ll);
-            pick(r.lat, r.lng);
+            const go = (la, ln) => { S.map.setLevel(2); S.map.setCenter(new K.LatLng(la, ln)); pick(la, ln); };
+            // 장소 좌표는 출입구 등이라 옆 필지를 가리킬 수 있어 지번 주소로 다시 찾음
+            if (r.ad) S.geocoder.addressSearch(r.ad, (g, s2) => { const h = s2 === K.services.Status.OK && g && g[0]; h ? go(+h.y, +h.x) : go(r.lat, r.lng); });
+            else go(r.lat, r.lng);
           });
         };
         S.geocoder.addressSearch(v, (res, st) => {
@@ -2635,7 +2637,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
           done();
         });
         S.places.keywordSearch(v, (res, st) => {
-          if (st === K.services.Status.OK) res.slice(0, 6).forEach(r => results.push({ title: r.place_name, sub: r.road_address_name || r.address_name, lat: +r.y, lng: +r.x }));
+          if (st === K.services.Status.OK) res.slice(0, 6).forEach(r => results.push({ title: r.place_name, sub: r.road_address_name || r.address_name, lat: +r.y, lng: +r.x, ad: r.address_name }));
           done();
         });
       }, 250);
