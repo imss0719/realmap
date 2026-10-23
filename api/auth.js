@@ -48,6 +48,11 @@ async function planOf(id) {
   try { if (await redis(['SISMEMBER', 'realmap:pro', String(id)])) return out('basic', { legacy: true }); } catch { /* 없음 */ }
   return { plan: 'none', ...PLANS.free, started: false };
 }
+// 한도를 넘은 매물 = 등록일이 오래된 쪽 (최근 등록한 P.ls건만 수정 가능)
+function readOnlyIds(items, P) {
+  if (!P || !(items.length > P.ls)) return new Set();
+  return new Set([...items].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(P.ls).map(x => x.id));
+}
 async function isPro(id) { return (await planOf(id)).adv; }
 const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
@@ -477,6 +482,11 @@ export default async function (req, res) {
       const numv = v => { const x = Number(String(v ?? '').replace(/[^\d.]/g, '')); return Number.isFinite(x) && x > 0 ? Math.round(x * 100) / 100 : null; };
       const id = str(body.id, 20).replace(/[^\w-]/g, '');
       const now = new Date().toISOString();
+      // 요금제 한도를 넘은 매물(예: 체험 때 등록한 100건)은 지우지 않고 '보기 전용': 최근 등록한 한도 건수만 수정·상태 변경·게시
+      const ro = readOnlyIds(items, P);
+      if (id && ro.has(id) && ['save', 'status', 'pub', 'renew'].includes(body.op)) return fail(res, 403, 'readonly', P.plan === 'free'
+        ? `무료 이용은 최근 등록한 매물 ${P.ls}건만 수정할 수 있습니다. 이 매물은 보기와 엑셀 내려받기만 됩니다. Basic(월 9,900원)이면 모두 수정하실 수 있습니다.`
+        : `${P.name} 요금제는 최근 등록한 매물 ${P.ls.toLocaleString()}건만 수정할 수 있습니다.`, { plan: planView(P) });
       if (body.op === 'save') {
         const it = body.item || {};
         const pnuOk = v => { const x = String(v || '').replace(/\D/g, ''); return /^\d{19}$/.test(x) ? x : ''; };
