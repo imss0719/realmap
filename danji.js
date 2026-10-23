@@ -251,7 +251,9 @@ window.Danji = (() => {
       box.innerHTML = '<div class="loading">호 목록을 불러오는 중…</div>';
       C.units[C.cur] = 'loading';
       try {
-        let us = (await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`)).units || [];
+        const r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
+        let us = r0.units || [];
+        C.partial = C.partial || {}; C.partial[C.cur] = !!r0.partial;
         // 건축물대장 표제부의 호 수보다 적게 오면, 필지 전체 호 목록에서 이 동을 한 번 더 모아 합칩니다
         const d = (C.dongs || []).find(x => x.pnu === pnu && x.dong === dong), want = d && (d.ho || d.hhld);
         if (want && us.length < want) {
@@ -262,15 +264,17 @@ window.Danji = (() => {
           } catch { /* 합치기 실패는 무시 */ }
         }
         C.units[C.cur] = us; C.want = C.want || {}; C.want[C.cur] = want || 0;
-      } catch { C.units[C.cur] = 'error'; }
+      } catch (e) { C.units[C.cur] = 'error'; C.err = e.message || ''; }
       if (S.cur === cx.id && C.cur === `${pnu}|${dong}`) drawGrid(cx);
       return;
     }
     if (U === 'loading') return;
-    if (U === 'error') { box.innerHTML = '<div class="muted">호 목록을 불러오지 못했습니다. 잠시 후 다시 눌러 주세요.</div>'; return; }
+    // 실패하거나 일부만 받은 동은 '다시 불러오기'로 다시 시도 (큰 단지는 공공데이터가 느려 처음 한 번이 오래 걸릴 수 있음)
+    const retry = () => { delete C.units[C.cur]; drawGrid(cx); };
+    if (U === 'error') { box.innerHTML = `<div class="muted">호 목록을 불러오지 못했습니다. 큰 단지는 공공데이터 응답이 느려 처음 한 번이 오래 걸릴 수 있습니다.${C.err ? `<br><small>${esc(C.err).slice(0, 120)}</small>` : ''}<br><button type="button" class="lnk" id="dj_retry">다시 불러오기</button></div>`; $('dj_retry').onclick = retry; return; }
     // 지상층 · 숫자 호만
     const units = U.filter(u => u.flrGb !== '지하' && digits(u.ho)).map(u => { const h = +digits(u.ho); const fl = u.flr != null ? u.flr : Math.floor(h / 100); return { ho: u.ho, h, fl, line: h >= 100 ? h % 100 : h }; });
-    if (!units.length) { box.innerHTML = '<div class="muted">이 동의 호 정보가 없습니다.</div>'; return; }
+    if (!units.length) { box.innerHTML = `<div class="muted">${C.partial && C.partial[C.cur] ? '호 목록을 아직 다 받지 못했습니다.' : '이 동의 호 정보가 없습니다.'} <button type="button" class="lnk" id="dj_retry">다시 불러오기</button></div>`; $('dj_retry').onclick = retry; return; }
     const lines = [...new Set(units.map(u => u.line))].sort((a, b) => a - b);
     const floors = [...new Set(units.map(u => u.fl))].sort((a, b) => b - a);
     const at = new Map(units.map(u => [`${u.fl}|${u.line}`, u]));
@@ -292,7 +296,9 @@ window.Danji = (() => {
     }).join('')}<td class="ftr">${(byFloor.get(f) || []).slice(0, 2).map(r => `<span class="${r.kind === 'apt' ? '' : 'j'}">${r.kind === 'apt' ? '매' : r.rent ? '월' : '전'} ${r.kind === 'apt' ? shortWon(r.price) : shortWon(r.deposit)} · ${Math.round(r.ex)}㎡ · ${esc(r.date.slice(2, 7))}</span>`).join('')}</td></tr>`).join('');
     const want = (C.want || {})[C.cur], got = U.filter(u => digits(u.ho)).length;
     const cnt = `<p class="note">건축물대장 호 ${got.toLocaleString()}개${want ? ` / 표제부 기준 ${want.toLocaleString()}호${got < want ? ' · 일부 호가 공공데이터에 없어 빈칸으로 보일 수 있습니다' : ''}` : ''}</p>`;
-    box.innerHTML = cnt + `<div class="scroll"><table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    const part = C.partial && C.partial[C.cur] ? '<div class="muted" style="margin-bottom:6px">공공데이터 응답이 느려 호 목록 일부만 받았습니다. <button type="button" class="lnk" id="dj_retry">나머지 다시 불러오기</button></div>' : '';
+    box.innerHTML = part + cnt + `<div class="scroll"><table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    if ($('dj_retry')) $('dj_retry').onclick = retry;
     box.querySelectorAll('[data-ho]').forEach(b => b.onclick = () => openUnit(cx, pnu, dong, b.dataset.ho, units, LA));
     // 라인 면적 채우기 (아직 없는 라인만, 3개씩)
     const need = lines.filter(l => LA[l] === undefined);
