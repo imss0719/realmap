@@ -591,3 +591,14 @@ a.favbtn{text-decoration:none}
 .wel-x:hover{background:#F1F4F7;color:#14212E}
 @media (max-width:760px){.wel{left:12px;right:12px;width:auto;bottom:calc(84px + env(safe-area-inset-bottom))}.wel-il{width:96px;height:96px}.wel-il svg{width:86px;height:86px}}
 @media (prefers-reduced-motion:reduce){.wel,.wel-track{transition:none}.wel-dots button[aria-current="true"] i{animation:none;width:100%}}
+
+/* 지도를 멈추면 아래에 잠깐 뜨는 '이 지역 아파트 평균' (한 줄) */
+.asum{position:absolute;left:50%;bottom:30px;z-index:15;transform:translate(-50%,8px);opacity:0;pointer-events:none;background:rgba(20,33,46,.88);color:#fff;border-radius:999px;padding:8px 18px;text-align:center;white-space:nowrap;box-shadow:0 8px 24px rgba(20,33,46,.28);transition:opacity .45s,transform .45s cubic-bezier(.2,.8,.2,1);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.asum.on{opacity:1;transform:translate(-50%,0)}
+.asum p{margin:0;font-size:13.5px;line-height:1.35;color:#DCE4EC}
+.asum p span{color:#B8C5D2}
+.asum p em{font-style:normal;font-weight:700;color:#F2B705;font-size:15px}
+.asum p i{font-style:normal;color:#6F8294;margin:0 2px}
+.asum small{display:block;font-size:10.5px;color:#93A4B5;line-height:1.3}
+@media (max-width:760px){.asum{bottom:calc(96px + env(safe-area-inset-bottom));padding:7px 14px}.asum p{font-size:12.5px}.asum p em{font-size:14px}}
+@media (prefers-reduced-motion:reduce){.asum{transition:none}}

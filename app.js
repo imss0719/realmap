@@ -2205,6 +2205,37 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const k = e.target.closest('[data-pk]'); if (k && k.dataset.pk !== PM.kind) { PM.kind = k.dataset.pk; pmSave(); priceRefresh(true); }
     });
     tradeRefresh();
+    areaSumInit();
+  }
+  // ---------- 지도를 멈추면 아래에 잠깐 보여 주는 '이 지역 아파트 평균' (평당가 · 국민평형 84㎡) ----------
+  // 실거래가 켜져 있고 건물별 가격이 보이는 확대 수준일 때만. 움직이면 사라지고, 4초 뒤 저절로 사라짐.
+  // 거의 같은 자리(화면의 35% 안쪽으로만 움직임)에서는 다시 띄우지 않음. 화면 안 단지 3곳 미만이면 띄우지 않음.
+  const AS = { t: 0, h: 0, last: null };
+  function areaSumInit() {
+    const K = kakao.maps, el = document.createElement('div');
+    el.id = 'areaSum'; el.className = 'asum'; el.setAttribute('aria-live', 'polite');
+    document.querySelector('.map').appendChild(el);
+    const hide = () => { clearTimeout(AS.t); clearTimeout(AS.h); el.classList.remove('on'); };
+    K.event.addListener(S.map, 'dragstart', hide);
+    K.event.addListener(S.map, 'zoom_start', hide);
+    K.event.addListener(S.map, 'idle', () => { clearTimeout(AS.t); AS.t = setTimeout(() => areaSum(0), 1000); });
+  }
+  function areaSum(retry) {
+    const el = $('areaSum');
+    if (!el || !tActive() || !T.kinds.apt || D.on || document.querySelector('.wel')) return;
+    if (mobile() && !$('panel').classList.contains('closed')) return;
+    const b = S.map.getBounds(), c = S.map.getCenter(), lv = S.map.getLevel(), sw = b.getSouthWest(), ne = b.getNorthEast();
+    if (AS.last && AS.last.lv === lv && Math.abs(c.getLng() - AS.last.ln) < (ne.getLng() - sw.getLng()) * .35 && Math.abs(c.getLat() - AS.last.la) < (ne.getLat() - sw.getLat()) * .35) return;
+    const xs = [];
+    T.regions.forEach(e => { if (e.kind === 'apt' && e.items) for (const x of e.items) if (x.lat && x.p && x.ar > 10 && b.contain(new kakao.maps.LatLng(x.lat, x.lng))) xs.push(x); });
+    if (xs.length < 3) { if (retry < 2) AS.t = setTimeout(() => areaSum(retry + 1), 1200); return; } // 아직 받는 중일 수 있어 두 번 더 봄
+    const avg = xs.reduce((a, x) => a + x.p / (x.ar / 3.305785), 0) / xs.length;
+    const k84 = xs.filter(x => x.p84);
+    const a84 = k84.length >= 2 ? k84.reduce((a, x) => a + x.p84, 0) / k84.length : 0;
+    el.innerHTML = `<p>이 지역 아파트 <span>평당</span> <em>${n(Math.round(avg / 10) * 10)}만</em>${a84 ? ` <i>·</i> <span>84㎡</span> <em>${eok(Math.round(a84 / 100) * 100)}</em>` : ''}</p>`;
+    el.classList.add('on');
+    AS.last = { la: c.getLat(), ln: c.getLng(), lv };
+    clearTimeout(AS.h); AS.h = setTimeout(() => el.classList.remove('on'), 4000);
   }
   // ---------- 동별·구별 시세 지도 (축소했을 때, 실거래 켜져 있을 때) ----------
   // 서울·인천·경기. 레벨 6~8: 법정동별 (data/umd-<시도>.json) · 레벨 9~11: 구별 (data/sgg-<시도>.json)
