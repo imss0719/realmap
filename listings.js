@@ -891,7 +891,7 @@
   const manTx = v => { if (!v) return ''; const e = Math.floor(v / 10000), r = Math.round(v % 10000); return (e ? `${e}억` : '') + (r ? `${e ? ' ' : ''}${r.toLocaleString()}만` : ''); };
   function briefOf(x) {
     if (!x) return;
-    if (!adv()) return upsell('손님용 매물 브리핑은 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.');
+    if (!adv()) return upsell('매물 정보로 브리핑을 자동 작성하는 기능은 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.\n(리얼맵 지도에서 필지를 눌러 [브리핑]으로 직접 입력해 만드는 것은 회원 누구나 무료입니다.)');
     const a = x.ad || {}, p0 = (x.places && x.places[0]) || {}, pnu = x.pnu || p0.pnu;
     if (!pnu) return toast('주소(필지)가 없는 매물이라 브리핑을 만들 수 없습니다');
     const T = ['아파트', '빌라', '오피스텔'].includes(x.ptype) ? 'apt' : x.ptype === '토지' ? 'land' : 'bld';
