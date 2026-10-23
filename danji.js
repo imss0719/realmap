@@ -145,7 +145,7 @@ window.Danji = (() => {
       ds.forEach(d => { if (!seen.has(d.pnu + '|' + d.dong)) C.dongs.push(d); });
       added++;
     }
-    if (added) { C.dongs.sort((a, b) => nat(a.dong, b.dong)); C.auto = added; if (S.cur === cx.id) { toast(`같은 단지의 다른 지번 ${added}곳을 찾아 동 목록에 더했습니다`); drawComplex(cx); } }
+    if (added) { C.dongs.sort((a, b) => nat(a.dong, b.dong)); C.auto = added; scanAll(cx, C); if (S.cur === cx.id) { toast(`같은 단지의 다른 지번 ${added}곳을 찾아 동 목록에 더했습니다`); drawComplex(cx); } }
   }
   async function loadComplex(cx) {
     const C = S.C[cx.id] = { dongs: null, trades: null, units: {}, lines: {}, cur: null, err: null };
@@ -154,6 +154,7 @@ window.Danji = (() => {
     const seen = new Set();
     C.dongs = lists.flat().filter(d => { const k = d.pnu + '|' + d.dong; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => nat(a.dong, b.dong));
     C.cur = C.dongs[0] ? C.dongs[0].pnu + '|' + C.dongs[0].dong : null;
+    scanAll(cx, C); // 단지를 열자마자 전체 동·호를 차례로 받기 시작 (기다리지 않고 아래 실거래도 함께)
     if (S.cur === cx.id) drawComplex(cx);
     // 2) 최근 1년 실거래 (단지 이름 앞부분이 같으면 1~4단지 모두)
     const p0 = cx.places[0], umd = (String(p0.addr).split(' ').find(w => /(동|가|리)\d*$/.test(w) && !/[시군구]$/.test(w)) || '');
@@ -165,6 +166,70 @@ window.Danji = (() => {
     discover(cx, C);
   }
 
+  // ---------- 단지 전체 동·호 차례로 받기 ----------
+  // 단지를 열면 바로 필지별로 앞쪽부터 받아 쌓고, 호를 다 받은 동부터 버튼을 열어 줍니다.
+  // 동이 끝났다고 보는 기준: ① 표제부 세대(호) 수만큼 받음 ② 공공데이터가 동 순서대로 주는데 다음 동이 시작됨 ③ 전체를 다 받음
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const natc = (a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true });
+  async function scanAll(cx, C) {
+    C.scan = C.scan || { done: false, per: {} };
+    // 같은 단지의 다른 지번이 나중에 더해져도 이어서 받도록, 동 목록에서 아직 안 받은 필지를 매번 찾습니다
+    (C.dongs || []).forEach(d => { C.scan.per[d.pnu] = C.scan.per[d.pnu] || { rows: new Map(), closed: new Set(), sorted: true, last: null, done: false, pages: 0, next: 1 }; });
+    if (C.scan.running) return;
+    C.scan.running = true; C.scan.done = false;
+    let pnu;
+    while ((pnu = Object.keys(C.scan.per).find(k => !C.scan.per[k].done))) {
+      const sc = C.scan.per[pnu];
+      let fails = 0;
+      while (!sc.done) {
+        if (S.C[cx.id] !== C) { C.scan.running = false; return; } // 단지를 다시 불러왔으면 멈춤
+        let j;
+        try { j = await api(`/api/units?pnu=${pnu}&scan=1&from=${sc.next}`); fails = 0; }
+        catch { if (++fails >= 4) { sc.done = true; sc.failed = true; break; } await sleep(1500 * fails); continue; }
+        if (j.cached) { sc.done = true; sc.cached = true; sc.names = new Map((j.dongs || []).map(n => [normD(n), n])); break; } // 이미 저장된 단지 → 동마다 바로 받음
+        if (!j.pages) { sc.done = true; sc.failed = true; break; } // 서버가 차례 받기를 모르면(이전 버전) 예전처럼 동마다
+        sc.pages = j.pages || sc.pages;
+        for (const r of j.items || []) {
+          const dn = normD(r.dongNm), ho = String(r.hoNm || '').trim(); if (!ho) continue;
+          if (dn !== sc.last) { if (sc.last != null) { if (sc.rows.has(dn)) sc.sorted = false; else sc.closed.add(sc.last); } sc.last = dn; }
+          const m = sc.rows.get(dn) || sc.rows.set(dn, new Map()).get(dn);
+          m.set(ho, { dong: String(r.dongNm || '').trim(), ho, flr: r.flrNo == null || r.flrNo === '' ? null : Number(r.flrNo), flrGb: r.flrGbCdNm || '' });
+        }
+        sc.next = j.next || sc.next + 1; sc.done = !!j.done;
+        scanApply(cx, C);
+      }
+      scanApply(cx, C);
+    }
+    C.scan.running = false; C.scan.done = true; scanApply(cx, C);
+  }
+  // 받은 만큼 동별 목록을 채우고 화면(버튼·진행률)만 가볍게 고칩니다
+  function scanApply(cx, C) {
+    for (const d of C.dongs || []) {
+      const key = d.pnu + '|' + d.dong, sc = C.scan.per[d.pnu];
+      if (!sc || sc.cached || (C.units[key] && C.units[key] !== 'loading')) continue;
+      const dn = normD(d.dong), m = sc.rows.get(dn), n = m ? m.size : 0, want = d.ho || d.hhld || 0;
+      const ready = (sc.done && !sc.failed) || (want && n >= want) || (sc.sorted && sc.closed.has(dn));
+      if (!ready || (!n && !sc.done)) continue;
+      if (!n) continue; // 다 받았는데 이 이름으로는 없음 → 누르면 동 이름으로 따로 찾기
+      C.units[key] = [...m.values()].sort((a, b) => (b.flr ?? 0) - (a.flr ?? 0) || natc(a.ho, b.ho));
+      C.want = C.want || {}; C.want[key] = want;
+    }
+    if (S.cur !== cx.id || S.C[cx.id] !== C) return;
+    const wait = d => { const p = C.scan && C.scan.per[d.pnu]; return !!p && !p.done && !p.cached && !Array.isArray(C.units[d.pnu + '|' + d.dong]); };
+    // 처음 열 동: 아직 고르지 않았고 지금 동이 준비 전이면, 먼저 준비된 동을 엽니다
+    const curD = (C.dongs || []).find(d => d.pnu + '|' + d.dong === C.cur);
+    if (!C.picked && curD && wait(curD)) { const r = (C.dongs || []).find(d => !wait(d)); if (r) { C.cur = r.pnu + '|' + r.dong; return drawComplex(cx); } }
+    document.querySelectorAll('#dj_dongs [data-dong]').forEach(b => { const d = (C.dongs || []).find(x => x.pnu + '|' + x.dong === b.dataset.dong); if (d) b.classList.toggle('wait', wait(d)); });
+    const bar = $('dj_scan');
+    if (bar) {
+      const ps = Object.values(C.scan.per), tot = ps.reduce((a, x) => a + (x.cached ? 1 : x.pages || 1), 0), got = ps.reduce((a, x) => a + (x.cached || x.done ? (x.cached ? 1 : x.pages || 1) : Math.max(0, x.next - 1)), 0);
+      const pct = C.scan.done ? 100 : Math.min(99, Math.round(got / Math.max(1, tot) * 100));
+      const ready = (C.dongs || []).filter(d => !wait(d)).length;
+      bar.hidden = C.scan.done;
+      bar.innerHTML = `<span><span class="spin"></span>동·호수 정보를 가져오고 있습니다 · 준비된 동 ${ready}/${(C.dongs || []).length}</span><b>${pct}%</b><i style="width:${pct}%"></i>`;
+    }
+    if (curD && !wait(curD) && $('dj_gridBox') && $('dj_gridBox').querySelector('.dj-wait')) drawGrid(cx);
+  }
   function drawComplex(cx) {
     const C = S.C[cx.id];
     if (!C) { loadComplex(cx); $('dj_cxBody').innerHTML = '<div class="card loading">단지 정보를 불러오는 중…</div>'; return; }
@@ -178,7 +243,8 @@ window.Danji = (() => {
         <div class="sum">${summary(C)}<button type="button" class="lnk" id="dj_bt">${open ? '시세 접기 ▴' : '시세 자세히 ▾'}</button></div>
         ${open ? `<div id="dj_board">${board(C)}</div>` : ''}</div>
       <div class="card gcard">
-        <div class="dongs" id="dj_dongs">${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = countMine(cx, d); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${k === C.cur}"${n ? ' class="has"' : ''}>${esc(d.dong)}${n ? `<em>${n}</em>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
+        <div class="dongs" id="dj_dongs">${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = countMine(cx, d); const sp = C.scan && C.scan.per[d.pnu], wt = !!sp && !sp.done && !sp.cached && !Array.isArray(C.units[k]); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${k === C.cur}" class="${n ? 'has' : ''}${wt ? ' wait' : ''}">${esc(d.dong)}${n ? `<em>${n}</em>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
+        <div class="dj-scanbar" id="dj_scan" hidden></div>
         <div id="dj_gridBox"></div>
         <div class="lgd"><span><i style="background:var(--sale)"></i>내 매물 매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:#E3E8ED"></i>거래완료</span><span><i style="background:var(--gold);border-radius:50%"></i>메모</span><span><i style="background:#FFF6D6"></i>이 층 실거래(1년)</span><button type="button" class="lnk" id="dj_addPl">빠진 동이 있나요?</button></div>
       </div>`;
@@ -186,7 +252,8 @@ window.Danji = (() => {
     $('dj_addPl').onclick = () => { S.adding = 'place'; S.results = null; draw(); };
     $('dj_ren').onclick = async () => { const nm = prompt('단지 이름', cx.name); if (!nm || nm === cx.name) return; try { const j = await post({ op: 'rename', id: cx.id, name: nm }); S.cx = { items: j.items, memos: j.memos }; delete S.C[cx.id]; draw(); } catch (e) { toast(e.message); } };
     $('dj_delCx').onclick = async () => { if (!confirm(`${cx.name}을(를) 단지 장부에서 뺄까요? 이 단지에 남긴 호별 메모도 함께 지워집니다.`)) return; try { const j = await post({ op: 'del', id: cx.id }); S.cx = { items: j.items, memos: j.memos }; S.cur = (S.cx.items[0] || {}).id; draw(); } catch (e) { toast(e.message); } };
-    document.querySelectorAll('[data-dong]').forEach(b => b.onclick = () => { C.cur = b.dataset.dong; drawComplex(cx); });
+    document.querySelectorAll('[data-dong]').forEach(b => b.onclick = () => { C.cur = b.dataset.dong; C.picked = true; drawComplex(cx); });
+    if (C.scan) scanApply(cx, C);
     drawGrid(cx);
   }
 
@@ -263,15 +330,19 @@ window.Danji = (() => {
     if (!C.cur) { box.innerHTML = ''; return; }
     const [pnu, dong] = [C.cur.slice(0, 19), C.cur.slice(20)];
     let U = C.units[C.cur];
+    // 단지 전체를 차례로 받는 중이면, 이 동이 준비될 때까지 기다림 (따로 요청하면 공공데이터 한도에 걸림)
+    const scp = C.scan && C.scan.per[pnu];
+    if (!U && scp && !scp.done && !scp.cached) { if (!box.querySelector('.dj-wait')) waitBox(box, `${dong} · 단지 전체를 차례로 받는 중`); return; }
     if (!U) {
       waitBox(box, dong);
       C.units[C.cur] = 'loading';
       try {
         // 큰 단지는 한 번에 다 못 받으면 서버가 받은 쪽을 기억해 두므로, 자동으로 몇 번 이어서 받습니다
-        let r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
+        const qd = encodeURIComponent((scp && scp.names && scp.names.get(normD(dong))) || dong); // 저장된 동 이름 그대로 (101 / 101동 차이)
+        let r0 = await api(`/api/units?pnu=${pnu}&dong=${qd}`);
         for (let k = 2; r0.partial && k <= 5; k++) {
           if (C.cur === `${pnu}|${dong}`) { const sub = `${dong} · 나눠 받는 중 ${k}/5`; clearInterval(S.waitT); waitBox(box, sub); }
-          r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
+          r0 = await api(`/api/units?pnu=${pnu}&dong=${qd}`);
         }
         let us = r0.units || [];
         C.partial = C.partial || {}; C.partial[C.cur] = !!r0.partial;
