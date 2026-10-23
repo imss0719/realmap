@@ -316,6 +316,8 @@
     presale: [['price', '분양가', 1], ['pr', '프리미엄 (P)', 1], ['paid', '납입한 금액', 0], ['loan', '중도금 대출', 0]],
   };
   const ROLES = ['소유자', '임차인', '관리인', '대리인', '기타'];
+  // 거래 종류별 금액 칸 + 상가는 어떤 거래든 권리금 칸 (분양권 제외)
+  function moneyOf(it) { const m = MONEY[it.kind] || MONEY.sale; return it.ptype === '상가' && it.kind !== 'presale' && !m.some(x => x[0] === 'premium') ? [...m, ['premium', '권리금', 0]] : m; }
   function guessType(t) {
     if (!t) return '토지';
     const u = `${t.use || ''} ${t.etcUse || ''}`;
@@ -344,16 +346,14 @@
       if (!alive(F, P)) return;
       collect();
       const t = mainTitle(b), rc = b.recap && b.recap.data && b.recap.data[0];
-      P._info = t ? { name: (rc && rc.name) || t.name || '', use: t.use, grnd: t.grnd, ugrnd: t.ugrnd, apr: t.useAprDay, road: t.road } : { none: true };
+      P._info = t ? { name: (rc && rc.name) || t.name || '', use: t.use, grnd: t.grnd, ugrnd: t.ugrnd, apr: t.useApr || t.useAprDay, road: t.road } : { none: true };
       if (!P.bname && P._info.name) P.bname = P._info.name;
       const first = F.it.places[0] === P;
       if (first) {
         if (!F.it.bname && P.bname) F.it.bname = P.bname;
         if (t && t.road && !F.it.road) F.it.road = String(t.road).replace(/^서울특별시\s*/, '서울 ');
         if (!F.touchedType) F.it.ptype = guessType(t);
-        const ad = F.it.ad || (F.it.ad = {});
-        if (t && t.grnd && !ad.tfl) ad.tfl = String(t.grnd);
-        if (t && t.useAprDay && !ad.appr) { const d = String(t.useAprDay).replace(/\D/g, ''); if (d.length === 8) ad.appr = `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}`; }
+        autoAd(F, P, b, t, rc);
       }
       const ts = (b.titles && b.titles.data) || [];
       // 건물 전체로 할 때 쓸 연면적·대지면적
@@ -376,6 +376,41 @@
       }
     } catch { if (alive(F, P)) P._info = { none: true, err: true }; }
     if (alive(F, P)) renderForm(true);
+    if (alive(F, P) && F.it.places[0] === P) autoLand(F, P);
+  }
+  // ---------- 광고 정보 자동 채우기 (빈 칸만 채우고, 직접 고친 값은 건드리지 않음) ----------
+  function setAuto(F, k, v) { const ad = F.it.ad || (F.it.ad = {}); if (v == null || v === '') return; if (ad[k] == null || ad[k] === '' || (F.auto && F.auto.has(k) && !F.touched?.has(k))) { ad[k] = v; (F.auto || (F.auto = new Set())).add(k); } }
+  function autoAd(F, P, b, t, rc) {
+    if (!t) return;
+    const ts = ((b.titles && b.titles.data) || []).filter(x => x.mainAtch !== '부속건축물');
+    // 건축물 용도 (건축법 용도 분류): 집합건물에서 호를 고르면 그 층 용도로 다시 맞춤
+    setAuto(F, 'use', [t.use, t.etcUse && t.etcUse !== t.use ? t.etcUse : ''].filter(Boolean).join(' · ').slice(0, 40));
+    setAuto(F, 'tfl', t.grnd ? String(t.grnd) : '');
+    setAuto(F, 'appr', t.useApr ? String(t.useApr).slice(0, 10) : '');
+    // 주차: 총괄표제부 → 동별 합계. 아파트·오피스텔은 세대당도 함께
+    const pk = x => x ? (x.pkTotal || ((x.pkIn || 0) + (x.pkOut || 0) + (x.pkInMech || 0) + (x.pkOutMech || 0))) : 0;
+    const tot = pk(rc) || ts.reduce((a, x) => a + pk(x), 0);
+    const hh = (rc && rc.hhld) || ts.reduce((a, x) => a + (x.hhld || 0), 0);
+    if (tot) setAuto(F, 'park', hh > 1 && ['아파트', '오피스텔', '빌라'].includes(F.it.ptype) ? `총 ${tot}대 (세대당 ${(tot / hh).toFixed(2).replace(/0$/, '')}대)` : `총 ${tot}대`);
+    if (hh > 1) setAuto(F, 'hhld', hh);
+    const lift = ts.reduce((a, x) => a + (x.liftP || 0), 0); if (lift) setAuto(F, 'elev', lift);
+    if (ts.some(x => /^(y|1|true|위반)/i.test(String(x.viol ?? '')))) { F.it.ad.viol = true; (F.auto || (F.auto = new Set())).add('viol'); }
+    // 건물 전체(통)로 거래하면 해당 층 = 전체
+    if (P.ak === 'tot' && !P.ho) setAuto(F, 'fl', '전체');
+  }
+  async function autoLand(F, P) {
+    const ad = F.it.ad || (F.it.ad = {});
+    if (ad.zone && ad.lp) return;
+    try {
+      const L = await api(`/api/land?pnu=${P.pnu}`), c = L.chr && L.chr.data;
+      if (!c || !alive(F, P)) return;
+      collect();
+      setAuto(F, 'zone', [c.zone1, c.zone2].filter(Boolean).join(' · '));
+      setAuto(F, 'road', c.road || '');
+      setAuto(F, 'lp', c.price || null);
+      if (F.it.ptype === '토지' || P.land) setAuto(F, 'use', c.jimok || '');
+      renderForm(true);
+    } catch { /* 직접 입력 */ }
   }
   // 건물 전체: 대지면적 · 건축면적 · 연면적을 한꺼번에
   function fillTot(P) {
@@ -432,7 +467,7 @@
     P.ak = 'ex';
     if (!ho) { P.ho = ''; U.sel = ''; P._msg = ''; return renderForm(true); }
     P.dong = U.cur.replace(/동$/, ''); P.ho = ho; U.sel = ho; P._msg = '전용면적을 불러오는 중…';
-    { const L = U.lists[U.byDong ? U.cur : '*'], u = Array.isArray(L) && L.find(z => z.ho === ho); if (u && u.flr != null && F.it.places[0] === P) { F.it.ad = F.it.ad || {}; F.it.ad.fl = (u.flrGb === '지하' ? 'B' : '') + u.flr; } }
+    { const L = U.lists[U.byDong ? U.cur : '*'], u = Array.isArray(L) && L.find(z => z.ho === ho); if (u && u.flr != null && F.it.places[0] === P) { F.it.ad = F.it.ad || {}; if (F.it.ad.fl === '전체') F.it.ad.fl = ''; setAuto(F, 'fl', (u.flrGb === '지하' ? 'B' : '') + u.flr); F.it.ad.fl = (u.flrGb === '지하' ? 'B' : '') + u.flr; } }
     renderForm(true);
     try {
       const j = await api(`/api/units?pnu=${P.pnu}&dong=${encodeURIComponent(U.cur)}&ho=${encodeURIComponent(ho)}`);
@@ -599,7 +634,7 @@
     const addr = `${places}
       ${n > 1 && areaSum ? `<div class="sumline">주소 ${n}곳 · 면적 합계 <b>${m2py(Math.round(areaSum * 100) / 100)}</b></div>` : ''}
       ${F.adding || !n ? searchBox(F) : '<button type="button" class="btn sub" id="addPlace" style="width:100%;margin-top:10px">＋ 주소 추가 <small style="font-weight:500;color:var(--muted)">(상가 여러 칸 · 토지 여러 필지)</small></button>'}`;
-    const MF = MONEY[it.kind];
+    const MF = moneyOf(it);
     const rentRows = it.rents.map((r, i) => `<div class="rrow">
         <input class="in" id="r${i}_label" value="${esc(r.label || '')}" maxlength="30" placeholder="1층 / 101호" aria-label="구분">
         <div class="unit"><input class="in" id="r${i}_deposit" inputmode="numeric" value="${r.deposit || ''}" placeholder="보증금" aria-label="보증금"><span>만</span></div>
@@ -683,6 +718,7 @@
     $('addContact').onclick = () => { collect(); F.it.contacts.push({ role: '임차인', name: '', phone: '' }); renderForm(true); };
     on('[data-cdel]', b => b.onclick = () => { collect(); F.it.contacts.splice(+b.dataset.cdel, 1); renderForm(true); });
     on('[data-flx]', b => b.onclick = () => { collect(); F.it.ad.flx = b.dataset.flx; renderForm(true); });
+    on('[data-mgt]', b => b.onclick = () => { collect(); F.it.ad.mgmtT = b.dataset.mgt; renderForm(true); });
     if (F.scrollAd && $('adSec')) { F.scrollAd = false; setTimeout(() => $('adSec').scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); }
     $('fSave').onclick = save;
     if ($('fDel')) $('fDel').onclick = del;
@@ -699,17 +735,19 @@
     { const x = v('f_ptypeTx'); if (x !== undefined) it.ptypeTx = x.trim(); }
     ['bname', 'memo', 'no'].forEach(k => { const x = v('f_' + k); if (x !== undefined) it[k] = x.trim(); });
     it.ad = it.ad || {};
-    ['fl', 'tfl', 'dir', 'rooms', 'baths', 'movein', 'park', 'appr', 'desc'].forEach(k => { const x = v('a_' + k); if (x !== undefined) it.ad[k] = x.trim(); });
+    ['fl', 'tfl', 'dir', 'rooms', 'baths', 'movein', 'park', 'appr', 'desc', 'use', 'zone', 'biz', 'wc', 'facx', 'mgmtTx'].forEach(k => { const x = v('a_' + k); if (x !== undefined) { if (F.auto && F.auto.has(k) && x.trim() !== String(it.ad[k] ?? '')) F.auto.delete(k); it.ad[k] = x.trim(); } });
     if ($('a_nomgmt')) it.ad.nomgmt = $('a_nomgmt').checked;
+    if ($('a_viol')) { if (F.auto && F.auto.has('viol') && $('a_viol').checked !== !!it.ad.viol) F.auto.delete('viol'); it.ad.viol = $('a_viol').checked; }
+    if (document.querySelector('[data-mgi]')) it.ad.mgmtInc = [...document.querySelectorAll('[data-mgi]:checked')].map(c => c.dataset.mgi);
   }
   async function save() {
     collect();
     const it = S.form.it;
     if (S.form.upN) return toast('사진을 올리는 중입니다. 잠시 후 저장해 주세요');
-    const need = MONEY[it.kind].find(([k, , req]) => req && !it[k]);
+    const need = moneyOf(it).find(([k, , req]) => req && !it[k]);
     if (need && !(it.kind === 'wolse' && it.deposit)) return toast(`${need[1]}을(를) 입력해 주세요`);
     // 화면용 임시값(_로 시작)은 빼고 보냅니다. 거래 종류에 없는 금액 칸은 비웁니다.
-    const keys = MONEY[it.kind].map(m => m[0]);
+    const keys = moneyOf(it).map(m => m[0]);
     const body = { ...it, places: it.places.map(P => Object.fromEntries(Object.entries(P).filter(([k]) => !k.startsWith('_')))) };
     ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) body[k] = null; });
     if (it.ptype !== '기타') body.ptypeTx = '';
@@ -734,6 +772,9 @@
   // 인터넷 표시·광고 명시사항: 서버(api/auth.js adMissing)와 같은 규칙
   const RESID = ['아파트', '빌라', '오피스텔', '주택'];
   const DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
+  const MGI = [['gen', '공용관리비'], ['elec', '전기'], ['water', '수도'], ['gas', '가스'], ['heat', '난방'], ['net', '인터넷'], ['tv', 'TV'], ['etc', '기타']];
+  const WCS = ['내부 전용', '내부 공용', '외부 공용', '외부 전용'];
+  const isWhole = x => { const p0 = (x.places && x.places[0]) || {}; return p0.ak === 'tot' && !p0.ho; };
   function adMissing(x, bk) {
     const miss = [], a = x.ad || {};
     if (!bk || !bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel) miss.push('중개사무소 정보');
@@ -742,39 +783,61 @@
     if (!x.ptype) miss.push('매물 종류');
     const price = x.kind === 'sale' ? x.price : x.kind === 'jeonse' ? x.deposit : x.kind === 'wolse' ? x.rent : x.price && x.pr;
     if (!price) miss.push('가격');
-    if (x.ptype && x.ptype !== '토지') {
-      if (!a.tfl) miss.push('총 층수');
-      if (!a.fl) miss.push('해당 층');
-      if (x.kind !== 'presale' && !a.appr) miss.push('사용승인일');
-      if (!a.dir) miss.push('방향');
-      if (!a.movein) miss.push('입주 가능일');
-      if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
-      if (RESID.includes(x.ptype)) {
-        if (a.rooms == null || a.rooms === '') miss.push('방 수');
-        if (a.baths == null || a.baths === '') miss.push('욕실 수');
-        if (!x.mgmt && !a.nomgmt) miss.push('관리비');
-      }
+    if (x.ptype === '토지') { if (!a.use) miss.push('지목'); return miss; }
+    if (!x.ptype) return miss;
+    if (x.kind !== 'presale' && !a.use) miss.push('건축물 용도');
+    if (!a.tfl) miss.push('총 층수');
+    if (!a.fl) miss.push('해당 층');
+    if (x.kind !== 'presale' && !a.appr) miss.push('사용승인일');
+    if (!a.dir) miss.push('방향');
+    if (!a.movein) miss.push('입주 가능일');
+    if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
+    if (RESID.includes(x.ptype)) {
+      if (a.rooms == null || a.rooms === '') miss.push('방 수');
+      if (a.baths == null || a.baths === '') miss.push('욕실 수');
+      if (!x.mgmt && !a.nomgmt) miss.push('관리비');
+      if (x.mgmt >= 10 && a.mgmtT === 'fix' && !(a.mgmtInc && a.mgmtInc.length)) miss.push('관리비 포함 항목');
     }
     return miss;
   }
   const isPub = x => x.pub && x.pub.on && x.status === 'on';
   const pubLive = x => isPub(x) && x.pub.exp > new Date().toISOString();
   function adBlock(F) {
-    const it = F.it, a = it.ad || {};
+    const it = F.it, a = it.ad || (it.ad = {});
     if (!it.ptype) return '';
-    const land = it.ptype === '토지', res = RESID.includes(it.ptype);
+    const pt = it.ptype, land = pt === '토지', res = RESID.includes(pt), shop = pt === '상가' || pt === '사무실', fac = pt === '공장·창고', pre = it.kind === 'presale';
     const miss = adMissing(it, S.bk).filter(m => m !== '중개사무소 정보');
-    const inp = (k, lb, ph, extra = '') => `<div><label class="sl" for="a_${k}">${lb}</label><input class="in" id="a_${k}" value="${esc(a[k] ?? '')}" placeholder="${ph}" ${extra}></div>`;
-    return `<div class="fld adsec${F.missing ? ' need' : ''}" id="adSec"><span class="lb">리얼맵 광고 정보<small>지도에 올릴 때 필요 · 매물장에만 둘 거면 비워도 됩니다</small></span>
-      ${F.missing ? (miss.length ? `<div class="adwarn">광고에 꼭 들어가야 할 항목이 빠져 있습니다: <b>${esc(miss.join(', '))}</b></div>` : '<div class="adok">모두 채웠습니다. 저장하면 이어서 리얼맵 지도에 올립니다.</div>') : miss.length ? `<div class="meta">아직 빈 항목: ${esc(miss.join(', '))}</div>` : `<div class="meta" style="color:#1F7A4D;font-weight:700">필수 항목을 모두 채웠습니다</div>`}
-      ${land ? '' : `<div class="two" style="margin-top:8px">${inp('fl', '해당 층', '12 (지하는 B1)', 'maxlength="8"')}${inp('tfl', '총 층수', '25', 'inputmode="numeric" maxlength="3"')}</div>
-      <div class="seg" style="margin-top:8px"><button type="button" data-flx="exact" aria-pressed="${a.flx !== 'lmh'}">층 그대로 공개</button><button type="button" data-flx="lmh" aria-pressed="${a.flx === 'lmh'}">저·중·고층으로 공개</button></div>
-      <div class="two" style="margin-top:8px"><div><label class="sl" for="a_dir">방향 <small>거실 기준</small></label><select class="in" id="a_dir"><option value="">선택</option>${DIRS.map(d => `<option ${a.dir === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>${inp('movein', '입주 가능일', '즉시 / 협의 / 2026.12', 'maxlength="20"')}</div>
+    const au = k => F.auto && F.auto.has(k) ? '<em class="auto">자동</em>' : '';
+    const inp = (k, lb, ph, extra = '', sub = '') => `<div><label class="sl" for="a_${k}">${lb}${au(k)}${sub}</label><input class="in" id="a_${k}" value="${esc(a[k] ?? '')}" placeholder="${ph}" ${extra}></div>`;
+    const info = [a.zone && `용도지역 ${a.zone}`, a.road && `도로 ${a.road}`, a.lp && `공시지가 ㎡당 ${Number(a.lp).toLocaleString()}원`, a.hhld && `${a.hhld}세대`, a.elev && `승강기 ${a.elev}대`].filter(Boolean);
+    const head = F.missing ? (miss.length ? `<div class="adwarn">광고에 꼭 들어가야 할 항목이 빠져 있습니다: <b>${esc(miss.join(', '))}</b></div>` : '<div class="adok">모두 채웠습니다. 저장하면 이어서 리얼맵 지도에 올립니다.</div>')
+      : miss.length ? `<div class="meta">아직 빈 항목: ${esc(miss.join(', '))}</div>` : `<div class="meta" style="color:#1F7A4D;font-weight:700">필수 항목을 모두 채웠습니다</div>`;
+    let body;
+    if (land) {
+      body = `<div class="two" style="margin-top:8px">${inp('use', '지목', '대 / 전 / 임야', 'maxlength="20"')}${inp('zone', '용도지역', '제2종일반주거지역', 'maxlength="40"', ' <small>선택</small>')}</div>`;
+    } else {
+      body = `<div class="two" style="margin-top:8px">${inp('use', '건축물 용도', '공동주택(아파트) / 제2종근린생활시설', 'maxlength="40"', pre ? ' <small>선택</small>' : '')}${inp('appr', '사용승인일', '2014.09.30', 'maxlength="10"', pre ? ' <small>입주 전이면 비움</small>' : '')}</div>
+      <label class="ck2 adck"><input type="checkbox" id="a_viol" ${a.viol ? 'checked' : ''}>위반건축물${au('viol')} <small class="meta">(건축물대장에 표시된 경우 반드시 체크)</small></label>
+      <div class="two" style="margin-top:8px">${inp('fl', '해당 층', isWhole(it) ? '전체' : '12 (지하는 B1)', 'maxlength="8"')}${inp('tfl', '총 층수', '25', 'inputmode="numeric" maxlength="3"')}</div>
+      ${res ? `<div class="seg" style="margin-top:8px"><button type="button" data-flx="exact" aria-pressed="${a.flx !== 'lmh'}">층 그대로 공개</button><button type="button" data-flx="lmh" aria-pressed="${a.flx === 'lmh'}">저·중·고층으로 공개</button></div>` : ''}
+      <div class="two" style="margin-top:8px"><div><label class="sl" for="a_dir">방향 <small>${res ? '주실(거실) 기준' : '주된 출입구 기준'}</small></label><select class="in" id="a_dir"><option value="">선택</option>${DIRS.map(d => `<option ${a.dir === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+        ${inp('movein', pre ? '입주 예정일' : '입주 가능일', '즉시입주 / 2026.12 중순', 'maxlength="20" list="mvList"')}</div>
+      <datalist id="mvList"><option value="즉시입주"><option value="협의"><option value="${new Date().getFullYear()}.${new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2} 초순"><option value="${new Date().getFullYear()}.${new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2} 하순"></datalist>
       ${res ? `<div class="two" style="margin-top:8px">${inp('rooms', '방 수', '3', 'inputmode="numeric" maxlength="2"')}${inp('baths', '욕실 수', '2', 'inputmode="numeric" maxlength="2"')}</div>` : ''}
-      ${it.kind === 'presale' ? '' : `<div class="two" style="margin-top:8px">${inp('park', '주차 대수', '세대당 1.2대 / 1대', 'maxlength="20"')}${inp('appr', '사용승인일', '2014.09.30', 'maxlength="10"')}</div>`}
-      ${res ? `<label class="ck2" style="margin-top:8px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="a_nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음 <small class="meta">(있으면 위 금액 칸에 월 관리비 입력)</small></label>` : ''}`}
+      ${pre ? '' : `<div style="margin-top:8px">${inp('park', '주차 대수', '총 120대 (세대당 1.2대)', 'maxlength="30"', ' <small>총 대수 또는 세대당</small>')}</div>`}
+      ${res ? `<div class="mgbox"><div class="sl">관리비 <small>월 금액은 위 '관리비' 칸에 · ${it.mgmt ? `월 ${it.mgmt}만원` : '미입력'}</small></div>
+        <div class="seg" style="margin-top:6px"><button type="button" data-mgt="avg" aria-pressed="${a.mgmtT !== 'fix'}">실비·월평균</button><button type="button" data-mgt="fix" aria-pressed="${a.mgmtT === 'fix'}">정액 (매달 같은 금액)</button></div>
+        ${a.mgmtT === 'fix' ? `<div class="meta" style="margin-top:6px">정액 월 10만원 이상이면 포함 항목을 표시해야 합니다</div><div class="mgi">${MGI.map(([k, t]) => `<label class="ck2"><input type="checkbox" data-mgi="${k}" ${(a.mgmtInc || []).includes(k) ? 'checked' : ''}>${t}</label>`).join('')}</div>
+          ${inp('mgmtTx', '항목별 금액', '공용 7만 · 수도 1만 · 인터넷 2만', 'maxlength="60"', ' <small>선택 · 의뢰인이 안 알려주면 생략 가능</small>')}` : ''}
+        <label class="ck2 adck"><input type="checkbox" id="a_nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>` : ''}
+      ${shop ? `<div class="two" style="margin-top:8px">${inp('biz', pt === '상가' ? '현재 업종' : '현재 용도', pt === '상가' ? '카페 / 공실' : '사무실 / 공실', 'maxlength="30"', ' <small>선택</small>')}<div><label class="sl" for="a_wc">화장실 <small>선택</small></label><select class="in" id="a_wc"><option value="">선택</option>${WCS.map(w => `<option ${a.wc === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div></div>` : ''}
+      ${fac ? `<div style="margin-top:8px">${inp('facx', '공장·창고 정보', '전력 50kW · 호이스트 2.8t · 층고 7m · 대형차 진입', 'maxlength="80"', ' <small>선택</small>')}</div>` : ''}`;
+    }
+    return `<div class="fld adsec${F.missing ? ' need' : ''}" id="adSec"><span class="lb">리얼맵 광고 정보<small>지도에 올릴 때 필요 · 매물장에만 둘 거면 비워도 됩니다</small></span>
+      ${head}${body}
+      ${info.length ? `<div class="meta" style="margin-top:8px">자동으로 함께 표시: ${esc(info.join(' · '))}</div>` : ''}
       <div style="margin-top:8px"><label class="sl" for="a_desc">광고 소개글 <small>지도에 공개 · 선택</small></label><textarea class="in" id="a_desc" rows="2" maxlength="300" placeholder="예) 남향 로열층, 올수리, 역 도보 5분">${esc(a.desc || '')}</textarea></div>
-      <div class="meta" style="margin-top:6px">호수·소유자 연락처·메모는 지도에 공개되지 않습니다.</div></div>`;
+      <div class="meta" style="margin-top:6px">호수·소유자 연락처·메모는 지도에 공개되지 않습니다. '자동' 표시는 건축물대장·토지대장에서 가져온 값입니다.</div></div>`;
   }
   function pubBtn(x) {
     if (!S.canPub || x.status !== 'on') return `<a href="/?pnu=${x.pnu}" target="_blank" rel="noopener">리얼맵 정보</a>`;

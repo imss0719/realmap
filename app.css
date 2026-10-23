@@ -560,3 +560,4 @@ a.favbtn{text-decoration:none}
 .lbtn{display:flex;gap:6px}.lbtn a{background:#14212E;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px;text-decoration:none}
 .lbtn a+a{background:#fff;color:#14212E;border:1px solid var(--line)}
 .lft{font-size:12px;color:var(--muted);margin-top:8px}.lft a{color:inherit}
+.lviol{background:#C92A2A;color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px}

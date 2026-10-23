@@ -2563,21 +2563,34 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const L = lsHere(); if (!L.length) return '';
     const ymdS = iso => iso ? iso.slice(2, 10).replace(/-/g, '.') : '';
     const card = x => {
+      const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
+      const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${x.mgmtT === 'fix' ? ' (정액)' : ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
+      const land = x.ptype === '토지';
       const f = [
         x.area && [x.ak === 'land' ? '토지면적' : x.ak === 'tot' ? '연면적' : '전용면적', `${n(x.area, 2)}㎡ (${(x.area / 3.305785).toFixed(1)}평)`],
+        x.use && [land ? '지목' : '건축물 용도', x.use],
+        land && x.zone && ['용도지역', x.zone],
+        land && x.rside && ['도로 접면', x.rside],
+        land && x.lp && ['공시지가', `㎡당 ${n(x.lp)}원`],
         (x.flr || x.tfl) && ['층', `${x.flr || '-'}${x.tfl ? ' / 총 ' + x.tfl + '층' : ''}`],
-        x.dir && ['방향', x.dir + ' (거실 기준)'],
+        x.dir && ['방향', `${x.dir} (${x.dirB || '주실 기준'})`],
         (x.rooms != null || x.baths != null) && ['방·욕실', `방 ${x.rooms ?? '-'} · 욕실 ${x.baths ?? '-'}`],
-        (x.mgmt || x.nomgmt) && ['관리비', x.mgmt ? `월 ${n(x.mgmt)}만원` : '없음'],
+        mg && ['관리비', mg],
         x.premium && ['권리금', won(x.premium)],
+        x.biz && [x.ptype === '상가' ? '현재 업종' : '현재 용도', x.biz],
+        x.wc && ['화장실', x.wc],
+        x.facx && ['시설', x.facx],
         x.movein && ['입주 가능일', x.movein],
         x.park && ['주차', x.park],
+        x.elev && ['승강기', `${x.elev}대`],
+        x.hhld && ['세대수', `${n(x.hhld)}세대`],
         x.appr && ['사용승인일', x.appr],
+        !land && x.zone && ['용도지역', x.zone],
       ].filter(Boolean);
       const tel = String(x.bk.tel || '').replace(/[^\d]/g, '');
       return `<div class="lcard">
         ${x.photos.length ? `<div class="lph">${x.photos.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="매물 사진 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
-        <div class="lhd"><i class="lk-${x.kind}">${LKIND[x.kind]}</i><span>${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}${x.bname ? ' · ' + esc(x.bname) : ''}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}</span>${x.no ? `<small>No. ${esc(x.no)}</small>` : ''}</div>
+        <div class="lhd"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${x.viol ? '<b class="lviol">위반건축물</b>' : ''}<span>${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}${x.bname ? ' · ' + esc(x.bname) : ''}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}</span>${x.no ? `<small>No. ${esc(x.no)}</small>` : ''}</div>
         <div class="lpr">${esc(lsPriceFull(x))}</div>
         ${lsCompare(x)}
         ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
