@@ -7,7 +7,7 @@
 //   /api/auth?action=zfavs · zfav   → 서울 정비사업 관심 구역·추진 알림(이메일)
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
-import { send, fail } from './_lib.js';
+import { send, fail, VWORLD_DOMAIN } from './_lib.js';
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
 const CSECRET = (process.env.KAKAO_CLIENT_SECRET || '').trim();
@@ -53,6 +53,12 @@ function readOnlyIds(items, P) {
   if (!P || !(items.length > P.ls)) return new Set();
   return new Set([...items].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(P.ls).map(x => x.id));
 }
+// 체험 시작 (중개사 서비스를 해지했다가 다시 시작하면 체험 없이 무료로) — 가입 확인 통과 또는 운영자 승인 때
+export async function startTrial(uid) {
+  const now = Date.now();
+  const used = await redis(['SISMEMBER', 'realmap:trialused', String(uid)]).catch(() => 0);
+  await redis(['SET', `realmap:plan:${uid}`, JSON.stringify(used ? { plan: 'free', trialUsed: true, at: new Date(now).toISOString() } : { plan: 'trial', until: new Date(now + TRIAL_DAYS * 86400e3).toISOString(), trialUsed: true, at: new Date(now).toISOString() })]);
+}
 async function isPro(id) { return (await planOf(id)).adv; }
 export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
@@ -64,6 +70,87 @@ function cleanBk(b) {
   if (!/^01\d-?\d{3,4}-?\d{4}$/.test(bk.mobile)) return [null, '휴대폰 번호를 확인해 주세요. (문자 문의를 받을 번호)'];
   if (!/\d{4,}/.test(bk.regno)) return [null, '중개사무소 등록번호를 확인해 주세요. (예: 11440-2025-00123)'];
   return [bk, ''];
+}
+
+// ---------- 중개사무소 자동 확인 (브이월드 '부동산중개업사무소정보조회') ----------
+// 가입·정보 수정 때 등록번호로 국가 자료를 조회해 대표 공인중개사 성명·영업 상태를 대조합니다.
+// 키는 지도용 VWORLD_KEY와 따로 VWORLD_BK_KEY (없거나 브이월드 점검 중이면 '확인 대기' → 운영자가 관리 페이지에서 승인)
+// 등록번호 1개 = 계정 1개: realmap:regno { 등록번호 숫자: 회원id }, 다른 계정의 중복 시도는 realmap:bkdup 목록(최근 100건)
+const BK_KEY = (process.env.VWORLD_BK_KEY || '').trim();
+const digitsOf = v => String(v ?? '').replace(/\D/g, '');
+const nmOf = v => String(v ?? '').replace(/\s/g, '');
+const fmtReg = v => { const d = digitsOf(v); return d.length === 14 ? `${d.slice(0, 5)}-${d.slice(5, 9)}-${d.slice(9)}` : String(v || ''); };
+async function edOffices(params) {
+  if (!BK_KEY) throw new Error('nokey');
+  const u = new URL('https://api.vworld.kr/ned/data/getEBOfficeInfo');
+  const q = { key: BK_KEY, format: 'json', numOfRows: '100', pageNo: '1', ...params };
+  if (VWORLD_DOMAIN) q.domain = VWORLD_DOMAIN;
+  for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== '') u.searchParams.set(k, String(v));
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const r = await fetch(u, { signal: ctrl.signal });
+    const j = await r.json();
+    const E = j && j.EDOffices;
+    if (!E) throw new Error('bad');
+    if (E.field) return Array.isArray(E.field) ? E.field : [E.field];
+    if (!E.resultCode || /NOT_?FOUND|NO_?DATA/i.test(E.resultCode) || String(E.totalCount) === '0') return [];
+    throw new Error(String(E.resultCode)); // INVALID_KEY 등 → 확인 대기
+  } finally { clearTimeout(t); }
+}
+async function checkOffice(bk) {
+  const d = digitsOf(bk.regno), ld = d.slice(0, 5);
+  if (d.length < 10) return { st: 'notfound' };
+  const pick = rows => rows.find(r => digitsOf(r.jurirno) === d);
+  let row = pick(await edOffices({ ldCode: ld, jurirno: fmtReg(bk.regno) }));
+  if (!row) row = pick(await edOffices({ ldCode: ld, brkrNm: bk.ceo })); // 등록번호 조건이 안 먹는 경우 대비
+  if (!row) return { st: 'notfound' };
+  if (nmOf(row.brkrNm) !== nmOf(bk.ceo)) return { st: 'ceo', row };
+  if (String(row.sttusSeCode) !== '1' && !/영업/.test(row.sttusSeCodeNm || '')) return { st: 'closed', row };
+  return { st: 'ok', row };
+}
+const V_MSG = {
+  notfound: '입력하신 등록번호로 개설등록된 중개사무소를 찾지 못했습니다. 중개사무소 등록증의 등록번호를 확인해 주세요.',
+  ceo: '대표 공인중개사 성명이 등록 정보와 다릅니다. 대표 공인중개사 명의로 가입해 주세요.',
+  dup: '이미 다른 계정으로 가입된 등록번호입니다. 본인 사무소라면 리얼맵 운영자에게 알려 주세요.',
+  need: '매물장을 쓰시려면 중개사무소 정보 확인이 필요합니다. 등록증과 같게 입력해 주세요.',
+};
+async function regOwner(d) {
+  const o = await redis(['HGET', 'realmap:regno', d]).catch(() => null);
+  if (!o) return null;
+  const b = await loadBk(o);
+  return b && digitsOf(b.regno) === d ? String(o) : null; // 해지한 계정의 기록은 무시
+}
+// 확인 결과를 bk에 표시합니다 (저장은 부르는 쪽에서). st: ok · notfound · ceo · closed · dup · error
+async function verifyBk(uid, bk) {
+  const d = digitsOf(bk.regno), now = new Date().toISOString();
+  const owner = await regOwner(d);
+  if (owner && owner !== String(uid)) {
+    try { await pipe([['LPUSH', 'realmap:bkdup', JSON.stringify({ uid: String(uid), owner, regno: bk.regno, office: bk.office, ceo: bk.ceo, at: now })], ['LTRIM', 'realmap:bkdup', '0', '99']]); } catch { /* 기록 실패는 무시 */ }
+    return { st: 'dup', msg: V_MSG.dup };
+  }
+  let r;
+  try { r = await checkOffice(bk); } catch { return { st: 'error', msg: '' }; }
+  if (r.st !== 'ok') return { st: r.st, msg: r.st === 'closed' ? `국가 자료에 '${r.row.sttusSeCodeNm || '휴업·폐업'}' 상태로 조회됩니다. 영업 중인 중개사무소만 이용하실 수 있습니다.` : V_MSG[r.st] };
+  bk.verified = now; bk.vby = 'auto'; bk.regno = r.row.jurirno || bk.regno;
+  if (r.row.bsnmCmpnm) bk.office = r.row.bsnmCmpnm; // 광고에는 등록된 명칭 그대로
+  delete bk.pend; delete bk.vst; delete bk.vmsg;
+  await redis(['HSET', 'realmap:regno', d, String(uid)]);
+  return { st: 'ok', msg: '' };
+}
+// 매물장 입구: 확인된 사무소만. 예전 가입자는 처음 들어올 때 자동 확인(10분에 한 번), 브이월드 점검 중이면 그대로 통과
+async function bkGate(uid) {
+  if (ADMIN_ID && String(uid) === ADMIN_ID) return null;
+  const bk = await loadBk(uid);
+  if (bk && bk.verified) return null;
+  if (!bk || !bk.regno) return { msg: V_MSG.need, bk: null };
+  if (!(bk.vtry && Date.now() - Date.parse(bk.vtry) < 10 * 60e3)) {
+    const v = await verifyBk(uid, bk);
+    bk.vtry = new Date().toISOString();
+    if (v.st !== 'ok') { bk.vst = v.st; bk.vmsg = v.msg; }
+    await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]);
+  }
+  if (bk.verified || bk.vst === 'error') return null;
+  return { msg: bk.vmsg || V_MSG.need, bk };
 }
 
 // ---------- 리얼맵 매물 광고 (중개사 매물 → 지도 노출) ----------
@@ -138,6 +225,7 @@ function pubSummary(uid, x, bk) {
 // 매물장이 바뀔 때마다 공개 목록을 맞춥니다: 진행 중 + 게시 + 필수 항목 완비 → 올림, 아니면 내림
 export async function syncPub(uid, items, bk, P) {
   const set = [], del = [], now = new Date().toISOString();
+  const bkOk = (ADMIN_ID && String(uid) === ADMIN_ID) || !!(bk && bk.verified); // 확인된 중개사무소만 지도에
   // 요금제 광고 한도: 먼저 게시한 순서대로 남기고, 넘치는 것은 내림 (무료로 내려갔을 때 등)
   const cap = P ? P.ad : 1e9;
   const keep = new Set(items.filter(x => x.pub && x.pub.on && x.status === 'on' && x.pub.exp > now).sort((a, b) => String(a.pub.at).localeCompare(String(b.pub.at))).slice(0, cap).map(x => x.id));
@@ -145,7 +233,7 @@ export async function syncPub(uid, items, bk, P) {
     if (!x.pub) continue;
     const field = `${uid}:${x.id}`;
     if (x.pub.on && x.status === 'on' && x.pub.exp > now && !keep.has(x.id)) x.pub.on = false;
-    if (x.pub.on && x.status === 'on' && canPub(uid) && !adMissing(x, bk).length) set.push(field, JSON.stringify(pubSummary(uid, x, bk)));
+    if (x.pub.on && x.status === 'on' && canPub(uid) && bkOk && !adMissing(x, bk).length) set.push(field, JSON.stringify(pubSummary(uid, x, bk)));
     else { if (x.pub.on && x.status !== 'on') x.pub.on = false; del.push(field); }
   }
   await pipe([...(set.length ? [['HSET', PUB_KEY, ...set]] : []), ...(del.length ? [['HDEL', PUB_KEY, ...del]] : [])]);
@@ -170,6 +258,7 @@ export async function brokerStat(uid, items) {
 }
 // 중개사 서비스 데이터 지우기 (중개사 해지 · 회원 탈퇴 공용) — 일반 회원 정보는 그대로
 async function dropBroker(uid) {
+  try { const b = await loadBk(uid), d = b && digitsOf(b.regno); if (d && await redis(['HGET', 'realmap:regno', d]) === String(uid)) await redis(['HDEL', 'realmap:regno', d]); } catch { /* 무시 */ }
   try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); const f = ls.map(x => `${uid}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
   await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
 }
@@ -220,7 +309,9 @@ export default async function (req, res) {
     if (action === 'me') {
       const s = readSession(req);
       const P = s ? await planOf(s.id) : null;
-      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && s.id === ADMIN_ID) });
+      let pend = null; // 가입 신청 후 확인 대기 중이면 화면에 안내
+      if (s && P && !P.started) { const b = await loadBk(s.id); if (b && b.pend) pend = { office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile, at: b.pend }; }
+      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && s.id === ADMIN_ID), pend });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
@@ -398,6 +489,19 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, items }, 60);
     }
 
+    // 등록번호로 사무소 명칭·소재지 미리 채우기 (가입 화면) — GET ?action=bkfind&regno=
+    if (action === 'bkfind') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      const d = digitsOf(req.query.regno);
+      if (d.length < 10) return send(res, 200, { ok: true, found: false });
+      try {
+        const r = (await edOffices({ ldCode: d.slice(0, 5), jurirno: fmtReg(req.query.regno) })).find(x => digitsOf(x.jurirno) === d);
+        return send(res, 200, { ok: true, found: !!r, office: r ? r.bsnmCmpnm || '' : '', addr: r ? r.rdnmadr || r.mnnmadr || '' : '', st: r ? r.sttusSeCodeNm || '' : '' });
+      } catch { return send(res, 200, { ok: true, found: false, down: true }); }
+    }
+
     // 중개사 서비스 시작: 중개사무소 정보를 받고 2주 무료 체험을 엽니다 (체험은 한 번만)
     //   POST /api/auth?action=start { bk:{office,addr,regno,ceo,tel,mobile} }
     if (action === 'start') {
@@ -409,15 +513,18 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
-      await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       let P = await planOf(s.id);
-      if (!P.started) {
-        const now = Date.now();
-        // 중개사 서비스를 해지했다가 다시 시작하면 체험 없이 무료로 시작
-        const used = await redis(['SISMEMBER', 'realmap:trialused', String(s.id)]).catch(() => 0);
-        await redis(['SET', `realmap:plan:${s.id}`, JSON.stringify(used ? { plan: 'free', trialUsed: true, at: new Date(now).toISOString() } : { plan: 'trial', until: new Date(now + TRIAL_DAYS * 86400e3).toISOString(), trialUsed: true, at: new Date(now).toISOString() })]);
-        P = await planOf(s.id);
+      if (P.started) return send(res, 200, { ok: true, plan: planView(P), bk: await loadBk(s.id) });
+      // 국가 자료로 확인된 중개사무소만 시작. 브이월드 점검 등으로 확인이 안 되면 '확인 대기'로 받아 두고 운영자가 승인
+      const v = await verifyBk(s.id, bk);
+      if (v.st === 'error') {
+        bk.pend = new Date().toISOString();
+        await pipe([['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)], ['SADD', 'realmap:brokers', String(s.id)]]);
+        return send(res, 200, { ok: true, pend: true, message: '지금은 국가 자료(브이월드) 조회가 원활하지 않아 바로 확인하지 못했습니다. 운영자가 확인하는 대로 매물장이 열립니다. 잠시 뒤 다시 시도하셔도 됩니다.' });
       }
+      if (v.st !== 'ok') return fail(res, 400, 'verify', v.msg);
+      await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
+      if (!P.started) { await startTrial(s.id); P = await planOf(s.id); }
       await brokerStat(s.id, JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'));
       return send(res, 200, { ok: true, plan: planView(P), bk });
     }
@@ -450,9 +557,17 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
-      // 운영자가 확인한 등록번호는 사무소 명칭·등록번호가 그대로일 때만 유지
+      // 등록번호·대표자가 그대로면 확인 유지(명칭은 등록된 그대로), 바뀌면 국가 자료로 다시 확인
       const prevBk = await loadBk(s.id);
-      if (prevBk && prevBk.verified && prevBk.regno === bk.regno && prevBk.office === bk.office) bk.verified = prevBk.verified;
+      if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
+        Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
+        if (prevBk.vby === 'auto') bk.office = prevBk.office;
+      } else if (!P.op) {
+        const v = await verifyBk(s.id, bk);
+        if (v.st === 'error') return fail(res, 503, 'vworld', '지금은 국가 자료(브이월드) 조회가 원활하지 않아 등록번호·대표자 변경을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+        if (v.st !== 'ok') return fail(res, 400, 'verify', v.msg);
+        if (prevBk && digitsOf(prevBk.regno) !== digitsOf(bk.regno)) { const d0 = digitsOf(prevBk.regno); if (await redis(['HGET', 'realmap:regno', d0]).catch(() => null) === String(s.id)) await redis(['HDEL', 'realmap:regno', d0]).catch(() => 0); }
+      }
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk, P); await redis(['SET', `realmap:ls:${s.id}`, JSON.stringify(ls)]); } catch { /* 다음 저장 때 반영 */ }
       return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
@@ -465,6 +580,8 @@ export default async function (req, res) {
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const P = await planOf(s.id);
       if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
+      const gate = await bkGate(s.id);
+      if (gate) return fail(res, 403, 'verify', gate.msg, { bk: gate.bk });
       // 사진 올리기: 브라우저에서 줄인 JPEG를 받아 저장하고 주소를 돌려줍니다
       if (action === 'listing' && req.query.op === 'photo') {
         if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');

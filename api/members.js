@@ -3,7 +3,7 @@
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
 import { send, fail, MAX_KEYS, vworldData, cached, pool } from './_lib.js';
-import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat } from './auth.js';
+import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const ADMIN_PW = String(process.env.ADMIN_PASSWORD || '').trim();
@@ -117,7 +117,12 @@ async function brokers(req, res) {
       } else if (body.op === 'verify') {
         const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
         bk.verified = body.on ? new Date().toISOString() : false;
+        if (body.on) { bk.vby = 'op'; delete bk.pend; delete bk.vst; delete bk.vmsg; }
         await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]);
+        const d = String(bk.regno || '').replace(/\D/g, '');
+        if (body.on && d) await redis(['HSET', 'realmap:regno', d, uid]).catch(() => 0);
+        // 확인 대기였던 신청자: 승인하면 그때 체험(또는 무료) 시작
+        if (body.on && !(await planOf(uid)).started) await startTrial(uid);
       } else if (body.op === 'unpub' || body.op === 'unpubAll') {
         const items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]');
         const lid = String(body.k || '').split(':')[1] || '';
@@ -150,6 +155,7 @@ async function brokers(req, res) {
     const pubs = [];
     for (let i = 0; i < arr.length; i += 2) { try { const v = JSON.parse(arr[i + 1]); pubs.push({ k: v.k, office: v.bk && v.bk.office, kind: v.kind, ptype: v.ptype, price: v.price, deposit: v.deposit, rent: v.rent, pr: v.pr, addr: v.addr, bname: v.bname, at: v.at, chk: v.chk, exp: v.exp, pnu: v.pnu }); } catch { /* 건너뜀 */ } }
     pubs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
-    return send(res, 200, { ok: true, rows, pubs });
+    const dups = ((await redis(['LRANGE', 'realmap:bkdup', '0', '29']).catch(() => [])) || []).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean);
+    return send(res, 200, { ok: true, rows, pubs, dups });
   } catch (e) { return fail(res, 502, 'storage', '중개사 정보를 읽지 못했습니다: ' + e.message); }
 }
