@@ -18,7 +18,8 @@ window.Danji = (() => {
   const shortWon = man => !man ? '' : man >= 10000 ? `${(man / 10000).toFixed(man % 10000 ? 1 : 0).replace(/\.0$/, '')}억` : `${Math.round(man).toLocaleString()}만`;
   const med = a => { if (!a.length) return null; a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
   const digits = s => String(s || '').replace(/\D/g, '');
-  const normD = s => digits(s) || String(s || '').replace(/\s|동$/g, '');           // '101동' → '101'
+  // 동 이름 비교: '제101동'·'101동'·'101' 은 같게, 'T402동'과 '402동'은 다르게 (숫자만 비교하면 섞임)
+  const normD = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
   const normH = s => digits(s) || String(s || '').replace(/\s|호$/g, '');
   const normName = s => String(s || '').replace(/\s|\(.*?\)|아파트|APT/gi, '');
   const baseName = s => normName(s).replace(/\d+단지$/, '');                       // '마포래미안푸르지오4단지' → '마포래미안푸르지오'
@@ -241,6 +242,21 @@ window.Danji = (() => {
   function countMine(cx, d) { const M = mineMap(cx); let n = 0; for (const [k, v] of M) { const [p, dd] = k.split('|'); if ((p === d.pnu || p === '*') && dd === normD(d.dong)) n += v.filter(x => x.status !== 'done').length; } return n; }
   const memoKey = (cx, pnu, dong, ho) => `${cx.id}|${pnu}|${normD(dong)}|${normH(ho)}`;
 
+  // ---------- 기다리는 동안 안내 (시간이 지날수록 문구가 바뀜) ----------
+  const WAIT = [[0, '호 목록을 받는 중입니다'], [4, '공공데이터에서 동·호 정보를 받고 있어요'], [9, '세대가 많은 단지라 조금 걸립니다. 잠시만 기다려 주세요'], [18, '거의 다 왔어요. 처음 한 번만 오래 걸리고, 다음부터는 바로 열립니다'], [35, '공공데이터 서버가 느립니다. 조금만 더 기다려 주세요']];
+  function waitBox(box, sub) {
+    clearInterval(S.waitT);
+    const t0 = Date.now();
+    box.innerHTML = `<div class="dj-wait"><span class="spin"></span><div><b><span class="wm"></span><i class="dots"><i>.</i><i>.</i><i>.</i></i></b><small><span>${sub ? sub + ' · ' : ''}</span><span class="ws">0초</span></small></div></div>
+      <div class="dj-skel">${Array.from({ length: 24 }, (_, i) => `<i style="animation-delay:${(i % 4) * .12 + Math.floor(i / 4) * .08}s"></i>`).join('')}</div>`;
+    const wm = box.querySelector('.wm'), ws = box.querySelector('.ws');
+    const tick = () => {
+      if (!wm.isConnected) return clearInterval(S.waitT);
+      const sec = (Date.now() - t0) / 1000;
+      wm.textContent = WAIT.filter(w => sec >= w[0]).pop()[1]; ws.textContent = `${Math.floor(sec)}초`;
+    };
+    tick(); S.waitT = setInterval(tick, 1000);
+  }
   // ---------- 층 × 라인 표 ----------
   async function drawGrid(cx) {
     const C = S.C[cx.id], box = $('dj_gridBox');
@@ -248,13 +264,13 @@ window.Danji = (() => {
     const [pnu, dong] = [C.cur.slice(0, 19), C.cur.slice(20)];
     let U = C.units[C.cur];
     if (!U) {
-      box.innerHTML = '<div class="loading">호 목록을 불러오는 중…</div>';
+      waitBox(box, dong);
       C.units[C.cur] = 'loading';
       try {
         // 큰 단지는 한 번에 다 못 받으면 서버가 받은 쪽을 기억해 두므로, 자동으로 몇 번 이어서 받습니다
         let r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
         for (let k = 2; r0.partial && k <= 5; k++) {
-          if (C.cur === `${pnu}|${dong}`) box.innerHTML = `<div class="loading">세대가 많은 단지라 호 목록을 나눠 받는 중… (${k}/5)</div>`;
+          if (C.cur === `${pnu}|${dong}`) { const sub = `${dong} · 나눠 받는 중 ${k}/5`; clearInterval(S.waitT); waitBox(box, sub); }
           r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
         }
         let us = r0.units || [];
@@ -273,7 +289,8 @@ window.Danji = (() => {
       if (S.cur === cx.id && C.cur === `${pnu}|${dong}`) drawGrid(cx);
       return;
     }
-    if (U === 'loading') return;
+    if (U === 'loading') { if (!box.querySelector('.dj-wait')) waitBox(box, dong); return; }
+    clearInterval(S.waitT);
     // 실패하거나 일부만 받은 동은 '다시 불러오기'로 다시 시도 (큰 단지는 공공데이터가 느려 처음 한 번이 오래 걸릴 수 있음)
     const retry = () => { delete C.units[C.cur]; drawGrid(cx); };
     if (U === 'error') { box.innerHTML = `<div class="muted">호 목록을 불러오지 못했습니다. 큰 단지는 공공데이터 응답이 느려 처음 한 번이 오래 걸릴 수 있습니다.${C.err ? `<br><small>${esc(C.err).slice(0, 120)}</small>` : ''}<br><button type="button" class="lnk" id="dj_retry">다시 불러오기</button></div>`; $('dj_retry').onclick = retry; return; }

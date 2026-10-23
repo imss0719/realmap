@@ -464,7 +464,8 @@
     const U = P._U; if (!U) return;
     const key = U.byDong ? U.cur : '*';
     if (U.lists[key]) return;
-    U.lists[key] = 'loading'; renderForm(true);
+    U.lists[key] = 'loading'; U.t0 = Date.now(); renderForm(true);
+    const tick = setInterval(() => { if (U.lists[key] !== 'loading' || !alive(F, P)) return clearInterval(tick); const o = document.querySelector(`[data-uho], select.in[disabled]`); if (o && /불러오는|받는|걸립니다/.test(o.textContent)) { const sec = (Date.now() - U.t0) / 1000; o.options[0].textContent = sec > 15 ? `세대가 많은 단지라 조금 더 걸립니다… (${Math.floor(sec)}초)` : sec > 5 ? `공공데이터에서 호 목록 받는 중… (${Math.floor(sec)}초)` : '호 목록 불러오는 중…'; } }, 1000);
     try {
       const j = await api(`/api/units?pnu=${P.pnu}${U.byDong ? '&dong=' + encodeURIComponent(U.cur) : ''}`);
       const units = j.units || [];
@@ -511,7 +512,7 @@
     let body = '';
     if (U.mode === 'unit') {
       const dongSel = showDong ? `<select class="in" data-udong="${i}" aria-label="동 선택">${U.dongs.map(d => `<option ${d === U.cur ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>` : '';
-      const hoSel = L === 'loading' || !L ? '<select class="in" disabled><option>호 목록 불러오는 중…</option></select>'
+      const hoSel = L === 'loading' || !L ? `<select class="in" disabled><option>${(() => { const sec = U.t0 ? (Date.now() - U.t0) / 1000 : 0; return sec > 15 ? '세대가 많은 단지라 조금 더 걸립니다… 잠시만요' : sec > 5 ? '공공데이터에서 호 목록 받는 중… 잠시만 기다려 주세요' : '호 목록 불러오는 중…'; })()}</option></select>`
         : L === 'error' ? '<select class="in" disabled><option>목록을 불러오지 못했습니다</option></select>'
         : !units.length ? '<select class="in" disabled><option>호 정보가 없습니다</option></select>'
         : `<select class="in" data-uho="${i}" aria-label="호 선택"><option value="">호수 선택</option>${units.map(u => `<option value="${esc(u.ho)}" ${U.sel === u.ho ? 'selected' : ''}>${esc(u.ho)}${u.flr != null ? ` (${u.flrGb === '지하' ? 'B' : ''}${u.flr}층)` : ''}</option>`).join('')}</select>`;
@@ -523,8 +524,10 @@
   const digits = v => (String(v ?? '').match(/\d+/g) || []).join('');
   const hoEq = (a, b) => !!digits(a) && digits(a) === digits(b);
   function dongPick(list, want) {
-    const w = digits(want); if (!w) return null;
-    const c = list.filter(d => digits(d) === w);
+    const nd = v => String(v ?? '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
+    const ex = list.find(d => nd(d) === nd(want)); if (ex != null) return ex;          // 'T402'와 '402'를 구분
+    const w = digits(want); if (!w || /[A-Za-z]/.test(String(want))) return null;
+    const c = list.filter(d => digits(d) === w && !/[A-Za-z]/.test(d));
     return c.find(d => !/[()]|상가|주차/.test(d)) || c[0] || null;
   }
   // 검색어에서 동·호 떼어 내기: '마포래미안푸르지오 101동 1503호', '101-1503', '래미안 1503호'

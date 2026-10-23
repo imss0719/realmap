@@ -236,6 +236,13 @@ body.djmode .legend,body.lvmode .legend{display:none}
 .dj .lgd{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}
 .dj .lgd i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:4px;vertical-align:-1px}
 .dj .loading{color:var(--muted);padding:14px 0}
+.dj .dj-wait{display:flex;align-items:center;gap:12px;padding:16px 4px 12px}
+.dj .dj-wait b{display:block;font-size:15px}.dj .dj-wait small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.dj .dj-wait .spin{flex:none;width:26px;height:26px;border-radius:50%;border:3px solid #E3E8ED;border-top-color:var(--gold);animation:djspin .8s linear infinite}
+.dj .dots i{font-style:normal;animation:djdot 1.2s infinite}.dj .dots i:nth-child(2){animation-delay:.2s}.dj .dots i:nth-child(3){animation-delay:.4s}
+.dj .dj-skel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.dj .dj-skel i{height:30px;border-radius:7px;background:#EEF1F4;animation:djpulse 1.2s ease-in-out infinite}
+@keyframes djspin{to{transform:rotate(360deg)}}@keyframes djdot{0%,60%,100%{opacity:.2}30%{opacity:1}}@keyframes djpulse{0%,100%{opacity:.45}50%{opacity:1}}
 /* 호 상세 시트 */
 .dj .info{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .dj .info div{background:#fff;border-radius:12px;padding:10px 12px}
