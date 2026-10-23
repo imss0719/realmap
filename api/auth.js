@@ -33,7 +33,7 @@ export const PLANS = {
   vip: { name: 'VIP', ls: 1e9, ad: 1e9, adv: true },
 };
 const TRIAL_DAYS = 14;
-async function planOf(id) {
+export async function planOf(id) {
   const out = (plan, extra = {}) => ({ plan, ...PLANS[plan] || PLANS.free, started: true, ...extra });
   if (!id) return { plan: 'none', ...PLANS.free, started: false };
   if (ADMIN_ID && String(id) === ADMIN_ID) return out('vip', { op: true });
@@ -54,7 +54,7 @@ function readOnlyIds(items, P) {
   return new Set([...items].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(P.ls).map(x => x.id));
 }
 async function isPro(id) { return (await planOf(id)).adv; }
-const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
+export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {
   b = b || {};
@@ -69,7 +69,7 @@ function cleanBk(b) {
 // ---------- 리얼맵 매물 광고 (중개사 매물 → 지도 노출) ----------
 // 공개 목록은 한 덩어리 해시 realmap:pub { '<회원id>:<매물id>': 공개용 요약 JSON } — 호수·소유자 연락처·메모는 절대 넣지 않습니다.
 // 시범 운영: 운영자만 게시 가능. 환경변수 PUB_OPEN=1 이면 중개사 정보를 입력한 PRO 회원 모두 게시 가능.
-const PUB_KEY = 'realmap:pub';
+export const PUB_KEY = 'realmap:pub';
 const PUB_DAYS = 30;
 const RESID = ['아파트', '빌라', '오피스텔', '주택'];
 const canPub = id => (ADMIN_ID && String(id) === ADMIN_ID) || process.env.PUB_OPEN === '1';
@@ -131,12 +131,12 @@ function pubSummary(uid, x, bk) {
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
-    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '' },
+    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified },
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
   };
 }
 // 매물장이 바뀔 때마다 공개 목록을 맞춥니다: 진행 중 + 게시 + 필수 항목 완비 → 올림, 아니면 내림
-async function syncPub(uid, items, bk, P) {
+export async function syncPub(uid, items, bk, P) {
   const set = [], del = [], now = new Date().toISOString();
   // 요금제 광고 한도: 먼저 게시한 순서대로 남기고, 넘치는 것은 내림 (무료로 내려갔을 때 등)
   const cap = P ? P.ad : 1e9;
@@ -163,7 +163,17 @@ function cleanAd(a) {
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
     mgmtT: a.mgmtT === 'fix' ? 'fix' : 'avg', mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60) };
 }
-async function loadBk(uid) { try { const v = await redis(['GET', `realmap:bk:${uid}`]); return v ? JSON.parse(v) : null; } catch { return null; } }
+// 중개사 명단·통계 (관리 페이지용): realmap:brokers 집합, realmap:bstat:<id> { n, pub, up }
+export async function brokerStat(uid, items) {
+  const now = new Date().toISOString();
+  try { await pipe([['SADD', 'realmap:brokers', String(uid)], ['SET', `realmap:bstat:${uid}`, JSON.stringify({ n: items.length, on: items.filter(x => x.status === 'on').length, pub: items.filter(x => x.pub && x.pub.on && x.status === 'on' && x.pub.exp > now).length, up: now })]]); } catch { /* 통계 실패는 무시 */ }
+}
+// 중개사 서비스 데이터 지우기 (중개사 해지 · 회원 탈퇴 공용) — 일반 회원 정보는 그대로
+async function dropBroker(uid) {
+  try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); const f = ls.map(x => `${uid}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
+  await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
+}
+export async function loadBk(uid) { try { const v = await redis(['GET', `realmap:bk:${uid}`]); return v ? JSON.parse(v) : null; } catch { return null; } }
 
 function origin(req) {
   const host = req.headers['x-forwarded-host'] || req.headers.host;
@@ -403,9 +413,12 @@ export default async function (req, res) {
       let P = await planOf(s.id);
       if (!P.started) {
         const now = Date.now();
-        await redis(['SET', `realmap:plan:${s.id}`, JSON.stringify({ plan: 'trial', until: new Date(now + TRIAL_DAYS * 86400e3).toISOString(), trialUsed: true, at: new Date(now).toISOString() })]);
+        // 중개사 서비스를 해지했다가 다시 시작하면 체험 없이 무료로 시작
+        const used = await redis(['SISMEMBER', 'realmap:trialused', String(s.id)]).catch(() => 0);
+        await redis(['SET', `realmap:plan:${s.id}`, JSON.stringify(used ? { plan: 'free', trialUsed: true, at: new Date(now).toISOString() } : { plan: 'trial', until: new Date(now + TRIAL_DAYS * 86400e3).toISOString(), trialUsed: true, at: new Date(now).toISOString() })]);
         P = await planOf(s.id);
       }
+      await brokerStat(s.id, JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'));
       return send(res, 200, { ok: true, plan: planView(P), bk });
     }
     // 운영자: 요금제 직접 지정 (계좌이체 회원 등) — POST { uid, plan, days }
@@ -421,6 +434,7 @@ export default async function (req, res) {
       const days = Number(body.days) || 0;
       const prev = JSON.parse((await redis(['GET', `realmap:plan:${uid}`])) || 'null');
       await redis(['SET', `realmap:plan:${uid}`, JSON.stringify({ plan: body.plan, until: days ? new Date(Date.now() + days * 86400e3).toISOString() : null, trialUsed: true, at: new Date().toISOString(), by: 'op', prev: prev && prev.plan })]);
+      await redis(['SADD', 'realmap:brokers', uid]);
       return send(res, 200, { ok: true, plan: planView(await planOf(uid)) });
     }
 
@@ -436,6 +450,9 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
+      // 운영자가 확인한 등록번호는 사무소 명칭·등록번호가 그대로일 때만 유지
+      const prevBk = await loadBk(s.id);
+      if (prevBk && prevBk.verified && prevBk.regno === bk.regno && prevBk.office === bk.office) bk.verified = prevBk.verified;
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk, P); await redis(['SET', `realmap:ls:${s.id}`, JSON.stringify(ls)]); } catch { /* 다음 저장 때 반영 */ }
       return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
@@ -469,7 +486,7 @@ export default async function (req, res) {
         [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
         await redis(['SET', key, JSON.stringify(items)]);
       }
-      if (action === 'listings') return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id), plan: planView(P) });
+      if (action === 'listings') { await brokerStat(s.id, items); return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id), plan: planView(P) }); }
       if (req.query.op === 'photodel') { // 저장하지 않고 닫은 사진 정리 (저장된 매물에 쓰인 사진은 지우지 않음)
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
         const used = new Set(items.flatMap(x => (x.photos || []).map(p => p.url)));
@@ -561,7 +578,7 @@ export default async function (req, res) {
         if (x && x.pub && x.pub.on && x.status === 'on') { const miss = adMissing(x, bk); if (miss.length) { x.pub.on = false; warn = `필수 항목(${miss.join(', ')})이 빠져 리얼맵 지도에서 내렸습니다.`; } }
       }
       await redis(['SET', key, JSON.stringify(items)]);
-      try { const before = items.filter(i => i.pub && i.pub.on).length; await syncPub(s.id, items, bk, P); if (items.filter(i => i.pub && i.pub.on).length < before) await redis(['SET', key, JSON.stringify(items)]); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
+      try { const before = items.filter(i => i.pub && i.pub.on).length; await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); if (items.filter(i => i.pub && i.pub.on).length < before) await redis(['SET', key, JSON.stringify(items)]); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
       return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P) });
     }
 
@@ -608,14 +625,23 @@ export default async function (req, res) {
       return redirect(res, `${back}${sep}login=ok`, [cookie('rm_st', '', 0), cookie('rm_s', makeSession(me.id, nick), DAYS * 86400)]);
     }
 
+    // 중개사 서비스만 해지: 매물장·사진·지도 광고·중개사무소 정보·요금제를 지우고 일반 회원은 유지 (다시 시작하면 체험 없이 무료)
+    if (action === 'quit') {
+      if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (ADMIN_ID && s.id === ADMIN_ID) return fail(res, 400, 'op', '운영자 계정은 해지할 수 없습니다.');
+      await dropBroker(s.id);
+      await redis(['SADD', 'realmap:trialused', String(s.id)]);
+      return send(res, 200, { ok: true });
+    }
     if (action === 'withdraw') {
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id))); } catch { /* 무시 */ }
       try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['DEL', `realmap:cx:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]);
-        try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); const f = ls.map(x => `${s.id}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
-        await redis(['DEL', `realmap:bk:${s.id}`]); await redis(['DEL', `realmap:plan:${s.id}`]); await redis(['DEL', `realmap:ls:${s.id}`]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
+        await dropBroker(s.id); await redis(['SREM', 'realmap:trialused', String(s.id)]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });
     }

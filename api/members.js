@@ -3,7 +3,7 @@
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
 import { send, fail, MAX_KEYS, vworldData, cached, pool } from './_lib.js';
-import { readSession, redis, R_URL, R_TOKEN } from './auth.js';
+import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const ADMIN_PW = String(process.env.ADMIN_PASSWORD || '').trim();
@@ -18,6 +18,7 @@ export default async function (req, res) {
   if (s.id !== ADMIN_ID) return fail(res, 403, 'forbidden', '권한이 없습니다.');
   if (!ADMIN_PW) return fail(res, 500, 'no_password', 'Vercel 환경변수 ADMIN_PASSWORD 가 비어 있습니다.');
   if (!same(req.headers['x-admin-key'] || '', ADMIN_PW)) return fail(res, 401, 'password', '관리자 비밀번호가 맞지 않습니다.');
+  if (req.query.part === 'brokers') return brokers(req, res);
   try {
     const ids = (await redis(['SMEMBERS', 'realmap:users'])) || [];
     let rows = [];
@@ -95,4 +96,60 @@ async function guNames(daily) {
   }));
   codes.forEach((c, i) => { const sd = SIDO[c.slice(0, 2)] || ''; out[c] = rs[i].ok ? `${sd} ${rs[i].v}`.trim() : sd ? `${sd} (${c})` : c; });
   return out;
+}
+
+// ---------- 중개사 회원 관리 ----------
+//   GET  /api/members?part=brokers → { rows:[{ id, nickname, joined, last, bk, plan, stat }], pubs:[게시 중 광고] }
+//   POST /api/members?part=brokers { uid, op:'plan', plan, days } | { uid, op:'verify', on } | { uid, op:'unpubAll' } | { k:'회원id:매물id', op:'unpub' }
+const PLAN_NAMES = ['free', 'trial', 'basic', 'premium', 'vip'];
+async function brokers(req, res) {
+  try {
+    if (req.method === 'POST') {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const uid = String(body.uid || String(body.k || '').split(':')[0] || '').replace(/\D/g, '');
+      if (!uid) return fail(res, 400, 'uid', '회원 번호가 필요합니다.');
+      if (body.op === 'plan') {
+        if (!PLAN_NAMES.includes(body.plan)) return fail(res, 400, 'plan', '요금제를 확인해 주세요.');
+        const days = Math.max(0, Math.min(3660, Number(body.days) || 0));
+        const prev = JSON.parse((await redis(['GET', `realmap:plan:${uid}`])) || 'null');
+        await redis(['SET', `realmap:plan:${uid}`, JSON.stringify({ plan: body.plan, until: days ? new Date(Date.now() + days * 86400e3).toISOString() : null, trialUsed: true, at: new Date().toISOString(), by: 'op', prev: prev && prev.plan })]);
+        await redis(['SADD', 'realmap:brokers', uid]);
+      } else if (body.op === 'verify') {
+        const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
+        bk.verified = body.on ? new Date().toISOString() : false;
+        await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]);
+      } else if (body.op === 'unpub' || body.op === 'unpubAll') {
+        const items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]');
+        const lid = String(body.k || '').split(':')[1] || '';
+        const hit = items.filter(x => x.pub && x.pub.on && (body.op === 'unpubAll' || x.id === lid));
+        hit.forEach(x => { x.pub.on = false; x.pub.byOp = new Date().toISOString(); });
+        await redis(['SET', `realmap:ls:${uid}`, JSON.stringify(items)]);
+        const f = body.op === 'unpubAll' ? items.map(x => `${uid}:${x.id}`) : [`${uid}:${lid}`];
+        if (f.length) await redis(['HDEL', PUB_KEY, ...f]);
+        await brokerStat(uid, items);
+      } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+      // 공개 목록·통계 다시 맞춤
+      try { const items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); const P = await planOf(uid); await syncPub(uid, items, await loadBk(uid), P); await redis(['SET', `realmap:ls:${uid}`, JSON.stringify(items)]); await brokerStat(uid, items); } catch { /* 다음 저장 때 */ }
+    }
+    let ids = (await redis(['SMEMBERS', 'realmap:brokers'])) || [];
+    const legacy = (await redis(['SMEMBERS', 'realmap:pro'])) || [];
+    ids = [...new Set([...ids, ...legacy, ...(ADMIN_ID ? [ADMIN_ID] : [])].map(String))];
+    const rows = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const ch = ids.slice(i, i + 100);
+      const [us, bks, sts] = await Promise.all(['user', 'bk', 'bstat'].map(k => redis(['MGET', ...ch.map(id => `realmap:${k}:${id}`)]).catch(() => [])));
+      for (let k = 0; k < ch.length; k++) {
+        const j = v => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
+        const u = j(us && us[k]) || {}, P = await planOf(ch[k]);
+        rows.push({ id: ch[k], nickname: u.nickname || '', email: u.email || '', joined: u.joined || '', last: u.last || '', bk: j(bks && bks[k]), plan: planView(P), stat: j(sts && sts[k]) });
+      }
+    }
+    rows.sort((a, b) => String((b.stat && b.stat.up) || b.last).localeCompare(String((a.stat && a.stat.up) || a.last)));
+    const raw = (await redis(['HGETALL', PUB_KEY])) || [];
+    const arr = Array.isArray(raw) ? raw : Object.entries(raw).flat();
+    const pubs = [];
+    for (let i = 0; i < arr.length; i += 2) { try { const v = JSON.parse(arr[i + 1]); pubs.push({ k: v.k, office: v.bk && v.bk.office, kind: v.kind, ptype: v.ptype, price: v.price, deposit: v.deposit, rent: v.rent, pr: v.pr, addr: v.addr, bname: v.bname, at: v.at, chk: v.chk, exp: v.exp, pnu: v.pnu }); } catch { /* 건너뜀 */ } }
+    pubs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    return send(res, 200, { ok: true, rows, pubs });
+  } catch (e) { return fail(res, 502, 'storage', '중개사 정보를 읽지 못했습니다: ' + e.message); }
 }
