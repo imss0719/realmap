@@ -52,24 +52,28 @@ export function adMissing(x, bk) {
   if (!x.ptype) miss.push('매물 종류');
   const price = x.kind === 'sale' ? x.price : x.kind === 'jeonse' ? x.deposit : x.kind === 'wolse' ? x.rent : x.price && x.pr;
   if (!price) miss.push('가격');
-  if (x.ptype && x.ptype !== '토지') {
-    if (!a.tfl) miss.push('총 층수');
-    if (!a.fl) miss.push('해당 층');
-    if (x.kind !== 'presale' && !a.appr) miss.push('사용승인일');
-    if (!a.dir) miss.push('방향');
-    if (!a.movein) miss.push('입주 가능일');
-    if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
-    if (RESID.includes(x.ptype)) {
-      if (a.rooms == null || a.rooms === '') miss.push('방 수');
-      if (a.baths == null || a.baths === '') miss.push('욕실 수');
-      if (!x.mgmt && !a.nomgmt) miss.push('관리비');
-    }
+  if (x.ptype === '토지') { if (!a.use) miss.push('지목'); return miss; }
+  if (!x.ptype) return miss;
+  // 건축물: 국토부 고시 「중개대상물의 표시·광고 명시사항 세부기준」 제6조
+  if (x.kind !== 'presale' && !a.use) miss.push('건축물 용도');
+  if (!a.tfl) miss.push('총 층수');
+  if (!a.fl) miss.push('해당 층');
+  if (x.kind !== 'presale' && !a.appr) miss.push('사용승인일');
+  if (!a.dir) miss.push('방향');
+  if (!a.movein) miss.push('입주 가능일');
+  if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
+  if (RESID.includes(x.ptype)) {
+    if (a.rooms == null || a.rooms === '') miss.push('방 수');
+    if (a.baths == null || a.baths === '') miss.push('욕실 수');
+    if (!x.mgmt && !a.nomgmt) miss.push('관리비');
+    if (x.mgmt >= 10 && a.mgmtT === 'fix' && !(a.mgmtInc && a.mgmtInc.length)) miss.push('관리비 포함 항목');
   }
   return miss;
 }
 // 해당 층 → 공개용 표기 (정확한 층 또는 저·중·고층)
 function floorText(a) {
   const f = String(a.fl || '').trim(); if (!f) return '';
+  if (f === '전체') return '건물 전체';
   const under = /^(b|지하)/i.test(f), n = Number(f.replace(/\D/g, ''));
   if (a.flx !== 'lmh') return under ? `지하 ${n || ''}층`.replace(' 층', '층') : `${n || f}층`;
   if (under) return '지하';
@@ -85,7 +89,9 @@ function pubSummary(uid, x, bk) {
     area: x.area || null, ak: p0.land ? 'land' : p0.ak || 'ex', n: (x.places || []).length || 1,
     pnu: x.pnu, lat: x.lat, lng: x.lng, addr: x.addr, road: x.road || '', bname: x.bname || '',
     dong: x.ptype === '아파트' || x.ptype === '오피스텔' ? (p0.dong || '') : '',   // 호수는 공개하지 않음
-    flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
+    flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', dirB: RESID.includes(x.ptype) ? '주실 기준' : '주출입구 기준', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
+    use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
+    biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
     bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel },
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
@@ -105,10 +111,15 @@ async function syncPub(uid, items, bk) {
 function cleanAd(a) {
   a = a || {};
   const t = (v, n) => String(v ?? '').replace(/[<>"]/g, '').trim().slice(0, n);
-  const int = v => { const x = parseInt(String(v ?? '').replace(/\D/g, ''), 10); return Number.isFinite(x) ? Math.min(x, 999) : null; };
+  const int = v => { const x = parseInt(String(v ?? '').replace(/\D/g, ''), 10); return Number.isFinite(x) ? Math.min(x, 99999) : null; };
   const DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
+  const MGI = ['gen', 'elec', 'water', 'gas', 'heat', 'net', 'tv', 'etc'];
+  const WCS = ['내부 전용', '내부 공용', '외부 공용', '외부 전용'];
   return { fl: t(a.fl, 8), tfl: int(a.tfl), flx: a.flx === 'lmh' ? 'lmh' : 'exact', dir: DIRS.includes(a.dir) ? a.dir : '', rooms: int(a.rooms), baths: int(a.baths),
-    movein: t(a.movein, 20), park: t(a.park, 20), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300) };
+    movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
+    use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
+    biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
+    mgmtT: a.mgmtT === 'fix' ? 'fix' : 'avg', mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60) };
 }
 async function loadBk(uid) { try { const v = await redis(['GET', `realmap:bk:${uid}`]); return v ? JSON.parse(v) : null; } catch { return null; } }
 
