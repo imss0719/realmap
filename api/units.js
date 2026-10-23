@@ -47,12 +47,13 @@ export default handler(async (req, res) => {
 
   // 단지 전체 동·호를 앞쪽부터 차례로 받기 (단지 모드가 여러 번 불러 쌓으면서, 다 받은 동부터 화면에 엽니다)
   //   GET /api/units?pnu=...&scan=1&from=1 → { total, pages, next, done, items:[쪽 순서대로] }
-  //   한 번에 9초 안에서 받을 수 있는 만큼만 (받은 쪽은 이틀 저장 → 끊겨도 이어받기). 다 받으면 동별 목록을 저장하고 '완료' 표시
+  //   한 번에 1.5~2.5초 안에서 받을 수 있는 만큼만 (받은 쪽은 이틀 저장 → 끊겨도 이어받기). 다 받으면 동별 목록을 저장하고 '완료' 표시
   if (req.query.scan) {
     const from = Math.max(1, parseInt(req.query.from, 10) || 1);
     const doneKey = `rmc:unitsd3:${P.pnu}:__all`;
     if (from === 1) { try { const d = await rcmd(['GET', doneKey]); if (d) return send(res, 200, { ok: true, done: true, cached: true, dongs: JSON.parse(d) }); } catch { /* 처음부터 받기 */ } }
-    const t0 = Date.now(), BUDGET = 9000;
+    // 잘게 나눠 보내야 화면에서 동이 차례로 켜집니다: 첫 응답 1.5초, 그다음 2.5초 분량씩 (전체 시간은 거의 같음)
+    const t0 = Date.now(), BUDGET = from === 1 ? 1500 : 2500;
     const slim = it => it.map(r => ({ dongNm: r.dongNm, hoNm: r.hoNm, flrNo: r.flrNo, flrGbCdNm: r.flrGbCdNm }));
     const pkey = p => `unitsp:${P.pnu}:*:${p}`;
     let next0 = 0;
