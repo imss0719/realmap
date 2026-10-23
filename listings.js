@@ -136,18 +136,19 @@
     ['area', '면적', x => x.area ? `${(x.area / 3.3058).toFixed(1)}평<small>${x.area}㎡</small>` : '', x => x.area || 0],
     ['price', '가격', x => `<b>${esc(priceText(x))}</b>`, x => mainP(x) || 0],
     ['status', '상태', x => `<span class="st ${x.status}">${STAT[x.status]}</span>`, x => x.status],
+    ['pub', '리얼맵', x => pubLive(x) ? `<span class="pb on" title="${ymd(x.pub.exp)}까지 게시">게시 중</span>` : isPub(x) ? '<span class="pb ex">기간 만료</span>' : '<span class="pb">미등록</span>', x => pubLive(x) ? 2 : isPub(x) ? 1 : 0],
     ['at', '등록일', x => ymd(x.at).slice(2), x => x.at || ''],
     ['phone', '연락처', x => { const c = (x.contacts && x.contacts[0]) || { name: x.owner, phone: x.phone }; return c && (c.name || c.phone) ? `${esc(c.name || '')}<small>${esc(c.phone || '')}</small>` : ''; }, x => (x.contacts && x.contacts[0] && x.contacts[0].name) || x.owner || '', 1],
     ['mgmt', '관리비', x => x.mgmt ? shortWon(x.mgmt) : '', x => x.mgmt || 0, 1],
     ['memo', '메모', x => `<span class="mm">${esc(x.memo || '')}</span>`, x => x.memo || '', 1],
   ];
-  const GRP = { '': '묶지 않음', bname: '단지·건물별', hood: '동네별', kind: '거래별', status: '상태별', ptype: '유형별' };
-  const gkey = x => LV.grp === 'bname' ? (x.bname || '이름 없음') : LV.grp === 'hood' ? (hood(x) || '동네 미상') : LV.grp === 'kind' ? KIND[x.kind] : LV.grp === 'status' ? STAT[x.status] : LV.grp === 'ptype' ? (x.ptype || '유형 미입력') : '';
+  const GRP = { '': '묶지 않음', bname: '단지·건물별', hood: '동네별', kind: '거래별', status: '상태별', ptype: '유형별', pub: '리얼맵 등록별' };
+  const gkey = x => LV.grp === 'bname' ? (x.bname || '이름 없음') : LV.grp === 'hood' ? (hood(x) || '동네 미상') : LV.grp === 'kind' ? KIND[x.kind] : LV.grp === 'status' ? STAT[x.status] : LV.grp === 'ptype' ? (x.ptype || '유형 미입력') : LV.grp === 'pub' ? (pubLive(x) ? '리얼맵 게시 중' : isPub(x) ? '게시 기간 만료' : '리얼맵 미등록') : '';
   function drawLv() {
     const box = $('lv'); if (!box || box.hidden) return;
     const cols = COLS.filter(c => !c[4] || LV.cols.includes(c[0]));
     const rows = filtered();
-    const col = COLS.find(c => c[0] === LV.sort) || COLS[8];
+    const col = COLS.find(c => c[0] === LV.sort) || COLS.find(c => c[0] === 'at');
     rows.sort((a, b) => { const A = col[3](a), B = col[3](b); return (typeof A === 'number' && typeof B === 'number' ? A - B : String(A).localeCompare(String(B), 'ko', { numeric: true })) * LV.dir; });
     const groups = new Map(); rows.forEach(x => { const k = gkey(x); (groups.get(k) || groups.set(k, []).get(k)).push(x); });
     const avg = list => { const by = {}; list.forEach(x => { const p = mainP(x); if (p) (by[x.kind] || (by[x.kind] = [])).push(p); }); return Object.entries(by).map(([k, v]) => `${KIND[k]} ${v.length} · 평균 ${shortWon(Math.round(v.reduce((a, b) => a + b, 0) / v.length))}`).join(' / '); };
