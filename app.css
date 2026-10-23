@@ -563,3 +563,4 @@ a.favbtn{text-decoration:none}
 .lviol{background:#C92A2A;color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px}
 .lbtn .lcopy{background:#fff;color:#14212E;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
 .lbtn{flex-wrap:wrap;justify-content:flex-end}
+.lver{display:inline-block;margin-left:6px;font-size:11px;font-weight:800;color:#1F7A4D;background:#E7F5EC;border-radius:6px;padding:2px 6px;vertical-align:1px}

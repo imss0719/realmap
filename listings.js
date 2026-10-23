@@ -953,7 +953,13 @@
       ${f('office', '중개사무소 명칭', '리얼워커스공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 마포구 신촌로34길 39')}
       <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
       <div class="two">${f('tel', '사무소 전화', '02-000-0000', 'tel')}${f('mobile', '휴대폰 (문자 받을 번호)', '010-0000-0000', 'tel')}</div>
-      <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>`;
+      <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>
+      ${S.bk && !(S.plan && S.plan.op) ? '<div style="margin-top:28px;border-top:1px solid var(--line);padding-top:16px;font-size:14px;color:var(--muted)">중개사 서비스를 그만두시려면 <button type="button" id="bQuit" style="border:0;background:none;color:#C92A2A;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;padding:0">중개사 서비스 해지</button><br>매물장·사진·지도 광고·중개사무소 정보가 모두 지워지고, 일반 회원(관심 부동산 등)은 그대로 남습니다.</div>' : ''}`;
+    if ($('bQuit')) $('bQuit').onclick = async () => {
+      if (!confirm('중개사 서비스를 해지할까요?\n\n매물장의 매물·사진·지도 광고·중개사무소 정보가 모두 지워지며 되돌릴 수 없습니다.\n먼저 [엑셀로 저장]으로 매물을 받아 두시길 권합니다.')) return;
+      if (prompt("정말 해지하시려면 '해지'라고 입력해 주세요.") !== '해지') return toast('해지를 취소했습니다');
+      try { await api('/api/auth?action=quit', post({})); alert('중개사 서비스를 해지했습니다. 이용해 주셔서 감사합니다.'); location.href = '/'; } catch (e) { toast(e.message, 4000); }
+    };
     $('bSave').onclick = async () => {
       const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
       $('bSave').disabled = true;

@@ -2598,7 +2598,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         ${lsCompare(x)}
         ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
         <dl class="lfacts">${f.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}<dt>소재지</dt><dd>${esc(x.addr)}</dd></dl>
-        <div class="lbk"><div><b>${esc(x.bk.office)}</b><small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
+        <div class="lbk"><div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
           <div class="lbtn">${btns}</div></div>
         <div class="lft">등록 ${ymdS(x.at)} · 거래 가능 확인 ${ymdS(x.chk)} · <a href="mailto:realwalkers@naver.com?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>
       </div>`;

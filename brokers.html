@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>중개사 관리 · 리얼맵</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{--bg:#EEF1F4;--surface:#fff;--fg:#16202A;--muted:#5E6A77;--line:#DCE2E8;--soft:#F5F7F9;--gold:#F2B705;--ok:#1F7A3A;--warn:#B4231A}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all}
+main{max-width:1240px;margin:0 auto;padding:24px 16px 60px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+header h1{font-size:21px;margin:0}
+header nav{margin-left:auto;display:flex;gap:14px;font-size:14px}
+header nav a{color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+.card h2{margin:0 0 10px;font-size:17px;display:flex;align-items:center;gap:10px}
+.card h2 small{font-weight:600;color:var(--muted);font-size:13px}
+.card p{margin:0 0 12px;color:var(--muted);line-height:1.6;font-size:14px}
+input,select{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:9px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;background:#14212E;color:#fff;text-decoration:none;white-space:nowrap}
+.btn.kakao{background:#FEE500;color:#191919}
+.btn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+.btn.sm{padding:6px 11px;font-size:12px}
+.btn.red{background:#fff;color:var(--warn);border:1px solid #F1C0BB}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.err{color:var(--warn);font-size:14px;margin-top:10px}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat span{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.stat b{display:block;font-size:26px;margin-top:4px}
+.stat.hl{background:#FFF8DD;border-color:#F2D77A}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.tools .sp{flex:1}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--muted);font-weight:700;font-size:12px;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 8px;border-bottom:1px solid #EEF1F4;vertical-align:top}
+td b{font-size:14px}
+td small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.pl{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+.pl.trial{background:#FFF1BF;color:#7A5A00}.pl.free{background:#F1F3F5;color:#5E6A77}.pl.basic{background:#E3EDFF;color:#1C4FA8}.pl.premium,.pl.vip{background:#EDE4FF;color:#5B34B0}
+.vf{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;margin-left:4px;background:#E2F4E9;color:var(--ok)}
+.soon{color:var(--warn);font-weight:800}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.empty{color:var(--muted);text-align:center;padding:30px 0}
+dialog{border:0;border-radius:16px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog h3{margin:0 0 6px}
+dialog p{color:var(--muted);font-size:14px;margin:0 0 14px}
+dialog .row{margin-top:10px}
+@media (max-width:800px){.stats{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>중개사 관리</h1><nav><a href="/members.html">회원 관리</a><a href="/pro.html" target="_blank">소개 페이지</a><a href="/">리얼맵</a></nav></header>
+<div id="app"><div class="card"><p>확인하는 중입니다…</p></div></div>
+</main>
+<dialog id="dlg"><h3 id="dTitle">요금제 변경</h3><p id="dSub"></p>
+  <div class="row"><select id="dPlan"><option value="basic">Basic</option><option value="trial">2주 무료 체험</option><option value="free">무료</option><option value="premium">Premium</option><option value="vip">VIP</option></select>
+  <select id="dDays"><option value="31">1개월</option><option value="92">3개월</option><option value="183">6개월</option><option value="366">12개월 (연간)</option><option value="14">14일</option><option value="0">기한 없음</option></select></div>
+  <p style="margin-top:12px;font-size:12px">입금을 확인한 뒤 바꿔 주세요. 기간은 오늘부터 계산합니다.</p>
+  <div class="row" style="justify-content:flex-end"><button class="btn ghost" type="button" id="dNo">취소</button><button class="btn" type="button" id="dOk">적용</button></div></dialog>
+<script>
+(function () {
+  const app = document.getElementById('app');
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const d8 = s => s ? new Date(s).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\s/g, '').replace(/\.$/, '') : '-';
+  const left = s => s ? Math.ceil((new Date(s) - Date.now()) / 864e5) : null;
+  const man = v => !v ? '' : v >= 10000 ? (v / 10000).toFixed(v % 10000 ? 1 : 0).replace(/\.0$/, '') + '억' : v.toLocaleString() + '만';
+  let pw = ''; try { pw = sessionStorage.getItem('rm.adm') || ''; } catch (e) { /* 무시 */ }
+  let data = null, q = '', fp = '';
+
+  fetch('/api/auth?action=me').then(r => r.json()).then(me => { if (!me.member) return login(); pw ? load() : askPw(); })
+    .catch(() => { app.innerHTML = '<div class="card"><p>상태를 확인하지 못했습니다. 잠시 후 새로고침해 주세요.</p></div>'; });
+  function login() { app.innerHTML = `<div class="card"><h2>운영자 로그인</h2><p>운영자 카카오 계정으로 로그인해 주세요.</p><a class="btn kakao" href="/auth/login?r=${encodeURIComponent('/brokers.html')}">카카오로 로그인</a></div>`; }
+  function askPw(msg) {
+    app.innerHTML = `<div class="card"><h2>관리자 비밀번호</h2><p>회원 관리와 같은 비밀번호입니다.</p><form class="row" id="f"><input type="password" id="pw" autocomplete="current-password" placeholder="관리자 비밀번호" required><button class="btn" type="submit">확인</button></form>${msg ? `<p class="err">${esc(msg)}</p>` : ''}</div>`;
+    document.getElementById('f').onsubmit = e => { e.preventDefault(); pw = document.getElementById('pw').value; try { sessionStorage.setItem('rm.adm', pw); } catch (x) { /* 무시 */ } load(); };
+    document.getElementById('pw').focus();
+  }
+  async function call(body) {
+    const r = await fetch('/api/members?part=brokers', { method: body ? 'POST' : 'GET', headers: { 'x-admin-key': pw, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({ ok: false, message: '서버 응답을 읽지 못했습니다. api 폴더의 members.js·auth.js가 최신인지 확인해 주세요.' }));
+    return j;
+  }
+  async function load(body) {
+    if (!data) app.innerHTML = '<div class="card"><p>중개사 목록을 불러오는 중입니다…</p></div>';
+    const j = await call(body);
+    if (j.error === 'login') return login();
+    if (j.error === 'password') { try { sessionStorage.removeItem('rm.adm'); } catch (e) { /* 무시 */ } return askPw('비밀번호가 맞지 않습니다.'); }
+    if (!j.ok) { if (body) return alert(j.message || '처리하지 못했습니다.'); app.innerHTML = `<div class="card"><h2>열 수 없습니다</h2><p>${esc(j.message || '오류가 발생했습니다.')}</p></div>`; return; }
+    data = j; draw();
+  }
+  function draw() {
+    const R = data.rows, cnt = p => R.filter(r => r.plan.plan === p).length;
+    const week = Date.now() - 7 * 864e5;
+    const soon = R.filter(r => r.plan.plan === 'trial' && left(r.plan.until) <= 3);
+    const rows = R.filter(r => (!fp || r.plan.plan === fp || (fp === 'paid' && ['basic', 'premium', 'vip'].includes(r.plan.plan) && !r.plan.op))
+      && (!q || JSON.stringify([r.nickname, r.bk]).toLowerCase().includes(q.toLowerCase())));
+    app.innerHTML = `
+    <div class="stats">
+      <div class="stat"><span>중개사 회원</span><b>${R.filter(r => !r.plan.op).length}</b></div>
+      <div class="stat"><span>체험 중</span><b>${cnt('trial')}</b></div>
+      <div class="stat hl"><span>유료 (Basic 이상)</span><b>${R.filter(r => ['basic', 'premium', 'vip'].includes(r.plan.plan) && !r.plan.op).length}</b></div>
+      <div class="stat"><span>무료</span><b>${cnt('free')}</b></div>
+      <div class="stat"><span>체험 3일 안에 끝남</span><b class="${soon.length ? 'soon' : ''}">${soon.length}</b></div>
+      <div class="stat"><span>지도 광고 게시 중</span><b>${data.pubs.length}</b></div>
+    </div>
+    <div class="card"><h2>중개사 회원 <small>${rows.length}명 · 최근 활동 순</small></h2>
+      <div class="tools"><input type="search" id="q" placeholder="사무소명·대표·등록번호·전화로 찾기" value="${esc(q)}" style="width:260px">
+        <select id="fp"><option value="">전체 요금제</option><option value="trial">체험 중</option><option value="free">무료</option><option value="paid">유료</option></select>
+        <span class="sp"></span><button class="btn ghost" type="button" id="csv">엑셀로 저장</button><button class="btn ghost" type="button" id="re">새로 고침</button></div>
+      <div class="tw"><table><thead><tr><th>중개사무소</th><th>등록번호</th><th>연락처</th><th>요금제</th><th>매물 · 광고</th><th>가입 · 최근</th><th></th></tr></thead><tbody>
+      ${rows.map(r => { const b = r.bk || {}, P = r.plan, st = r.stat || {}, L = left(P.until);
+        return `<tr><td><b>${esc(b.office || '(사무소 정보 없음)')}</b>${b.verified ? '<span class="vf">확인됨</span>' : ''}<small>대표 ${esc(b.ceo || '-')} · 카카오 ${esc(r.nickname || '-')}</small><small>${esc(b.addr || '')}</small></td>
+          <td>${esc(b.regno || '-')}</td>
+          <td>${esc(b.tel || '-')}<small>${esc(b.mobile || '')}</small></td>
+          <td><span class="pl ${P.plan}">${P.op ? '운영자' : esc(P.name || P.plan)}</span>${P.until ? `<small class="${P.plan === 'trial' && L <= 3 ? 'soon' : ''}">${d8(P.until)}까지${L != null ? ` (${L >= 0 ? 'D-' + L : '지남'})` : ''}</small>` : ''}${P.ended ? `<small>${P.ended === 'trial' ? '체험 끝남' : esc(P.ended) + ' 끝남'}</small>` : ''}</td>
+          <td>매물 ${st.n ?? '-'}<small>진행 ${st.on ?? '-'} · 광고 ${st.pub ?? 0}</small></td>
+          <td>${d8(r.joined)}<small>${d8(st.up || r.last)}</small></td>
+          <td><div class="acts">${P.op ? '' : `<button class="btn sm" data-plan="${r.id}">요금제</button>`}${b.office ? `<button class="btn sm ghost" data-vf="${r.id}" data-on="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : '등록번호 확인'}</button>` : ''}${st.pub ? `<button class="btn sm red" data-off="${r.id}">광고 전체 내리기</button>` : ''}</div></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">아직 중개사 회원이 없습니다.</td></tr>'}
+      </tbody></table></div>
+      <p style="margin-top:12px;font-size:12.5px">등록번호 확인: 국가공간정보포털(부동산중개업 조회)이나 구청 자료로 사무소명·대표·등록번호가 맞는지 보신 뒤 눌러 주세요. 확인된 사무소는 지도 광고에 '등록번호 확인' 표시가 붙습니다.</p></div>
+    <div class="card"><h2>지도에 게시 중인 광고 <small>${data.pubs.length}건 · 허위매물 신고가 들어오면 여기서 내립니다</small></h2>
+      <div class="tw"><table><thead><tr><th>매물</th><th>가격</th><th>중개사무소</th><th>게시 · 확인 · 만료</th><th></th></tr></thead><tbody>
+      ${data.pubs.map(p => `<tr><td><b>${esc(p.bname || '')}</b> ${esc(p.ptype || '')}<small>${esc(p.addr || '')}</small></td>
+        <td>${p.kind === 'wolse' ? `${man(p.deposit) || 0}/${p.rent || ''}` : esc(man(p.kind === 'jeonse' ? p.deposit : p.kind === 'presale' ? (p.price || 0) + (p.pr || 0) : p.price))}<small>${({ sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' })[p.kind] || ''}</small></td>
+        <td>${esc(p.office || '')}<small>${esc(p.k)}</small></td>
+        <td>${d8(p.at)}<small>확인 ${d8(p.chk)} · 만료 ${d8(p.exp)}</small></td>
+        <td><div class="acts"><a class="btn sm ghost" href="/?pnu=${esc(p.pnu)}&lst=1" target="_blank">지도</a><button class="btn sm red" data-unpub="${esc(p.k)}">내리기</button></div></td></tr>`).join('') || '<tr><td colspan="5" class="empty">게시 중인 광고가 없습니다.</td></tr>'}
+      </tbody></table></div></div>`;
+    const qi = document.getElementById('q'); qi.oninput = () => { q = qi.value; const pos = qi.selectionStart; draw(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos, pos); };
+    document.getElementById('fp').value = fp; document.getElementById('fp').onchange = e => { fp = e.target.value; draw(); };
+    document.getElementById('re').onclick = () => load();
+    document.getElementById('csv').onclick = () => csv(rows);
+    app.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => planDlg(R.find(r => r.id === b.dataset.plan)));
+    app.querySelectorAll('[data-vf]').forEach(b => b.onclick = () => { if (confirm(b.dataset.on ? '이 사무소의 등록번호를 확인했다고 표시할까요?' : '확인 표시를 취소할까요?')) load({ uid: b.dataset.vf, op: 'verify', on: !!b.dataset.on }); });
+    app.querySelectorAll('[data-off]').forEach(b => b.onclick = () => { if (confirm('이 중개사의 지도 광고를 모두 내릴까요? (매물장 자료는 그대로)')) load({ uid: b.dataset.off, op: 'unpubAll' }); });
+    app.querySelectorAll('[data-unpub]').forEach(b => b.onclick = () => { if (confirm('이 광고를 지도에서 내릴까요?')) load({ k: b.dataset.unpub, op: 'unpub' }); });
+  }
+  function planDlg(r) {
+    const dlg = document.getElementById('dlg');
+    document.getElementById('dSub').textContent = `${(r.bk && r.bk.office) || r.nickname} · 지금 ${r.plan.name || r.plan.plan}`;
+    document.getElementById('dPlan').value = ['basic', 'premium', 'vip', 'free', 'trial'].includes(r.plan.plan) && r.plan.plan !== 'free' ? r.plan.plan : 'basic';
+    document.getElementById('dNo').onclick = () => dlg.close();
+    document.getElementById('dPlan').onchange = e => { document.getElementById('dDays').value = e.target.value === 'free' ? '0' : e.target.value === 'trial' ? '14' : '31'; };
+    document.getElementById('dOk').onclick = async () => { const plan = document.getElementById('dPlan').value, days = +document.getElementById('dDays').value; dlg.close(); await load({ uid: r.id, op: 'plan', plan, days }); };
+    dlg.showModal();
+  }
+  function csv(rows) {
+    const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const head = ['중개사무소', '대표', '등록번호', '확인', '사무소 전화', '휴대폰', '소재지', '요금제', '기한', '매물', '광고', '가입일', '최근 활동', '카카오 닉네임'];
+    const body = rows.map(r => { const b = r.bk || {}, st = r.stat || {}; return [b.office, b.ceo, b.regno, b.verified ? 'O' : '', b.tel, b.mobile, b.addr, r.plan.op ? '운영자' : r.plan.name, r.plan.until ? d8(r.plan.until) : '', st.n ?? '', st.pub ?? '', d8(r.joined), d8(st.up || r.last), r.nickname].map(qq).join(','); });
+    const blob = new Blob(['﻿' + [head.map(qq).join(','), ...body].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `리얼맵_중개사회원_${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  }
+})();
+</script>
+</body>
+</html>
