@@ -5,7 +5,8 @@ import { handler, send, need, dataGoKr, dataGoKrAll, vworldNed, settle, splitPnu
 
 const HUB = 'https://apis.data.go.kr/1613000/BldRgstHubService/';
 const norm = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/(동|호)$/, '').toUpperCase();
-const sameTok = (a, b) => { a = norm(a); b = norm(b); if (a === b) return true; const da = a.replace(/\D/g, ''), db = b.replace(/\D/g, ''); return !!da && da === db; };
+// 숫자만 같으면 같은 것으로 보되, 'T402'처럼 영문이 붙은 동·호는 '402'와 구분
+const sameTok = (a, b) => { a = norm(a); b = norm(b); if (a === b) return true; if (/[A-Z]/.test(a) || /[A-Z]/.test(b)) return false; const da = a.replace(/\D/g, ''), db = b.replace(/\D/g, ''); return !!da && da === db; };
 
 export default handler(async (req, res) => {
   if (!need(res, [DATA_KEY, 'DATA_GO_KR_KEY'])) return;
@@ -45,7 +46,7 @@ export default handler(async (req, res) => {
   if (!ho && dong) {
     const D = String(dong).trim();
     let partial = false;
-    const list = await cached(`unitsd2:${P.pnu}:${D}`, 24 * 3600e3, async () => {
+    const list = await cached(`unitsd3:${P.pnu}:${D}`, 24 * 3600e3, async () => {
       const tries = [...new Set([D, D.replace(/동$/, ''), /동$/.test(D) ? '' : D + '동', D.replace(/^제/, '')].filter(Boolean))];
       for (const nm of tries) {
         const r = await expos({ ...q, dongNm: nm }, 16000);
@@ -54,7 +55,7 @@ export default handler(async (req, res) => {
         if (!r.partial && r.items.length > rows.length * 1.5 + 20) {
           const all = groupByDong(r.items);
           await Promise.all([...all.entries()].filter(([dn]) => dn && !sameTok(dn, D)).slice(0, 120)
-            .map(([dn, g]) => cached(`unitsd2:${P.pnu}:${dn}`, 24 * 3600e3, async () => sortU([...g.values()])).catch(() => null)));
+            .map(([dn, g]) => cached(`unitsd3:${P.pnu}:${dn}`, 24 * 3600e3, async () => sortU([...g.values()])).catch(() => null)));
         }
         if (rows.length) {
           const g = groupByDong(rows), out = sortU([...[...g.values()].flatMap(m => [...m.values()])]);
