@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const KIND = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
-  const STAT = { on: '진행 중', hold: '보류', done: '계약 완료' };
+  const STAT = { on: '진행 중', hold: '보류', done: '거래완료' };
   const PTYPES = ['아파트', '빌라', '오피스텔', '주택', '상가', '사무실', '건물', '공장·창고', '토지', '기타'];
   const S = { me: null, items: [], tab: 'on', kind: 'all', q: '', map: null, pins: new Map(), hl: null, form: null, kakao: false };
 
@@ -168,7 +168,7 @@
         <div class="lv-row"><label>묶어 보기 <select id="lvGrp">${Object.entries(GRP).map(([k, t]) => `<option value="${k}" ${LV.grp === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
           <span class="lv-cols">열 추가 ${COLS.filter(c => c[4]).map(c => `<label class="ck2"><input type="checkbox" data-col="${c[0]}" ${LV.cols.includes(c[0]) ? 'checked' : ''}>${c[1]}</label>`).join('')}</span>
           <span class="sp"></span><b class="cnt">${rows.length}건</b><button type="button" class="lnk" id="lvWide">${document.body.classList.contains('lvwide') ? '카드 다시 보기' : '넓게 보기'}</button></div>
-        ${sel.size ? `<div class="lv-row bulk"><b>${sel.size}건 선택</b><button type="button" data-bulk="on">진행 중으로</button><button type="button" data-bulk="hold">보류로</button><button type="button" data-bulk="done">계약 완료로</button><button type="button" id="lvCsv">선택만 엑셀</button><button type="button" class="lnk" id="lvUnsel">선택 해제</button></div>` : ''}
+        ${sel.size ? `<div class="lv-row bulk"><b>${sel.size}건 선택</b><button type="button" data-bulk="on">진행 중</button><button type="button" data-bulk="hold">보류</button><button type="button" data-bulk="done">거래완료</button><button type="button" id="lvCsv">선택만 엑셀</button><button type="button" class="lnk" id="lvUnsel">선택 해제</button></div>` : ''}
       </div>
       <div class="lv-t"><table><thead><tr><th class="ck"><input type="checkbox" id="lvAll" aria-label="모두 선택" ${rows.length && rows.every(x => sel.has(x.id)) ? 'checked' : ''}></th>${th}<th></th></tr></thead><tbody>${body || `<tr><td colspan="${cols.length + 2}" class="none">조건에 맞는 매물이 없습니다.</td></tr>`}</tbody></table></div></div>`;
     box.querySelectorAll('[data-sort]').forEach(h => h.onclick = () => { if (LV.sort === h.dataset.sort) LV.dir *= -1; else { LV.sort = h.dataset.sort; LV.dir = ['at', 'price', 'area'].includes(LV.sort) ? -1 : 1; } lvSave(); drawLv(); });
@@ -187,10 +187,10 @@
     box.querySelectorAll('[data-bulk]').forEach(b => b.onclick = async () => {
       const st = b.dataset.bulk, ids = [...sel].filter(id => (S.items.find(x => x.id === id) || {}).status !== st);
       if (!ids.length) return toast('이미 그 상태입니다');
-      if (!confirm(`${ids.length}건을 '${STAT[st]}'(으)로 바꿀까요?`)) return;
+      if (!confirm(`${ids.length}건을 '${STAT[st]}' 처리할까요?`)) return;
       let ok = 0;
       for (const id of ids) { try { took(await api('/api/auth?action=listing', post({ op: 'status', id, status: st }))); ok++; } catch (e) { toast(e.message, 3500); break; } }
-      LV.sel = []; draw(); toast(`${ok}건을 ${STAT[st]}(으)로 바꿨습니다`);
+      LV.sel = []; draw(); toast(`${ok}건을 '${STAT[st]}' 처리했습니다`);
     });
   }
 
@@ -233,19 +233,21 @@
       ${x.memo ? `<div class="memo">${esc(x.memo)}</div>` : ''}
       <div class="cbtns">
         <button type="button" data-edit="${x.id}">수정</button>
-        <button type="button" data-next="${x.id}">${x.status === 'on' ? '계약 완료로' : '진행 중으로'}</button>
+        <button type="button" data-next="${x.id}">${x.status === 'on' ? '거래완료' : '다시 진행'}</button>
         ${pubBtn(x)}
       </div>
       ${pubLine(x)}
-      <div class="meta" style="margin-top:8px;font-size:13px">등록 ${ymd(x.at)}${x.up !== x.at ? ' · 수정 ' + ymd(x.up) : ''} · <a href="/?pnu=${x.pnu}" target="_blank" rel="noopener" style="color:inherit">리얼맵 필지 정보</a></div>
+      <div class="meta" style="margin-top:8px;font-size:13px">등록 ${ymd(x.at)}${x.up !== x.at ? ' · 수정 ' + ymd(x.up) : ''} · <a href="/?pnu=${x.pnu}" target="_blank" rel="noopener" style="color:inherit">리얼맵 필지 정보</a><button type="button" class="brf" data-brief="${x.id}" title="이 매물로 손님용 브리핑 자료(A4 · PDF)를 만듭니다">브리핑</button></div>
     </div>`; }).join('');
     $('list').querySelectorAll('[data-view]').forEach(b => b.onclick = () => { const [id, i] = b.dataset.view.split(':'); const x = S.items.find(y => y.id === id); viewer(x.photos.map(p => p.url), +i); });
     $('list').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openForm(S.items.find(x => x.id === b.dataset.edit)));
     $('list').querySelectorAll('[data-next]').forEach(b => b.onclick = async () => {
       const x = S.items.find(i => i.id === b.dataset.next); const st = x.status === 'on' ? 'done' : 'on';
-      try { took(await api('/api/auth?action=listing', post({ op: 'status', id: x.id, status: st }))); draw(); toast(`${STAT[st]}(으)로 바꿨습니다`); } catch (e) { toast(e.message, 4000); }
+      try { took(await api('/api/auth?action=listing', post({ op: 'status', id: x.id, status: st }))); draw(); toast(`'${STAT[st]}' 처리했습니다`); } catch (e) { toast(e.message, 4000); }
     });
     $('list').querySelectorAll('[data-pub]').forEach(b => b.onclick = () => pubFlow(S.items.find(x => x.id === b.dataset.pub)));
+    $('list').querySelectorAll('[data-brief]').forEach(b => b.onclick = () => briefOf(S.items.find(x => x.id === b.dataset.brief)));
+    $('list').querySelectorAll('[data-share]').forEach(b => b.onclick = () => shareOf(S.items.find(x => x.id === b.dataset.share)));
     $('list').querySelectorAll('[data-renew]').forEach(b => b.onclick = () => pubOp(b.dataset.renew, 'renew'));
     $('list').querySelectorAll('[data-unpub]').forEach(b => b.onclick = () => { if (confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물장에는 그대로 남습니다)')) pubOp(b.dataset.unpub, 'unpub'); });
     $('list').querySelectorAll('.card').forEach(c => c.onclick = e => { if (e.target.closest('button,a')) return; focusItem(c.id.slice(2), false); });
@@ -847,7 +849,7 @@
     if (!isPub(x)) return '';
     const live = pubLive(x);
     return `<div class="publine${live ? '' : ' off'}"><span>${live ? `● 리얼맵 지도 게시 중 · ${ymd(x.pub.exp).slice(5)}까지 · 확인 ${ymd(x.pub.chk).slice(5)}` : '게시 기간이 끝났습니다 · 아직 거래 가능하면 다시 게시해 주세요'}</span>
-      ${live ? `<a href="/?pnu=${x.pnu}&lst=1" target="_blank" rel="noopener">지도에서 보기</a>` : ''}<button type="button" data-unpub="${x.id}">내리기</button></div>`;
+      ${live ? `<a href="/?pnu=${x.pnu}&lst=1" target="_blank" rel="noopener">지도에서 보기</a><button type="button" data-share="${x.id}">링크 공유</button>` : ''}<button type="button" data-unpub="${x.id}">내리기</button></div>`;
   }
   async function pubOp(id, op) {
     try { took(await api('/api/auth?action=listing', post({ op, id }))); draw();
@@ -864,14 +866,53 @@
     if (miss.length) { openForm(x); S.form.missing = miss; S.form.scrollAd = true; S.form.pubAfter = x.id; renderForm(true); return toast('광고에 필요한 항목을 채운 뒤 저장하고, 다시 리얼맵 등록을 눌러 주세요', 4500); }
     const a = x.ad || {};
     const fl = !a.fl ? '' : a.flx === 'lmh' ? '저·중·고층으로 표시' : `${a.fl}층 표시`;
-    if (!confirm(`리얼맵 지도에 이 매물을 30일 동안 올릴까요?\n\n공개: ${priceText(x)} · ${x.area ? x.area + '㎡' : ''}${fl ? ' · ' + fl : ''} · 사진 ${(x.photos || []).length}장\n중개사무소: ${S.bk.office} (${S.bk.tel})\n\n호수·소유자 연락처·메모는 공개되지 않습니다.\n계약 완료로 바꾸면 지도에서 자동으로 내려갑니다.`)) return;
+    if (!confirm(`리얼맵 지도에 이 매물을 30일 동안 올릴까요?\n\n공개: ${priceText(x)} · ${x.area ? x.area + '㎡' : ''}${fl ? ' · ' + fl : ''} · 사진 ${(x.photos || []).length}장\n중개사무소: ${S.bk.office} (전화 ${S.bk.tel}${S.bk.mobile ? ' · 문자 ' + S.bk.mobile : ''})\n\n호수·소유자 연락처·메모는 공개되지 않습니다.\n거래완료로 바꾸면 지도에서 자동으로 내려갑니다.`)) return;
     pubOp(x.id, 'pub');
+  }
+  // ---------- 손님용 매물 브리핑 (A4 · 인쇄/PDF) ----------
+  // 브리핑 편집기(briefing.html)는 필지 정보를 리얼맵 지도에서 받아 옵니다. 매물 내용은 미리 채워 두고 지도 창이 브리핑으로 넘어가게 합니다.
+  const manTx = v => { if (!v) return ''; const e = Math.floor(v / 10000), r = Math.round(v % 10000); return (e ? `${e}억` : '') + (r ? `${e ? ' ' : ''}${r.toLocaleString()}만` : ''); };
+  function briefOf(x) {
+    if (!x) return;
+    const a = x.ad || {}, p0 = (x.places && x.places[0]) || {}, pnu = x.pnu || p0.pnu;
+    if (!pnu) return toast('주소(필지)가 없는 매물이라 브리핑을 만들 수 없습니다');
+    const T = ['아파트', '빌라', '오피스텔'].includes(x.ptype) ? 'apt' : x.ptype === '토지' ? 'land' : 'bld';
+    const K = x.kind === 'jeonse' ? '전세' : x.kind === 'wolse' ? (T === 'land' ? '월세' : '월세') : '매매';
+    const dong = p0.dong ? (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동') : '';
+    const fl = a.fl && a.fl !== '전체' ? `${String(a.fl).replace(/^b/i, '지하 ')}층${a.tfl ? ' / ' + a.tfl + '층' : ''}` : '';
+    const rr = (x.rents || []).map(r => [r.label || '-', r.memo || '', r.deposit || 0, r.rent || 0].join(' / ')).join('\n');
+    const d = {
+      ptype: T, kind: K,
+      price: x.kind === 'presale' ? manTx((x.price || 0) + (x.pr || 0)) : x.kind === 'sale' ? manTx(x.price) : '',
+      jeonse: x.kind === 'jeonse' ? manTx(x.deposit) : '', deposit: x.kind === 'wolse' ? manTx(x.deposit) : '', rent: x.kind === 'wolse' ? manTx(x.rent) : '',
+      incDep: x.kind === 'sale' ? manTx(x.curDep) : '', incRent: x.kind === 'sale' ? manTx(x.curRent) : '',
+      fee: x.mgmt ? `${x.mgmt.toLocaleString()}만원` : a.nomgmt ? '없음' : '', moveIn: a.movein || '',
+      exArea: x.area ? `${x.area}㎡` : '', rooms: a.rooms != null && a.rooms !== '' ? `방${a.rooms}${a.baths != null && a.baths !== '' ? ' · 욕실' + a.baths : ''}` : '',
+      floor: fl, dir: a.dir || '', park: a.park || '', premium: x.premium ? manTx(x.premium) : '', rentroll: rr,
+      title: [x.bname || (x.addr || '').split(' ').slice(-1)[0], dong].filter(Boolean).join(' '), intro: (a.desc || '').split('\n')[0].slice(0, 80),
+    };
+    try {
+      const key = 'rm.bdraft:' + pnu, old = JSON.parse(localStorage.getItem(key) || '{}');
+      localStorage.setItem(key, JSON.stringify({ ...old, ...d, ...(old.show ? { show: { ...old.show, trade: true } } : {}) }));
+      localStorage.setItem('rm.bphotos:' + pnu, JSON.stringify((x.photos || []).slice(0, 4).map(p => p.url)));
+      if (S.bk) { const ag = JSON.parse(localStorage.getItem('rm.agent') || '{}'); localStorage.setItem('rm.agent', JSON.stringify({ ...ag, name: S.bk.office, ceo: S.bk.ceo, reg: S.bk.regno, tel: [S.bk.tel, S.bk.mobile].filter(Boolean).join(' · '), addr: S.bk.addr })); }
+    } catch { return toast('브라우저 저장 공간을 쓸 수 없어 브리핑을 만들지 못했습니다', 4000); }
+    const w = window.open(`/?pnu=${pnu}&brief=1`, '_blank');
+    if (!w) toast('팝업이 차단되었습니다. 이 사이트의 팝업을 허용해 주세요', 4000);
+    else toast('새 창에서 필지 정보를 모은 뒤 브리핑 화면으로 넘어갑니다', 3500);
+  }
+  // 리얼맵 지도에 게시한 매물: 손님에게 보낼 링크
+  async function shareOf(x) {
+    if (!x) return;
+    const url = `${location.origin}/?pnu=${x.pnu}&lst=1`, title = `[리얼맵] ${x.bname || x.addr} ${KIND[x.kind]} ${priceText(x)}`;
+    if (navigator.share && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) { try { await navigator.share({ title, text: title, url }); return; } catch { /* 취소 */ } }
+    try { await navigator.clipboard.writeText(`${title}\n${url}`); toast('링크를 복사했습니다. 카톡에 붙여 넣으세요'); } catch { prompt('이 링크를 복사해 주세요', url); }
   }
   function drawBk() {
     const el = $('bkLine'); if (!el) return;
     if (!S.canPub) { el.innerHTML = ''; return; }
     const n = S.items.filter(pubLive).length;
-    el.innerHTML = `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" id="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
+    el.innerHTML = `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건${S.bk.mobile ? '' : ' · <b style="color:#B4400B">문자 받을 휴대폰 번호를 넣어 주세요</b>'}</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" id="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
     $('bkEdit').onclick = () => openBk();
   }
   function openBk(then) {
@@ -883,10 +924,10 @@
     $('form').innerHTML = `<div class="meta" style="margin-bottom:12px">리얼맵 지도에 올린 매물마다 아래 정보가 함께 표시됩니다. (공인중개사법상 인터넷 광고 필수 표시 항목)</div>
       ${f('office', '중개사무소 명칭', '리얼워커스공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 마포구 신촌로34길 39')}
       <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
-      ${f('tel', '연락처', '02-000-0000', 'tel')}
+      <div class="two">${f('tel', '사무소 전화', '02-000-0000', 'tel')}${f('mobile', '휴대폰 (문자 받을 번호)', '010-0000-0000', 'tel')}</div>
       <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>`;
     $('bSave').onclick = async () => {
-      const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel'].map(k => [k, $('b_' + k).value.trim()]));
+      const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
       $('bSave').disabled = true;
       try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; closeForm(); draw(); toast('중개사무소 정보를 저장했습니다'); if (then) then(); }
       catch (e) { toast(e.message, 4000); $('bSave').disabled = false; }

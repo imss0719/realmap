@@ -44,6 +44,9 @@
   if (st.ptype === 'land' && st.kind === '전세') st.kind = '월세';
   if (!['auto', '43', '34', '11'].includes(st.ratio)) st.ratio = 'auto';
   st.photos = [];
+  // 매물장의 '브리핑' 버튼으로 왔으면 매물 사진(최대 4장)을 미리 넣어 둠
+  (() => { const k = 'rm.bphotos:' + D.pnu, urls = store.get(k, []); try { localStorage.removeItem(k); } catch { /* 무시 */ }
+    const got = []; (Array.isArray(urls) ? urls : []).slice(0, 4).forEach((u, i) => { if (!/^https:\/\//.test(u)) return; const im = new Image(); im.onload = () => { got[i] = { src: u, w: im.naturalWidth, h: im.naturalHeight }; st.photos = got.filter(Boolean); if (typeof drawPhotos === 'function' && $('photos')) { drawPhotos(); draw(); } }; im.src = u; }); })();
   st.agent = Object.assign({ name: '리얼워커스 공인중개사사무소', ceo: '', reg: '', tel: '', addr: '', logo: '' }, store.get('rm.agent', {}));
   st.loc = null; st.mapSrc = '';
   const saveDraft = () => { const { photos, agent, loc, mapSrc, ...d } = st; store.set(DRAFT, d); };

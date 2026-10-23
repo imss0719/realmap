@@ -126,6 +126,7 @@
     wireSearch();
 
     const qs = new URLSearchParams(location.search), pnu = qs.get('pnu'), qla = +qs.get('lat'), qln = +qs.get('lng');
+    if (pnu && qs.get('brief')) { S.autoBrief = true; toast('브리핑 자료를 만드는 중입니다…', 0); }
     if (pnu) pickPnu(pnu);
     else if (qla > 33 && qla < 39 && qln > 124 && qln < 132) { // 정비사업 안내 페이지 등에서 '지도에서 보기'
       S.map.setLevel(3); S.map.setCenter(new K.LatLng(qla, qln)); pick(qla, qln);
@@ -440,6 +441,11 @@
     $('locBtn').onclick = () => locGate(name);
     $('briefBtn').onclick = () => briefOpen(name);
     D.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => pickPnu(b.dataset.gp));
+    D.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy).then(() => toast(`${b.dataset.copy} 번호를 복사했습니다`), () => toast(b.dataset.copy)); });
+    // 매물장의 '브리핑' 버튼으로 열린 경우: 필지 정보가 다 모이면 이 창을 브리핑 화면으로 바꿈
+    if (S.autoBrief && S.d.land && S.d.bld && !S.seen.trade) { S.seen.trade = true; setTimeout(render, 0); } // 최근 실거래도 브리핑에 넣도록 불러오기 시작
+    if (S.autoBrief && !S.autoBriefT) S.autoBriefT = setTimeout(() => { S.autoBriefForce = true; render(); }, 9000);
+    if (S.autoBrief && S.d.land && S.d.bld && ((S.d.trades && !S.d.trades.loading) || S.autoBriefForce)) { S.autoBrief = false; if (S.me.ready && !S.me.member) loginModal('brief'); else { try { localStorage.setItem('rm.brief', JSON.stringify(briefData(name))); location.replace('/briefing.html'); } catch { toast('브리핑을 열지 못했습니다. 브리핑 버튼을 직접 눌러 주세요'); } } }
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
     const mf = D.querySelector('#moreF'); if (mf) mf.onclick = () => { S.floorsAll = true; render(); };
@@ -2468,6 +2474,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
 
   // ---------- 지도 위 매물 (중개사가 리얼맵에 게시한 광고) ----------
   // 실거래(진한 남색·거래 월)와 구분: 흰 바탕 + 노란 테두리 + 매매/전세/월세 표시. 레벨 6까지 건물별, 7~10은 동별 건수.
+  const IS_PHONE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
   const LKIND = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
   const LS = { on: true, items: [], ovs: new Map(), loaded: false, cmp: {} };
   const lsMain = x => x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || 0) + (x.pr || 0) : x.kind === 'jeonse' ? x.deposit : x.deposit || 0;
@@ -2587,7 +2594,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         x.appr && ['사용승인일', x.appr],
         !land && x.zone && ['용도지역', x.zone],
       ].filter(Boolean);
-      const tel = String(x.bk.tel || '').replace(/[^\d]/g, '');
+      const tel = String(x.bk.tel || '').replace(/[^\d]/g, ''), mob = String(x.bk.mobile || '').replace(/[^\d]/g, '');
+      const sms = `[리얼맵] ${x.bname || x.addr} ${LKIND[x.kind]} 매물(No. ${x.no}) 문의드립니다.`;
+      // 휴대폰: 누르면 바로 전화·문자 / PC: 번호만 보여 주고 누르면 복사
+      const btns = IS_PHONE
+        ? `${tel ? `<a href="tel:${tel}">전화</a>` : ''}${mob ? `<a href="sms:${mob}${/iPhone|iPad/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(sms)}">문자</a>` : ''}`
+        : `${x.bk.tel ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.tel)}">☎ ${esc(x.bk.tel)}</button>` : ''}${x.bk.mobile ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.mobile)}">📱 ${esc(x.bk.mobile)}</button>` : ''}`;
       return `<div class="lcard">
         ${x.photos.length ? `<div class="lph">${x.photos.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="매물 사진 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
         <div class="lhd"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${x.viol ? '<b class="lviol">위반건축물</b>' : ''}<span>${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}${x.bname ? ' · ' + esc(x.bname) : ''}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}</span>${x.no ? `<small>No. ${esc(x.no)}</small>` : ''}</div>
@@ -2596,7 +2608,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
         <dl class="lfacts">${f.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}<dt>소재지</dt><dd>${esc(x.addr)}</dd></dl>
         <div class="lbk"><div><b>${esc(x.bk.office)}</b><small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
-          <div class="lbtn">${tel ? `<a href="tel:${tel}">전화</a><a href="sms:${tel}?body=${encodeURIComponent(`[리얼맵] ${x.bname || x.addr} ${LKIND[x.kind]} 매물(No. ${x.no}) 문의드립니다.`)}">문자</a>` : ''}</div></div>
+          <div class="lbtn">${btns}</div></div>
         <div class="lft">등록 ${ymdS(x.at)} · 거래 가능 확인 ${ymdS(x.chk)} · <a href="mailto:realwalkers@naver.com?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>
       </div>`;
     };
