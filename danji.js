@@ -251,7 +251,12 @@ window.Danji = (() => {
       box.innerHTML = '<div class="loading">호 목록을 불러오는 중…</div>';
       C.units[C.cur] = 'loading';
       try {
-        const r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
+        // 큰 단지는 한 번에 다 못 받으면 서버가 받은 쪽을 기억해 두므로, 자동으로 몇 번 이어서 받습니다
+        let r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
+        for (let k = 2; r0.partial && k <= 5; k++) {
+          if (C.cur === `${pnu}|${dong}`) box.innerHTML = `<div class="loading">세대가 많은 단지라 호 목록을 나눠 받는 중… (${k}/5)</div>`;
+          r0 = await api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}`);
+        }
         let us = r0.units || [];
         C.partial = C.partial || {}; C.partial[C.cur] = !!r0.partial;
         // 건축물대장 표제부의 호 수보다 적게 오면, 필지 전체 호 목록에서 이 동을 한 번 더 모아 합칩니다
