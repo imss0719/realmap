@@ -1,7 +1,7 @@
 // 집합건물 동·호 목록 (전유부)
 // GET /api/units?pnu=...
 // 호 하나의 면적·공시가격: GET /api/units?pnu=...&dong=101동&ho=1203호
-import { handler, send, need, dataGoKr, dataGoKrAll, vworldNed, settle, splitPnu, cached, num, pool, DATA_KEY, VWORLD_KEY } from './_lib.js';
+import { handler, send, need, dataGoKr, dataGoKrAll, vworldNed, settle, splitPnu, cached, num, pool, rcmd, DATA_KEY, VWORLD_KEY } from './_lib.js';
 
 const HUB = 'https://apis.data.go.kr/1613000/BldRgstHubService/';
 const norm = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/(동|호)$/, '').toUpperCase();
@@ -32,15 +32,55 @@ export default handler(async (req, res) => {
       const n = Math.ceil(total / per), nums = [];
       for (let p = 2; p <= Math.min(n, 250); p++) nums.push(p);
       if (n > 250) partial = true;
-      const rs = await pool(nums, 10, async p => {
+      // 공공데이터포털 초당 요청 한도(오류 23)에 걸리지 않게 3개씩, 요청 사이 간격을 둡니다 (초당 약 6건)
+      let next = 0;
+      const pace = async () => { const now = Date.now(), at = Math.max(now, next); next = at + 160; if (at > now) await new Promise(r => setTimeout(r, at - now)); };
+      const rs = await pool(nums, 3, async p => {
         if (Date.now() - t0 > budgetMs) throw new Error('budget');
-        return cached(pkey(p), 2 * 86400e3, async () => slim((await dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: per, pageNo: p })).items));
+        return cached(pkey(p), 2 * 86400e3, async () => { await pace(); return slim((await dataGoKr(HUB + 'getBrExposInfo', { ...params, numOfRows: per, pageNo: p })).items); });
       });
       for (const r of rs) { if (r.ok) items = items.concat(r.v); else partial = true; }
     }
     return { items, total, partial };
   }
   const groupByDong = rows => { const m = new Map(); for (const r of rows) { const x = toRow(r); if (!x.ho) continue; const g = m.get(x.dong) || m.set(x.dong, new Map()).get(x.dong); g.set(x.ho, x); } return m; };
+
+  // 단지 전체 동·호를 앞쪽부터 차례로 받기 (단지 모드가 여러 번 불러 쌓으면서, 다 받은 동부터 화면에 엽니다)
+  //   GET /api/units?pnu=...&scan=1&from=1 → { total, pages, next, done, items:[쪽 순서대로] }
+  //   한 번에 9초 안에서 받을 수 있는 만큼만 (받은 쪽은 이틀 저장 → 끊겨도 이어받기). 다 받으면 동별 목록을 저장하고 '완료' 표시
+  if (req.query.scan) {
+    const from = Math.max(1, parseInt(req.query.from, 10) || 1);
+    const doneKey = `rmc:unitsd3:${P.pnu}:__all`;
+    if (from === 1) { try { const d = await rcmd(['GET', doneKey]); if (d) return send(res, 200, { ok: true, done: true, cached: true, dongs: JSON.parse(d) }); } catch { /* 처음부터 받기 */ } }
+    const t0 = Date.now(), BUDGET = 9000;
+    const slim = it => it.map(r => ({ dongNm: r.dongNm, hoNm: r.hoNm, flrNo: r.flrNo, flrGbCdNm: r.flrGbCdNm }));
+    const pkey = p => `unitsp:${P.pnu}:*:${p}`;
+    let next0 = 0;
+    const pace = async () => { const now = Date.now(), at = Math.max(now, next0); next0 = at + 160; if (at > now) await new Promise(r => setTimeout(r, at - now)); };
+    const first = await cached(pkey(1), 2 * 86400e3, async () => { const f = await dataGoKr(HUB + 'getBrExposInfo', { ...q, numOfRows: 1000, pageNo: 1 }); return { items: slim(f.items), total: f.total || f.items.length }; });
+    const per = first.items.length || 1, total = first.total || first.items.length, pages = Math.min(250, Math.max(1, Math.ceil(total / per)));
+    const getPage = p => p === 1 ? Promise.resolve(first.items) : cached(pkey(p), 2 * 86400e3, async () => { await pace(); return slim((await dataGoKr(HUB + 'getBrExposInfo', { ...q, numOfRows: per, pageNo: p })).items); });
+    const want = []; for (let p = from; p <= Math.min(pages, from + 59); p++) want.push(p);
+    const rs = await pool(want, 3, async p => { if (p !== from && Date.now() - t0 > BUDGET) throw new Error('budget'); return getPage(p); });
+    // 앞에서부터 끊김 없이 받은 쪽까지만 돌려줌 (순서가 중요)
+    const items = []; let next = from;
+    for (const r of rs) { if (!r.ok) break; items.push(...r.v); next++; }
+    const done = next > pages;
+    if (done) { // 동별 목록 저장 → 다음부터는 누가 열어도 바로
+      try {
+        const all = [];
+        const ps = []; for (let p = 1; p <= pages; p++) ps.push(p);
+        const got = await pool(ps, 8, p => getPage(p));
+        if (got.every(g => g.ok)) {
+          got.forEach(g => all.push(...g.v));
+          const g = groupByDong(all);
+          await Promise.all([...g.entries()].filter(([dn]) => dn).map(([dn, m]) => cached(`unitsd3:${P.pnu}:${dn}`, 24 * 3600e3, async () => sortU([...m.values()])).catch(() => null)));
+          await rcmd(['SET', doneKey, JSON.stringify([...g.keys()]), 'EX', String(30 * 86400)], 2500);
+        }
+      } catch { /* 저장 실패해도 화면에는 영향 없음 */ }
+    }
+    return send(res, 200, { ok: true, total, pages, from, next, done, items }, 0);
+  }
 
   // 동 하나의 호 목록만: GET /api/units?pnu=...&dong=101동
   if (!ho && dong) {

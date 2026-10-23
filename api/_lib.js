@@ -133,6 +133,9 @@ export async function dataGoKr(url, params) {
     catch (e) {
       const m = /\((\d{2})\)/.exec(e.message || '');
       const again = e.transient || (e.code === 'datagokr' && m && TRANSIENT.includes(m[1])); // 연결 자체 실패는 getText가 이미 다시 시도함
+      // (23) 초당 요청 한도 초과: 잠깐 쉬었다가 다시 (한도는 1초 단위라 1~3초 기다리면 풀림)
+      const rate = e.code === 'datagokr' && m && m[1] === '23';
+      if (rate && i < 3) { await new Promise(r => setTimeout(r, 1000 + i * 1000 + Math.random() * 400)); continue; }
       if (!again || i >= 2) {
         if (again) e.message += ' · 공공데이터포털 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 눌러 주세요.';
         throw e;
