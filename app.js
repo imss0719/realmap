@@ -141,22 +141,36 @@
     try { if (localStorage.getItem('rm.op') === '1' || localStorage.getItem('rm.wel') === today) return; } catch { /* 저장 불가 → 그냥 보여 줌 */ }
     try { if (sessionStorage.getItem('rm.wel')) return; } catch { /* 무시 */ }
     if (document.querySelector('.lmodal:not([hidden]), .wel')) return;
-    const IC = {
-      zone: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M6 40V20l10-6v26M16 40V10l14 6v24M30 40V22l12 6v12"/><path d="M3 40h42"/></svg>',
-      guide: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M24 43s-14-12.6-14-23a14 14 0 0128 0c0 10.4-14 23-14 23z"/><circle cx="24" cy="20" r="5"/></svg>',
-      pro: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><rect x="8" y="6" width="32" height="38" rx="5"/><path d="M16 16h16M16 24h16M16 32h9"/></svg>',
+    // 일러스트 (리얼맵 남색·노랑 두 가지 색에 옅은 하늘색만 씀)
+    const N = '#14212E', Y = '#F2B705', K = '#DCE7F1', K2 = '#BFD3E4';
+    const IL = {
+      zone: `<svg viewBox="0 0 132 132" aria-hidden="true"><circle cx="98" cy="30" r="12" fill="${Y}" opacity=".35"/>
+        <rect x="58" y="34" width="22" height="78" rx="2" fill="${N}"/><rect x="84" y="50" width="18" height="62" rx="2" fill="${N}" opacity=".82"/>
+        ${[0, 1, 2, 3, 4, 5].map(r => `<rect x="62" y="${42 + r * 11}" width="5" height="5" rx="1" fill="${Y}"/><rect x="71" y="${42 + r * 11}" width="5" height="5" rx="1" fill="${r % 2 ? Y : '#3A4C5E'}"/>`).join('')}
+        ${[0, 1, 2, 3].map(r => `<rect x="88" y="${57 + r * 12}" width="4" height="5" rx="1" fill="${r === 1 ? Y : '#4A5D70'}"/><rect x="95" y="${57 + r * 12}" width="4" height="5" rx="1" fill="#4A5D70"/>`).join('')}
+        <path d="M40 112V22h3v90zM28 24h52v3H28z" fill="${Y}"/><path d="M41 27l-10 8M42 27l10 8" stroke="${Y}" stroke-width="2"/><path d="M74 27v12" stroke="${N}" stroke-width="1.5"/><rect x="70" y="39" width="8" height="5" fill="${N}"/>
+        <path d="M14 112V92l12-10 12 10v20z" fill="${K}"/><path d="M11 94l15-13 15 13" fill="none" stroke="${K2}" stroke-width="4" stroke-linejoin="round"/><rect x="22" y="100" width="8" height="12" fill="${K2}"/>
+        <path d="M104 112V98l9-7 9 7v14z" fill="${K}"/><path d="M8 112h116" stroke="${N}" stroke-width="3" stroke-linecap="round"/></svg>`,
+      guide: `<svg viewBox="0 0 132 132" aria-hidden="true"><path d="M14 38l32-10 40 10 32-10v74l-32 10-40-10-32 10z" fill="${K}"/><path d="M46 28v74M86 38v74" stroke="${K2}" stroke-width="2"/>
+        <path d="M22 60l18-4 4 18-18 5z" fill="none" stroke="${K2}" stroke-width="2"/><path d="M56 70l22 4-3 22-22-4z" fill="${Y}" opacity=".9"/><path d="M92 54l16-4 2 16-16 3z" fill="none" stroke="${K2}" stroke-width="2"/>
+        <path d="M66 74c0-14 10-24 0-38" fill="none"/><path d="M67 80s-16-15-16-27a16 16 0 0132 0c0 12-16 27-16 27z" fill="${N}"/><circle cx="67" cy="53" r="6" fill="#fff"/>
+        <circle cx="101" cy="94" r="10" fill="none" stroke="${N}" stroke-width="4"/><path d="M108 101l9 9" stroke="${N}" stroke-width="5" stroke-linecap="round"/></svg>`,
+      pro: `<svg viewBox="0 0 132 132" aria-hidden="true"><rect x="26" y="20" width="64" height="94" rx="8" fill="${N}"/><rect x="32" y="30" width="52" height="78" rx="3" fill="#fff"/><rect x="44" y="14" width="28" height="12" rx="4" fill="${Y}"/>
+        ${[0, 1, 2, 3].map(r => `<rect x="38" y="${40 + r * 16}" width="8" height="8" rx="2" fill="${r === 1 ? Y : K}"/><rect x="50" y="${41 + r * 16}" width="${r % 2 ? 22 : 28}" height="3" rx="1.5" fill="${N}" opacity=".8"/><rect x="50" y="${46 + r * 16}" width="16" height="2.5" rx="1.25" fill="${K2}"/>`).join('')}
+        <rect x="70" y="56" width="46" height="40" rx="8" fill="${Y}"/><path d="M82 82V72l11-8 11 8v10z" fill="${N}"/><rect x="90" y="75" width="6" height="7" fill="${Y}"/>
+        <circle cx="112" cy="58" r="9" fill="#fff" stroke="${N}" stroke-width="3"/><path d="M108 58l3 3 5-6" fill="none" stroke="${N}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     };
     const SL = [
-      { c: 'z', ic: IC.zone, t: '서울 재개발·재건축 현황,<br>자세히 보고 싶으세요?', s: '정비사업 830곳 진행 단계 한눈에', b: '현황 보기', h: '/seoul/' },
-      { c: 'g', ic: IC.guide, t: '처음 오셨어요?', s: '주소 하나로 땅·건물·실거래가까지', b: '사용법 보기', h: '/guide.html' },
-      { c: 'p', ic: IC.pro, t: '중개사이신가요?', s: '지도 위 매물장, 무료로 시작', b: '매물장 써 보기', h: '/pro.html' },
+      { il: IL.zone, t: '서울 재개발·재건축,<br>지금 무슨 단계일까요?', s: '정비사업 830곳 진행 상황을 지도로', b: '현황 보기', h: '/seoul/' },
+      { il: IL.guide, t: '처음 오셨나요?', s: '주소 하나로 땅·건물·실거래가까지', b: '사용법 보기', h: '/guide.html' },
+      { il: IL.pro, t: '중개사이신가요?', s: '지도 위에서 관리하는 매물장', b: '무료로 써 보기', h: '/pro.html' },
     ];
     const el = document.createElement('div');
     el.className = 'wel';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '리얼맵 안내');
-    el.innerHTML = `<div class="wel-track">${SL.map((x, i) => `<a class="wel-s ${x.c}" href="${x.h}" target="_blank" rel="noopener" aria-label="${x.t.replace(/<br>/g, ' ')}" ${i ? 'tabindex="-1"' : ''}>
-        <span class="wel-ic">${x.ic}</span><span class="wel-tx"><b>${x.t}</b><small>${x.s}</small><em>${x.b} ›</em></span></a>`).join('')}</div>
-      <div class="wel-bar"><span class="wel-dots">${SL.map((_, i) => `<button type="button" aria-label="${i + 1}번째 안내"></button>`).join('')}</span>
+    el.innerHTML = `<div class="wel-track">${SL.map((x, i) => `<a class="wel-s" href="${x.h}" target="_blank" rel="noopener" ${i ? 'tabindex="-1"' : ''}>
+        <span class="wel-tx"><b>${x.t}</b><small>${x.s}</small><em>${x.b}</em></span><span class="wel-il">${x.il}</span></a>`).join('')}</div>
+      <div class="wel-bar"><span class="wel-dots">${SL.map((_, i) => `<button type="button" aria-label="${i + 1}번째 안내"><i></i></button>`).join('')}</span>
         <button type="button" class="wel-today">오늘 하루 보지 않기</button><button type="button" class="wel-x" aria-label="닫기">×</button></div>`;
     document.body.appendChild(el);
     const tr = el.querySelector('.wel-track'), dots = [...el.querySelectorAll('.wel-dots button')], sl = [...el.querySelectorAll('.wel-s')];
@@ -164,12 +178,12 @@
     const go = i => {
       cur = (i + SL.length) % SL.length;
       tr.style.transform = `translateX(${-cur * 100}%)`;
-      dots.forEach((d, k) => d.setAttribute('aria-current', k === cur));
+      dots.forEach((d, k) => { d.setAttribute('aria-current', k === cur); const b = d.firstChild; b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; });
       sl.forEach((a, k) => a.tabIndex = k === cur ? 0 : -1);
     };
     const auto = () => { clearInterval(timer); timer = setInterval(() => { if (!hold) go(cur + 1); }, 4000); };
     dots.forEach((d, k) => d.onclick = () => { go(k); auto(); });
-    el.onmouseenter = () => { hold = true; }; el.onmouseleave = () => { hold = false; };
+    el.onmouseenter = () => { hold = true; el.classList.add('hold'); }; el.onmouseleave = () => { hold = false; el.classList.remove('hold'); };
     // 손가락으로 밀어 넘기기
     let sx = null, moved = false;
     tr.addEventListener('touchstart', e => { sx = e.touches[0].clientX; moved = false; hold = true; }, { passive: true });

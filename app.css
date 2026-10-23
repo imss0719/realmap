@@ -565,27 +565,29 @@ a.favbtn{text-decoration:none}
 .lbtn{flex-wrap:wrap;justify-content:flex-end}
 .lver{display:inline-block;margin-left:6px;font-size:11px;font-weight:800;color:#1F7A4D;background:#E7F5EC;border-radius:6px;padding:2px 6px;vertical-align:1px}
 
-/* 처음 오신 분 안내 배너: 화면 아래 작은 카드, 한 장씩 넘어감 */
-.wel{position:fixed;right:72px;bottom:28px;z-index:120;width:360px;border-radius:18px;overflow:hidden;background:var(--surface);box-shadow:0 18px 50px rgba(15,30,45,.28),0 0 0 1px rgba(15,30,45,.06);opacity:0;transform:translateY(24px);transition:opacity .3s,transform .35s cubic-bezier(.2,.8,.2,1)}
+/* 처음 오신 분 안내 배너: 화면 아래 작은 카드, 한 장씩 넘어감 (리얼맵 남색·노랑 + 선 일러스트) */
+.wel{position:fixed;right:72px;bottom:28px;z-index:120;width:372px;border-radius:16px;overflow:hidden;background:#fff;color:#14212E;box-shadow:0 1px 2px rgba(20,33,46,.08),0 16px 40px -8px rgba(20,33,46,.28);opacity:0;transform:translateY(16px);transition:opacity .3s,transform .4s cubic-bezier(.2,.8,.2,1)}
 .wel.on{opacity:1;transform:none}
-.wel-track{display:flex;transition:transform .5s cubic-bezier(.3,.8,.2,1);touch-action:pan-y}
-.wel-s{flex:0 0 100%;display:flex;gap:14px;align-items:center;padding:18px 18px 16px;text-decoration:none;color:#fff;min-height:118px}
-.wel-s.z{background:linear-gradient(135deg,#FF8A4C 0%,#F25F5C 100%)}
-.wel-s.g{background:linear-gradient(135deg,#2EC4B6 0%,#1A9E8F 100%)}
-.wel-s.p{background:linear-gradient(135deg,#5B8DEF 0%,#3D5AFE 100%)}
-.wel-ic{flex:none;width:54px;height:54px;border-radius:16px;background:rgba(255,255,255,.22);display:grid;place-items:center}
-.wel-ic svg{width:32px;height:32px;color:#fff}
-.wel-tx{min-width:0}
-.wel-tx b{display:block;font-size:16px;font-weight:700;line-height:1.35;letter-spacing:-.01em}
-.wel-tx small{display:block;font-size:13px;opacity:.92;margin-top:3px}
-.wel-tx em{display:inline-block;font-style:normal;font-size:13px;font-weight:700;margin-top:8px;background:#fff;color:#1D2B36;border-radius:999px;padding:4px 12px}
-.wel-bar{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 14px}
-.wel-dots{display:flex;gap:5px;flex:1}
-.wel-dots button{width:7px;height:7px;border-radius:99px;border:0;padding:0;background:var(--line);cursor:pointer;transition:width .3s,background .3s}
-.wel-dots button[aria-current="true"]{width:20px;background:var(--fg)}
-.wel-today{border:0;background:none;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;padding:6px}
-.wel-today:hover{color:var(--fg);text-decoration:underline}
-.wel-x{width:30px;height:30px;border:0;border-radius:50%;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
-.wel-x:hover{background:var(--soft)}
-@media (max-width:760px){.wel{left:12px;right:12px;width:auto;bottom:calc(84px + env(safe-area-inset-bottom))}}
-@media (prefers-reduced-motion:reduce){.wel,.wel-track{transition:none}}
+.wel-track{display:flex;transition:transform .55s cubic-bezier(.65,0,.35,1);touch-action:pan-y}
+.wel-s{flex:0 0 100%;display:flex;align-items:center;gap:6px;padding:18px 12px 12px 20px;text-decoration:none;color:inherit;min-height:132px}
+.wel-tx{flex:1;min-width:0}
+.wel-tx b{display:block;font-size:16.5px;font-weight:700;line-height:1.4;letter-spacing:-.02em}
+.wel-tx small{display:block;font-size:13px;color:#5E6A77;margin-top:4px;line-height:1.45}
+.wel-tx em{display:inline-block;font-style:normal;font-size:13px;font-weight:700;margin-top:12px;padding-bottom:1px;border-bottom:2px solid #F2B705}
+.wel-s:hover em,.wel-s:focus-visible em{border-bottom-color:#14212E}
+.wel-s:focus-visible{outline:2px solid #14212E;outline-offset:-4px;border-radius:14px}
+.wel-il{flex:none;width:112px;height:112px;border-radius:50%;background:#F1F6FA;display:grid;place-items:center}
+.wel-il svg{width:100px;height:100px}
+.wel-bar{display:flex;align-items:center;gap:6px;padding:4px 8px 8px 20px}
+.wel-dots{display:flex;gap:6px;flex:1}
+.wel-dots button{position:relative;width:18px;height:4px;border-radius:2px;border:0;padding:0;background:#E3E9EF;cursor:pointer;overflow:hidden}
+.wel-dots button i{position:absolute;inset:0;width:0;background:#14212E}
+.wel-dots button[aria-current="true"] i{animation:welp 4s linear forwards}
+.wel.hold .wel-dots button[aria-current="true"] i{animation-play-state:paused}
+@keyframes welp{to{width:100%}}
+.wel-today{border:0;background:none;color:#7A8693;font:inherit;font-size:12.5px;cursor:pointer;padding:6px}
+.wel-today:hover{color:#14212E}
+.wel-x{width:30px;height:30px;border:0;border-radius:50%;background:none;color:#7A8693;font-size:20px;line-height:1;cursor:pointer}
+.wel-x:hover{background:#F1F4F7;color:#14212E}
+@media (max-width:760px){.wel{left:12px;right:12px;width:auto;bottom:calc(84px + env(safe-area-inset-bottom))}.wel-il{width:96px;height:96px}.wel-il svg{width:86px;height:86px}}
+@media (prefers-reduced-motion:reduce){.wel,.wel-track{transition:none}.wel-dots button[aria-current="true"] i{animation:none;width:100%}}
