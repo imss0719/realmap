@@ -602,3 +602,10 @@ a.favbtn{text-decoration:none}
 .asum small{display:block;font-size:10.5px;color:#93A4B5;line-height:1.3}
 @media (max-width:760px){.asum{bottom:calc(96px + env(safe-area-inset-bottom));padding:7px 14px}.asum p{font-size:12.5px}.asum p em{font-size:14px}}
 @media (prefers-reduced-motion:reduce){.asum{transition:none}}
+
+/* 실거래 창: 거래가 · 평당가 전환 (동별 시세의 버튼과 같은 모양) */
+.tmode{display:flex;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:3px;margin:2px 0 8px;gap:2px}
+.tmode button{flex:1;border:0;background:transparent;font:inherit;font-size:13px;font-weight:700;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.tmode button[aria-pressed="true"]{background:var(--accent);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.tlabel .tpy{font-style:normal;font-size:10px;font-weight:700;color:#F2B705;margin-right:3px;vertical-align:1px}
+.tlabel:hover .tpy{color:#14212E}

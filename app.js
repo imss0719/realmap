@@ -2177,12 +2177,16 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // ---------- 지도 위 실거래가 라벨 ----------
   // 화면 중심·모서리가 속한 시군구의 최근 6개월 매매를 건물별 최신 거래가로 표시합니다 (아파트·빌라·오피스텔).
   const TK = { apt: '아파트', rh: '빌라', offi: '오피스텔' };
-  const T = { on: true, kinds: { apt: true, rh: true, offi: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
+  const T = { mode: 'price', on: true, kinds: { apt: true, rh: true, offi: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
   const MAXLV = 5;
   const eok = man => { if (man >= 10000) { const e = man / 10000; const d = e >= 10 ? 10 : 100; return `${String(Math.round(e * d) / d)}억`; } return `${n(man)}만`; };
-  function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds })); } catch { /* 저장소 없음 */ } }
+  function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds, mode: T.mode })); } catch { /* 저장소 없음 */ } }
   function tradeMapInit() {
-    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; Object.assign(T.kinds, v.kinds || {}); } } catch { /* 저장소 없음 */ }
+    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; Object.assign(T.kinds, v.kinds || {}); if (v.mode === 'py') T.mode = 'py'; } } catch { /* 저장소 없음 */ }
+    // 거래가 · 평당가(전용 기준) 전환 — 고른 쪽을 기억
+    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); $('tSec').textContent = T.mode === 'py' ? '최근 6개월 매매 · 건물별 최근 거래의 평당가 (전용면적 기준)' : '최근 6개월 매매 · 건물별 최근 거래가'; };
+    document.querySelectorAll('[data-tm]').forEach(b => b.onclick = () => { if (T.mode === b.dataset.tm) return; T.mode = b.dataset.tm; tmSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); drawTrades(); });
+    tmSync();
     const boxes = [...document.querySelectorAll('[data-tk]')];
     boxes.forEach(cb => { cb.checked = !!T.kinds[cb.dataset.tk]; cb.onchange = () => { T.kinds[cb.dataset.tk] = cb.checked; tSave(); tradeRefresh(); }; });
     const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); };
@@ -2552,8 +2556,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       if (!o) {
         const el = document.createElement('button');
         el.type = 'button'; el.className = `tlabel k-${x.k}`;
-        el.title = `[${TK[x.k]}] ${x.n || ''} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}`;
-        el.innerHTML = `<b>${eok(x.p)}</b><small>${x.ar ? Math.round(x.ar) + '㎡' : ''} · ${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;
+        el.title = `[${TK[x.k]}] ${x.n || ''} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}${x.ar > 10 ? ` (평당 ${n(Math.round(x.p / (x.ar / 3.305785) / 10) * 10)}만원, 전용 기준)` : ''}`;
+        const py = T.mode === 'py' && x.ar > 10 ? x.p / (x.ar / 3.305785) : 0; // 평당가 (전용 기준, 만원)
+        el.innerHTML = py ? `<b><i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만</b><small>${Math.round(x.ar)}㎡ · ${eok(x.p)}</small>` : `<b>${eok(x.p)}</b><small>${x.ar ? Math.round(x.ar) + '㎡' : ''} · ${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;
         el.onclick = ev => { ev.stopPropagation(); pick(x.lat, x.lng); };
         o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 3, clickable: true });
         T.ovs.set(x.id, o);
