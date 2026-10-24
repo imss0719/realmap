@@ -45,7 +45,7 @@ export const ttlFor = (val, sec) => hasFail(val) ? 0 : sec;
 const R_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || Object.entries(process.env).find(([k]) => /_REST_API_URL$/.test(k))?.[1] || '';
 const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || Object.entries(process.env).find(([k]) => /_REST_API_TOKEN$/.test(k) && !/READ_ONLY/.test(k))?.[1] || '';
 // 키 앞부분별 보관 기간(일)
-const KEEP = { 'kaptl:': 30, 'kaptb:': 30, 'kaptd:': 30, 'kaptc:': 20, 'kaptt:': 20, 'bld:': 30, 'bldf:': 30, 'units:': 30, 'unitsd:': 30, 'units2:': 30, 'unitsd2:': 30, 'unitsd3:': 30, 'unitsp:': 2, 'unit:': 30, 'land:': 7, 'stores:': 14, 'signm:': 30, 'bus:': 30 };
+const KEEP = { 'kaptl:': 30, 'kaptb:': 30, 'kaptd:': 30, 'kaptc:': 20, 'kaptt:': 20, 'bld:': 30, 'bldf:': 30, 'units:': 30, 'unitsd:': 30, 'units2:': 30, 'unitsd2:': 30, 'unitsd3:': 30, 'unitsp:': 2, 'unitar:': 30, 'unit:': 30, 'land:': 7, 'stores:': 14, 'signm:': 30, 'bus:': 30 };
 const keepDays = key => { for (const p in KEEP) if (key.startsWith(p)) return KEEP[p]; return 0; };
 export async function rcmd(cmd, ms = 1500) {
   if (!R_URL || !R_TOKEN) return null;

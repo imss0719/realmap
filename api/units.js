@@ -83,6 +83,32 @@ export default handler(async (req, res) => {
     return send(res, 200, { ok: true, total, pages, from, next, done, items }, 0);
   }
 
+  // 동 하나의 호별 전용면적: GET /api/units?pnu=...&dong=101동&areas=1 → { areas: { '1203': 84.97, ... } }
+  //   단지 배치표가 층마다 다른 평형을 표시하는 데 씀. 브이월드 공동주택가격(동 전체 한 번에) → 없으면 건축물대장 전유부(쪽 단위)
+  if (!ho && dong && req.query.areas) {
+    const D = String(dong).trim(), Y = new Date().getFullYear();
+    const hk = s => String(s || '').replace(/\D/g, '') || String(s || '').replace(/\s|호$/g, '');
+    let r = null;
+    try {
+      r = await cached(`unitar:${P.pnu}:${D}`, 24 * 3600e3, async () => {
+        const out = {};
+        if (VWORLD_KEY) for (const y of [Y, Y - 1]) {
+          try {
+            const rows = await vworldNed('getApartHousingPriceAttr', { pnu: P.pnu, stdrYear: y, dongNm: D });
+            rows.filter(x => !String(x.dongNm || '').trim() || sameTok(x.dongNm, D)).forEach(x => { const a = num(x.prvuseAr); if (a) out[hk(x.hoNm)] = a; });
+            if (Object.keys(out).length) return { src: 'vw', a: out };
+          } catch { /* 다음 방법 */ }
+        }
+        const rows = await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: D }, { maxPages: 15 });
+        rows.filter(x => /전유/.test(x.exposPubuseGbCdNm || '') && (!String(x.dongNm || '').trim() || sameTok(x.dongNm, D)))
+          .forEach(x => { const k = hk(x.hoNm), a = num(x.area); if (a) out[k] = Math.round(((out[k] || 0) + a) * 100) / 100; });
+        if (!Object.keys(out).length) throw new Error('none'); // 못 찾은 결과는 저장하지 않음
+        return { src: 'hub', a: out };
+      });
+    } catch { r = null; }
+    return send(res, 200, { ok: true, pnu: P.pnu, dong: D, areas: r ? r.a : {}, src: r ? r.src : '' }, r ? 86400 : 0);
+  }
+
   // 동 하나의 호 목록만: GET /api/units?pnu=...&dong=101동
   if (!ho && dong) {
     const D = String(dong).trim();
