@@ -7,7 +7,7 @@
 //   /api/auth?action=zfavs · zfav   → 서울 정비사업 관심 구역·추진 알림(이메일)
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
-import { send, fail, VWORLD_DOMAIN } from './_lib.js';
+import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
 const CSECRET = (process.env.KAKAO_CLIENT_SECRET || '').trim();
@@ -317,6 +317,20 @@ export default async function (req, res) {
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
     // 방문 통계 (개인 식별 정보 없이 숫자만): 하루 방문자 수·페이지 조회·필지 조회
+    // 새벽 미리 불러오기(GitHub Actions)가 쓸 계획: 최근 14일 필지 조회가 많은 시·군·구 상위 5곳 + 창고 사용량
+    //   GET /api/auth?action=warmplan → { gus:[{ lawd, n }], keys, max }  (합계 숫자만, 개인 정보 없음)
+    if (action === 'warmplan') {
+      res.setHeader('Cache-Control', 'no-store');
+      if (!R_URL || !R_TOKEN) return send(res, 200, { ok: true, gus: [], keys: 0, max: MAX_KEYS });
+      const tot = {};
+      for (let i = 0; i < 14; i++) {
+        const day = new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, '');
+        try { const r = (await redis(['HGETALL', `rm:st:${day}:gu`])) || []; const arr = Array.isArray(r) ? r : Object.entries(r).flat(); for (let k = 0; k < arr.length; k += 2) tot[arr[k]] = (tot[arr[k]] || 0) + (+arr[k + 1] || 0); } catch { /* 건너뜀 */ }
+      }
+      const gus = Object.entries(tot).filter(([k]) => /^\d{5}$/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([lawd, n]) => ({ lawd, n }));
+      const keys = (await redis(['DBSIZE']).catch(() => 0)) || 0;
+      return send(res, 200, { ok: true, gus, keys, max: MAX_KEYS });
+    }
     if (action === 'hit') {
       res.setHeader('Cache-Control', 'no-store');
       if (!R_URL || !R_TOKEN || /bot|crawl|spider|slurp|preview|realmap-warm/i.test(req.headers['user-agent'] || '')) return send(res, 200, { ok: true });
