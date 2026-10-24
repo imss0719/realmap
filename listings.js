@@ -248,7 +248,7 @@
       <div class="meta">${esc(addrs[0] || '')}${addrs.length > 1 ? ` 외 ${addrs.length - 1}필지` : ''}${x.area ? ` · ${(() => { const ks = [...new Set(pl.map(p => p.land ? 'land' : p.ak || 'ex'))]; return ks.length > 1 ? '면적' : ks[0] === 'land' ? '토지' : ks[0] === 'tot' ? '연면적' : '전용'; })()} ${esc(py(x.area))}` : ''}</div>
       ${cs.map(c => `<div class="owner"><span>${esc(c.role || '연락처')} <b>${esc(c.name || '-')}</b></span>${c.phone ? `<a class="tel" href="tel:${esc(c.phone)}">📞 ${esc(c.phone)}</a>` : ''}</div>`).join('')}
       ${Array.isArray(x.rents) && x.rents.length ? `<details class="rents"><summary>${x.kind === 'sale' ? '임대 현황' : '세부 임대료'} ${x.rents.length}건</summary>${x.rents.map(r => `<div><span>${esc(r.label || '-')}${r.memo ? ` <small>${esc(r.memo)}</small>` : ''}</span><b>${shortWon(r.deposit) || '0'} / ${r.rent ? r.rent.toLocaleString() + '만' : '-'}</b></div>`).join('')}</details>` : ''}
-      ${x.memo ? `<div class="memo">${esc(x.memo)}</div>` : ''}
+      ${x.memo ? (() => { const a = memoParse(x.memo); if (!a.length) return ''; return `<div class="memo">${a[0].t ? `<b class="mt">${esc(a[0].t)}</b> ` : ''}${esc(a[0].x)}${a.length > 1 ? ` <small>외 ${a.length - 1}건</small>` : ''}</div>`; })() : ''}
       ${RO.has(x.id) ? `<div class="robox"><span>보기 전용 · ${S.plan.plan === 'free' ? '무료 이용은' : esc(S.plan.name) + ' 요금제는'} 최근 등록한 ${S.plan.ls.toLocaleString()}건만 수정할 수 있습니다</span><a href="/pro.html#price" target="_blank" rel="noopener">요금제 보기</a></div>` : `<div class="cbtns">
         <button type="button" data-edit="${x.id}">수정</button>
         <button type="button" data-next="${x.id}">${x.status === 'on' ? '거래완료' : '다시 진행'}</button>
@@ -599,7 +599,7 @@
     S.bkTmp = [];
   }
   // 창 바깥을 눌러도 닫히지 않습니다. 닫기(×)를 누르면 한 번 더 묻고, 새로 쓰던 내용은 임시로 보관합니다.
-  function dirty(F) { return F && (F.it.places.length || F.it.photos.length || F.it.contacts.some(c => c.name || c.phone) || F.it.memo); }
+  function dirty(F) { return F && (F.it.places.length || F.it.photos.length || F.it.contacts.some(c => c.name || c.phone) || F.it.memo || (F.memoDraft || '').trim()); }
   $('shClose').onclick = () => {
     const F = S.form; if (!F) return closeForm();
     collect();
@@ -648,6 +648,14 @@
     const y = inv > 0 ? it.curRent * 12 / inv * 100 : 0;
     return y ? `<div class="sumline">연 임대수익 ${won(it.curRent * 12)} · 수익률 약 <b>${y.toFixed(2)}%</b> <small>(실투자금 ${won(inv)} 기준, 융자 제외)</small></div>` : '';
   }
+  // ---------- 메모 기록: 쓸 때마다 날짜·시간이 붙어 맨 위에 쌓임 ----------
+  // 저장 형식(예전 메모와 호환): "[26.10.24 14:30] 내용" 줄들을 최신순으로 이어 붙인 글. 날짜 없는 예전 메모는 한 덩어리로 맨 아래
+  const MEMO_HEAD = /^\[(\d{2}\.\d{2}\.\d{2} \d{2}:\d{2}|예전 메모)\] ?/;
+  const memoParse = s => { s = String(s || '').trim(); if (!s) return []; return s.split(/\n(?=\[(?:\d{2}\.\d{2}\.\d{2} \d{2}:\d{2}|예전 메모)\] )/).map(p => { const m = p.match(MEMO_HEAD); return m ? { t: m[1] === '예전 메모' ? '' : m[1], x: p.slice(m[0].length).trim() } : { t: '', x: p.trim() }; }).filter(e => e.x); };
+  const memoJoin = a => a.map(e => e.t ? `[${e.t}] ${e.x}` : a.length > 1 ? `[예전 메모] ${e.x}` : e.x).join('\n'); // 날짜 없는 예전 메모도 경계를 표시해 섞이지 않게
+  const memoNow = () => { const d = new Date(Date.now() + 9 * 3600e3), p = n => String(n).padStart(2, '0'); return `${String(d.getUTCFullYear()).slice(2)}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
+  const memoAdd = (s, text) => memoJoin([{ t: memoNow(), x: String(text).trim() }, ...memoParse(s)]);
+  const memoListHtml = (s, old, delAttr) => { const a = memoParse(s); return a.length ? `<ul class="mlog">${a.map((e, i) => `<li><span class="mt">${e.t ? esc(e.t) : `예전 메모${old ? ' · ' + esc(old) : ''}`}</span><span class="mx">${esc(e.x)}</span>${delAttr ? `<button type="button" ${delAttr}="${i}" aria-label="이 메모 지우기">×</button>` : ''}</li>`).join('')}</ul>` : ''; };
   // ---------- 사진 ----------
   // 휴대폰 원본(3~5MB)을 긴 변 1,600px JPEG(약 0.3MB)로 줄여서 올립니다
   async function shrink(file) {
@@ -732,7 +740,9 @@
           <input class="in" id="c${i}_phone" data-phone type="tel" inputmode="tel" value="${esc(c.phone || '')}" maxlength="20" placeholder="010-0000-0000" aria-label="연락처">
           ${it.contacts.length > 1 ? `<button type="button" class="xbtn" data-cdel="${i}" aria-label="이 연락처 빼기">×</button>` : '<span></span>'}</div>`).join('')}
         <button type="button" class="btn sub" id="addContact" style="width:100%;margin-top:8px">＋ 연락처 추가</button></div>
-      <div class="fld"><label for="f_memo">메모<small>입주 가능일, 비밀번호, 특이사항 등</small></label><textarea class="in" id="f_memo" rows="3" maxlength="1000">${esc(it.memo || '')}</textarea></div>
+      <div class="fld"><label for="f_memo">메모 기록<small>입주 가능일, 비밀번호, 통화 내용 등 · 쓸 때마다 날짜·시간이 붙어 쌓입니다</small></label>
+        <div class="mnew"><textarea class="in" id="f_memo" rows="2" maxlength="500" placeholder="새 메모를 적고 [추가]를 누르세요">${esc(S.form.memoDraft || '')}</textarea><button type="button" class="btn sub" id="f_memoAdd">추가</button></div>
+        ${memoListHtml(it.memo, it.up ? String(it.up).slice(2, 10).replace(/-/g, '.') : '', 'data-mdel')}</div>
       <div class="fld"><span class="lb">상태</span><div class="seg" id="fStat">${Object.entries(STAT).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="${it.status === k}">${v}</button>`).join('')}</div></div>
       <div class="saveRow">${F.edit ? '<button class="btn danger" id="fDel" type="button">삭제</button>' : ''}<button class="btn main" id="fSave" type="button">저장하기</button></div>` : ''}`;
     // ---- 이벤트 ----
@@ -763,6 +773,8 @@
     // 수익률은 다시 그리지 않고 그 자리만 바꿉니다 (다시 그리면 바로 누른 '저장하기'가 씹힘)
     on('[data-money]', inp => inp.addEventListener('input', () => { if (!['sale', 'presale'].includes(F.it.kind) || !$('yield')) return; collect(); $('yield').innerHTML = yieldHint(F.it); }));
     on('[data-phone]', inp => inp.oninput = () => { const d = inp.value.replace(/\D/g, ''); if (/^01\d{8,9}$/.test(d)) inp.value = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`; });
+    $('f_memoAdd').onclick = () => { collect(); const t = (F.memoDraft || '').trim(); if (!t) return $('f_memo').focus(); F.it.memo = memoAdd(F.it.memo, t); F.memoDraft = ''; renderForm(true); toast('추가했습니다 · 저장하기를 눌러야 반영됩니다', 2600); };
+    document.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => { if (!confirm('이 메모를 지울까요?')) return; collect(); const a = memoParse(F.it.memo); a.splice(+b.dataset.mdel, 1); F.it.memo = memoJoin(a); renderForm(true); });
     if ($('addRent')) $('addRent').onclick = () => { collect(); F.it.rents.push({ label: '', deposit: null, rent: null, memo: '' }); renderForm(true); const i = F.it.rents.length - 1; setTimeout(() => $(`r${i}_label`) && $(`r${i}_label`).focus(), 30); };
     on('[data-rdel]', b => b.onclick = () => { collect(); F.it.rents.splice(+b.dataset.rdel, 1); renderForm(true); });
     if ($('sumRent')) $('sumRent').onclick = () => {
@@ -796,7 +808,8 @@
     it.rents.forEach((r, i) => { const l = v(`r${i}_label`), d = v(`r${i}_deposit`), m = v(`r${i}_rent`), me = v(`r${i}_memo`); if (l !== undefined) r.label = l.trim(); if (d !== undefined) r.deposit = num(d); if (m !== undefined) r.rent = num(m); if (me !== undefined) r.memo = me.trim(); });
     ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan', 'pr', 'paid'].forEach(k => { const x = v('m_' + k); if (x !== undefined) it[k] = num(x); });
     { const x = v('f_ptypeTx'); if (x !== undefined) it.ptypeTx = x.trim(); }
-    ['bname', 'memo', 'no'].forEach(k => { const x = v('f_' + k); if (x !== undefined) it[k] = x.trim(); });
+    ['bname', 'no'].forEach(k => { const x = v('f_' + k); if (x !== undefined) it[k] = x.trim(); });
+    { const md = v('f_memo'); if (md !== undefined) F.memoDraft = md; } // 메모는 [추가]로 기록에 쌓이고, 입력칸에 남은 글은 저장할 때 자동으로 추가
     it.ad = it.ad || {};
     ['fl', 'tfl', 'dir', 'rooms', 'baths', 'movein', 'park', 'appr', 'desc', 'use', 'zone', 'biz', 'wc', 'facx', 'mgmtTx'].forEach(k => { const x = v('a_' + k); if (x !== undefined) { if (F.auto && F.auto.has(k) && x.trim() !== String(it.ad[k] ?? '')) F.auto.delete(k); it.ad[k] = x.trim(); } });
     if ($('a_nomgmt')) it.ad.nomgmt = $('a_nomgmt').checked;
@@ -806,6 +819,7 @@
   async function save() {
     collect();
     const it = S.form.it;
+    if ((S.form.memoDraft || '').trim()) { it.memo = memoAdd(it.memo, S.form.memoDraft); S.form.memoDraft = ''; }
     if (S.form.upN) return toast('사진을 올리는 중입니다. 잠시 후 저장해 주세요');
     const need = moneyOf(it).find(([k, , req]) => req && !it[k]);
     if (need && !(it.kind === 'wolse' && it.deposit)) return toast(`${need[1]}을(를) 입력해 주세요`);
