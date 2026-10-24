@@ -1,13 +1,12 @@
-// 리얼맵 미리 불러오기 (GitHub Actions에서 매일 새벽 자동 실행)
-// 마포·서대문·은평의 최근 거래가 있는 아파트·오피스텔을 골라, 건축물대장·층별·동별 호 목록·토지 정보를
-// 리얼맵 서버에 한 번씩 요청해 둡니다. 서버는 받은 결과를 창고(Upstash)에 30일 보관하므로
-// 이용자가 처음 눌러도 바로 뜹니다. 이미 창고에 있는 건물은 공공데이터포털을 다시 부르지 않습니다.
+// 리얼맵 미리 불러오기 (GitHub Actions에서 일주일에 한 번 새벽 자동 실행)
+// 요즘 필지 조회가 많은 시·군·구 상위 5곳에서 거래가 많은 대단지 아파트를 골라, 건축물대장·층별·토지 정보와
+// 단지 전체 동·호 목록을 리얼맵 서버에 한 번씩 요청해 둡니다. 서버는 결과를 창고(Upstash)에 보관하므로
+// 이용자가 처음 눌러도 바로 뜹니다. 창고가 거의 찼으면(새로 저장이 안 되면) 요청만 쓰므로 그냥 건너뜁니다.
 const SITE = process.env.SITE || 'https://realmap.online';
-const GU = [['11440', '서울특별시 마포구'], ['11410', '서울특별시 서대문구'], ['11380', '서울특별시 은평구']];
-const KINDS = ['apt', 'offi'];
-const DAYS = 7;                 // 전체 목록을 7일에 나눠 한 바퀴 (하루 공공데이터 사용량을 낮게 유지)
-const GAP = 400;                // 요청 사이 쉬는 시간(ms)
-const LIMIT_MIN = 80;           // 한 번 실행 최대 시간(분)
+const PER_GU = +(process.env.PER_GU || 25);   // 구마다 대단지 몇 곳
+const GAP = +(process.env.GAP || 400);                              // 요청 사이 쉬는 시간(ms)
+const LIMIT_MIN = 60;                          // 한 번 실행 최대 시간(분)
+const FALLBACK = ['11440', '11410', '11380'];  // 통계가 없을 때: 마포·서대문·은평
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const t0 = Date.now();
@@ -25,32 +24,42 @@ async function get(path) {
   fails++; return null;
 }
 
-// 1) 대상 필지 모으기
-const want = new Map();
-for (const [lawd, r] of GU) for (const kind of KINDS) {
-  const j = await get(`/api/aptmap?kind=${kind}&lawd=${lawd}&r=${encodeURIComponent(r)}`);
-  for (const it of (j && j.items) || []) if (it.pnu) want.set(it.pnu, (want.get(it.pnu) || 0) + (it.c || 1));
+// 1) 계획: 많이 보는 지역 + 창고 상태
+const plan = await get('/api/auth?action=warmplan');
+if (plan && plan.max && plan.keys >= plan.max * 0.95) {
+  console.log(`창고가 거의 찼습니다 (${plan.keys}/${plan.max}). 새로 저장되지 않으니 이번 주는 건너뜁니다.`);
+  process.exit(0);
 }
-const all = [...want.keys()].sort();
-const day = Math.floor(Date.now() / 864e5);
-const todays = process.env.ALL ? all : all.filter((p, i) => i % DAYS === day % DAYS);
-console.log(`대상 필지 전체 ${all.length}곳 · 오늘 ${todays.length}곳`);
+const gus = plan && plan.gus && plan.gus.length ? plan.gus.map(g => g.lawd) : FALLBACK;
+console.log(`대상 지역: ${gus.join(', ')} (${plan && plan.gus && plan.gus.length ? '최근 14일 조회 많은 순' : '기본 지역'})`);
 
-// 2) 필지마다 미리 요청
+// 2) 지역마다 최근 6개월 거래가 많은 아파트 = 대단지 순
+const want = [];
+for (const lawd of gus) {
+  const j = await get(`/api/aptmap?kind=apt&lawd=${lawd}`);
+  const items = ((j && j.items) || []).filter(x => x.pnu).sort((a, b) => (b.c || 0) - (a.c || 0)).slice(0, PER_GU);
+  items.forEach(x => want.push(x.pnu));
+  console.log(`${lawd}: ${items.length}곳 (${items.slice(0, 3).map(x => x.n).join(', ')} …)`);
+}
+const todo = [...new Set(want)];
+
+// 3) 단지마다 미리 요청: 건축물대장 · 층별 · 토지 · 단지 전체 동·호(차례 받기, 다 받으면 서버가 동별로 저장)
 let done = 0;
-for (const pnu of todays) {
-  if (Date.now() - t0 > LIMIT_MIN * 60e3) { console.log('시간 한도 도달, 다음에 이어서 합니다'); break; }
+for (const pnu of todo) {
+  if (Date.now() - t0 > LIMIT_MIN * 60e3) { console.log('시간 한도 도달, 다음 주에 이어서 합니다'); break; }
   const b = await get(`/api/building?pnu=${pnu}&w=1`);
   const titles = b && b.titles && b.titles.ok ? b.titles.data : [];
   if (titles.length) {
     await get(`/api/building?pnu=${pnu}&part=floors&w=1`);
-    const dongs = [...new Set(titles.map(t => String(t.dong || '').trim()).filter(Boolean))];
-    if (dongs.length >= 2) for (const d of dongs) await get(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(d)}&w=1`);
-    else await get(`/api/units?pnu=${pnu}&w=1`);
+    let from = 1;
+    for (let k = 0; k < 40; k++) {
+      const s = await get(`/api/units?pnu=${pnu}&scan=1&from=${from}&w=1`);
+      if (!s || s.cached || s.done || !s.pages) break;
+      from = s.next || from + 1;
+    }
   }
   await get(`/api/land?pnu=${pnu}&w=1`);
   done++;
-  if (done % 25 === 0) console.log(`${done}/${todays.length} 완료 · 요청 ${calls}회`);
+  if (done % 10 === 0) console.log(`${done}/${todo.length} 완료 · 요청 ${calls}회`);
 }
 console.log(`끝: ${done}곳 · 요청 ${calls}회 · 실패 ${fails}회 · ${Math.round((Date.now() - t0) / 60e3)}분`);
-
