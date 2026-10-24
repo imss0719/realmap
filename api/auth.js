@@ -246,7 +246,7 @@ function cleanAd(a) {
   const DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
   const MGI = ['gen', 'elec', 'water', 'gas', 'heat', 'net', 'tv', 'etc'];
   const WCS = ['내부 전용', '내부 공용', '외부 공용', '외부 전용'];
-  return { fl: t(a.fl, 8), tfl: int(a.tfl), flx: a.flx === 'lmh' ? 'lmh' : 'exact', dir: DIRS.includes(a.dir) ? a.dir : '', rooms: int(a.rooms), baths: int(a.baths),
+  return { fl: t(a.fl, 8), tfl: int(a.tfl), ufl: int(a.ufl), flx: a.flx === 'lmh' ? 'lmh' : 'exact', dir: DIRS.includes(a.dir) ? a.dir : '', rooms: int(a.rooms), baths: int(a.baths),
     movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
@@ -679,8 +679,11 @@ export default async function (req, res) {
         if (!places.length) return fail(res, 400, 'bad_pnu', '주소를 먼저 골라 주세요.');
         const contacts = (Array.isArray(it.contacts) ? it.contacts : []).map(c => ({ role: str(c.role, 10), name: str(c.name, 20), phone: str(c.phone, 20).replace(/[^\d-]/g, '') }))
           .filter(c => c.name || c.phone).slice(0, 10);
-        const rents = (Array.isArray(it.rents) ? it.rents : []).map(r => ({ label: str(r.label, 30), deposit: numv(r.deposit), rent: numv(r.rent), memo: str(r.memo, 60) }))
-          .filter(r => r.label || r.deposit || r.rent || r.memo).slice(0, 60);
+        // 임대 현황 · 층별 현황 (통건물: 층·용도·면적은 건축물대장에서 자동, 나머지는 직접) — fl·use·area·biz·exp는 10/25 추가
+        const rents = (Array.isArray(it.rents) ? it.rents : []).map(r => ({ label: str(r.label, 30), deposit: numv(r.deposit), rent: numv(r.rent), memo: str(r.memo, 60),
+          fl: str(r.fl, 8), use: str(r.use, 30), area: numv(r.area), biz: str(r.biz, 30), exp: str(r.exp, 10).replace(/[^\d.-]/g, '') }))
+          .map(r => Object.fromEntries(Object.entries(r).filter(([k, v]) => ['label', 'deposit', 'rent', 'memo'].includes(k) || (v != null && v !== ''))))
+          .filter(r => r.label || r.deposit || r.rent || r.memo || r.fl || r.biz).slice(0, 60);
         const photos = (Array.isArray(it.photos) ? it.photos : []).map(p => ({ url: String(p && p.url || '') })).filter(p => ownPhoto(p.url, s.id)).slice(0, 30);
         const kind = ['sale', 'jeonse', 'wolse', 'presale'].includes(it.kind) ? it.kind : 'sale';
         const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
