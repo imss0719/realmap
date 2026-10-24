@@ -379,7 +379,14 @@ window.Danji = (() => {
       case 'pr': return prHtml(x);
       case 'live': return r.live ? LIVE[r.live] : '<span class="mut">-</span>';
       case 'exp': return r.exp ? `<span class="${x.st.exp ? 'dd' : ''}">${esc(r.exp.slice(2).replace(/-/g, '.'))}${x.st.exp ? ` · ${x.st.dl >= 0 ? 'D-' + x.st.dl : '지남'}` : ''}</span>` : '<span class="mut">-</span>';
-      case 'tel': { const t = r.tels || []; return t.length ? `${esc(t[0].l || '연락처')} ${esc(t[0].n)}${t.length > 1 ? ` <small>외 ${t.length - 1}</small>` : ''}` : '<span class="mut">-</span>'; }
+      case 'tel': {
+        const t = r.tels || []; if (!t.length) return '<span class="mut">-</span>';
+        const one = (z, i) => `<a class="tl" href="tel:${esc(String(z.n).replace(/[^\d+]/g, ''))}" data-tcall="${i}">${esc(z.l || '연락처')} ${esc(z.n)}</a>`;
+        if (t.length === 1) return one(t[0], 0);
+        const op = S.telOpen && S.telOpen.has(x.key);
+        return op ? `<div class="tls">${t.map(one).join('')}<button type="button" class="tx" data-tx="${esc(x.key)}">접기 ▴</button></div>`
+          : `${one(t[0], 0)} <button type="button" class="tx" data-tx="${esc(x.key)}">외 ${t.length - 1} ▾</button>`;
+      }
       case 'h': { const n = r.histN || 0; const op = S.hist === x.key; return `<button type="button" class="hbtn${op ? ' on' : ''}" data-hist="${esc(x.key)}">${op ? '기록 ▴' : `기록${n ? ' ' + n : ''}`}</button>`; }
       case 'mi': return r.moveIn ? esc(/^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.slice(2).replace(/-/g, '.') : r.moveIn) : '<span class="mut">-</span>';
       default: return r[c.f] ? esc(r[c.f]) : '<span class="mut">-</span>';
@@ -417,8 +424,9 @@ window.Danji = (() => {
     $('dj_sort').onchange = e => { F.sort = e.target.value; drawTable(cx); };
     $('dj_csv').onclick = () => exportCsv(cx, rows);
     if ($('dj_addHo')) $('dj_addHo').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) addHo(cx, e.target.value); };
-    if (!ro) box.querySelectorAll('td.ed').forEach(td => td.onclick = e => { if (td.classList.contains('editing') || e.target.closest('a,button.hbtn')) return; startEdit(cx, +td.parentNode.dataset.i, td.dataset.c); });
+    if (!ro) box.querySelectorAll('td.ed').forEach(td => td.onclick = e => { if (td.classList.contains('editing') || e.target.closest('a,button.hbtn,button.tx')) return; startEdit(cx, +td.parentNode.dataset.i, td.dataset.c); });
     box.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
+    wireTel(cx, box);
     if (S.hist) wireHist(cx);
     if (S.focusKey) { const tr = box.querySelector(`tr[data-key="${CSS.escape(S.focusKey)}"]`); S.focusKey = null; if (tr) { tr.scrollIntoView({ block: 'center', behavior: 'smooth' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); } }
   }
@@ -432,8 +440,19 @@ window.Danji = (() => {
     const tr = document.querySelector(`#dj_tbl tr[data-i="${i}"]`); if (!tr) return;
     tr.outerHTML = rowHtml(x, i);
     const n = document.querySelector(`#dj_tbl tr[data-i="${i}"]`);
-    n.querySelectorAll('td.ed').forEach(td => td.onclick = e => { if (td.classList.contains('editing') || e.target.closest('a,button.hbtn')) return; startEdit(cx, i, td.dataset.c); });
+    n.querySelectorAll('td.ed').forEach(td => td.onclick = e => { if (td.classList.contains('editing') || e.target.closest('a,button.hbtn,button.tx')) return; startEdit(cx, i, td.dataset.c); });
     n.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
+    wireTel(cx, n);
+  }
+  // 연락처 펼치기 · 번호를 누르면 전화 (통화 기록이 남음)
+  function wireTel(cx, root) {
+    root.querySelectorAll('[data-tx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.telOpen = S.telOpen || new Set(); const k = b.dataset.tx; S.telOpen.has(k) ? S.telOpen.delete(k) : S.telOpen.add(k); redrawRow(cx, k); });
+    root.querySelectorAll('[data-tcall]').forEach(a => a.onclick = e => {
+      e.stopPropagation();
+      const tr = a.closest('tr[data-key]'), x = tr && S.rows.find(z => z.key === tr.dataset.key); if (!x) return;
+      const t = ((x.r && x.r.tels) || [])[+a.dataset.tcall];
+      if (!(S.L[cx.id] && S.L[cx.id].err)) actRow(cx, x, 'call', { label: (t && t.l) || '연락처' });
+    });
   }
   // 호별 면적: 표에 나온 동만, 동마다 한 번
   function needAreas(cx, C, rows) {
