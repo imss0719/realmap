@@ -2214,11 +2214,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     kakao.maps.event.addListener(S.map, 'idle', tradeRefresh);
     kakao.maps.event.addListener(S.map, 'idle', priceRefresh);
     // 동별 시세 설정
-    try { const v = JSON.parse(localStorage.getItem('rm.pm') || 'null'); if (v) { PM.kind = v.kind || 'apt'; PM.mode = v.mode || 'price'; } } catch { /* 저장소 없음 */ }
+    try { const v = JSON.parse(localStorage.getItem('rm.pm') || 'null'); if (v) { PM.kind = PKN[v.kind] ? v.kind : 'apt'; PM.mode = v.mode || 'price'; if (PLB(PM.kind) && PM.mode === 'jr') PM.mode = 'price'; } } catch { /* 저장소 없음 */ }
     // 범례 위 평당가/상승률 전환 버튼 (범례는 다시 그려지므로 범례 상자에서 한 번에 받습니다)
     $('pmLegend').addEventListener('click', e => {
       const b = e.target.closest('[data-pm]'); if (b) return pmSetMode(b.dataset.pm);
-      const k = e.target.closest('[data-pk]'); if (k && k.dataset.pk !== PM.kind) { PM.kind = k.dataset.pk; pmSave(); priceRefresh(true); }
+      const k = e.target.closest('[data-pk]'); if (k && k.dataset.pk !== PM.kind) { PM.kind = k.dataset.pk; if (PLB(PM.kind) && PM.mode === 'jr') PM.mode = 'price'; pmSave(); priceRefresh(true); }
     });
     tradeRefresh();
     areaSumInit();
@@ -2260,6 +2260,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const PSIDO = { '26': { n: '부산광역시', bb: [128.79, 34.99, 129.3, 35.39] }, '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] } };
   const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, qv: {}, sel: null, hov: null };
   const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
+  // 종류: 주택(아파트·빌라·오피스텔, 최근 6개월 전용 평당) / 토지·건물(대지·단독·상가·공장, 최근 1년 대지 평당 — data/price2-<시도>.json)
+  const PKN = { apt: '아파트', rh: '빌라', offi: '오피스텔', land: '토지', sh: '단독', nrg: '상가', indu: '공장' };
+  const PKL = { apt: '아파트', rh: '빌라', offi: '오피스텔', land: '토지(대지)', sh: '단독·다가구', nrg: '상가·업무', indu: '공장·창고' };
+  const PLBK = ['land', 'sh', 'nrg', 'indu'], PLB = k => PLBK.includes(k);
   const PY3 = 3.305785;
   const pmSave = () => { try { localStorage.setItem('rm.pm', JSON.stringify({ kind: PM.kind, mode: PM.mode })); } catch { /* 무시 */ } };
   function pmSetMode(m) {
@@ -2283,6 +2287,23 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       });
     return PM.loading;
   }
+  // 토지·건물 시세 파일 (칩을 눌렀을 때만 받아서 주택 시세 자료에 합쳐 둡니다)
+  function pmLoad2() {
+    if (PM.p2) return Promise.resolve(true);
+    if (!PM.loading2) PM.loading2 = Promise.all(Object.keys(PSIDO).map(sd => fetch(`/data/price2-${sd}.json`).then(r => r.ok ? r.json() : null).catch(() => null)))
+      .then(ps => {
+        const P = PM.price, info = { cur: null };
+        ps.forEach(p => {
+          if (!p) return;
+          for (const [src, dst] of [['d', P.d], ['g', P.g]]) for (const [c, e] of Object.entries(p[src] || {})) { const o = dst[c] || (dst[c] = { n: e.n }); for (const k of PLBK) if (e[k]) o[k] = e[k]; }
+          if (!info.cur) info.cur = p.cur;
+        });
+        PM.p2 = info; PM.ver = (PM.ver || 0) + 1; return true;
+      });
+    return PM.loading2;
+  }
+  // 지금 고른 종류의 자료 기간 (토지·건물은 최근 1년)
+  const pmCur = () => (PLB(PM.kind) && PM.p2 && PM.p2.cur) || PM.price.cur;
   // 경계 파일 (지도가 비추는 시도만)
   function pmBounds(sw, ne) {
     // 서울 안쪽만 보고 있으면 경기·인천 경계는 받지 않습니다 (경기 경계 파일이 커서)
@@ -2292,7 +2313,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       .then(([u, g]) => {
         PM.umd.push(...u.f.map(pmBox)); PM.sgg.push(...g.f.map(pmBox));
         // 구별 값이 아직 없는 시도(자동 갱신 전)는 동별 값을 거래 건수로 가중평균해 임시로 씁니다
-        if (PM.price && !g.f.some(f => PM.price.g[f.c])) Object.assign(PM.price.g, pmGuFallback(PM.price.d, g.f));
+        if (PM.price && !g.f.some(f => { const x = PM.price.g[f.c]; return x && (x.apt || x.rh || x.offi); })) for (const [c, o] of Object.entries(pmGuFallback(PM.price.d, g.f))) PM.price.g[c] = { ...(PM.price.g[c] || {}), ...o };
         return true;
       }).catch(() => { delete PM.bnd[sd]; return false; }))));
   }
@@ -2366,6 +2387,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (restyle) PM.ver = (PM.ver || 0) + 1;
     if (!pmActive()) { pmHide('d'); pmHide('g'); $('pmLegend').hidden = true; $('pmCard').hidden = true; PM.sel = null; return; }
     if (!(await pmLoad()) || !pmActive()) return;
+    if (PLB(PM.kind)) { await pmLoad2(); if (!pmActive()) return; }
     let K = kakao.maps, b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast();
     const nb = PM.umd.length;
     await pmBounds(sw, ne);
@@ -2427,18 +2449,18 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     pmLegend(ly);
   }
   function pmLegend(ly) {
-    const el = $('pmLegend'), P = PM.price;
-    const KN = { apt: '아파트', rh: '빌라', offi: '오피스텔' }[PM.kind], U = ly === 'g' ? '구별' : '동별';
+    const el = $('pmLegend'), C = pmCur(), lb = PLB(PM.kind);
+    const KN = PKL[PM.kind], U = ly === 'g' ? '구별' : '동별';
     const grp = S.map.getCenter().getLat() < 36 ? 'b' : 'm', key = ly + grp;
-    const per = `${P.cur[0].slice(2, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(2, 4)}.${P.cur[1].slice(4)}${PM.mode === 'chg' || PM.mode === 'jr' ? '' : ` · ${PGRP[grp]} 기준`}`;
-    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button><button type="button" data-pm="jr" aria-pressed="${PM.mode === 'jr'}">전세가율</button></div><div class="pmkind" role="group" aria-label="주택 종류">${[['apt', '아파트'], ['rh', '빌라'], ['offi', '오피스텔']].map(([k, t]) => `<button type="button" data-pk="${k}" aria-pressed="${PM.kind === k}">${t}</button>`).join('')}</div>`;
+    const per = `${C[0].slice(2, 4)}.${C[0].slice(4)}~${C[1].slice(2, 4)}.${C[1].slice(4)}${PM.mode === 'chg' || PM.mode === 'jr' ? '' : ` · ${PGRP[grp]} 기준`}`;
+    const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button><button type="button" data-pm="jr" aria-pressed="${PM.mode === 'jr'}"${lb ? ' disabled title="토지·건물은 전세가율이 없습니다"' : ''}>전세가율</button></div>${[['주택', ['apt', 'rh', 'offi']], ['토지·건물', PLBK]].map(([t, ks]) => `<div class="pmkind" role="group" aria-label="${t} 종류"><span>${t}</span>${ks.map(k => `<button type="button" data-pk="${k}" aria-pressed="${PM.kind === k}">${PKN[k]}</button>`).join('')}</div>`).join('')}`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
     if (PM.mode === 'price') {
       const q = PM.q[key] || [0, 0, 0, 0, 0, 0], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
-      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전용 평당가 <small>${per}</small></b><div class="pml">${PCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])} 이하</span><span>${f(q[5])} 이상</span></div>${hint}`;
+      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} ${lb ? (PM.kind === 'land' ? '평당가' : '대지 평당가') : '전용 평당가'} <small>${per}${lb ? ' · 최근 1년' : ''}</small></b><div class="pml">${PCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${f(q[0])} 이하</span><span>${f(q[5])} 이상</span></div>${hint}`;
     } else if (PM.mode === 'vol') {
       const q = PM.qv[key] || [0, 0, 0, 0, 0, 0];
-      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 거래량 <small>${per} · 6개월 매매 건수</small></b><div class="pml">${VCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${n(q[0])}건 이하</span><span>${n(q[5])}건 이상</span></div>${hint}`;
+      el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 거래량 <small>${per} · ${lb ? '1년' : '6개월'} 매매 건수</small></b><div class="pml">${VCOL.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>${n(q[0])}건 이하</span><span>${n(q[5])}건 이상</span></div>${hint}`;
     } else if (PM.mode === 'jr') {
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 전세가율 <small>${per} · 같은 단지·평형의 전세 ÷ 매매</small></b><div class="pml">${JCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>50%↓</span><span>60</span><span>70</span><span>80%↑</span></div>${hint}`;
       const has = Object.values(pmSrc(ly)).some(e => e && e[PM.kind + 'J']);
@@ -2450,9 +2472,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     el.hidden = false;
   }
   function pmCardShow(ly, f) {
-    const e = pmSrc(ly)[f.c] || {}, P = PM.price, prev = PM.sel;
+    const e = pmSrc(ly)[f.c] || {}, C = pmCur(), lb = PLB(PM.kind), prev = PM.sel;
     PM.sel = `${ly}:${f.c}`; if (prev && prev !== PM.sel) pmPaint(prev[0], prev.slice(2)); pmPaint(ly, f.c);
-    const row = (k, nm) => { const v = e[k]; if (!v || !v[0]) return `<tr><th>${nm}</th><td colspan="2" class="n">최근 6개월 거래 없음</td></tr>`;
+    const row = (k, nm) => { const v = e[k]; if (!v || !v[0]) return `<tr><th>${nm}</th><td colspan="2" class="n">최근 ${lb ? '1년' : '6개월'} 거래 없음</td></tr>`;
       const ch = v[2] && v[3] >= 3 && v[1] >= 3 ? (v[0] / v[2] - 1) * 100 : null;
       return `<tr${k === PM.kind ? ' class="cur"' : ''}><th>${nm}</th><td><b>${n(Math.round(v[0] * PY3 / 10) * 10)}만</b><small>${n(v[1])}건${v[3] ? ` (1년 전 ${n(v[3])}건)` : ''}${v[1] < 3 ? ' · 적음' : ''}</small>${(() => { const j = e[k + 'J']; if (!j || !j[0]) return ''; const r = j.length >= 4 ? j[2] : (j[1] >= 3 && v[1] >= 3 ? j[0] / v[0] * 100 : null); return r != null ? `<small class="jrl">전세가율 <b>${Math.round(r)}%</b>${j.length >= 4 ? ` <span>(같은 단지 ${n(j[3])}건 비교)</span>` : ''}</small>` : ''; })()}</td><td class="${ch == null ? 'n' : ch >= 0 ? 'up' : 'dn'}">${ch == null ? '-' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%`}</td></tr>`; };
     const nm = ly === 'g' ? f.n : (PM.price.d[f.c] && PM.price.d[f.c].n) || f.n;
@@ -2460,9 +2482,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const sdn = (PSIDO[f.c.slice(0, 2)] || {}).n || '';
     const el = $('pmCard');
     el.innerHTML = `<div class="pmc-h"><div><small>${ly === 'g' ? sdn : `${sdn} ${esc(gu)}`}</small><b>${esc(nm)}</b></div><button type="button" aria-label="닫기" id="pmClose">×</button></div>
-      <table><thead><tr><th></th><th>전용 평당 (중간값)</th><th>1년 전 대비</th></tr></thead><tbody>${row('apt', '아파트')}${row('rh', '빌라')}${row('offi', '오피스텔')}</tbody></table>
-      <p class="pmc-n">${P.cur[0].slice(0, 4)}.${P.cur[0].slice(4)}~${P.cur[1].slice(0, 4)}.${P.cur[1].slice(4)} 국토교통부 실거래 기준 · 매주 갱신</p>
-      <button type="button" class="pmc-go" id="pmGo">${ly === 'g' ? `${esc(nm.split(' ').pop())} 동별 시세 보기` : '확대해서 건물별 실거래 보기'}</button>`;
+      <table><thead><tr><th></th><th>${lb ? '대지 평당' : '전용 평당'} (중간값)</th><th>1년 전 대비</th></tr></thead><tbody>${(lb ? PLBK : ['apt', 'rh', 'offi']).map(k => row(k, PKL[k])).join('')}</tbody></table>
+      <p class="pmc-n">${C[0].slice(0, 4)}.${C[0].slice(4)}~${C[1].slice(0, 4)}.${C[1].slice(4)} 국토교통부 실거래 기준${lb ? ' · 토지는 지목이 대지인 거래만, 상가·공장은 집합건물 제외' : ''} · 매주 갱신</p>
+      <button type="button" class="pmc-go" id="pmGo">${ly === 'g' ? `${esc(nm.split(' ').pop())} 동별 시세 보기` : lb ? '확대해서 필지 보기' : '확대해서 건물별 실거래 보기'}</button>`;
     el.hidden = false;
     const close = () => { el.hidden = true; const o = PM.sel; PM.sel = null; if (o) pmPaint(o[0], o.slice(2)); };
     $('pmClose').onclick = close;

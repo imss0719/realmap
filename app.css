@@ -500,6 +500,9 @@ a.favbtn{text-decoration:none}
 .trades li.sim{background:#FFF8DB;border-radius:8px}
 @media (prefers-color-scheme:dark){.trades li.sim{background:#3A3010}}
 .pmlegend .pmkind{display:flex;gap:4px;margin:-3px 0 9px}
+.pmlegend .pmkind+.pmkind{margin-top:-4px}
+.pmlegend .pmkind span{flex:none;width:50px;align-self:center;font-size:10.5px;color:var(--muted);white-space:nowrap}
+.pmlegend .pmseg button:disabled{opacity:.35;cursor:default}
 .pmlegend .pmkind button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:4px 6px;border-radius:7px;cursor:pointer;white-space:nowrap}
 .pmlegend .pmkind button[aria-pressed="true"]{border-color:var(--fg);color:var(--fg);background:var(--soft)}
 .pmlab{display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;white-space:nowrap;font-family:inherit;transform:translateY(-2px)}
