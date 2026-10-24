@@ -1,0 +1,32 @@
+name: realmap-price-map2
+# 동별 시세 지도 — 토지(대지)·단독·상가·공장 자료(data/price2-11·41·28·26.json) 만들기
+# 매주 월요일 새벽 5시(한국시간, 아파트 작업 1시간 뒤) + 수동 실행. 아파트 작업과 따로 돌아서 서로 영향이 없습니다.
+on:
+  schedule:
+    - cron: '0 20 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: realmap-price-map2
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: node scripts/price-map2.mjs
+        continue-on-error: true   # 일부 지역이 실패해도 받은 지역은 저장
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+      - name: 바뀐 자료 저장
+        if: always()
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/price2-*.json
+          git diff --cached --quiet || (git commit -m "동별 시세(토지·건물) 자료 갱신" && git pull --rebase && git push)
