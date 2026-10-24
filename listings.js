@@ -109,115 +109,46 @@
   // 요금제 안내 (무료 이용자가 Basic 기능을 누르거나 한도에 닿았을 때)
   function upsell(msg) { if (confirm(`${msg}\n\n요금제 안내를 열어 볼까요?`)) window.open('/pro.html#price', '_blank'); }
   const adv = () => !S.plan || S.plan.adv;
+  // 지도+리스트(list) 모드: 표가 기본, [지도로 보기]를 켜면 오른쪽에 지도 · 단지(danji) 모드는 Basic부터
   function setMode(m) {
-    if (['danji', 'list'].includes(m) && !adv()) { if (S.mode) upsell(`${m === 'danji' ? '단지 모드' : '리스트 모드'}는 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.`); m = 'map'; }
-    S.mode = ['danji', 'list'].includes(m) ? m : 'map';
+    if (m === 'danji' && !adv()) { if (S.mode) upsell('단지 모드는 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.'); m = 'list'; }
+    S.mode = m === 'danji' ? 'danji' : 'list';
     try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
     const dj = S.mode === 'danji', lv = S.mode === 'list';
     document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv);
-    if (!lv) document.body.classList.remove('lvwide');
-    $('dj').hidden = !dj; $('lv').hidden = !lv; $('map').style.visibility = dj || lv ? 'hidden' : '';
-    document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.toggle('lock', b.dataset.mode !== 'map' && !adv()); });
+    if (!lv) document.body.classList.remove('lvmap');
+    $('dj').hidden = !dj; $('lv').hidden = !lv; $('map').style.visibility = dj || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
+    document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.toggle('lock', b.dataset.mode === 'danji' && !adv()); });
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
-    else if (lv) drawLv();
-    else setTimeout(() => { if (S.map) { S.map.relayout(); drawPins(); } }, 50);
+    else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }
     drawList();
   }
-
-  // ---------- 리스트 모드: 표로 정렬 · 필터(손님 조건) · 묶어 보기 · 한꺼번에 처리 ----------
-  const LV = (() => { let v = null; try { v = JSON.parse(localStorage.getItem('rm.lv') || 'null'); } catch { /* 무시 */ } return Object.assign({ sort: 'at', dir: -1, grp: '', f: {}, cols: ['phone'], sel: [] }, v || {}, { sel: [] }); })();
-  const lvSave = () => { try { localStorage.setItem('rm.lv', JSON.stringify({ ...LV, sel: [] })); } catch { /* 무시 */ } };
-  const mainP = x => x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || x.pr) : x.deposit;     // 만원
-  const pyOf = x => x.area ? x.area / 3.3058 : null;
-  const unitsOf = x => (x.places && x.places.length ? x.places : [x]).map(p => [p.dong && normDong(p.dong), p.ho && String(p.ho).replace(/호$/, '') + '호'].filter(Boolean).join(' ')).filter(Boolean);
-  const normDong = d => /동$/.test(d) ? d : d + '동';
-  const hood = x => { const a = String(x.addr || (x.places && x.places[0] && x.places[0].addr) || ''); return (a.split(' ').find(w => /(동|가|리|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w)) || '').replace(/\d+가$/, '가'); };
-  function lvPass(x) {
-    const f = LV.f, p = mainP(x), py = pyOf(x);
-    if (f.pmin && !(p >= f.pmin)) return false;
-    if (f.pmax && !(p && p <= f.pmax)) return false;
-    if (f.rmax && x.kind === 'wolse' && !(x.rent <= f.rmax)) return false;
-    if (f.amin && !(py >= f.amin)) return false;
-    if (f.amax && !(py && py <= f.amax)) return false;
-    if (f.pt && x.ptype !== f.pt) return false;
-    if (f.where) { const w = f.where.replace(/\s/g, '').toLowerCase(); if (![x.addr, x.road, x.bname, JSON.stringify(x.places || '')].join(' ').replace(/\s/g, '').toLowerCase().includes(w)) return false; }
-    return true;
-  }
-  const COLS = [
-    ['no', '번호', x => esc(x.no || ''), x => x.no || ''],
-    ['kind', '거래', x => `<span class="kd ${x.kind}">${KIND[x.kind]}</span>`, x => x.kind],
-    ['ptype', '유형', x => esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype || ''), x => x.ptype || ''],
-    ['bname', '단지·건물', x => `<b>${esc(x.bname || (x.addr || '').split(' ').slice(-2).join(' '))}</b><small>${esc(hood(x))}</small>`, x => x.bname || x.addr || ''],
-    ['unit', '동·호', x => esc(unitsOf(x).slice(0, 2).join(', ')) + (unitsOf(x).length > 2 ? ` 외 ${unitsOf(x).length - 2}` : ''), x => unitsOf(x)[0] || ''],
-    ['area', '면적', x => x.area ? `${(x.area / 3.3058).toFixed(1)}평<small>${x.area}㎡</small>` : '', x => x.area || 0],
-    ['price', '가격', x => `<b>${esc(priceText(x))}</b>`, x => mainP(x) || 0],
-    ['status', '상태', x => `<span class="st ${x.status}">${STAT[x.status]}</span>`, x => x.status],
-    ['pub', '리얼맵', x => pubLive(x) ? `<span class="pb on" title="${ymd(x.pub.exp)}까지 게시">게시 중</span>` : isPub(x) ? '<span class="pb ex">기간 만료</span>' : '<span class="pb">미등록</span>', x => pubLive(x) ? 2 : isPub(x) ? 1 : 0],
-    ['at', '등록일', x => ymd(x.at).slice(2), x => x.at || ''],
-    ['phone', '연락처', x => { const c = (x.contacts && x.contacts[0]) || { name: x.owner, phone: x.phone }; return c && (c.name || c.phone) ? `${esc(c.name || '')}<small>${esc(c.phone || '')}</small>` : ''; }, x => (x.contacts && x.contacts[0] && x.contacts[0].name) || x.owner || '', 1],
-    ['mgmt', '관리비', x => x.mgmt ? shortWon(x.mgmt) : '', x => x.mgmt || 0, 1],
-    ['memo', '메모', x => `<span class="mm">${esc(x.memo || '')}</span>`, x => x.memo || '', 1],
-  ];
-  const GRP = { '': '묶지 않음', bname: '단지·건물별', hood: '동네별', kind: '거래별', status: '상태별', ptype: '유형별', pub: '리얼맵 등록별' };
-  const gkey = x => LV.grp === 'bname' ? (x.bname || '이름 없음') : LV.grp === 'hood' ? (hood(x) || '동네 미상') : LV.grp === 'kind' ? KIND[x.kind] : LV.grp === 'status' ? STAT[x.status] : LV.grp === 'ptype' ? (x.ptype || '유형 미입력') : LV.grp === 'pub' ? (pubLive(x) ? '리얼맵 게시 중' : isPub(x) ? '게시 기간 만료' : '리얼맵 미등록') : '';
-  function drawLv() {
-    const box = $('lv'); if (!box || box.hidden) return;
-    const cols = COLS.filter(c => !c[4] || LV.cols.includes(c[0]));
-    const rows = filtered();
-    const col = COLS.find(c => c[0] === LV.sort) || COLS.find(c => c[0] === 'at');
-    rows.sort((a, b) => { const A = col[3](a), B = col[3](b); return (typeof A === 'number' && typeof B === 'number' ? A - B : String(A).localeCompare(String(B), 'ko', { numeric: true })) * LV.dir; });
-    const groups = new Map(); rows.forEach(x => { const k = gkey(x); (groups.get(k) || groups.set(k, []).get(k)).push(x); });
-    const avg = list => { const by = {}; list.forEach(x => { const p = mainP(x); if (p) (by[x.kind] || (by[x.kind] = [])).push(p); }); return Object.entries(by).map(([k, v]) => `${KIND[k]} ${v.length} · 평균 ${shortWon(Math.round(v.reduce((a, b) => a + b, 0) / v.length))}`).join(' / '); };
-    const f = LV.f, on = Object.values(f).some(v => v);
-    const sel = new Set(LV.sel);
-    const th = cols.map(c => `<th data-sort="${c[0]}" class="${LV.sort === c[0] ? 'on' : ''}">${c[1]}${LV.sort === c[0] ? (LV.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('');
-    const tr = x => `<tr id="r_${x.id}" data-id="${x.id}" class="${S.hl === x.id ? 'on' : ''}${x.status === 'done' ? ' dn' : ''}"><td class="ck"><input type="checkbox" data-ck="${x.id}" ${sel.has(x.id) ? 'checked' : ''} aria-label="선택"></td>${cols.map(c => `<td class="c-${c[0]}">${c[2](x)}</td>`).join('')}<td class="ed"><button type="button" data-ed="${x.id}">수정</button></td></tr>`;
-    const body = [...groups.entries()].map(([k, list]) => (LV.grp ? `<tr class="gh"><td colspan="${cols.length + 2}"><b>${esc(k)}</b> <span>${list.length}건${avg(list) ? ' · ' + esc(avg(list)) : ''}</span></td></tr>` : '') + list.map(tr).join('')).join('');
-    box.innerHTML = `<div class="lv-wrap">
-      <div class="lv-f">
-        <div class="lv-row"><b>손님 조건</b>
-          <label>가격 <input type="number" inputmode="numeric" data-f="pmin" value="${f.pmin || ''}" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-f="pmax" value="${f.pmax || ''}" placeholder="최대"> 만원</label>
-          <label>월세 <input type="number" inputmode="numeric" data-f="rmax" value="${f.rmax || ''}" placeholder="이하"> 만원</label>
-          <label>면적 <input type="number" inputmode="decimal" data-f="amin" value="${f.amin || ''}" placeholder="최소"> ~ <input type="number" inputmode="decimal" data-f="amax" value="${f.amax || ''}" placeholder="최대"> 평</label>
-          <label>유형 <select data-f="pt"><option value="">전체</option>${PTYPES.map(t => `<option ${f.pt === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-          <label>지역·단지 <input type="search" data-f="where" value="${esc(f.where || '')}" placeholder="예: 아현동, 래미안"></label>
-          ${on ? '<button type="button" class="lnk" id="lvClr">조건 지우기</button>' : ''}</div>
-        <div class="lv-row"><label>묶어 보기 <select id="lvGrp">${Object.entries(GRP).map(([k, t]) => `<option value="${k}" ${LV.grp === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-          <span class="lv-cols">열 추가 ${COLS.filter(c => c[4]).map(c => `<label class="ck2"><input type="checkbox" data-col="${c[0]}" ${LV.cols.includes(c[0]) ? 'checked' : ''}>${c[1]}</label>`).join('')}</span>
-          <span class="sp"></span><b class="cnt">${rows.length}건</b><button type="button" class="lnk" id="lvWide">${document.body.classList.contains('lvwide') ? '카드 다시 보기' : '넓게 보기'}</button></div>
-        ${sel.size ? `<div class="lv-row bulk"><b>${sel.size}건 선택</b><button type="button" data-bulk="on">진행 중</button><button type="button" data-bulk="hold">보류</button><button type="button" data-bulk="done">거래완료</button><button type="button" id="lvCsv">선택만 엑셀</button><button type="button" class="lnk" id="lvUnsel">선택 해제</button></div>` : ''}
-      </div>
-      <div class="lv-t"><table><thead><tr><th class="ck"><input type="checkbox" id="lvAll" aria-label="모두 선택" ${rows.length && rows.every(x => sel.has(x.id)) ? 'checked' : ''}></th>${th}<th></th></tr></thead><tbody>${body || `<tr><td colspan="${cols.length + 2}" class="none">조건에 맞는 매물이 없습니다.</td></tr>`}</tbody></table></div></div>`;
-    box.querySelectorAll('[data-sort]').forEach(h => h.onclick = () => { if (LV.sort === h.dataset.sort) LV.dir *= -1; else { LV.sort = h.dataset.sort; LV.dir = ['at', 'price', 'area'].includes(LV.sort) ? -1 : 1; } lvSave(); drawLv(); });
-    box.querySelectorAll('[data-f]').forEach(i => i.onchange = () => { const v = i.value.trim(); LV.f[i.dataset.f] = i.dataset.f === 'where' || i.dataset.f === 'pt' ? v : (v ? Number(v) : ''); lvSave(); drawLv(); drawList(); });
-    box.querySelectorAll('input[data-f="where"]').forEach(i => i.oninput = () => { clearTimeout(S.lvT); S.lvT = setTimeout(() => { LV.f.where = i.value.trim(); lvSave(); const pos = i.selectionStart; drawLv(); drawList(); const n = $('lv').querySelector('input[data-f="where"]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 350); });
-    if ($('lvClr')) $('lvClr').onclick = () => { LV.f = {}; lvSave(); drawLv(); drawList(); };
-    $('lvGrp').onchange = e => { LV.grp = e.target.value; lvSave(); drawLv(); };
-    box.querySelectorAll('[data-col]').forEach(c => c.onchange = () => { LV.cols = c.checked ? [...new Set([...LV.cols, c.dataset.col])] : LV.cols.filter(k => k !== c.dataset.col); lvSave(); drawLv(); });
-    $('lvWide').onclick = () => { document.body.classList.toggle('lvwide'); drawLv(); };
-    box.querySelectorAll('[data-ck]').forEach(c => c.onclick = e => { e.stopPropagation(); LV.sel = c.checked ? [...new Set([...LV.sel, c.dataset.ck])] : LV.sel.filter(i => i !== c.dataset.ck); drawLv(); });
-    $('lvAll').onchange = e => { LV.sel = e.target.checked ? rows.map(x => x.id) : []; drawLv(); };
-    box.querySelectorAll('[data-ed]').forEach(b => b.onclick = e => { e.stopPropagation(); const x = S.items.find(i => i.id === b.dataset.ed); if (x) openForm(x); });
-    box.querySelectorAll('tbody tr[data-id]').forEach(r => r.onclick = e => { if (e.target.closest('input,button')) return; focusItem(r.dataset.id, true); });
-    if ($('lvUnsel')) $('lvUnsel').onclick = () => { LV.sel = []; drawLv(); };
-    if ($('lvCsv')) $('lvCsv').onclick = () => exportCsv(S.items.filter(x => sel.has(x.id)));
-    box.querySelectorAll('[data-bulk]').forEach(b => b.onclick = async () => {
-      const st = b.dataset.bulk, ids = [...sel].filter(id => (S.items.find(x => x.id === id) || {}).status !== st);
-      if (!ids.length) return toast('이미 그 상태입니다');
-      if (!confirm(`${ids.length}건을 '${STAT[st]}' 처리할까요?`)) return;
-      let ok = 0;
-      for (const id of ids) { try { took(await api('/api/auth?action=listing', post({ op: 'status', id, status: st }))); ok++; } catch (e) { toast(e.message, 3500); break; } }
-      LV.sel = []; draw(); toast(`${ok}건을 '${STAT[st]}' 처리했습니다`);
-    });
-  }
+  // 지도+리스트 표(board.js)에 넘기는 것들 (아래쪽에 정의된 도우미를 쓰므로 붙일 때 만듦)
+  const bdHost = () => ({
+    items: () => S.items, adv, upsell, toast, api, post, took, kakao: () => S.kakao, canPub: () => !!S.canPub,
+    redraw: () => draw(), drawBk: () => drawBk(),
+    openForm: id => { const x = id && S.items.find(i => i.id === id); openForm(x || null); },
+    pub: id => pubFlow(S.items.find(i => i.id === id)), pubOp: (id, op) => pubOp(id, op),
+    brief: id => briefOf(S.items.find(i => i.id === id)), share: id => shareOf(S.items.find(i => i.id === id)),
+    viewer: (urls, i) => viewer(urls, i), csv: list => exportCsv(list),
+    focus: id => focusItem(id, false),
+    // 표에 지금 걸린 줄만 지도에 (번호는 표의 순서)
+    pins: (ids, fit) => { S.bNo = new Map(ids.map((id, i) => [id, i + 1])); if (document.body.classList.contains('lvmap')) drawPins(!!fit); },
+    showMap: on => {
+      document.body.classList.toggle('lvmap', !!on);
+      $('map').style.visibility = on || S.mode !== 'list' ? '' : 'hidden';
+      if (on) setTimeout(() => { if (S.map) { S.map.relayout(); drawPins(true); } }, 60);
+    },
+    X: { esc, won, shortWon, priceText, KIND, STAT, PTYPES, ymd, memoParse, memoAdd, splitUnit, guessType, mainTitle, dongPick, hoEq, isPub, pubLive, adMissing, moneyOf, upgrade, ro: () => roIds() },
+  });
 
   // ---------- 목록 ----------
   function filtered() {
     const q = S.q.toLowerCase();
-    return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind) && (S.mode !== 'list' || lvPass(x))
+    return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawBk(); drawTabs(); drawList(); drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list') drawLv(); }
+  function draw() { drawBk(); drawTabs(); drawList(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
@@ -296,7 +227,7 @@
   function drawPins(fit) {
     if (!S.map) return;
     S.pins.forEach(p => p.setMap(null)); S.pins.clear();
-    const rows = filtered().filter(x => x.lat && x.lng);
+    const rows = (S.mode === 'list' && S.bNo ? S.items.filter(x => S.bNo.has(x.id)) : filtered()).filter(x => x.lat && x.lng);
     const bounds = new kakao.maps.LatLngBounds();
     // 같은 자리(같은 건물)의 매물은 대각선으로 계단처럼 비켜 놓아 하나씩 누를 수 있게
     const seen = new Map();
@@ -307,7 +238,7 @@
       const k = g.k; g.k++; seen.set(spot, g);
       const el = document.createElement('div');
       el.className = `pin ${x.status === 'on' ? x.kind : x.status}${S.hl === x.id ? ' hl' : ''}`;
-      el.textContent = pinText(x);
+      el.textContent = (S.mode === 'list' && S.bNo && S.bNo.has(x.id) ? S.bNo.get(x.id) + ' ' : '') + pinText(x);
       el.style.transform = `translate(${k * 14}px, ${-6 - k * 24}px)`;
       el.onclick = () => focusItem(x.id, true);
       const pos = new kakao.maps.LatLng(g.lat, g.lng);
@@ -324,7 +255,7 @@
     S.hl = id; const x = S.items.find(i => i.id === id);
     document.querySelectorAll('.card.hl').forEach(c => c.classList.remove('hl'));
     const c = $('c_' + id); if (c) { c.classList.add('hl'); if (scroll) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-    document.querySelectorAll('#lv tr.on').forEach(r => r.classList.remove('on')); const r = $('r_' + id); if (r) r.classList.add('on');
+    if (S.mode === 'list' && window.Board) Board.focus(id, scroll);
     drawPins(false);
     if (S.map && x && x.lat) S.map.panTo(new kakao.maps.LatLng(x.lat, x.lng));
   }
@@ -714,7 +645,7 @@
       ${n > 1 && areaSum ? `<div class="sumline">주소 ${n}곳 · 면적 합계 <b>${m2py(Math.round(areaSum * 100) / 100)}</b></div>` : ''}
       ${F.adding || !n ? searchBox(F) : '<button type="button" class="btn sub" id="addPlace" style="width:100%;margin-top:10px">＋ 주소 추가 <small style="font-weight:500;color:var(--muted)">(상가 여러 칸 · 토지 여러 필지)</small></button>'}`;
     const MF = moneyOf(it);
-    const rentRows = it.rents.map((r, i) => `<div class="rrow">
+    const rentRows = it.rents.map((r, i) => `<div class="rrow">${r.fl || r.use || r.area || r.exp ? `<small class="rfl">${esc([r.fl, r.use, r.area ? r.area + '㎡' : '', r.exp ? '만기 ' + r.exp : ''].filter(Boolean).join(' · '))}</small>` : ''}
         <input class="in" id="r${i}_label" value="${esc(r.label || '')}" maxlength="30" placeholder="1층 / 101호" aria-label="구분">
         <div class="unit"><input class="in" id="r${i}_deposit" inputmode="numeric" value="${r.deposit || ''}" placeholder="보증금" aria-label="보증금"><span>만</span></div>
         <div class="unit"><input class="in" id="r${i}_rent" inputmode="numeric" value="${r.rent || ''}" placeholder="월세" aria-label="월세"><span>만</span></div>
@@ -965,7 +896,7 @@
     const K = x.kind === 'jeonse' ? '전세' : x.kind === 'wolse' ? (T === 'land' ? '월세' : '월세') : '매매';
     const dong = p0.dong ? (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동') : '';
     const fl = a.fl && a.fl !== '전체' ? `${String(a.fl).replace(/^b/i, '지하 ')}층${a.tfl ? ' / ' + a.tfl + '층' : ''}` : '';
-    const rr = (x.rents || []).map(r => [r.label || '-', r.memo || '', r.deposit || 0, r.rent || 0].join(' / ')).join('\n');
+    const rr = (x.rents || []).map(r => [[r.fl, r.label].filter(Boolean).join(' ') || '-', r.memo || '', r.deposit || 0, r.rent || 0].join(' / ')).join('\n');
     const d = {
       ptype: T, kind: K,
       price: x.kind === 'presale' ? manTx((x.price || 0) + (x.pr || 0)) : x.kind === 'sale' ? manTx(x.price) : '',
@@ -1003,12 +934,14 @@
     return `<div class="planline ${P.plan}"><span>${txt}</span>${P.plan === 'trial' || P.plan === 'free' ? '<a href="/pro.html#price" target="_blank" rel="noopener">요금제 보기</a>' : ''}</div>`;
   }
   function drawBk() {
-    const el = $('bkLine'); if (!el) return;
+    for (const el of [$('bkLine'), $('bkLine2')]) if (el) drawBkIn(el);
+  }
+  function drawBkIn(el) {
     const pl = planLine();
     if (!S.canPub) { el.innerHTML = pl; return; }
     const n = S.items.filter(pubLive).length;
-    el.innerHTML = pl + `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건${S.bk.mobile ? '' : ' · <b style="color:#B4400B">문자 받을 휴대폰 번호를 넣어 주세요</b>'}</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" id="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
-    $('bkEdit').onclick = () => openBk();
+    el.innerHTML = pl + `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건${S.bk.mobile ? '' : ' · <b style="color:#B4400B">문자 받을 휴대폰 번호를 넣어 주세요</b>'}</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" class="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
+    el.querySelector('.bkEdit').onclick = () => openBk();
   }
   function openBk(then, note) {
     const b = S.bk || {};
@@ -1068,7 +1001,7 @@
       const cs = Array.isArray(x.contacts) ? x.contacts : x.owner || x.phone ? [{ role: '집주인', name: x.owner, phone: x.phone }] : [];
       return [x.no, STAT[x.status], KIND[x.kind], x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype, x.bname, [...new Set(pl.map(p => p.addr))].join(' / '), pl.map(p => [p.dong, p.ho].filter(Boolean).join(' ')).filter(Boolean).join(', '),
         x.area || '', x.area ? (x.area / 3.3058).toFixed(1) : '', pl.reduce((a, p) => a + (p.site || 0), 0) || '', pl.reduce((a, p) => a + (p.arch || 0), 0) || '', x.price || '', x.deposit || '', x.rent || '', x.mgmt || '', x.premium || '', x.curDep || '', x.curRent || '', x.loan || '', x.pr || '', x.paid || '',
-        cs.map(c => `${c.role || ''} ${c.name || ''} ${c.phone || ''}`.trim()).join(' / '), (x.rents || []).map(r => `${r.label} ${r.deposit || 0}/${r.rent || 0}${r.memo ? ' ' + r.memo : ''}`).join(' / '), (x.photos || []).length || '',
+        cs.map(c => `${c.role || ''} ${c.name || ''} ${c.phone || ''}`.trim()).join(' / '), (x.rents || []).map(r => `${[r.fl, r.label].filter(Boolean).join(' ')} ${r.deposit || 0}/${r.rent || 0}${r.exp ? ' 만기' + r.exp : ''}${r.memo ? ' ' + r.memo : ''}`).join(' / '), (x.photos || []).length || '',
         x.memo, ymd(x.at), ymd(x.up), `https://realmap.online/?pnu=${x.pnu}`].map(q).join(',');
     });
     // 금액은 모두 만원 단위
