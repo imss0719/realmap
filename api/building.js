@@ -172,7 +172,7 @@ export default handler(async (req, res) => {
     return send(res, 200, { ok: true, pnu: P.pnu, ...out }, out.kapt && out.kapt.fails ? 0 : 86400);
   }
   if (req.query.part === 'kaptTrend') {
-    if (!readSession(req)) return send(res, 200, { ok: false, error: 'login', message: '회원 전용입니다.' });
+    // 10/24 무료 공개 (예전에는 회원 전용)
     const code = String(req.query.code || '').replace(/[^A-Za-z0-9]/g, ''), ym = String(req.query.ym || '').replace(/\D/g, '').slice(0, 6);
     if (!code || ym.length !== 6) return send(res, 200, { ok: false, error: 'bad', message: '단지 정보가 필요합니다.' });
     return send(res, 200, { ok: true, trend: await kaptTrend(code, ym) });
