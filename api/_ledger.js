@@ -10,7 +10,7 @@
 //   GET  /api/auth?action=hj&id=<단지id>            → { units: { key: 장부(히스토리는 최근 3건) } }
 //   GET  /api/auth?action=hj&id=<단지id>&key=<key>  → { rec: 장부 전체 }
 //   POST /api/auth?action=hj { id, key, op, ... }
-//        op: save {rec} · deal {deal} · early {date} · renew {how, amount} · call {label} · memo {text} · mdel {i} · undo
+//        op: save {rec} · deal {deal} · early {date} · renew {how, amount} · call {label} · memo {text} · mdel {i} · undo · wipe(호 장부 통째로 지움)
 import crypto from 'node:crypto';
 
 const LKEY = (process.env.LEDGER_KEY || '').trim();
@@ -76,7 +76,7 @@ function diff(a, b) {
   }
   if (a.live !== b.live) out.push(b.live ? LV[b.live] : '거주 정보 지움');
   if (a.exp !== b.exp) out.push(b.exp ? `만기 ${ymd(b.exp)}` : '만기 지움');
-  if (a.moveIn !== b.moveIn) out.push(b.moveIn ? `입주 ${b.moveIn}` : '입주 지움');
+  if (a.moveIn !== b.moveIn) out.push(b.moveIn ? `입주 ${day(b.moveIn) ? ymd(b.moveIn) : b.moveIn}` : '입주 지움');
   if (a.opt !== b.opt) out.push('옵션 수정');
   if (JSON.stringify(a.tels) !== JSON.stringify(b.tels)) out.push('연락처 수정');      // 번호는 히스토리에 남기지 않음
   if (a.note !== b.note) out.push(b.note ? `메모: ${b.note.slice(0, 60)}` : '메모 지움');
@@ -140,6 +140,12 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     if (rec.hist.length > 300) rec.hist.length = 300;
   };
   const op = String(body.op || '');
+  // 이 호의 장부를 통째로 지움 (고객이 삭제를 원할 때 · 테스트 데이터 정리) — 히스토리까지 모두
+  if (op === 'wipe') {
+    await redis(['HDEL', H, key]);
+    if (movedMemo) await saveCx();
+    return send(res, 200, { ok: true, rec: null, wiped: true, ...(movedMemo ? { memos: cx.memos } : {}) });
+  }
   if (op === 'save') {
     const nx = clean(body.rec);
     const before = snap(rec);
