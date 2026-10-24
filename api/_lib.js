@@ -59,7 +59,7 @@ export async function rcmd(cmd, ms = 1500) {
 
 // 창고가 넘치지 않게: 전체 키가 상한을 넘으면 새로 쌓지 않습니다 (회원 정보 자리를 항상 남겨 둠).
 // 보관 기간이 지나면 자동으로 지워지므로, 시간이 지나면 다시 쌓입니다.
-export const MAX_KEYS = 15000;
+export const MAX_KEYS = 30000; // 10/24 Pay as You Go로 바꾸며 1만 5천 → 3만 (평균 5KB, 약 150MB 예상)
 let room = { ok: true, at: 0 };
 async function roomLeft() {
   if (Date.now() - room.at < 10 * 60e3) return room.ok; // 10분에 한 번만 확인
