@@ -114,7 +114,7 @@
       on ? S.map.addOverlayMapTypeId(K.MapTypeId.USE_DISTRICT) : S.map.removeOverlayMapTypeId(K.MapTypeId.USE_DISTRICT);
       $('mtCad').setAttribute('aria-pressed', on);
     };
-    $('close').onclick = () => $('panel').classList.add('closed');
+    $('close').onclick = () => { $('panel').classList.add('closed'); lsPane(); };
     $('vMap').onclick = () => setView('map');
     $('vRv').onclick = () => setView('rv');
     devInit();
@@ -451,8 +451,9 @@
     const D = $('detail');
     const coll = isCollective();
     const jz = zonesHere();
-    const lsN = lsHere().length;
-    const tabs = [...(lsN ? [['lst', '매물']] : []), ['land', '토지'], ['plan', '이용계획'], ...(jz.length ? [['dev', '개발']] : []), ['bld', '건물'], ...(coll ? [['unit', '동·호수']] : []), ['trade', '실거래']];
+    const lsN = lsSync().length;
+    const mLst = mobile() && lsN && S.mtab === 'lst'; // 휴대폰: 매물 탭을 보는 중
+    const tabs = [...(lsN && !mobile() ? [['lst', '매물']] : []), ['land', '토지'], ['plan', '이용계획'], ...(jz.length ? [['dev', '개발']] : []), ['bld', '건물'], ...(coll ? [['unit', '동·호수']] : []), ['trade', '실거래']];
     const c = chr(), m = mainT(), rc = recap(), o = own(), pr = prices();
     const name = (rc && rc.name) || (m && m.name) || p.bname || '';
     const chips = [];
@@ -496,8 +497,9 @@
     <div class="bar"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button>
       <button class="share loc" id="locBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>입지정보</button><button class="share brief" id="briefBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>브리핑</button>${isHome() ? `<button class="share safe" id="safeBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l5.5 2v4.2c0 3.3-2.3 5.9-5.5 6.8-3.2-.9-5.5-3.5-5.5-6.8V3.5z M5.5 8l1.8 1.8L10.8 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>전세 안전</button>` : ''}${S.me.pro && isApt() ? `<a class="share" href="/listings.html?cxadd=${S.sel.pnu}" target="_blank" rel="noopener" title="내 매물장의 단지 모드에 이 단지를 담습니다"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 14V5l5.5-3 5.5 3v9z M5.5 14v-3h5v3 M5.5 6.5h1.5 M9 6.5h1.5 M5.5 9h1.5 M9 9h1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>단지에 담기</a>` : ''}<button class="share" id="shareBtn" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>공유</button>
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
-    <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || 'land') === k}">${l}</button>`).join('')}</div>
-    <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`;
+    ${mobile() && lsN ? `<div class="mtabs" role="tablist"><button type="button" role="tab" data-mt="info" aria-selected="${!mLst}">필지 정보</button><button type="button" role="tab" data-mt="lst" aria-selected="${!!mLst}">매물 <em>${lsN}</em></button></div>` : ''}
+    ${mLst ? `<div class="body mlst">${lsListHtml(lsHere(), false)}</div>` : `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || 'land') === k}">${l}</button>`).join('')}</div>
+    <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`}`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => goSec(b.dataset.t));
@@ -520,11 +522,21 @@
     wireTab(D);
     const mf = D.querySelector('#moreF'); if (mf) mf.onclick = () => { S.floorsAll = true; render(); };
     watchLazy();
-    if (S.lstJump && (lsN || LS.loaded)) { S.lstJump = false; if (lsN) goSec('lst'); }
+    // 매물: 휴대폰 탭 · PC 매물 창
+    D.querySelectorAll('[data-mt]').forEach(b => b.onclick = () => { if (S.mtab === b.dataset.mt) return; S.mtab = b.dataset.mt; render(); $('panel').scrollTop = 0; });
+    const ml = D.querySelector('.mlst'); if (ml) lsWire(ml, render);
+    const lo = D.querySelector('[data-lopen]'); if (lo) lo.onclick = () => { LP.open = true; LP.closed = false; render(); };
+    if (S.lstJump && (lsN || LS.loaded)) {
+      S.lstJump = false;
+      if (lsN && mobile() && S.mtab !== 'lst') { S.mtab = 'lst'; return render(); }
+      if (lsN && !mobile()) { LP.open = true; LP.closed = false; }
+    }
+    lsPane();
     if (S.anchor) applyAnchor(false);
   }
   // 바로가기: 해당 구간으로 스크롤 (아직 안 불러온 구간이면 먼저 불러오기 시작)
   function goSec(k, inner) {
+    if (k === 'lst' && !mobile()) { LP.open = true; LP.closed = false; lsPane(); }
     if ((k === 'trade' || k === 'unit') && !S.seen[k]) { S.seen[k] = true; render(); }
     S.tab = k;
     // 위쪽 정보가 늦게 도착해 높이가 바뀌어도 2.5초 동안은 고른 구간에 머물도록 고정
@@ -2663,54 +2675,119 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const pct = v ? (mine - v) / v * 100 : 0;
     return `<div class="lcmp">같은 평형 최근 실거래 <b>${won(v)}</b> (${esc(r.date.slice(2, 7))}${r.floor ? ', ' + esc(r.floor) + '층' : ''})${v ? ` · 호가 ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%` : ''}${rows.length > 1 ? ` · 6개월 ${rows.length}건` : ''}</div>`;
   }
+  // ---------- 중개사 매물: PC는 정보창 옆 매물 창(300px), 휴대폰은 정보창 안 [필지 정보 | 매물] 탭 ----------
+  // 카드는 사진·가격·면적만 간단히 보여 주고, 누르면 그 자리에서 펼쳐 상세·실거래 비교·연락처를 보여 줌
+  const LP = { open: false, pnu: null, f: 'all', sort: 'new', exp: new Set(), closed: false };
+  const lsYmd = iso => iso ? iso.slice(2, 10).replace(/-/g, '.') : '';
+  function lsDetail(x) {
+    const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
+    const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${x.mgmtT === 'fix' ? ' (정액)' : ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
+    const land = x.ptype === '토지';
+    const f = [
+      x.area && [x.ak === 'land' ? '토지면적' : x.ak === 'tot' ? '연면적' : '전용면적', `${n(x.area, 2)}㎡ (${(x.area / 3.305785).toFixed(1)}평)`],
+      x.use && [land ? '지목' : '건축물 용도', x.use],
+      land && x.zone && ['용도지역', x.zone],
+      land && x.rside && ['도로 접면', x.rside],
+      land && x.lp && ['공시지가', `㎡당 ${n(x.lp)}원`],
+      (x.flr || x.tfl) && ['층', `${x.flr || '-'}${x.tfl ? ' / 총 ' + x.tfl + '층' : ''}`],
+      x.dir && ['방향', `${x.dir} (${x.dirB || '주실 기준'})`],
+      (x.rooms != null || x.baths != null) && ['방·욕실', `방 ${x.rooms ?? '-'} · 욕실 ${x.baths ?? '-'}`],
+      mg && ['관리비', mg],
+      x.premium && ['권리금', won(x.premium)],
+      x.biz && [x.ptype === '상가' ? '현재 업종' : '현재 용도', x.biz],
+      x.wc && ['화장실', x.wc],
+      x.facx && ['시설', x.facx],
+      x.movein && ['입주 가능일', x.movein],
+      x.park && ['주차', x.park],
+      x.elev && ['승강기', `${x.elev}대`],
+      x.hhld && ['세대수', `${n(x.hhld)}세대`],
+      x.appr && ['사용승인일', x.appr],
+      !land && x.zone && ['용도지역', x.zone],
+    ].filter(Boolean);
+    const tel = String(x.bk.tel || '').replace(/[^\d]/g, ''), mob = String(x.bk.mobile || '').replace(/[^\d]/g, '');
+    const sms = `[리얼맵] ${x.bname || x.addr} ${LKIND[x.kind]} 매물(No. ${x.no}) 문의드립니다.`;
+    // 휴대폰: 누르면 바로 전화·문자 / PC: 번호만 보여 주고 누르면 복사
+    const btns = IS_PHONE
+      ? `${tel ? `<a href="tel:${tel}">전화</a>` : ''}${mob ? `<a href="sms:${mob}${/iPhone|iPad/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(sms)}">문자</a>` : ''}`
+      : `${x.bk.tel ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.tel)}">☎ ${esc(x.bk.tel)}</button>` : ''}${x.bk.mobile ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.mobile)}">📱 ${esc(x.bk.mobile)}</button>` : ''}`;
+    return `${x.photos.length > 1 ? `<div class="lph">${x.photos.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="매물 사진 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
+      <div class="lpr">${esc(lsPriceFull(x))}</div>
+      ${lsCompare(x)}
+      ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
+      <dl class="lfacts">${f.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}<dt>소재지</dt><dd>${esc(x.addr)}</dd></dl>
+      <div class="lbk"><div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
+        <div class="lbtn">${btns}</div></div>
+      <div class="lft">등록 ${lsYmd(x.at)} · 거래 가능 확인 ${lsYmd(x.chk)}${x.no ? ' · No. ' + esc(x.no) : ''} · <a href="mailto:realwalkers@naver.com?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>`;
+  }
+  function lsCard(x) {
+    const open = LP.exp.has(x.k), ph = x.photos && x.photos[0];
+    const py = x.area ? `${Math.round(x.area / 3.305785)}평` : '';
+    const meta = [x.area ? `${n(x.area, 0)}㎡${py ? '(' + py + ')' : ''}` : '', x.flr, x.dir].filter(Boolean).join(' · ');
+    const what = `${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}`;
+    return `<div class="lc${open ? ' open' : ''}">
+      <button type="button" class="lc-top" data-lx="${esc(x.k)}" aria-expanded="${open}">
+        ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : '<span class="lc-th none">사진<br>없음</span>'}
+        <span class="lc-tx"><span class="lc-k"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${what}${x.viol ? ' <b class="lviol">위반</b>' : ''}</span>
+          <b class="lc-pr">${esc(lsPrice(x))}</b><small>${esc(meta)}</small><small class="lc-of">${esc(x.bk.office)}</small></span>
+        <span class="lc-ar" aria-hidden="true">›</span></button>
+      ${open ? `<div class="lc-more">${lsDetail(x)}</div>` : ''}
+    </div>`;
+  }
+  // 거르기·정렬·카드 목록 (PC 매물 창과 휴대폰 매물 탭이 같이 씀)
+  function lsListHtml(L, closeBtn) {
+    const cnt = k => L.filter(x => x.kind === k).length;
+    const kinds = ['sale', 'jeonse', 'wolse', 'presale'].filter(cnt);
+    if (LP.f !== 'all' && !kinds.includes(LP.f)) LP.f = 'all';
+    let V = LP.f === 'all' ? L.slice() : L.filter(x => x.kind === LP.f);
+    if (LP.sort === 'new') V.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    else V.sort((a, b) => (lsMain(a) - lsMain(b)) * (LP.sort === 'low' ? 1 : -1));
+    const offices = new Set(L.map(x => x.bk.regno || x.bk.office)).size;
+    const sort = L.length > 1 ? `<select data-lsort aria-label="정렬"><option value="new"${LP.sort === 'new' ? ' selected' : ''}>최신순</option><option value="low"${LP.sort === 'low' ? ' selected' : ''}>낮은 가격순</option><option value="high"${LP.sort === 'high' ? ' selected' : ''}>높은 가격순</option></select>` : '';
+    const chips = kinds.length > 1 ? `<div class="lp-f" role="group" aria-label="거래 종류">${[['all', '전체', ''], ...kinds.map(k => [k, LKIND[k], cnt(k)])].map(([k, t, c]) => `<button type="button" data-lf="${k}" aria-pressed="${LP.f === k}">${t}${c ? ' ' + c : ''}</button>`).join('')}</div>` : '<span class="lp-sp"></span>';
+    return `<div class="lp-h"><b>중개사 매물 <em>${L.length}</em>건</b><span class="lp-sp"></span>${sort}${closeBtn ? '<button type="button" class="lp-x" data-lclose aria-label="매물 창 닫기">×</button>' : ''}</div>
+      ${kinds.length > 1 ? `<div class="lp-tl">${chips}</div>` : ''}
+      <div class="lp-list">${V.map(lsCard).join('')}</div>
+      <p class="lnote">${offices > 1 ? `부동산 ${offices}곳이 올린 매물입니다. ` : ''}중개사무소가 리얼맵에 올린 광고입니다. 실거래가가 아니며, 거래 조건은 중개사무소에 확인해 주세요.</p>`;
+  }
+  // 목록 안 버튼들 (펼치기·거르기·정렬·번호 복사·닫기)
+  function lsWire(box, redraw) {
+    box.querySelectorAll('[data-lx]').forEach(b => b.onclick = () => { const k = b.dataset.lx; LP.exp.has(k) ? LP.exp.delete(k) : LP.exp.add(k); redraw(); });
+    box.querySelectorAll('[data-lf]').forEach(b => b.onclick = () => { LP.f = b.dataset.lf; redraw(); });
+    const so = box.querySelector('[data-lsort]'); if (so) so.onchange = () => { LP.sort = so.value; redraw(); };
+    box.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy).then(() => toast(`${b.dataset.copy} 번호를 복사했습니다`), () => toast(b.dataset.copy)); });
+    const cx = box.querySelector('[data-lclose]'); if (cx) cx.onclick = () => { LP.open = false; LP.closed = true; lsPane(); render(); };
+  }
+  // 새 필지를 고르면 매물 창 상태를 새로 (매물이 1건이면 바로 펼침)
+  function lsSync() {
+    const p = S.sel, L = lsHere();
+    if (!p) return L;
+    if (LP.pnu !== p.pnu) { LP.pnu = p.pnu; LP.closed = false; LP.f = 'all'; LP.n = -1; S.mtab = 'info'; }
+    if (LP.n !== L.length) { // 처음 고름 · 매물 목록이 늦게 도착함
+      LP.n = L.length; LP.exp = new Set(L.length === 1 ? [L[0].k] : []);
+      LP.open = L.length > 0 && !LP.closed;
+    }
+    return L;
+  }
+  // PC: 정보창 옆 매물 창
+  function lsPane() {
+    let el = $('lpane');
+    if (mobile()) { if (el) el.hidden = true; document.querySelector('.map')?.classList.remove('lp-on'); return; }
+    const L = S.sel ? lsHere() : [];
+    const on = LP.open && L.length > 0 && !$('panel').classList.contains('closed');
+    if (!el) { if (!on) return; el = document.createElement('aside'); el.id = 'lpane'; el.className = 'lpane'; el.setAttribute('aria-label', '중개사 매물'); document.querySelector('.map').appendChild(el); }
+    el.hidden = !on;
+    document.querySelector('.map').classList.toggle('lp-on', on);
+    if (!on) return;
+    const top = el.scrollTop;
+    el.innerHTML = lsListHtml(L, true);
+    lsWire(el, () => lsPane());
+    el.scrollTop = top;
+  }
+  // 정보창 안: PC는 '매물 n건 보기' 한 줄, 휴대폰은 탭에서 '매물'을 고르면 목록 전체
   function lsSection() {
     const L = lsHere(); if (!L.length) return '';
-    const ymdS = iso => iso ? iso.slice(2, 10).replace(/-/g, '.') : '';
-    const card = x => {
-      const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
-      const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${x.mgmtT === 'fix' ? ' (정액)' : ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
-      const land = x.ptype === '토지';
-      const f = [
-        x.area && [x.ak === 'land' ? '토지면적' : x.ak === 'tot' ? '연면적' : '전용면적', `${n(x.area, 2)}㎡ (${(x.area / 3.305785).toFixed(1)}평)`],
-        x.use && [land ? '지목' : '건축물 용도', x.use],
-        land && x.zone && ['용도지역', x.zone],
-        land && x.rside && ['도로 접면', x.rside],
-        land && x.lp && ['공시지가', `㎡당 ${n(x.lp)}원`],
-        (x.flr || x.tfl) && ['층', `${x.flr || '-'}${x.tfl ? ' / 총 ' + x.tfl + '층' : ''}`],
-        x.dir && ['방향', `${x.dir} (${x.dirB || '주실 기준'})`],
-        (x.rooms != null || x.baths != null) && ['방·욕실', `방 ${x.rooms ?? '-'} · 욕실 ${x.baths ?? '-'}`],
-        mg && ['관리비', mg],
-        x.premium && ['권리금', won(x.premium)],
-        x.biz && [x.ptype === '상가' ? '현재 업종' : '현재 용도', x.biz],
-        x.wc && ['화장실', x.wc],
-        x.facx && ['시설', x.facx],
-        x.movein && ['입주 가능일', x.movein],
-        x.park && ['주차', x.park],
-        x.elev && ['승강기', `${x.elev}대`],
-        x.hhld && ['세대수', `${n(x.hhld)}세대`],
-        x.appr && ['사용승인일', x.appr],
-        !land && x.zone && ['용도지역', x.zone],
-      ].filter(Boolean);
-      const tel = String(x.bk.tel || '').replace(/[^\d]/g, ''), mob = String(x.bk.mobile || '').replace(/[^\d]/g, '');
-      const sms = `[리얼맵] ${x.bname || x.addr} ${LKIND[x.kind]} 매물(No. ${x.no}) 문의드립니다.`;
-      // 휴대폰: 누르면 바로 전화·문자 / PC: 번호만 보여 주고 누르면 복사
-      const btns = IS_PHONE
-        ? `${tel ? `<a href="tel:${tel}">전화</a>` : ''}${mob ? `<a href="sms:${mob}${/iPhone|iPad/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(sms)}">문자</a>` : ''}`
-        : `${x.bk.tel ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.tel)}">☎ ${esc(x.bk.tel)}</button>` : ''}${x.bk.mobile ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.mobile)}">📱 ${esc(x.bk.mobile)}</button>` : ''}`;
-      return `<div class="lcard">
-        ${x.photos.length ? `<div class="lph">${x.photos.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="매물 사진 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
-        <div class="lhd"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${x.viol ? '<b class="lviol">위반건축물</b>' : ''}<span>${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}${x.bname ? ' · ' + esc(x.bname) : ''}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}</span>${x.no ? `<small>No. ${esc(x.no)}</small>` : ''}</div>
-        <div class="lpr">${esc(lsPriceFull(x))}</div>
-        ${lsCompare(x)}
-        ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
-        <dl class="lfacts">${f.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}<dt>소재지</dt><dd>${esc(x.addr)}</dd></dl>
-        <div class="lbk"><div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
-          <div class="lbtn">${btns}</div></div>
-        <div class="lft">등록 ${ymdS(x.at)} · 거래 가능 확인 ${ymdS(x.chk)} · <a href="mailto:realwalkers@naver.com?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>
-      </div>`;
-    };
-    return `<div class="blk lsec" id="sec-lst"><h2 class="blkh">중개사 매물 <span>${L.length}건</span></h2>
-      <p class="lnote">중개사무소가 리얼맵에 올린 광고입니다. 실거래가가 아니며, 거래 조건은 중개사무소에 확인해 주세요.</p>${L.map(card).join('')}</div>`;
+    if (mobile()) return '';
+    return `<div class="blk lsec" id="sec-lst"><button type="button" class="lsopen" data-lopen><span><b>중개사 매물 ${L.length}건</b><small>${LP.open ? '오른쪽 매물 창에서 보고 있습니다' : '매물 창 열기'}</small></span><span aria-hidden="true">›</span></button></div>`;
   }
 
   // ---------- 검색 ----------
