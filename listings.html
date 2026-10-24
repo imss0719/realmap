@@ -401,7 +401,13 @@ body.djmode .side{display:none!important}
 .dj .tbf button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
 .dj .tbf .btn{border-radius:9px;min-height:34px;font-size:13.5px}
 .dj #dj_addHo{width:190px}
-.dj .tbw{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px;background:#fff}
+.dj .tbw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+/* 넓은 화면: 표 안쪽 스크롤 없이 페이지와 함께 아래로 (머리줄은 위에 붙음) */
+@media (min-width:1180px){.dj .tbw{overflow:visible}.dj table.xt{min-width:0}}
+.dj #dj_cxBody .gcard .dongs{position:static;box-shadow:none;margin:0 0 6px;padding:0}
+.dj .dongs button[hidden]{display:none}
+.dj .dongs .dmore{border:1.5px dashed var(--line);background:#fff;border-radius:10px;padding:6px 12px;font-weight:700;font-size:14px;color:var(--sale)}
+.dj .xt tr.fs td{border-top:2px solid #AEB8C2}
 .dj table.xt{border-collapse:separate;border-spacing:0;width:100%;min-width:1100px;font-size:14px}
 .dj .xt th{position:sticky;top:0;z-index:2;background:#F1F4F7;color:var(--muted);font-size:12px;font-weight:700;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .dj .xt td{padding:0 8px;height:40px;border-bottom:1px solid #EDF0F3;border-right:1px solid #F3F5F7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}

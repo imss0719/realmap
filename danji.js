@@ -272,6 +272,8 @@ window.Danji = (() => {
       if (b.dataset.dong === 'all') { C.view = 'all'; } else { C.view = 'dong'; C.cur = b.dataset.dong; C.picked = true; }
       S.hist = null; drawComplex(cx);
     });
+    fitDongs();
+    if (!S.fitOn) { S.fitOn = true; let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(fitDongs, 150); }); }
     if ($('dj_boardT')) $('dj_boardT').onclick = () => { try { localStorage.setItem('rm.djboard2', boardOn() ? '' : '1'); } catch { /* 무시 */ } drawComplex(cx); };
     if (C.scan) scanApply(cx, C);
     // 동 표는 호 목록이 있어야 하므로, 현황판을 닫아 두어도 그림 상자에서 호 목록을 받아 둡니다(상자는 숨김)
@@ -280,6 +282,30 @@ window.Danji = (() => {
     const sd = new URLSearchParams(location.search).get('seed');
     if (sd && !S.seeded && sd !== 'clear') { const tg = S.cx.items.find(c => /마포래미안푸르지오/.test(String(c.name).replace(/\s/g, ''))); if (tg && tg.id !== cx.id) { S.cur = tg.id; return draw(); } }   // 마포래미안푸르지오가 있으면 그 단지로
     if (sd && !S.seeded && C.dongs && C.dongs.length && LL && LL.units) { S.seeded = true; history.replaceState(null, '', location.pathname + '?mode=danji'); setTimeout(() => seedTest(cx, sd === 'clear' ? 'clear' : 'add'), 300); }
+  }
+
+  // 동 버튼이 많으면 3줄까지만 (고른 동은 항상 보이게) + [동 전체 보기]
+  function fitDongs() {
+    const box = $('dj_dongs'), LINES = 3; if (!box) return;
+    const bs = [...box.querySelectorAll('[data-dong]')]; if (bs.length < 2) return;
+    const old = $('dj_dmore'); if (old) old.remove();
+    bs.forEach(b => { b.hidden = false; });
+    if (Math.floor((bs[bs.length - 1].offsetTop - bs[0].offsetTop + 2) / (bs[0].offsetHeight + 2)) < LINES) return;   // 3줄 안에 다 들어가면 접기 없음
+    const tg = document.createElement('button'); tg.type = 'button'; tg.id = 'dj_dmore'; tg.className = 'dmore';
+    tg.onclick = () => { S.dongOpen = !S.dongOpen; fitDongs(); };
+    if (S.dongOpen) { tg.textContent = '동 접기 ▴'; box.appendChild(tg); if (Math.floor((tg.offsetTop - bs[0].offsetTop + 2) / (bs[0].offsetHeight + 2)) < LINES) tg.remove(); return; }
+    box.appendChild(tg); tg.textContent = '동 전체 보기 ▾ (00개 더)';
+    const t0 = bs[0].offsetTop, h = bs[0].offsetHeight;
+    const row = b => Math.floor((b.offsetTop - t0 + 2) / (h + 2));
+    if (row(bs[bs.length - 1]) < LINES && row(tg) < LINES) { tg.remove(); return; }
+    const sel = bs.find(b => b.getAttribute('aria-pressed') === 'true');
+    // 넷째 줄부터 숨김
+    bs.forEach(b => { if (row(b) >= LINES) b.hidden = true; });
+    // 고른 동이 숨었으면 보이게 하고, 대신 그 앞 버튼을 하나씩 숨김
+    if (sel && sel.hidden) sel.hidden = false;
+    const vis = () => bs.filter(b => !b.hidden && b !== sel && b.dataset.dong !== 'all');
+    for (let k = 0; k < 60 && (row(tg) >= LINES || (sel && row(sel) >= LINES)); k++) { const v = vis(); if (!v.length) break; v[v.length - 1].hidden = true; }
+    tg.textContent = `동 전체 보기 ▾ (${bs.filter(b => b.hidden).length}개 더)`;
   }
 
   // ---------- 표에 쓸 줄 만들기 ----------
@@ -392,7 +418,7 @@ window.Danji = (() => {
       default: return r[c.f] ? esc(r[c.f]) : '<span class="mut">-</span>';
     }
   }
-  const rowHtml = (x, i) => `<tr data-i="${i}" data-key="${esc(x.key)}" class="${x.st.src || x.st.done ? 'on' : ''}">${COLS.map(c => `<td class="c-${c.id}${c.ed ? ' ed' : ''}" data-c="${c.id}">${cellHtml(x, c)}</td>`).join('')}</tr>`;
+  const rowHtml = (x, i) => `<tr data-i="${i}" data-key="${esc(x.key)}" class="${x.st.src || x.st.done ? 'on' : ''}${x.fs ? ' fs' : ''}">${COLS.map(c => `<td class="c-${c.id}${c.ed ? ' ed' : ''}" data-c="${c.id}">${cellHtml(x, c)}</td>`).join('')}</tr>`;
   function drawTable(cx) {
     const C = S.C[cx.id], box = $('dj_tbl'); if (!box || !C) return;
     if (S.ed) { S.redraw = true; return; }
@@ -408,6 +434,9 @@ window.Danji = (() => {
     const areas = []; base.forEach(x => { if (x.a && !areas.some(a => Math.abs(a - x.a) < 1.5)) areas.push(x.a); }); areas.sort((a, b) => a - b);
     needAreas(cx, C, base);
     sortRows(rows, F.sort === 'fl' && C.view !== 'dong' ? 'dh' : F.sort);
+    // 동 화면에서 층이 바뀌는 줄 위에 구분선
+    const flo = x => Math.floor(+x.ho / 100);
+    rows.forEach((x, i) => { x.fs = C.view === 'dong' && (F.sort === 'dh' || F.sort === 'fl') && i > 0 && flo(x) !== flo(rows[i - 1]); });
     S.rows = rows; S.tcx = cx;
     const chip = (g, v, t) => `<button type="button" data-f="${g}" data-v="${v}" aria-pressed="${String(F[g]) === String(v)}">${t}</button>`;
     const ro = !!(S.L[cx.id] && S.L[cx.id].err);
@@ -435,7 +464,7 @@ window.Danji = (() => {
     const C = S.C[cx.id]; if (!C || !S.rows) return;
     const i = S.rows.findIndex(x => x.key === key); if (i < 0) return;
     const old = S.rows[i], x = rowOf(cx, C, mineMap(cx), old.pnu, (dongOf(C, old.dn) || {}).dong || old.dn, old.ho);
-    S.rows[i] = x;
+    x.fs = old.fs; S.rows[i] = x;
     if (S.ed && S.ed.i === i) { S.ed.stale = true; return; }
     const tr = document.querySelector(`#dj_tbl tr[data-i="${i}"]`); if (!tr) return;
     tr.outerHTML = rowHtml(x, i);
