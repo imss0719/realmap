@@ -1,12 +1,12 @@
 name: realmap-warm
 on:
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '0 18 * * 0'   # 일주일에 한 번: 월요일 새벽 3시(한국 시간)
   workflow_dispatch:
 jobs:
   warm:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
