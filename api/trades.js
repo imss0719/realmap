@@ -14,6 +14,7 @@ export const KINDS = {
   offiRent: { url: B + 'RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent', label: '오피스텔 전월세' },
   nrg:      { url: B + 'RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade', label: '상업업무용 매매', sale: true },
   land:     { url: B + 'RTMSDataSvcLandTrade/getRTMSDataSvcLandTrade', label: '토지 매매', sale: true },
+  indu:     { url: B + 'RTMSDataSvcInduTrade/getRTMSDataSvcInduTrade', label: '공장·창고 매매', sale: true },
 };
 
 export function monthsBack(n) {
@@ -128,7 +129,7 @@ export default handler(async (req, res) => {
     const mine = new Set(rows.map(t => `${t.kind}|${t.date}|${t.price}|${t.jibun}`));
     const recent = new Set(yms.slice(0, 12));
     const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length ? (a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2) : null; };
-    for (const kind of kinds.filter(k => ['sh', 'nrg', 'land'].includes(k))) {
+    for (const kind of kinds.filter(k => ['sh', 'nrg', 'land', 'indu'].includes(k))) {
       const list = [];
       results.forEach((r, i) => {
         if (!r.ok || jobs[i][0] !== kind || !recent.has(jobs[i][1])) return;
@@ -139,7 +140,7 @@ export default handler(async (req, res) => {
           if (t.cancel || !t.price || mine.has(`${t.kind}|${t.date}|${t.price}|${t.jibun}`)) continue;
           const base = kind === 'land' ? t.dealAr : t.plottage;
           t.share = t.share && t.share !== '-' ? t.share : '';
-          t.unit = base && !t.share && !(kind === 'nrg' && /집합/.test(t.btype)) ? Math.round(t.price / base) : null; // 만원/㎡
+          t.unit = base && !t.share && !(['nrg', 'indu'].includes(kind) && /집합/.test(t.btype)) ? Math.round(t.price / base) : null; // 만원/㎡
           if (area && base) t.sim = Math.abs(base - area) / area <= 0.3; // 이 필지와 면적이 비슷한 거래
           list.push(t);
         }
