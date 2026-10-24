@@ -440,6 +440,7 @@
     if (/오피스텔/.test(u)) k.push('offi', 'offiRent');
     if (/단독|다가구|다중주택|공관/.test(u)) k.push('sh', 'shRent');
     if (/근린|업무|판매|숙박|의료|교육|노유자|문화|종교|위락|공장|창고|운동|자동차|방송|발전|관광|장례|수련/.test(u) && !/아파트/.test(u)) k.push('nrg');
+    if (/공장|창고/.test(u)) k.push('indu'); // 공장·창고 매매 (10/24 추가)
     if (!k.some(x => ['apt', 'rh', 'offi', 'sh'].includes(x)) && /공동주택/.test(u)) k.push('apt', 'aptRent', 'rh', 'rhRent');
     if (!k.length) k.push('nrg');
     return [...new Set(k)];
@@ -977,14 +978,14 @@
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'rent' ? '전월세' : '매매'} 거래가 없습니다.</div>`);
     if (S.tradeMode !== 'rent') out.push(nearSection(T));
     if (T.errors && T.errors.length) { console.warn('[리얼맵] 실거래', T.errors); out.push(`<div class="err soft"><span>일부 기간의 거래 자료를 불러오지 못해 빠진 거래가 있을 수 있습니다.</span><button type="button" data-retry>다시 불러오기</button></div>`); }
-    out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
+    out.push(`<p class="note">조회 범위: ${T.kinds.map(x => esc(x.label)).join(', ')}. 단독·다가구, 상업업무용, 공장·창고, 토지 거래는 지번 일부가 가려져 공개되므로 면적이 일치하는 거래를 '추정'으로 표시합니다. 취소선은 계약 해제 건입니다.</p>`);
     out.push(src(['국토교통부 실거래가 공개시스템']));
     return out.join('');
   }
   // 같은 동·같은 종류 비교 사례 (단독·다가구, 상업업무용, 토지)
   function nearSection(T) {
     const N = T.near || {}, dong = S.sel.dongName || '';
-    const NAME = { sh: '단독·다가구', nrg: '상가·업무 건물', land: '토지' }, BASE = { sh: '대지', nrg: '대지', land: '토지' };
+    const NAME = { sh: '단독·다가구', nrg: '상가·업무 건물', land: '토지', indu: '공장·창고' }, BASE = { sh: '대지', nrg: '대지', land: '토지', indu: '대지' };
     return Object.entries(N).map(([k, v]) => {
       if (!v || !v.n) return `<section class="near"><h2>${esc(dong)} ${NAME[k]} 비교 사례<span>최근 1년</span></h2><div class="empty">최근 1년 동안 ${esc(dong)}에서 신고된 ${NAME[k]} 매매가 없습니다.</div></section>`;
       const unitTxt = v.med ? `${BASE[k]} ${S.unit === 'm2' ? '㎡' : '평'}당 <b>${n(Math.round(S.unit === 'm2' ? v.med : v.med / 0.3025))}만원</b>` : '';
@@ -992,7 +993,7 @@
       return `<section class="near"><h2>${esc(dong)} ${NAME[k]} 비교 사례<span>최근 1년 · ${v.n}건</span></h2>
         ${unitTxt ? `<p class="near-med">${unitTxt} <small>중간값 · ${v.nUnit}건 기준${v.nUnit < 3 ? ' · <em>거래 적음</em>' : ''}</small></p>` : ''}
         <ul class="trades">${rows}</ul>
-        <p class="note">같은 동에서 신고된 ${NAME[k]} 매매입니다. 지번은 국토부가 일부를 가려 공개합니다. 노란 표시는 이 필지와 ${BASE[k]}면적이 비슷한(±30%) 거래이고, 단가 중간값은 지분 거래${k === 'nrg' ? '·집합건물(구분 상가)' : ''}를 빼고 계산했습니다.</p></section>`;
+        <p class="note">같은 동에서 신고된 ${NAME[k]} 매매입니다. 지번은 국토부가 일부를 가려 공개합니다. 노란 표시는 이 필지와 ${BASE[k]}면적이 비슷한(±30%) 거래이고, 단가 중간값은 지분 거래${k === 'nrg' || k === 'indu' ? '·집합건물(구분 소유)' : ''}를 빼고 계산했습니다.</p></section>`;
     }).join('');
   }
   // 전세가율: 같은 면적대의 매매가 중간값 대비 전세 보증금 중간값
@@ -1138,8 +1139,8 @@
       what = esc(r.houseType || '단독·다가구');
       sub = `대지 ${ar(r.plottage)[0]} · 연면적 ${ar(r.gfa)[0]}${r.buildYear ? ' · ' + esc(r.buildYear) + '년' : ''}`;
       if (r.plottage && r.price) unitP = `대지 ${S.unit === 'm2' ? '㎡' : '평'}당 ${n(Math.round(r.price / (S.unit === 'm2' ? r.plottage : toPy(r.plottage))))}만원`;
-    } else if (r.kind === 'nrg') {
-      what = `${esc(r.use || '상업업무용')}${r.btype ? ` <span class="mini">${esc(r.btype)}</span>` : ''}`;
+    } else if (r.kind === 'nrg' || r.kind === 'indu') {
+      what = `${esc(r.use || (r.kind === 'indu' ? '공장·창고' : '상업업무용'))}${r.btype ? ` <span class="mini">${esc(r.btype)}</span>` : ''}`;
       sub = `${r.floor ? esc(r.floor) + '층 · ' : ''}건물 ${ar(r.bldAr)[0]}${r.plottage ? ' · 대지 ' + ar(r.plottage)[0] : ''}${r.buildYear ? ' · ' + esc(r.buildYear) + '년' : ''}`;
       if (r.seller || r.buyer) sub += `<br>매도 ${esc(r.seller || '-')} · 매수 ${esc(r.buyer || '-')}`;
       const base = r.plottage || r.bldAr; if (base && r.price) unitP = `${r.plottage ? '대지' : '건물'} ${S.unit === 'm2' ? '㎡' : '평'}당 ${n(Math.round(r.price / (S.unit === 'm2' ? base : toPy(base))))}만원`;
