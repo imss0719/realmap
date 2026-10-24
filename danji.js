@@ -236,6 +236,17 @@ window.Danji = (() => {
   // 동 그림(층 × 라인)은 [현황판 보기]를 눌렀을 때만.
   const AX = { id: '__all', name: '모든 단지', all: true, places: [], dir: {} };   // '모든 단지' 보기용 가짜 단지
   const TF = () => S.cur === '__all' ? (S.FA || (S.FA = { st: 'mine', k: '', a: '', sort: 'dh' })) : (S.F || (S.F = { st: 'all', k: '', a: '', sort: 'dh' }));
+  // 단지 정보: 열어 본 단지는 그대로, 아직 안 연 단지는 동 목록만 가볍게 받아 평형을 찾음 (모든 단지 보기용)
+  function CI(c) {
+    if (S.C[c.id] && S.C[c.id].dongs) return S.C[c.id];
+    S.CL = S.CL || {};
+    let L = S.CL[c.id];
+    if (!L) {
+      L = S.CL[c.id] = { dongs: null, areas: {}, units: {} };
+      Promise.all((c.places || []).map(p => dongsOf(p.pnu))).then(ls => { const seen = new Set(); L.dongs = ls.flat().filter(d => { const k = d.pnu + '|' + d.dong; if (seen.has(k)) return false; seen.add(k); return true; }); if (S.cur === '__all') drawTable(AX); });
+    }
+    return L;
+  }
   const redrawView = () => { if (S.cur === '__all') return drawAll(); const c = S.cx.items.find(z => z.id === S.cur); if (c) drawComplex(c); };
   // ---------- 모든 단지: 등록한 단지들의 장부를 한 표로 (바로 수정도 됨) ----------
   function drawAll() {
@@ -244,7 +255,7 @@ window.Danji = (() => {
     const items = S.cx.items;
     items.forEach(c => { if (!S.L[c.id]) loadLedger(c); });
     const wait = items.filter(c => !S.L[c.id] || (S.L[c.id].p && !S.L[c.id].units)).length;
-    const K = kpi(items.flatMap(c => rowsAll(c, S.C[c.id], mineMap(c))));
+    const K = kpi(items.flatMap(c => rowsAll(c, CI(c), mineMap(c))));
     $('dj_cxBody').innerHTML = `
       <div class="card hdc"><div class="hd"><div class="t"><b>모든 단지</b><span class="muted">${items.length}곳${wait ? ` · 장부를 불러오는 중 (${items.length - wait}/${items.length})` : ''}</span></div></div>
         <div class="kpis"><div><b>${K.m}</b><small>내 매물</small></div><div><b>${K.o}</b><small>타부동산</small></div><div class="${K.e ? 'al' : ''}"><b>${K.e}</b><small>만기 임박</small></div><div><b>${K.d}</b><small>이번 달 계약</small></div></div></div>
@@ -334,7 +345,8 @@ window.Danji = (() => {
     const st = uState(cx, pnu, dong, ho, MM);
     const d = dongOf(C, dn), ak = d ? d.pnu + '|' + d.dong : '';
     const AR = C.areas && C.areas[ak], hn = +digits(h), line = hn >= 100 ? hn % 100 : hn;
-    let a = AR && typeof AR === 'object' ? AR[h] || 0 : 0;
+    const man0 = st.r && st.r.ar;                             // 직접 적은 면적이 먼저
+    let a = man0 || (AR && typeof AR === 'object' ? AR[h] || 0 : 0);
     if (!a && AR && typeof AR === 'object') {                  // 호별 면적에 없는 호(직접 추가한 호 등) → 같은 라인에서 가장 많은 평형
       const cnt = new Map(); for (const [hh, v] of Object.entries(AR)) { const n2 = +digits(hh); if (v && (n2 >= 100 ? n2 % 100 : n2) === line) cnt.set(v, (cnt.get(v) || 0) + 1); }
       const best = [...cnt.entries()].sort((p, q) => q[1] - p[1])[0]; if (best) a = best[0];
@@ -395,10 +407,10 @@ window.Danji = (() => {
 
   // ---------- 표 그리기 ----------
   const COLS = [
-    { id: 'dh', t: '동·호' }, { id: 'ar', t: '평형' }, { id: 'dir', t: '방향', ed: 'dir' }, { id: 'st', t: '상태', ed: 'st' }, { id: 'pr', t: '가격', ed: 'pr' },
+    { id: 'dh', t: '동·호' }, { id: 'ar', t: '평형', ed: 'area' }, { id: 'dir', t: '방향', ed: 'dir' }, { id: 'st', t: '상태', ed: 'st' }, { id: 'pr', t: '가격', ed: 'pr' },
     { id: 'live', t: '거주', ed: 'live' }, { id: 'mi', t: '입주', ed: 'date', f: 'moveIn' }, { id: 'exp', t: '만기', ed: 'date', f: 'exp' }, { id: 'opt', t: '옵션', ed: 'text', f: 'opt', ph: '예: 시스템에어컨' },
     { id: 'tel', t: '연락처', ed: 'tel' }, { id: 'note', t: '메모', ed: 'text', f: 'note', ph: '예: 근저당 3억' }, { id: 'h', t: '' }];
-  const NAV = ['dir', 'pr', 'live', 'mi', 'exp', 'opt', 'tel', 'note'];   // Tab 순서 (상태는 눌러서)
+  const NAV = ['ar', 'dir', 'pr', 'live', 'mi', 'exp', 'opt', 'tel', 'note'];   // Tab 순서 (상태는 눌러서)
   const LIVE = { owner: '주인', tenant: '임차인', empty: '공실' };
   const stHtml = s => {
     if (s.done) { const d = s.r && s.r.deal; return `<span class="p done">${d ? KN[d.k] + ' ' : ''}계약됨 ✓</span>${d && d.by === 'other' ? '<small>타사</small>' : ''}`; }
@@ -419,7 +431,7 @@ window.Danji = (() => {
     const r = x.r || {};
     switch (c.id) {
       case 'dh': return S.cur === '__all' ? `<button type="button" class="cxn" data-gocx="${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button><b>${esc(x.dn)}-${esc(x.ho)}</b>` : `<b>${esc(x.dn)}-${esc(x.ho)}</b>`;
-      case 'ar': return x.a ? `${Math.round(x.a)}㎡ <small>${Math.round(x.a / PY)}평</small>` : '<span class="mut">·</span>';
+      case 'ar': return x.a ? `${Math.round(x.a)}㎡ <small>${Math.round(x.a / PY)}평</small>` : '<span class="mut">입력</span>';
       case 'dir': return x.dir ? esc(x.dir) : '<span class="mut">-</span>';
       case 'st': return stHtml(x.st);
       case 'pr': return prHtml(x);
@@ -452,16 +464,17 @@ window.Danji = (() => {
     if (S.ed) { S.redraw = true; return; }
     const F = TF(), MM = ALL ? null : mineMap(cx);
     let rows;
-    if (ALL) rows = S.cx.items.flatMap(c => rowsAll(c, S.C[c.id], mineMap(c))).filter(x => pass(x, F));
+    if (ALL) rows = S.cx.items.flatMap(c => rowsAll(c, CI(c), mineMap(c))).filter(x => pass(x, F));
     else if (C.view === 'dong') {
       rows = rowsDong(cx, C, MM);
       if (!rows) { box.innerHTML = '<div class="loading">이 동의 호 목록을 받는 중입니다…</div>'; return; }
       if (F.st === 'all' && !F.k && !F.a) { /* 동 화면은 빈 줄까지 */ } else rows = rows.filter(x => pass(x, F));
     } else rows = rowsAll(cx, C, MM).filter(x => pass(x, F));
     // 평형 칩: 지금 보이는 범위의 평형
-    const base = ALL ? S.cx.items.flatMap(c => rowsAll(c, S.C[c.id], mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
+    const base = ALL ? S.cx.items.flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
     const areas = []; base.forEach(x => { if (x.a && !areas.some(a => Math.abs(a - x.a) < 1.5)) areas.push(x.a); }); areas.sort((a, b) => a - b);
     if (!ALL) needAreas(cx, C, base);
+    else S.cx.items.forEach(c => { const Cc = CI(c); if (Cc.dongs) { const rs = base.filter(x => x.cx === c); if (rs.length) needAreas(c, Cc, rs); } });
     sortRows(rows, F.sort === 'fl' && C.view !== 'dong' ? 'dh' : F.sort);
     // 동 화면에서 층이 바뀌는 줄 위에 구분선
     const flo = x => Math.floor(+x.ho / 100);
@@ -494,7 +507,7 @@ window.Danji = (() => {
     if (!S.rows) return;
     const i = S.rows.findIndex(x => x.key === key); if (i < 0) return;
     const old = S.rows[i]; cx = old.cx || cx;
-    const C = S.C[cx.id] || {}, x = rowOf(cx, C, mineMap(cx), old.pnu, (dongOf(C, old.dn) || {}).dong || old.dn, old.ho);
+    const C = CI(cx), x = rowOf(cx, C, mineMap(cx), old.pnu, (dongOf(C, old.dn) || {}).dong || old.dn, old.ho);
     x.fs = old.fs; S.rows[i] = x;
     if (S.ed && S.ed.i === i) { S.ed.stale = true; return; }
     const tr = document.querySelector(`#dj_tbl tr[data-i="${i}"]`); if (!tr) return;
@@ -533,7 +546,7 @@ window.Danji = (() => {
       const k = d.pnu + '|' + d.dong; if (C.areas[k] !== undefined) continue;
       C.areas[k] = 'loading';
       api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&areas=1`).then(j => { C.areas[k] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[k] = {}; })
-        .then(() => { if (S.cur === cx.id) drawTable(cx); });
+        .then(() => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); });
     }
   }
 
@@ -583,7 +596,7 @@ window.Danji = (() => {
   }
   // 동 버튼 숫자와 위 요약 숫자만 고침
   function refreshDongs(cx) {
-    if (S.cur === '__all') { const K = kpi(S.cx.items.flatMap(c => rowsAll(c, S.C[c.id], mineMap(c)))), ks = document.querySelectorAll('.dj .kpis b'); if (ks.length === 4) [K.m, K.o, K.e, K.d].forEach((v, i) => { ks[i].textContent = v; }); return; }
+    if (S.cur === '__all') { const K = kpi(S.cx.items.flatMap(c => rowsAll(c, CI(c), mineMap(c)))), ks = document.querySelectorAll('.dj .kpis b'); if (ks.length === 4) [K.m, K.o, K.e, K.d].forEach((v, i) => { ks[i].textContent = v; }); return; }
     const C = S.C[cx.id]; if (!C) return;
     const MM = mineMap(cx);
     document.querySelectorAll('#dj_dongs [data-dong]').forEach(b => {
@@ -623,6 +636,7 @@ window.Danji = (() => {
     let el;
     if (col.ed === 'live') el = `<select class="ce">${[['', '-'], ['owner', '주인 거주'], ['tenant', '임차인'], ['empty', '공실']].map(([v, t]) => `<option value="${v}"${(r.live || '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
     else if (col.ed === 'dir') el = `<select class="ce"><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select>`;
+    else if (col.ed === 'area') el = `<input class="ce" value="${x.r && x.r.ar ? x.r.ar : ''}" placeholder="${x.a ? Math.round(x.a) + '㎡ (자동)' : '전용㎡ (예: 84)'}" title="전용면적을 ㎡로 적어 주세요 (평으로 적으면 전용 평으로 계산)" inputmode="decimal" maxlength="10">`;
     else if (col.ed === 'date') { const v = r[col.f] || ''; el = `<input class="ce" type="date" value="${/^\d{4}-\d{2}-\d{2}$/.test(v) ? esc(v) : ''}">${v && !/^\d{4}-\d{2}-\d{2}$/.test(v) ? `<small class="was">전에 적은 값: ${esc(v)}</small>` : ''}`; }
     else el = `<input class="ce" value="${esc(r[col.f] || '')}" placeholder="${esc(col.ph || '')}" maxlength="${col.f === 'note' ? 300 : col.f === 'opt' ? 200 : 30}">`;
     td.classList.add('editing'); td.innerHTML = el;
@@ -640,7 +654,8 @@ window.Danji = (() => {
           post({ op: 'dir', id: cx.id, key: lk, v }).then(j => { S.cx = { items: j.items, memos: j.memos }; const n = j.items.find(z => z.id === cx.id); if (n) cx.dir = n.dir; S.rows.forEach(z => { if (z.pnu === x.pnu && z.dn === x.dn && z.line === x.line) redrawRow(cx, z.key); }); }).catch(er => toast(er.message));
           cx.dir = { ...(cx.dir || {}), [lk]: v }; x.dir = v;
         } else saveRow(cx, x, D => {
-          if (col.ed === 'live') D.live = v;
+          if (col.ed === 'area') { const m = String(v).replace(/\s/g, '').match(/^(\d+(?:\.\d+)?)(평|㎡|m2|m²)?$/i); D.ar = !v.trim() ? 0 : m ? Math.round((m[2] === '평' ? +m[1] * PY : +m[1]) * 100) / 100 : D.ar; if (v.trim() && !m) toast('전용면적을 84처럼 ㎡로 적어 주세요'); }
+          else if (col.ed === 'live') D.live = v;
           else if (col.id === 'mi') { const was = (x.r && x.r.moveIn) || ''; D.moveIn = v; if (v && (!D.exp || D.exp === was)) D.exp = v; }   // 만기는 입주와 같게 (다르면 만기 칸에서 고침)
           else if (col.ed === 'date') D[col.f] = v;
           else D[col.f] = v.trim();
@@ -1166,7 +1181,7 @@ window.Danji = (() => {
   // ---------- 호실 장부 공용 도구 ----------
   const DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
   const TLB = ['소유자', '배우자', '임차인', '가족', '관리인', '기타'];
-  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', deal: null, hist: [] });
+  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', deal: null, hist: [] });
   // '8억 5천' · '8억5000' · '8.5억' · '85000' · '5천' → 만원
   function parseMan(v) {
     const s = String(v || '').replace(/[,\s원]/g, '').replace(/만$/, '');
@@ -1181,7 +1196,7 @@ window.Danji = (() => {
   const fmtT = iso => { const d = new Date(Date.parse(iso) + 9 * 3600e3), p = n => String(n).padStart(2, '0'); return `${String(d.getUTCFullYear()).slice(2)}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
   const todayK = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const hjPost = body => api('/api/auth?action=hj', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, pr: r.pr, live: r.live, exp: r.exp, moveIn: r.moveIn, opt: r.opt, tels: r.tels, note: r.note }));
+  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, pr: r.pr, ar: r.ar || 0, live: r.live, exp: r.exp, moveIn: r.moveIn, opt: r.opt, tels: r.tels, note: r.note }));
 
   async function saveMemo(cx, key, text) {
     try {
