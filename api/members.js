@@ -3,7 +3,7 @@
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
 import { send, fail, MAX_KEYS, vworldData, cached, pool } from './_lib.js';
-import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial } from './auth.js';
+import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial, dropPhotos } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const ADMIN_PW = String(process.env.ADMIN_PASSWORD || '').trim();
@@ -123,6 +123,9 @@ async function brokers(req, res) {
         if (body.on && d) await redis(['HSET', 'realmap:regno', d, uid]).catch(() => 0);
         // 확인 대기였던 신청자: 승인하면 그때 체험(또는 무료) 시작
         if (body.on && !(await planOf(uid)).started) await startTrial(uid);
+      } else if (body.op === 'nophoto') { // 부적절한 대표 사진 지우기
+        const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
+        if (bk.photo) { await dropPhotos([bk.photo]); bk.photo = ''; await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]); }
       } else if (body.op === 'unpub' || body.op === 'unpubAll') {
         const items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]');
         const lid = String(body.k || '').split(':')[1] || '';

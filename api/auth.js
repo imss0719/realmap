@@ -21,7 +21,7 @@ const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 // 매물 사진 (Vercel Blob) — 패키지는 사진 기능을 쓸 때만 불러와서, 문제가 생겨도 로그인 등 다른 기능은 그대로 동작
 const blobLib = () => import('@vercel/blob');
 const ownPhoto = (u, id) => { try { const x = new URL(u); return x.protocol === 'https:' && /\.public\.blob\.vercel-storage\.com$/.test(x.hostname) && x.pathname.startsWith(`/ls/${id}/`); } catch { return false; } };
-async function dropPhotos(urls) { if (!urls.length) return; try { const { del } = await blobLib(); await del(urls); } catch { /* 지우기 실패는 무시 (용량만 조금 남음) */ } }
+export async function dropPhotos(urls) { if (!urls.length) return; try { const { del } = await blobLib(); await del(urls); } catch { /* 지우기 실패는 무시 (용량만 조금 남음) */ } }
 // ---------- 중개사 서비스 요금제 ----------
 // 무료(계속) · 2주 무료 체험 · Basic · Premium · VIP. 저장: realmap:plan:<회원id> { plan, until, trialUsed, at }
 // 시작하지 않은 회원은 매물장을 쓸 수 없고 소개 페이지(/pro.html)로 갑니다. 예전 realmap:pro 목록 회원은 Basic으로 봅니다.
@@ -218,7 +218,7 @@ function pubSummary(uid, x, bk) {
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
-    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified },
+    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '' },
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
   };
 }
@@ -258,6 +258,7 @@ export async function brokerStat(uid, items) {
 }
 // 중개사 서비스 데이터 지우기 (중개사 해지 · 회원 탈퇴 공용) — 일반 회원 정보는 그대로
 async function dropBroker(uid) {
+  try { const b = await loadBk(uid); if (b && b.photo) await dropPhotos([b.photo]); } catch { /* 무시 */ }
   try { const b = await loadBk(uid), d = b && digitsOf(b.regno); if (d && await redis(['HGET', 'realmap:regno', d]) === String(uid)) await redis(['HDEL', 'realmap:regno', d]); } catch { /* 무시 */ }
   try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); const f = ls.map(x => `${uid}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
   await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
@@ -568,7 +569,11 @@ export default async function (req, res) {
         if (v.st !== 'ok') return fail(res, 400, 'verify', v.msg);
         if (prevBk && digitsOf(prevBk.regno) !== digitsOf(bk.regno)) { const d0 = digitsOf(prevBk.regno); if (await redis(['HGET', 'realmap:regno', d0]).catch(() => null) === String(s.id)) await redis(['HDEL', 'realmap:regno', d0]).catch(() => 0); }
       }
+      // 대표 사진(선택 · 얼굴·로고 자유): 이 회원이 올린 사진만. 바꾸거나 지우면 예전 사진 파일은 정리
+      const ph = String((body.bk && body.bk.photo) || '');
+      bk.photo = ph && ownPhoto(ph, s.id) ? ph : '';
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
+      if (prevBk && prevBk.photo && prevBk.photo !== bk.photo) await dropPhotos([prevBk.photo]);
       try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk, P); await redis(['SET', `realmap:ls:${s.id}`, JSON.stringify(ls)]); } catch { /* 다음 저장 때 반영 */ }
       return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
     }
@@ -607,6 +612,7 @@ export default async function (req, res) {
       if (req.query.op === 'photodel') { // 저장하지 않고 닫은 사진 정리 (저장된 매물에 쓰인 사진은 지우지 않음)
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
         const used = new Set(items.flatMap(x => (x.photos || []).map(p => p.url)));
+        const cb = await loadBk(s.id); if (cb && cb.photo) used.add(cb.photo); // 지금 쓰는 대표 사진은 지우지 않음
         await dropPhotos((Array.isArray(body.urls) ? body.urls : []).filter(u => ownPhoto(u, s.id) && !used.has(u)).slice(0, 50));
         return send(res, 200, { ok: true });
       }
