@@ -373,26 +373,60 @@ window.Danji = (() => {
     const at = new Map(units.map(u => [`${u.fl}|${u.line}`, u]));
     // 라인별 전용면적: 라인마다 가운데 층 한 호만 조회 (같은 라인은 보통 같은 평형)
     const LA = C.lines[C.cur] || (C.lines[C.cur] = {});
+    // 호별 실제 전용면적 (동 단위로 한 번에) — 받기 전·실패 시에는 예전처럼 라인별 대표 면적
+    C.areas = C.areas || {};
+    const AR = C.areas[C.cur];
+    const arOf = u => AR && typeof AR === 'object' ? AR[normH(u.ho)] || 0 : 0;
+    const hasAR = AR && typeof AR === 'object' && units.some(u => arOf(u));
+    // 라인마다 가장 많은 면적 = 라인 평형, 다른 호가 있으면 '외'
+    const LM = {};
+    if (hasAR) lines.forEach(l => {
+      const cnt = new Map(); units.filter(u => u.line === l).forEach(u => { const a = arOf(u); if (a) cnt.set(a, (cnt.get(a) || 0) + 1); });
+      const best = [...cnt.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (best) LM[l] = { a: best[0], mixed: [...cnt.keys()].some(a => Math.abs(a - best[0]) >= 1) };
+    });
+    // 평형 묶음(1㎡ 안쪽은 같은 평형)과 색 — 칸 아래 얇은 줄. 칸 바탕색(내 매물)과 겹치지 않는 색만 씀
+    const ACOL = ['#9AA9B8', '#E58FC0', '#7B5BD6', '#5DB7C9', '#C9A26B', '#7F8C9A', '#B48BD9', '#E0A3A3'];
+    const groups = [];
+    if (hasAR) [...new Set(units.map(arOf).filter(Boolean))].sort((a, b) => a - b).forEach(a => { const g = groups.find(x => Math.abs(x.a - a) < 1); if (!g) groups.push({ a }); });
+    const gOf = a => groups.findIndex(x => Math.abs(x.a - a) < 1);
+    const lineEx = l => hasAR ? (LM[l] ? LM[l].a : 0) : LA[l];
     const M = mineMap(cx);
     const T = (C.trades || []).filter(r => r.kind === 'apt' && normD(r.aptDong) === normD(dong));
     const byFloor = new Map(); T.forEach(r => { const f = +r.floor; (byFloor.get(f) || byFloor.set(f, []).get(f)).push(r); });
     const RJ = (C.trades || []).filter(r => r.kind !== 'apt' && normD(r.aptDong) === normD(dong));
     RJ.forEach(r => { const f = +r.floor; (byFloor.get(f) || byFloor.set(f, []).get(f)).push(r); });
-    const head = `<tr><th></th>${lines.map(l => `<th class="ln"><b>${String(l).padStart(2, '0')}라인</b>${LA[l] ? `${LA[l]}㎡ · ${Math.round(LA[l] / PY)}평` : LA[l] === 0 ? '-' : '…'}</th>`).join('')}<th class="ftr">이 층 실거래</th></tr>`;
+    const head = `<tr><th></th>${lines.map(l => { const e = lineEx(l); return `<th class="ln"><b>${String(l).padStart(2, '0')}라인</b>${e ? `${e}㎡ · ${Math.round(e / PY)}평${hasAR && LM[l] && LM[l].mixed ? ' 외' : ''}` : e === 0 ? '-' : '…'}</th>`; }).join('')}<th class="ftr">이 층 실거래</th></tr>`;
+    // 건물 외벽: 호가 있는 칸의 바깥쪽(왼·오른·위)에 진한 선
+    const has = (f, l) => at.has(`${f}|${l}`);
     const body = floors.map(f => `<tr><th class="fl">${f}층</th>${lines.map(l => {
-      const u = at.get(`${f}|${l}`); if (!u) return '<td></td>';
+      const u = at.get(`${f}|${l}`); if (!u) return '<td class="sky"></td>';
       const mine = mineAt(M, pnu, dong, u.ho), live = mine.find(x => x.status !== 'done'), x = live || mine[0];
       const cls = x ? (live ? `k-${x.kind}` : 'k-done') : '';
       const memo = S.cx.memos[memoKey(cx, pnu, dong, u.ho)];
       const pr = x ? (x.kind === 'sale' ? shortWon(x.price) : x.kind === 'jeonse' ? shortWon(x.deposit) : x.kind === 'wolse' ? `${shortWon(x.deposit)}/${x.rent || ''}` : shortWon(x.pr)) : '';
-      return `<td><button type="button" class="cell ${cls}" data-ho="${esc(u.ho)}" title="${esc(dong)} ${esc(u.ho)}">${esc(normH(u.ho))}${pr ? `<span class="pr">${esc(pr)}</span>` : ''}${memo ? '<i class="mdot"></i>' : ''}</button></td>`;
+      const li = lines.indexOf(l), a = arOf(u), g = a ? gOf(a) : -1, lm = LM[l];
+      const edge = [!has(f, lines[li - 1]) ? 'bL' : '', !has(f, lines[li + 1]) ? 'bR' : '', (floors.indexOf(f) === 0 || !has(floors[floors.indexOf(f) - 1], l)) ? 'bT' : ''].join(' ');
+      const odd = a && lm && Math.abs(a - lm.a) >= 1 ? `<em>${Math.round(a / PY)}평</em>` : '';
+      return `<td class="${edge}"><button type="button" class="cell ${cls}" data-ho="${esc(u.ho)}" title="${esc(dong)} ${esc(u.ho)}${a ? ` · 전용 ${a}㎡ (${(a / PY).toFixed(1)}평)` : ''}">${esc(normH(u.ho))}${pr ? `<span class="pr">${esc(pr)}</span>` : ''}${memo ? '<i class="mdot"></i>' : ''}${odd}${g >= 0 ? `<i class="abar" style="background:${ACOL[g % ACOL.length]}"></i>` : ''}</button></td>`;
     }).join('')}<td class="ftr">${(byFloor.get(f) || []).slice(0, 2).map(r => `<span class="${r.kind === 'apt' ? '' : 'j'}">${r.kind === 'apt' ? '매' : r.rent ? '월' : '전'} ${r.kind === 'apt' ? shortWon(r.price) : shortWon(r.deposit)} · ${Math.round(r.ex)}㎡ · ${esc(r.date.slice(2, 7))}</span>`).join('')}</td></tr>`).join('');
     const want = (C.want || {})[C.cur], got = U.filter(u => digits(u.ho)).length;
     const cnt = `<p class="note">건축물대장 호 ${got.toLocaleString()}개${want ? ` / 표제부 기준 ${want.toLocaleString()}호${got < want ? ' · 일부 호가 공공데이터에 없어 빈칸으로 보일 수 있습니다' : ''}` : ''}</p>`;
     const part = C.partial && C.partial[C.cur] ? '<div class="muted" style="margin-bottom:6px">공공데이터 응답이 느려 호 목록 일부만 받았습니다. <button type="button" class="lnk" id="dj_retry">나머지 다시 불러오기</button></div>' : '';
-    box.innerHTML = part + cnt + `<div class="scroll"><table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    const legend = `<div class="aleg">${groups.map((g, i) => `<span><i style="background:${ACOL[i % ACOL.length]}"></i>${g.a}㎡ · ${Math.round(g.a / PY)}평</span>`).join('')}${groups.length ? '' : AR === 'loading' ? '<span class="note">호별 면적을 불러오는 중…</span>' : ''}<span><u class="k-sale"></u>매매</span><span><u class="k-jeonse"></u>전세</span><span><u class="k-wolse"></u>월세</span><span class="note">칠한 칸 = 내 매물</span></div>`;
+    const ground = `<tr class="gnd"><th></th><td colspan="${lines.length}"><i></i></td><td class="ftr"></td></tr>`;
+    box.innerHTML = part + cnt + legend + `<div class="scroll"><table class="grid bldg"><thead>${head}</thead><tbody>${body}${ground}</tbody></table></div>`;
     if ($('dj_retry')) $('dj_retry').onclick = retry;
-    box.querySelectorAll('[data-ho]').forEach(b => b.onclick = () => openUnit(cx, pnu, dong, b.dataset.ho, units, LA));
+    const LX = {}; lines.forEach(l => { LX[l] = lineEx(l); });
+    box.querySelectorAll('[data-ho]').forEach(b => b.onclick = () => openUnit(cx, pnu, dong, b.dataset.ho, units, LX));
+    // 호별 면적 받기 (동마다 한 번, 저장해 두면 다음부터 바로)
+    if (AR === undefined) {
+      C.areas[C.cur] = 'loading';
+      const key = C.cur;
+      api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}&areas=1`).then(j => { C.areas[key] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[key] = {}; })
+        .then(() => { if (S.cur === cx.id && C.cur === key) drawGrid(cx); });
+    }
+    if (hasAR || AR === 'loading') return; // 라인별 대표 면적 조회는 호별 면적을 못 받았을 때만
     // 라인 면적 채우기 (아직 없는 라인만, 3개씩)
     const need = lines.filter(l => LA[l] === undefined);
     if (need.length && !C.lineBusy) {

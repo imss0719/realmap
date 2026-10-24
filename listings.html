@@ -235,6 +235,26 @@ body.djmode .legend,body.lvmode .legend{display:none}
 .dj .dongs button em{font-style:normal;display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:6px;padding:0 6px;border-radius:10px;background:var(--gold);color:var(--navy);font-size:12px;font-weight:800;vertical-align:1px}
 .dj .dongs button.has[aria-pressed=true]{background:var(--navy);border-color:var(--gold);color:#fff;box-shadow:inset 0 0 0 1px var(--gold)}
 .dj .grid{border-collapse:separate;border-spacing:4px;font-size:14px}
+/* 단지 배치표: 아파트 한 동처럼 (칸을 붙이고 바깥에 외벽선, 아래 바닥선) */
+.dj .grid.bldg{border-spacing:0}
+.dj .grid.bldg td{padding:0}
+.dj .grid.bldg th.ln{padding:0 4px 6px;font-weight:500;font-size:11px;line-height:1.35}
+.dj .grid.bldg .cell{width:100%;min-width:62px;height:46px;border-radius:0;border:0;border-right:1px solid #D6DDE4;border-top:1px solid #D6DDE4;background:#F7F9FB;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dj .grid.bldg td.bL .cell{border-left:2px solid var(--navy)}
+.dj .grid.bldg td.bR .cell{border-right:2px solid var(--navy)}
+.dj .grid.bldg td.bT .cell{border-top:2px solid var(--navy)}
+.dj .grid.bldg .cell:hover{box-shadow:inset 0 0 0 2px var(--navy)}
+.dj .grid.bldg .cell.k-sale{background:var(--sale)}.dj .grid.bldg .cell.k-jeonse{background:var(--jeonse)}.dj .grid.bldg .cell.k-wolse{background:var(--wolse)}.dj .grid.bldg .cell.k-presale{background:var(--presale)}.dj .grid.bldg .cell.k-done{background:#E3E8ED}
+.dj .grid.bldg .cell .abar{position:absolute;left:5px;right:5px;bottom:3px;height:3px;border-radius:2px}
+.dj .grid.bldg .cell em{position:absolute;right:3px;top:2px;font-style:normal;font-size:9.5px;font-weight:700;color:var(--muted)}
+.dj .grid.bldg .cell[class*="k-"] em{color:#fff}
+.dj .grid.bldg .cell .mdot{left:4px;right:auto}
+.dj .grid.bldg tr.gnd td i{display:block;height:7px;background:var(--navy);border-radius:0 0 4px 4px}
+.dj .grid.bldg td.ftr{padding-left:12px}
+.dj .aleg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin:2px 0 12px}
+.dj .aleg i{display:inline-block;width:16px;height:4px;border-radius:2px;vertical-align:3px;margin-right:5px}
+.dj .aleg u{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+.dj .aleg u.k-sale{background:var(--sale)}.dj .aleg u.k-jeonse{background:var(--jeonse)}.dj .aleg u.k-wolse{background:var(--wolse)}
 .dj .grid th{font-size:12px;color:var(--muted);font-weight:600;padding:2px 4px;white-space:nowrap}
 .dj .grid th.fl{text-align:right;padding-right:6px;font-size:13px;color:var(--fg)}
 .dj .grid th.ln b{display:block;font-size:13px;color:var(--fg)}
