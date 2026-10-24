@@ -54,7 +54,7 @@
 
   // ---------- 회원 확인 ----------
   fetch('/api/auth?action=me').then(r => r.json()).then(me => {
-    if (me.ready && !me.member) root.innerHTML = `<div class="gate"><img src="/favicon.svg" width="48" height="48" alt=""><h1>회원 전용 기능입니다</h1><p>브리핑 자료 만들기는 리얼맵 회원이면 베타 기간 동안 무료로 이용하실 수 있습니다.</p><a class="btn primary" href="/auth/login?r=${encodeURIComponent('/?pnu=' + D.pnu)}">카카오로 로그인</a></div>`;
+    // 10/24 브리핑은 누구나 무료 (회원 확인 없음)
   }).catch(() => {});
 
   // ---------- 화면 ----------

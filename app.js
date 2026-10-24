@@ -328,7 +328,7 @@
     if (K.error) return `<section><h2>관리비 · 단지 정보</h2>${errBox('관리비', K.error)}</section>`;
     const k = K.kapt;
     if (!k) return `<section><h2>관리비 · 단지 정보</h2><div class="empty">K-apt(공동주택관리정보시스템)에 관리비가 공개되지 않는 단지입니다. 의무관리대상(대략 150세대 이상 등) 아파트만 공개됩니다.</div></section>`;
-    const mem = S.me.member || !S.me.ready;
+    const mem = true; // 10/24 보기 기능은 모두 무료 공개 (관리비 상세도 회원 아니어도 보임)
     const ym = k.month ? `${k.month.slice(0, 4)}년 ${+k.month.slice(4)}월분` : '';
     const out = [`<section class="kapt"><h2>관리비 · 단지 정보<span>K-apt</span></h2>`];
     if (k.perHH) {
@@ -517,7 +517,7 @@
     // 매물장의 '브리핑' 버튼으로 열린 경우: 필지 정보가 다 모이면 이 창을 브리핑 화면으로 바꿈
     if (S.autoBrief && S.d.land && S.d.bld && !S.seen.trade) { S.seen.trade = true; setTimeout(render, 0); } // 최근 실거래도 브리핑에 넣도록 불러오기 시작
     if (S.autoBrief && !S.autoBriefT) S.autoBriefT = setTimeout(() => { S.autoBriefForce = true; render(); }, 9000);
-    if (S.autoBrief && S.d.land && S.d.bld && ((S.d.trades && !S.d.trades.loading) || S.autoBriefForce)) { S.autoBrief = false; if (S.me.ready && !S.me.member) loginModal('brief'); else { try { localStorage.setItem('rm.brief', JSON.stringify(briefData(name))); location.replace('/briefing.html'); } catch { toast('브리핑을 열지 못했습니다. 브리핑 버튼을 직접 눌러 주세요'); } } }
+    if (S.autoBrief && S.d.land && S.d.bld && ((S.d.trades && !S.d.trades.loading) || S.autoBriefForce)) { S.autoBrief = false; { try { localStorage.setItem('rm.brief', JSON.stringify(briefData(name))); location.replace('/briefing.html'); } catch { toast('브리핑을 열지 못했습니다. 브리핑 버튼을 직접 눌러 주세요'); } } }
     $('pnuCopy').onclick = () => { navigator.clipboard?.writeText(p.pnu).then(() => toast('PNU를 복사했습니다'), () => {}); };
     wireTab(D);
     const mf = D.querySelector('#moreF'); if (mf) mf.onclick = () => { S.floorsAll = true; render(); };
@@ -847,7 +847,7 @@
         const tr = x => `<tr><td class="c">${x.floor ? esc(/^\d+$/.test(x.floor) ? x.floor + '층' : x.floor) : '-'}</td><td>${esc(x.name)}${x.ho ? `<small>${esc(x.ho)}호</small>` : ''}</td><td>${esc(x.s || x.m)}<small>${esc(x.m)}</small></td></tr>`;
         const head = '<div class="tbl"><table><thead><tr><th>층</th><th>상호</th><th>업종</th></tr></thead><tbody>';
         // 비회원은 앞 2곳만 보여 주고 나머지는 흐리게
-        if (S.me.member || !S.me.ready || rows.length <= 2) return head + rows.map(tr).join('') + '</tbody></table></div>';
+        if (true) return head + rows.map(tr).join('') + '</tbody></table></div>';
         return head + rows.slice(0, 2).map(tr).join('') + '</tbody></table></div>'
           + `<div class="klock"><div class="kblur" aria-hidden="true"><div class="tbl"><table><tbody>${rows.slice(2, 8).map(tr).join('')}</tbody></table></div></div>`
           + `<div class="kcta"><b>나머지 ${rows.length - 2}곳의 상호·업종·층</b><span>회원이면 무료로 모두 보실 수 있습니다</span><button type="button" class="kbtn" id="storeLogin">카카오로 3초 가입하고 보기</button></div></div>`;
@@ -968,7 +968,7 @@
     const list = S.tradeMode === 'rent' ? rent : sale;
     const segM = hasRent ? `<span class="seg" role="group" aria-label="거래 구분"><button data-m="sale" aria-pressed="${S.tradeMode === 'sale'}">매매 ${sale.length}</button><button data-m="rent" aria-pressed="${S.tradeMode === 'rent'}">전월세 ${rent.length}</button>${canGap ? `<button data-m="gap" aria-pressed="${gap}">매매+전세</button>` : ''}</span>` : '';
     const lockI = '<svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" style="margin-left:3px;vertical-align:-1px"><rect x="2" y="5.5" width="8" height="5.5" rx="1" fill="currentColor"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
-    const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년${m > 12 && S.me.ready && !S.me.member ? lockI : ''}</button>`).join('')}</span>`;
+    const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년</button>`).join('')}</span>`;
     const items = list.slice(0, S.showAll ? 500 : 40).map(r => S.tradeMode === 'rent' ? rentRow(r) : saleRow(r)).join('');
     const safe = safeSection(T);
     const out = [safe || jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`];
@@ -1191,7 +1191,7 @@
     const uh = D.querySelector('#uHo'); if (uh) uh.onchange = () => { S.uHo = uh.value; S.uHoManual = false; loadUnit(); render(); };
     D.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.tradeMode = b.dataset.m; render(); });
     D.querySelectorAll('[data-gx]').forEach(b => b.onclick = () => { S.gapEx = +b.dataset.gx; render(); });
-    D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { if (+b.dataset.mo > 12 && S.me.ready && !S.me.member) return loginModal('trade'); S.months = +b.dataset.mo; render(); });
+    D.querySelectorAll('[data-mo]').forEach(b => b.onclick = () => { S.months = +b.dataset.mo; render(); });
     const mt = D.querySelector('#moreT'); if (mt) mt.onclick = () => { S.showAll = true; render(); };
     const sl = D.querySelector('#safeLogin'); if (sl) sl.onclick = () => loginModal('safe');
     const kl = D.querySelector('#kaptLogin'); if (kl) kl.onclick = () => loginModal('kapt');
@@ -1735,7 +1735,6 @@
     };
   }
   function briefOpen(name) {
-    if (S.me.ready && !S.me.member) { loginModal('brief'); return; }
     if (!S.d.land || !S.d.bld) { toast('필지 정보를 불러오는 중입니다. 잠시 후 다시 눌러 주세요'); return; }
     try { localStorage.setItem('rm.brief', JSON.stringify(briefData(name))); } catch { toast('브라우저 저장 공간을 쓸 수 없어 브리핑을 열지 못했습니다'); return; }
     const w = window.open('/briefing.html', '_blank');
@@ -1780,7 +1779,7 @@
   }
   function locCount() { try { return Number(localStorage.getItem('rm.loc') || 0); } catch { return 0; } }
   function locGate(name) {
-    if (S.me.member || !S.me.ready) return locReport(name);
+    return locReport(name); // 10/24 무료 공개 (비회원 3회 제한 없앰)
     const used = locCount();
     if (used < FREE_LOC) {
       try { localStorage.setItem('rm.loc', String(used + 1)); } catch { /* 무시 */ }
@@ -1831,7 +1830,7 @@
     setTimeout(() => {
       if (S.me.member || $('joinBar')) return;
       const b = document.createElement('div'); b.id = 'joinBar'; b.className = 'joinbar'; b.setAttribute('role', 'status');
-      b.innerHTML = `<div class="jt"><b>관심 부동산 저장 · 우리 집 시세 · 5년 실거래</b><span>카카오로 3초 가입하면 모두 무료입니다</span></div><button type="button" class="jgo">무료 가입</button><button type="button" class="jx" aria-label="닫기">×</button>`;
+      b.innerHTML = `<div class="jt"><b>관심 부동산 · 우리 집 · 관심 재개발 구역 저장</b><span>카카오로 3초 가입하면 무료로 저장해 둘 수 있습니다</span></div><button type="button" class="jgo">무료 가입</button><button type="button" class="jx" aria-label="닫기">×</button>`;
       document.body.appendChild(b);
       requestAnimationFrame(() => b.classList.add('on'));
       const close = () => { b.classList.remove('on'); setTimeout(() => b.remove(), 300); };
@@ -1990,7 +1989,7 @@
     if (!isHome() || !T || !T.kinds || !T.kinds.some(x => !x.sale)) return '';
     const items = safeItems(T);
     const cnt = k => items.filter(x => x.lv === k).length;
-    const locked = S.me.ready && !S.me.member;
+    const locked = false; // 10/24 무료 공개
     const row = (x, blur) => `<li class="sf ${LV[x.lv][1]}${blur ? ' blur' : ''}"><span class="sf-lv">${LV[x.lv][0]}</span><div><b>${x.k}</b><p>${x.t}</p>${x.d ? `<small>${x.d}</small>` : ''}</div></li>`;
     const head = `<div class="sf-sum"><span class="bad">위험 ${cnt('bad')}</span><span class="warn">주의 ${cnt('warn')}</span><span class="ok">양호 ${cnt('ok')}</span>${cnt('check') ? `<span class="chk">직접 확인 ${cnt('check')}</span>` : ''}</div>`;
     const list = locked
