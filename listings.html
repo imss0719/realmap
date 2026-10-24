@@ -477,6 +477,12 @@ body.djmode .side{display:none!important}
 .dj .xt th.c-live{width:70px}.dj .xt th.c-mi{width:82px}.dj .xt th.c-exp{width:136px}.dj .xt th.c-opt{width:96px}.dj .xt th.c-tel{width:142px}.dj .xt th.c-h{width:128px}
 .dj .xt td.c-h{overflow:visible;text-overflow:clip;padding:0 6px}
 .dj .xt td{max-width:none}.dj .xt .c-note,.dj .xt .c-opt,.dj .xt .c-tel,.dj .xt .c-st,.dj .xt .c-pr{min-width:0;max-width:none}
+.dj .xt th{position:sticky}.dj .xt thead th{overflow:visible}
+.dj .xt th .rz{position:absolute;right:0;top:0;bottom:0;width:9px;cursor:col-resize;z-index:4}
+.dj .xt th .rz::after{content:'';position:absolute;left:6px;top:6px;bottom:6px;width:2px;border-radius:1px;background:transparent}
+.dj .xt th:hover .rz::after,.rzing .dj .xt th .rz::after{background:#C3CAD1}
+.dj .xt th .rz:hover::after{background:var(--sale)}
+body.rzing{cursor:col-resize;user-select:none}
 /* 글씨 크기 */
 .fz{display:inline-flex;gap:4px}
 .fz button{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:8px;width:40px;height:34px;font-weight:700;font-size:15px}

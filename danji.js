@@ -488,9 +488,10 @@ window.Danji = (() => {
         ${areas.length > 1 ? `<div class="fg">${areas.map(a => chip('a', a, `${Math.round(a)}㎡`)).join('')}</div>` : ''}
         <div class="fg r"><select id="dj_sort" class="hjin sm" aria-label="정렬"><option value="dh"${F.sort === 'dh' ? ' selected' : ''}>${ALL ? '단지·동·호 순' : '동·호 순'}</option>${C.view === 'dong' ? `<option value="fl"${F.sort === 'fl' ? ' selected' : ''}>높은 층부터</option>` : ''}<option value="up"${F.sort === 'up' ? ' selected' : ''}>최근 바뀐 순</option><option value="exp"${F.sort === 'exp' ? ' selected' : ''}>만기 가까운 순</option></select>
         ${ro || ALL ? '' : `<input id="dj_addHo" class="hjin sm" placeholder="＋ 호 추가 (예: 102-1503)" autocomplete="off">`}<button type="button" class="btn ghost sm" id="dj_csv">엑셀로 받기</button></div></div>
-      <div class="tbw" id="dj_tbw"><table class="xt${ALL ? ' allx' : ''}"><thead><tr>${COLS.map(c => `<th class="c-${c.id}">${c.t}</th>`).join('')}</tr></thead>
+      <div class="tbw" id="dj_tbw"><table class="xt${ALL ? ' allx' : ''}"><thead><tr>${COLS.map((c, n) => `<th class="c-${c.id}">${c.t}${n < COLS.length - 1 ? '<i class="rz" title="끌어서 너비 조절 · 더블클릭하면 처음 너비"></i>' : ''}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((x, i) => rowHtml(x, i) + (S.hist === x.key ? histRowHtml(x) : '')).join('') || `<tr><td colspan="${COLS.length}" class="empty">${ALL ? '조건에 맞는 호가 없습니다. 위에서 필터를 바꿔 보세요.' : C.view === 'all' && F.st === 'all' && !F.k && !F.a ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '조건에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       <p class="note">칸을 누르면 바로 입력 · <b>Enter</b> 저장 후 아래 칸 · <b>Tab</b> 오른쪽 칸 · <b>Esc</b> 취소 · 바뀐 내용은 날짜·시간과 함께 [기록]에 자동으로 남습니다.${C.view === 'dong' ? ` · ${rows.length}호` : ` · ${rows.length}호`}</p>`;
+    colWidths(box, ALL);
     box.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { const g = b.dataset.f, v = g === 'a' ? +b.dataset.v : b.dataset.v; F[g] = g === 'st' ? v : (F[g] === v ? '' : v); drawTable(cx); });
     $('dj_sort').onchange = e => { F.sort = e.target.value; drawTable(cx); };
     $('dj_csv').onclick = () => exportCsv(cx, rows);
@@ -501,6 +502,29 @@ window.Danji = (() => {
     box.querySelectorAll('[data-gocx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.cur = b.dataset.gocx; S.hist = null; draw(); });
     if (S.hist) wireHist(cx);
     if (S.focusKey) { const tr = box.querySelector(`tr[data-key="${CSS.escape(S.focusKey)}"]`); S.focusKey = null; if (tr) { tr.scrollIntoView({ block: 'center', behavior: 'smooth' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); } }
+  }
+  // ---------- 칸 너비 조절: 표 전체 너비는 그대로, 경계선을 끌면 옆 칸과 너비를 주고받음 ----------
+  // 너비는 이 브라우저에 비율(%)로 기억 (단지 화면 / 모든 단지 따로). 경계선 더블클릭 = 처음 너비
+  function colWidths(box, ALL) {
+    const KEY = ALL ? 'rm.djcolA' : 'rm.djcol', ths = [...box.querySelectorAll('table.xt thead th')];
+    let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { saved = null; }
+    if (Array.isArray(saved) && saved.length === ths.length) ths.forEach((th, n) => { th.style.width = saved[n] + '%'; });
+    ths.forEach((th, n) => {
+      const h = th.querySelector('.rz'); if (!h) return;
+      h.ondblclick = e => { e.stopPropagation(); try { localStorage.removeItem(KEY); } catch { /* 무시 */ } ths.forEach(t => { t.style.width = ''; }); };
+      h.onpointerdown = e => {
+        e.preventDefault(); e.stopPropagation();
+        const tbl = th.closest('table'), W = tbl.getBoundingClientRect().width, px = ths.map(t => t.getBoundingClientRect().width);
+        ths.forEach((t, k) => { t.style.width = (px[k] / W * 100) + '%'; });          // 지금 너비를 %로 고정한 뒤
+        const a = px[n], b = px[n + 1], x0 = e.clientX, MIN = 40;
+        h.setPointerCapture(e.pointerId); document.body.classList.add('rzing');
+        h.onpointermove = ev => { const d = Math.max(MIN - a, Math.min(b - MIN, ev.clientX - x0)); ths[n].style.width = ((a + d) / W * 100) + '%'; ths[n + 1].style.width = ((b - d) / W * 100) + '%'; };
+        h.onpointerup = () => {
+          h.onpointermove = h.onpointerup = null; document.body.classList.remove('rzing');
+          try { localStorage.setItem(KEY, JSON.stringify(ths.map(t => Math.round(parseFloat(t.style.width) * 100) / 100))); } catch { /* 저장 안 되면 이번만 */ }
+        };
+      };
+    });
   }
   // 줄 하나만 다시 그림 (입력 중인 줄은 입력이 끝난 뒤)
   function redrawRow(cx, key) {
