@@ -485,7 +485,7 @@ export default async function (req, res) {
       } else if (body.op === 'memo') {
         const mk = str(body.key, 80);
         if (!mk.startsWith(id + '|')) return fail(res, 400, 'bad_key', '메모 위치가 올바르지 않습니다.');
-        const t = str(body.text, 500);
+        const t = str(body.text, 3000); // 날짜가 붙은 메모 기록이 쌓이므로 넉넉히
         if (t) d.memos[mk] = { t, up: now }; else delete d.memos[mk];
         if (Object.keys(d.memos).length > 5000) return fail(res, 400, 'full', '메모가 너무 많습니다. 필요 없는 메모를 정리해 주세요.');
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
@@ -675,7 +675,7 @@ export default async function (req, res) {
           ptype: str(it.ptype, 10), ptypeTx: str(it.ptypeTx, 20), kind,
           price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
           curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
-          memo: str(it.memo, 1000), status, at: prev ? prev.at : now, up: now,
+          memo: str(it.memo, 5000), status, at: prev ? prev.at : now, up: now,
           ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
         };
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
