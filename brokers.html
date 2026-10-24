@@ -43,6 +43,7 @@ td b{font-size:14px}
 td small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .pl{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .pl.trial{background:#FFF1BF;color:#7A5A00}.pl.free{background:#F1F3F5;color:#5E6A77}.pl.basic{background:#E3EDFF;color:#1C4FA8}.pl.premium,.pl.vip{background:#EDE4FF;color:#5B34B0}
+.bav{width:34px;height:34px;border-radius:50%;object-fit:cover;float:left;margin:2px 8px 0 0;border:1px solid var(--line)}
 .vf{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;margin-left:4px;background:#E2F4E9;color:var(--ok)}.vf.wait{background:#FFF4E5;color:#B26A00}.vf.no{background:#FDECEC;color:#C92A2A}
 .soon{color:var(--warn);font-weight:800}
 .acts{display:flex;gap:6px;flex-wrap:wrap}
@@ -116,13 +117,13 @@ dialog .row{margin-top:10px}
         <span class="sp"></span><button class="btn ghost" type="button" id="csv">엑셀로 저장</button><button class="btn ghost" type="button" id="re">새로 고침</button></div>
       <div class="tw"><table><thead><tr><th>중개사무소</th><th>등록번호</th><th>연락처</th><th>요금제</th><th>매물 · 광고</th><th>가입 · 최근</th><th></th></tr></thead><tbody>
       ${rows.map(r => { const b = r.bk || {}, P = r.plan, st = r.stat || {}, L = left(P.until);
-        return `<tr><td><b>${esc(b.office || '(사무소 정보 없음)')}</b>${b.verified ? `<span class="vf">확인됨${b.vby === 'auto' ? ' · 자동' : ''}</span>` : b.pend ? '<span class="vf wait">승인 대기</span>' : b.vst && b.vst !== 'error' ? '<span class="vf no">확인 안 됨</span>' : ''}<small>대표 ${esc(b.ceo || '-')} · 카카오 ${esc(r.nickname || '-')}</small><small>${esc(b.addr || '')}</small>${b.vmsg && !b.verified ? `<small class="soon">${esc(b.vmsg)}</small>` : ''}</td>
+        return `<tr><td>${b.photo ? `<a href="${esc(b.photo)}" target="_blank" rel="noopener"><img class="bav" src="${esc(b.photo)}" alt="대표 사진"></a>` : ''}<b>${esc(b.office || '(사무소 정보 없음)')}</b>${b.verified ? `<span class="vf">확인됨${b.vby === 'auto' ? ' · 자동' : ''}</span>` : b.pend ? '<span class="vf wait">승인 대기</span>' : b.vst && b.vst !== 'error' ? '<span class="vf no">확인 안 됨</span>' : ''}<small>대표 ${esc(b.ceo || '-')} · 카카오 ${esc(r.nickname || '-')}</small><small>${esc(b.addr || '')}</small>${b.vmsg && !b.verified ? `<small class="soon">${esc(b.vmsg)}</small>` : ''}</td>
           <td>${esc(b.regno || '-')}</td>
           <td>${esc(b.tel || '-')}<small>${esc(b.mobile || '')}</small></td>
           <td><span class="pl ${P.plan}">${P.op ? '운영자' : esc(P.name || P.plan)}</span>${P.until ? `<small class="${P.plan === 'trial' && L <= 3 ? 'soon' : ''}">${d8(P.until)}까지${L != null ? ` (${L >= 0 ? 'D-' + L : '지남'})` : ''}</small>` : ''}${P.ended ? `<small>${P.ended === 'trial' ? '체험 끝남' : esc(P.ended) + ' 끝남'}</small>` : ''}</td>
           <td>매물 ${st.n ?? '-'}<small>진행 ${st.on ?? '-'} · 광고 ${st.pub ?? 0}</small></td>
           <td>${d8(r.joined)}<small>${d8(st.up || r.last)}</small></td>
-          <td><div class="acts">${P.op ? '' : `<button class="btn sm" data-plan="${r.id}">요금제</button>`}${b.office ? `<button class="btn sm ghost" data-vf="${r.id}" data-on="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : b.pend ? '승인' : '등록번호 확인'}</button>` : ''}${st.pub ? `<button class="btn sm red" data-off="${r.id}">광고 전체 내리기</button>` : ''}</div></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">아직 중개사 회원이 없습니다.</td></tr>'}
+          <td><div class="acts">${P.op ? '' : `<button class="btn sm" data-plan="${r.id}">요금제</button>`}${b.office ? `<button class="btn sm ghost" data-vf="${r.id}" data-on="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : b.pend ? '승인' : '등록번호 확인'}</button>` : ''}${b.photo ? `<button class="btn sm ghost" data-noph="${r.id}">사진 지우기</button>` : ''}${st.pub ? `<button class="btn sm red" data-off="${r.id}">광고 전체 내리기</button>` : ''}</div></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">아직 중개사 회원이 없습니다.</td></tr>'}
       </tbody></table></div>
       <p style="margin-top:12px;font-size:12.5px">가입할 때 국가 자료(브이월드)로 등록번호·대표 공인중개사·영업 상태를 자동 확인합니다(확인됨 · 자동). 브이월드 점검 등으로 확인하지 못한 신청은 '승인 대기'로 남으니, 국가공간정보포털(부동산중개업 조회)에서 확인하신 뒤 [승인]을 눌러 주세요. 승인하면 그때 체험이 시작됩니다.</p></div>
     ${(data.dups || []).length ? `<div class="card"><h2>등록번호 중복 가입 시도 <small>이미 다른 계정이 쓰는 등록번호로 가입하려 한 기록 · 최근 ${data.dups.length}건</small></h2>
@@ -143,6 +144,7 @@ dialog .row{margin-top:10px}
     document.getElementById('csv').onclick = () => csv(rows);
     app.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => planDlg(R.find(r => r.id === b.dataset.plan)));
     app.querySelectorAll('[data-vf]').forEach(b => b.onclick = () => { if (confirm(b.dataset.on ? '이 사무소의 등록번호·대표·영업 상태를 확인하셨나요?\n확인 표시를 하고, 승인 대기였다면 체험을 시작합니다.' : '확인 표시를 취소할까요? (이 회원은 매물장을 쓸 수 없게 됩니다)')) load({ uid: b.dataset.vf, op: 'verify', on: !!b.dataset.on }); });
+    app.querySelectorAll('[data-noph]').forEach(b => b.onclick = () => { if (confirm('이 사무소의 대표 사진을 지울까요? (부적절한 사진일 때)')) load({ uid: b.dataset.noph, op: 'nophoto' }); });
     app.querySelectorAll('[data-off]').forEach(b => b.onclick = () => { if (confirm('이 중개사의 지도 광고를 모두 내릴까요? (매물장 자료는 그대로)')) load({ uid: b.dataset.off, op: 'unpubAll' }); });
     app.querySelectorAll('[data-unpub]').forEach(b => b.onclick = () => { if (confirm('이 광고를 지도에서 내릴까요?')) load({ k: b.dataset.unpub, op: 'unpub' }); });
   }

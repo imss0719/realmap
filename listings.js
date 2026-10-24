@@ -593,7 +593,11 @@
     else if (item) S.form.it.places.forEach(P => loadBld(S.form, P));
     else setTimeout(() => $('fq') && $('fq').focus(), 50);
   }
-  function closeForm() { $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null; }
+  function closeForm() {
+    $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null;
+    if (S.bkTmp && S.bkTmp.length) { api('/api/auth?action=listing&op=photodel', post({ urls: S.bkTmp })).catch(() => {}); } // 저장하지 않은 대표 사진 정리
+    S.bkTmp = [];
+  }
   // 창 바깥을 눌러도 닫히지 않습니다. 닫기(×)를 누르면 한 번 더 묻고, 새로 쓰던 내용은 임시로 보관합니다.
   function dirty(F) { return F && (F.it.places.length || F.it.photos.length || F.it.contacts.some(c => c.name || c.phone) || F.it.memo); }
   $('shClose').onclick = () => {
@@ -991,6 +995,8 @@
     $('sheet').hidden = false; document.body.style.overflow = 'hidden';
     const f = (k, lb, ph, t = 'text') => `<div class="fld"><label for="b_${k}">${lb}</label><input class="in" id="b_${k}" type="${t}" value="${esc(b[k] || '')}" placeholder="${ph}"></div>`;
     $('form').innerHTML = `${note ? `<div style="background:#FFF4E5;border:1px solid #F5C987;color:#8A5300;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px;font-weight:600;line-height:1.5">${esc(note)}</div>` : ''}<div class="meta" style="margin-bottom:12px">리얼맵 지도에 올린 매물마다 아래 정보가 함께 표시됩니다. (공인중개사법상 인터넷 광고 필수 표시 항목)<br>등록번호와 대표 공인중개사 성명은 국가 자료(브이월드)로 확인합니다.</div>
+      <div class="fld bkph"><span class="lb">대표 사진 <small>선택 · 얼굴, 로고 등 자유롭게</small></span>
+        <div class="bkph-row"><span class="bkav" id="bkAv"></span><span class="bkph-b"><label class="bkph-pick" for="bkPhF">사진 고르기</label><input type="file" id="bkPhF" accept="image/*" hidden><button type="button" class="bkph-del" id="bkPhDel">지우기</button><small>리얼맵 지도의 매물 카드에 동그랗게 표시됩니다.</small></span></div></div>
       ${f('office', '중개사무소 명칭', '리얼워커스공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 마포구 신촌로34길 39')}
       <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
       <div class="two">${f('tel', '사무소 전화', '02-000-0000', 'tel')}${f('mobile', '휴대폰 (문자 받을 번호)', '010-0000-0000', 'tel')}</div>
@@ -1001,10 +1007,30 @@
       if (prompt("정말 해지하시려면 '해지'라고 입력해 주세요.") !== '해지') return toast('해지를 취소했습니다');
       try { await api('/api/auth?action=quit', post({})); alert('중개사 서비스를 해지했습니다. 이용해 주셔서 감사합니다.'); location.href = '/'; } catch (e) { toast(e.message, 4000); }
     };
+    // 대표 사진: 정사각형으로 가운데를 잘라 400px JPEG로 올림. 저장 전에는 임시 (닫으면 정리)
+    let photo = b.photo || '';
+    S.bkTmp = [];
+    const avDraw = () => { $('bkAv').innerHTML = photo ? `<img src="${esc(photo)}" alt="대표 사진">` : `<b>${esc((($('b_office') && $('b_office').value) || b.office || '리').trim().charAt(0) || '리')}</b>`; $('bkPhDel').hidden = !photo; };
+    avDraw();
+    $('bkPhDel').onclick = () => { photo = ''; avDraw(); };
+    $('bkPhF').onchange = async e => {
+      const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+      $('bkAv').classList.add('up');
+      try {
+        let src; try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { src = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
+        const side = Math.min(src.width, src.height), c = document.createElement('canvas'); c.width = c.height = 400;
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 400, 400); // 투명한 로고 PNG는 흰 바탕으로
+        g.drawImage(src, (src.width - side) / 2, (src.height - side) / 2, side, side, 0, 0, 400, 400);
+        const j = await api('/api/auth?action=listing&op=photo', post({ data: c.toDataURL('image/jpeg', 0.86) }));
+        photo = j.url; S.bkTmp.push(j.url); avDraw();
+      } catch (er) { toast(er.message || '사진을 올리지 못했습니다. 다른 사진으로 다시 시도해 주세요.', 4000); }
+      $('bkAv').classList.remove('up');
+    };
     $('bSave').onclick = async () => {
       const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
+      bk.photo = photo;
       $('bSave').disabled = true;
-      try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; closeForm(); draw(); toast('중개사무소 정보를 저장했습니다'); if (then) then(); }
+      try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; S.bkTmp = (S.bkTmp || []).filter(u => u !== j.bk.photo); closeForm(); draw(); toast('중개사무소 정보를 저장했습니다'); if (then) then(); }
       catch (e) { toast(e.message, 4000); $('bSave').disabled = false; }
     };
   }

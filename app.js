@@ -2715,10 +2715,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       ${lsCompare(x)}
       ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
       <dl class="lfacts">${f.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}<dt>소재지</dt><dd>${esc(x.addr)}</dd></dl>
-      <div class="lbk"><div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
+      <div class="lbk">${lsAv(x.bk, 'lav lg')}<div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
         <div class="lbtn">${btns}</div></div>
       <div class="lft">등록 ${lsYmd(x.at)} · 거래 가능 확인 ${lsYmd(x.chk)}${x.no ? ' · No. ' + esc(x.no) : ''} · <a href="mailto:realwalkers@naver.com?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>`;
   }
+  // 중개사 대표 사진(동그라미). 없으면 사무소 이름 첫 글자
+  const lsAv = (bk, cls) => `<span class="${cls}">${bk.photo ? `<img src="${esc(bk.photo)}" alt="" loading="lazy">` : `<b>${esc(String(bk.office || '').trim().charAt(0))}</b>`}</span>`;
   function lsCard(x) {
     const open = LP.exp.has(x.k), ph = x.photos && x.photos[0];
     const py = x.area ? `${Math.round(x.area / 3.305785)}평` : '';
@@ -2728,7 +2730,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       <button type="button" class="lc-top" data-lx="${esc(x.k)}" aria-expanded="${open}">
         ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : '<span class="lc-th none">사진<br>없음</span>'}
         <span class="lc-tx"><span class="lc-k"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${what}${x.viol ? ' <b class="lviol">위반</b>' : ''}</span>
-          <b class="lc-pr">${esc(lsPrice(x))}</b><small>${esc(meta)}</small><small class="lc-of">${esc(x.bk.office)}</small></span>
+          <b class="lc-pr">${esc(lsPrice(x))}</b><small>${esc(meta)}</small><small class="lc-of">${lsAv(x.bk, 'lav')}${esc(x.bk.office)}</small></span>
         <span class="lc-ar" aria-hidden="true">›</span></button>
       ${open ? `<div class="lc-more">${lsDetail(x)}</div>` : ''}
     </div>`;

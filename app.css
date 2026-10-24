@@ -654,3 +654,8 @@ a.favbtn{text-decoration:none}
 .map.lp-on .toast,.map.lp-on .viewtog,.map.lp-on .asum,.map.lp-on .zonecard,.map.lp-on .measure{left:calc(50% + 150px)}
 .lc-more .lbk{flex-direction:column;align-items:stretch}.lc-more .lbtn{justify-content:flex-start}
 .lp-of{flex:none;font-size:12px;color:var(--muted);white-space:nowrap}
+.lav{display:inline-grid;place-items:center;flex:none;width:20px;height:20px;border-radius:50%;overflow:hidden;background:#E3E9EF;border:1px solid var(--line);vertical-align:-5px;margin-right:5px}
+.lav img{width:100%;height:100%;object-fit:cover}.lav b{font-size:10px;color:#5E6A77;line-height:1}
+.lav.lg{width:52px;height:52px;margin:0}.lav.lg b{font-size:20px}
+.lbk .lav.lg{align-self:flex-start}
+.lc-more .lbk{display:grid;grid-template-columns:52px 1fr;gap:4px 10px}.lc-more .lbk .lbtn{grid-column:1/-1}
