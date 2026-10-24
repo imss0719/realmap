@@ -8,6 +8,7 @@
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
+import { ledger, dropLedger, dropLedgers } from './_ledger.js';
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
 const CSECRET = (process.env.KAKAO_CLIENT_SECRET || '').trim();
@@ -258,6 +259,7 @@ export async function brokerStat(uid, items) {
 }
 // 중개사 서비스 데이터 지우기 (중개사 해지 · 회원 탈퇴 공용) — 일반 회원 정보는 그대로
 async function dropBroker(uid) {
+  await dropLedgers(redis, uid); // 단지 장부(호실 장부) — 고객 연락처가 들어 있으므로 가장 먼저
   try { const b = await loadBk(uid); if (b && b.photo) await dropPhotos([b.photo]); } catch { /* 무시 */ }
   try { const b = await loadBk(uid), d = b && digitsOf(b.regno); if (d && await redis(['HGET', 'realmap:regno', d]) === String(uid)) await redis(['HDEL', 'realmap:regno', d]); } catch { /* 무시 */ }
   try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); const f = ls.map(x => `${uid}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
@@ -482,6 +484,14 @@ export default async function (req, res) {
       } else if (body.op === 'del') {
         d.items = d.items.filter(x => x.id !== id);
         for (const k of Object.keys(d.memos)) if (k.startsWith(id + '|')) delete d.memos[k];
+        await dropLedger(redis, s.id, id);
+      } else if (body.op === 'dir') {
+        // 라인별 방향 (같은 라인은 보통 같은 방향): key = 'PNU|동|라인'
+        const dk = str(body.key, 40), DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
+        if (!/^(\d{19}|\*)\|[^|]{1,16}\|\d{1,3}$/.test(dk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');
+        it.dir = it.dir || {};
+        if (DIRS.includes(body.v)) it.dir[dk] = body.v; else delete it.dir[dk];
+        if (Object.keys(it.dir).length > 800) return fail(res, 400, 'full', '방향 정보가 너무 많습니다.');
       } else if (body.op === 'memo') {
         const mk = str(body.key, 80);
         if (!mk.startsWith(id + '|')) return fail(res, 400, 'bad_key', '메모 위치가 올바르지 않습니다.');
@@ -491,6 +501,23 @@ export default async function (req, res) {
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
       await redis(['SET', key, JSON.stringify(d)]);
       return send(res, 200, { ok: true, ...d });
+    }
+
+    // 단지 장부 — 호실 장부 (확인된 중개사무소만, 암호화 저장) → api/_ledger.js
+    if (action === 'hj') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '단지 모드는 Basic 요금제부터 쓸 수 있습니다.');
+      const g = await bkGate(s.id);
+      if (g) return fail(res, 403, 'bk', '호실 장부는 고객 연락처를 다루므로 중개사무소 확인이 끝난 회원만 쓸 수 있습니다. ' + (g.msg || ''));
+      const ck = `realmap:cx:${s.id}`;
+      let d; try { const v = await redis(['GET', ck]); d = v ? JSON.parse(v) : null; } catch { d = null; }
+      d = d || { items: [], memos: {} }; d.memos = d.memos || {};
+      let body = {};
+      if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
+      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body });
     }
 
     // 지도에 게시된 매물 (누구나 볼 수 있음) — 1분 캐시
