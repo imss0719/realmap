@@ -46,7 +46,7 @@ const ymd = d => d ? d.slice(2).replace(/-/g, '.') : '';
 const plus2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); const t = new Date(Date.UTC(y + 2, m - 1, dd)); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
 const add2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(y + 2, m - 1, dd)).toISOString().slice(0, 10); };
 
-const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', deal: null, called: '', hist: [] });
+const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', deal: null, called: '', hist: [] });
 // 화면에서 온 장부 값 정리 (히스토리·계약 정보는 화면이 직접 고칠 수 없음)
 function clean(b) {
   b = b || {};
@@ -55,13 +55,14 @@ function clean(b) {
   return {
     st: { src, k: src ? KS.filter(k => (st.k || []).includes(k)) : [], hold: !!src && !!st.hold, office: src === 'other' ? str(st.office, 30) : '' },
     pr: { sale: man(pr.sale), jeonse: man(pr.jeonse), wd: man(pr.wd), wr: man(pr.wr) },
+    ar: (n => Number.isFinite(n) && n > 5 && n < 1000 ? Math.round(n * 100) / 100 : 0)(Number(b.ar)),   // 직접 적은 전용면적(㎡) — 건축물대장 면적이 없을 때
     live: LV[b.live] ? b.live : '',
     exp: day(b.exp), moveIn: str(b.moveIn, 30), opt: str(b.opt, 200),
     tels: (Array.isArray(b.tels) ? b.tels : []).slice(0, 4).map(t => ({ l: str(t && t.l, 10), n: str(t && t.n, 20).replace(/[^\d\-+ ]/g, '') })).filter(t => t.n),
     note: str(b.note, 300),
   };
 }
-const FIELDS = ['st', 'pr', 'live', 'exp', 'moveIn', 'opt', 'tels', 'note', 'deal'];
+const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'opt', 'tels', 'note', 'deal'];
 const snap = r => JSON.parse(JSON.stringify(Object.fromEntries(FIELDS.map(k => [k, r[k]]))));
 export const stTxt = st => !st.src ? '상태 없음' : `${st.src === 'mine' ? '내 매물' : '타부동산' + (st.office ? `(${st.office})` : '')}${st.k.length ? ' ' + st.k.map(k => KN[k]).join('·') : ''}${st.hold ? ' · 보류' : ''}`;
 const prTxt = (k, pr) => k === 'sale' ? `매매 ${won(pr.sale)}` : k === 'jeonse' ? `전세 ${won(pr.jeonse)}` : `월세 ${won(pr.wd)}/${pr.wr || 0}`;
@@ -74,6 +75,7 @@ function diff(a, b) {
     const has = k === 'wolse' ? b.pr.wd || b.pr.wr : b.pr[k];
     if (has && (ch || !a.st.k.includes(k))) out.push(prTxt(k, b.pr));
   }
+  if ((a.ar || 0) !== (b.ar || 0)) out.push(b.ar ? `전용 ${b.ar}㎡` : '면적 지움');
   if (a.live !== b.live) out.push(b.live ? LV[b.live] : '거주 정보 지움');
   if (a.exp !== b.exp) out.push(b.exp ? `만기 ${ymd(b.exp)}` : '만기 지움');
   if (a.moveIn !== b.moveIn) out.push(b.moveIn ? `입주 ${day(b.moveIn) ? ymd(b.moveIn) : b.moveIn}` : '입주 지움');
@@ -196,7 +198,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
 
   rec.up = now;
-  const empty = !rec.hist.length && !rec.st.src && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn;
+  const empty = !rec.hist.length && !rec.st.src && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn;
   if (empty) await redis(['HDEL', H, key]);
   else { await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, id]); }
   if (movedMemo) await saveCx();
