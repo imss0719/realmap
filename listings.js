@@ -102,7 +102,7 @@
   // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
   const DJ_HOST = {
     items: () => S.items,
-    openAdd: (pnu, dong, ho) => openForm(null, pnu, { dong, ho }),
+    openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
     toast,
   };
@@ -584,6 +584,14 @@
     S.form = { edit: !!item, it: item ? upgrade(item) : { kind: 'sale', status: 'on', ptype: '', places: [], contacts: [{ role: '소유자', name: '', phone: '' }], rents: [], photos: [], ad: {} }, newPhotos: [], upN: 0, results: null, picking: false, adding: !item, touchedType: !!item };
     S.form.newPhotos = S.form.newPhotos || []; S.form.upN = 0;
     if (!S.form.it.contacts.length) S.form.it.contacts.push({ role: '소유자', name: '', phone: '' });
+    // 단지 장부의 [지도↑]에서 왔으면 거래 종류·가격·연락처를 미리 채움
+    if (!item && preset) {
+      const it = S.form.it;
+      if (['sale', 'jeonse', 'wolse'].includes(preset.kind)) it.kind = preset.kind;
+      for (const k of ['price', 'deposit', 'rent']) if (+preset[k] > 0) it[k] = +preset[k];
+      if (Array.isArray(preset.contacts) && preset.contacts.length) it.contacts = preset.contacts.slice(0, 5).map(c => ({ role: String(c.role || '소유자').slice(0, 10), name: '', phone: String(c.phone || '').slice(0, 20) }));
+      if (!it.ptype) it.ptype = '아파트';
+    }
     $('shTitle').textContent = item ? '매물 수정' : '매물 등록';
     $('sheet').hidden = false; document.body.style.overflow = 'hidden';
     $('form').innerHTML = '';
