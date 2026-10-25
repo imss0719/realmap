@@ -341,15 +341,14 @@ window.Danji = (() => {
     if (!M.map) M.map = new K.Map(M.el, { center: new K.LatLng(cx.places[0].lat || 37.55, cx.places[0].lng || 126.93), level: 3 });
     else M.map.relayout();
     M.ovs.forEach(o => o.setMap(null)); M.ovs = [];
-    const pnus = [...new Set(cx.places.map(p => p.pnu))];
-    const got = pnus.map(p => DongPos.peek(p));
-    if (got.some(v => !v)) {   // 아직 안 받은 필지 → 받은 뒤 다시
-      const ld = document.createElement('div'); ld.className = 'djmap-ld'; ld.textContent = '동 위치를 불러오는 중…'; M.el.appendChild(ld);
-      Promise.all(pnus.map(p => DongPos.get(p))).then(() => { ld.remove(); if (S.cur === cx.id && $('dj_mapSlot')) drawCxMap(cx, mineMap(cx)); });
-      return;
-    }
-    const posOf = d => DongPos.at(d.pnu, d.dong) || pnus.map(p => DongPos.at(p, d.dong)).find(Boolean) || null;
-    const ringOf = d => { for (const p of [d.pnu, ...pnus]) { const v = DongPos.peek(p), b = v && v.by.get(normD(d.dong)); if (b) return b.ring || []; } return []; };
+    // 단지의 필지 전체를 한 범위로, 건축물대장 동 목록에 있는 동을 한 번에 받음
+    const note = t => { const m = document.createElement('div'); m.className = 'djmap-ld'; m.textContent = t; M.el.appendChild(m); M.ovs.push({ setMap: () => m.remove() }); };
+    if (!C.dongs) return note('동 목록을 불러오는 중…');
+    const pnus = cx.places.map(p => p.pnu), want = C.dongs.map(d => d.dong);
+    const R = DongPos.peek(pnus, want, cx.name);
+    if (!R) { note('동 위치를 불러오는 중…'); DongPos.get(pnus, want, cx.name).then(() => { if (S.cur === cx.id && $('dj_mapSlot')) drawCxMap(cx, mineMap(cx)); }); return; }
+    const posOf = d => R.by.get(normD(d.dong)) || null;
+    const ringOf = d => (posOf(d) || {}).ring || [];
     const F = TF(), bounds = new K.LatLngBounds(), miss = [];
     let any = 0;
     for (const d of C.dongs || []) {
@@ -370,8 +369,8 @@ window.Danji = (() => {
       const ov = new K.CustomOverlay({ position: new K.LatLng(pos.lat, pos.lng), content: el, yAnchor: .5, zIndex: sel ? 10 : hit ? 5 : 1, clickable: true });
       ov.setMap(M.map); M.ovs.push(ov); bounds.extend(new K.LatLng(pos.lat, pos.lng)); any++;
     }
-    if (miss.length) { const m = document.createElement('div'); m.className = 'djmap-ld'; m.textContent = `위치를 못 찾은 동: ${miss.slice(0, 6).join(', ')}${miss.length > 6 ? ` 외 ${miss.length - 6}` : ''}`; M.el.appendChild(m); M.ovs.push({ setMap: () => m.remove() }); }
-    if (!any) { const m = document.createElement('div'); m.className = 'djmap-ld'; m.textContent = C.dongs ? '이 단지는 동 위치 자료가 없습니다' : '동 목록을 불러오는 중…'; M.el.appendChild(m); M.ovs.push({ setMap: () => m.remove() }); return; }
+    if (miss.length) note(`위치를 못 찾은 동: ${miss.slice(0, 6).join(', ')}${miss.length > 6 ? ` 외 ${miss.length - 6}` : ''}`);
+    if (!any) { if (!miss.length) note('이 단지는 동 위치 자료가 없습니다'); return; }
     if (M.fit !== cx.id + ':' + any) { M.fit = cx.id + ':' + any; M.map.setBounds(bounds, 30, 30, 30, 30); }
   }
   function pickDong(cx, k) { const C = S.C[cx.id]; if (!C) return; if (C.view === 'dong' && C.cur === k) C.view = 'all'; else { C.view = 'dong'; C.cur = k; C.picked = true; } S.hist = null; drawComplex(cx); }

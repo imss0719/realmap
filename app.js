@@ -2625,12 +2625,13 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 가까이(레벨 4 이하) 보면 아파트·오피스텔 매물은 그 동 위에 따로 표시 (동 위치는 DongPos로 한 번만 받음, 못 찾으면 단지 자리)
   function lsGroups() {
     const g = new Map(), close = S.map && S.map.getLevel() <= 4 && window.DongPos, b = close ? S.map.getBounds() : null;
+    const want = new Map(); if (close) for (const x of LS.items) if (x.dong) (want.get(x.pnu) || want.set(x.pnu, []).get(x.pnu)).push(x.dong);   // 필지마다 매물이 있는 동
     for (const x of LS.items) {
       let k = x.pnu, lat = x.lat, lng = x.lng, dn = '';
       if (close && x.dong) {
         const p = DongPos.at(x.pnu, x.dong);
         if (p) { dn = DongPos.norm(x.dong); k += '|' + dn; lat = p.lat; lng = p.lng; }
-        else if (!DongPos.peek(x.pnu) && !LS.dq.has(x.pnu) && b.contain(new kakao.maps.LatLng(x.lat, x.lng))) { LS.dq.add(x.pnu); DongPos.get(x.pnu).then(v => { if (v.list.length) { drawListings(); drawTrades(); } }); }
+        else if (!LS.dq.has(x.pnu) && b.contain(new kakao.maps.LatLng(x.lat, x.lng))) { LS.dq.add(x.pnu); DongPos.get(x.pnu, want.get(x.pnu), x.bname).then(v => { if (v.list.length) { drawListings(); drawTrades(); } }); }
       }
       const e = g.get(k) || g.set(k, { pnu: x.pnu, dn, lat, lng, list: [] }).get(k); e.list.push(x);
     }

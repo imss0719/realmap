@@ -248,7 +248,7 @@
       // 같은 필지(PNU)면 같은 자리로 봅니다 (검색 위치가 조금씩 달라도 첫 매물 자리에 맞춰 줄 세움)
       // 아파트·오피스텔처럼 동이 있으면 그 동 위에 (동 위치를 아직 안 받았으면 받은 뒤 다시 그림)
       const dn = x.pnu && x.places && x.places[0] && x.places[0].dong, dp = dn && window.DongPos ? DongPos.at(x.pnu, dn) : null;
-      if (dn && window.DongPos && !dp && !DongPos.peek(x.pnu)) { S.dq = S.dq || new Set(); if (!S.dq.has(x.pnu)) { S.dq.add(x.pnu); DongPos.get(x.pnu).then(v => { if (v.list.length) drawPins(false); }); } }
+      if (dn && window.DongPos && !dp) { S.dq = S.dq || new Set(); if (!S.dq.has(x.pnu)) { S.dq.add(x.pnu); const wn = S.items.filter(y => y.pnu === x.pnu && y.places && y.places[0] && y.places[0].dong).map(y => y.places[0].dong); DongPos.get(x.pnu, wn, x.bname).then(v => { if (v.list.length) drawPins(false); }); } }
       const spot = x.pnu ? x.pnu + (dp ? '|' + DongPos.norm(dn) : '') : `${(+x.lat).toFixed(4)},${(+x.lng).toFixed(4)}`;
       const g = seen.get(spot) || { k: 0, lat: dp ? dp.lat : x.lat, lng: dp ? dp.lng : x.lng };
       const k = g.k; g.k++; seen.set(spot, g);
