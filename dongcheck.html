@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>동 위치 확인 · 리얼맵</title>
+<style>
+:root{--bg:#EEF1F4;--surface:#fff;--fg:#16202A;--muted:#5E6A77;--line:#DCE2E8;--accent:#0B6E69;--bad:#B4231A}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;height:100vh;display:flex;flex-direction:column}
+header{display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{font-size:15px;margin-right:6px}
+header input{flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:14px}
+header button{padding:8px 14px;border:0;border-radius:6px;background:var(--accent);color:#fff;font-size:14px;cursor:pointer}
+.wrap{flex:1;display:flex;min-height:0}
+#map{flex:1}
+aside{width:340px;overflow:auto;background:var(--surface);border-left:1px solid var(--line);padding:12px 14px}
+aside h3{margin:4px 0 6px;font-size:15px}
+.mut{color:var(--muted);font-size:13px}
+.err{color:var(--bad)}
+.sum{display:flex;gap:10px;margin:8px 0 10px}
+.sum div{flex:1;background:var(--bg);border-radius:6px;padding:8px;text-align:center}
+.sum b{display:block;font-size:18px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:left}
+tr{cursor:pointer}tr:hover td{background:#F4F7F9}
+.no{color:var(--muted)}
+details{margin-top:12px}pre{font-size:11px;white-space:pre-wrap;word-break:break-all;background:var(--bg);padding:8px;border-radius:6px}
+.lab{background:#0B6E69;color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.lab.no{background:#8A949E}
+.list{margin-top:6px}.list div{padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer}.list div:hover{background:#F4F7F9}
+@media(max-width:700px){.wrap{flex-direction:column}aside{width:auto;height:45vh;border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+  <b>동 위치 확인</b>
+  <input id="q" placeholder="단지 이름이나 주소 (예: 마포래미안푸르지오)">
+  <button id="go">검색</button>
+</header>
+<div class="wrap">
+  <div id="map"></div>
+  <aside id="side"><p class="mut">단지를 검색하거나, 지도에서 단지 안 아무 곳이나 누르세요.<br>그 단지의 동들이 지도 위에 이름표로 표시됩니다.</p></aside>
+</div>
+<script>
+(() => {
+  const $ = s => document.querySelector(s), side = $('#side');
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const getJ = async u => { const r = await fetch(u); const j = await r.json().catch(() => ({})); if (!r.ok || j.ok === false) throw new Error(j.message || '불러오지 못했습니다'); return j; };
+  let map, places, drawn = [];
+  const clear = () => { drawn.forEach(o => o.setMap(null)); drawn = []; };
+  const LL = (lat, lng) => new kakao.maps.LatLng(lat, lng);
+  const ringsOf = g => !g ? [] : g.type === 'Polygon' ? [g.coordinates[0]] : g.type === 'MultiPolygon' ? g.coordinates.map(p => p[0]) : [];
+
+  async function byPoint(lat, lng) {
+    side.innerHTML = '<p class="mut">필지 찾는 중…</p>';
+    try { const p = await getJ(`/api/parcel?lat=${lat}&lng=${lng}`); await byPnu(p.bldPnu || p.pnu); }
+    catch (e) { side.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+  }
+  async function byPnu(pnu) {
+    side.innerHTML = '<p class="mut">동 위치 불러오는 중…</p>';
+    let d; try { d = await getJ(`/api/parcel?pnu=${pnu}&dongs=1`); } catch (e) { side.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+    history.replaceState(null, '', '?pnu=' + pnu);
+    clear();
+    const bounds = new kakao.maps.LatLngBounds();
+    for (const r of ringsOf(d.parcel)) {
+      const path = r.map(([x, y]) => LL(y, x)); path.forEach(p => bounds.extend(p));
+      const pg = new kakao.maps.Polygon({ path, strokeWeight: 2, strokeColor: '#E8590C', strokeOpacity: .9, fillColor: '#E8590C', fillOpacity: .05 }); pg.setMap(map); drawn.push(pg);
+    }
+    d.buildings.forEach(b => {
+      if (b.ring.length) { const pg = new kakao.maps.Polygon({ path: b.ring.map(([x, y]) => LL(y, x)), strokeWeight: 1, strokeColor: b.dong ? '#0B6E69' : '#8A949E', fillColor: b.dong ? '#0B6E69' : '#8A949E', fillOpacity: .25 }); pg.setMap(map); drawn.push(pg); }
+      const ov = new kakao.maps.CustomOverlay({ position: LL(b.lat, b.lng), content: `<div class="lab${b.dong ? '' : ' no'}">${esc(b.dong || b.name || '이름없음')}</div>`, yAnchor: .5 }); ov.setMap(map); drawn.push(ov);
+      bounds.extend(LL(b.lat, b.lng));
+    });
+    map.setBounds(bounds);
+    side.innerHTML = `<h3>${esc(d.addr || d.pnu)}</h3><div class="mut">필지번호 ${esc(d.pnu)}</div>
+      <div class="sum"><div><b>${d.total}</b>건물</div><div><b>${d.named}</b>동 이름 있음</div><div><b>${d.total - d.named}</b>이름 없음</div></div>
+      <table><tr><th>동</th><th>건물명</th><th>층</th><th>근거</th></tr>
+      ${d.buildings.map((b, i) => `<tr data-i="${i}"><td>${b.dong ? esc(b.dong) : '<span class="no">-</span>'}</td><td>${esc(b.name)}</td><td>${b.floors ?? ''}</td><td class="mut">${b.inside ? '경계안' : ''}${b.inside && b.bySn ? '·' : ''}${b.bySn ? '번호' : ''}</td></tr>`).join('')}
+      </table>
+      <details><summary class="mut">원본 자료 보기 (개발 확인용)</summary><pre>${esc(JSON.stringify(d.sample, null, 1))}</pre></details>`;
+    side.querySelectorAll('tr[data-i]').forEach(tr => tr.onclick = () => { const b = d.buildings[tr.dataset.i]; map.setCenter(LL(b.lat, b.lng)); map.setLevel(2); });
+  }
+  function search() {
+    const v = $('#q').value.trim(); if (!v) return;
+    places.keywordSearch(v, (r, st) => {
+      if (st !== kakao.maps.services.Status.OK || !r.length) { side.innerHTML = '<p class="err">검색 결과가 없습니다.</p>'; return; }
+      if (r.length === 1) return pick(r[0]);
+      side.innerHTML = '<h3>어느 곳인가요?</h3><div class="list">' + r.slice(0, 10).map((p, i) => `<div data-i="${i}"><b>${esc(p.place_name)}</b><br><span class="mut">${esc(p.road_address_name || p.address_name)}</span></div>`).join('') + '</div>';
+      side.querySelectorAll('.list div').forEach(el => el.onclick = () => pick(r[el.dataset.i]));
+    });
+  }
+  const pick = p => { map.setCenter(LL(+p.y, +p.x)); map.setLevel(3); byPoint(+p.y, +p.x); };
+
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    const sc = document.createElement('script');
+    sc.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(cfg.kakaoKey)}&libraries=services&autoload=false`;
+    sc.onload = () => kakao.maps.load(() => {
+      map = new kakao.maps.Map($('#map'), { center: LL(37.5547, 126.9368), level: 4 });
+      places = new kakao.maps.services.Places();
+      kakao.maps.event.addListener(map, 'click', e => byPoint(e.latLng.getLat(), e.latLng.getLng()));
+      $('#go').onclick = search; $('#q').onkeydown = e => { if (e.key === 'Enter') search(); };
+      const pn = new URLSearchParams(location.search).get('pnu'); if (pn) byPnu(pn.replace(/\D/g, ''));
+    });
+    document.head.appendChild(sc);
+  }).catch(() => { side.innerHTML = '<p class="err">지도 설정을 불러오지 못했습니다.</p>'; });
+})();
+</script>
+</body>
+</html>
