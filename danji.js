@@ -369,8 +369,8 @@ window.Danji = (() => {
       const ov = new K.CustomOverlay({ position: new K.LatLng(pos.lat, pos.lng), content: el, yAnchor: .5, zIndex: sel ? 10 : hit ? 5 : 1, clickable: true });
       ov.setMap(M.map); M.ovs.push(ov); bounds.extend(new K.LatLng(pos.lat, pos.lng)); any++;
     }
-    if (miss.length) note(`위치를 못 찾은 동: ${miss.slice(0, 6).join(', ')}${miss.length > 6 ? ` 외 ${miss.length - 6}` : ''}`);
-    if (!any) { if (!miss.length) note('이 단지는 동 위치 자료가 없습니다'); return; }
+    if (miss.length) console.info('[동 지도] 위치를 못 찾은 동', miss.join(', '));   // 회원 화면에는 표시하지 않음 (위치 없는 동은 아래 동 버튼으로)
+    if (!any) { note('이 단지는 지도에 동 위치 자료가 없습니다. 아래 동 버튼으로 보세요.'); return; }
     if (M.fit !== cx.id + ':' + any) { M.fit = cx.id + ':' + any; M.map.setBounds(bounds, 30, 30, 30, 30); }
   }
   function pickDong(cx, k) { const C = S.C[cx.id]; if (!C) return; if (C.view === 'dong' && C.cur === k) C.view = 'all'; else { C.view = 'dong'; C.cur = k; C.picked = true; } S.hist = null; drawComplex(cx); }

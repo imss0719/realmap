@@ -17,7 +17,7 @@ window.DongPos = (() => {
   function pump() {
     while (run < 3 && Q.length) {
       const [a, ok] = Q.shift(); run++;
-      const q = new URLSearchParams({ dongs: '1', v: '2', pnus: a.P.join(',') });   // v: 서버 방식이 바뀌면 올려서 CDN에 남은 예전 결과를 피함
+      const q = new URLSearchParams({ dongs: '1', v: '3', pnus: a.P.join(',') });   // v: 서버 방식이 바뀌면 올려서 CDN에 남은 예전 결과를 피함
       if (a.W.length) { q.set('want', a.W.join(',')); if (a.name) q.set('name', a.name); }
       fetch('/api/parcel?' + q).then(r => r.json()).catch(() => null).then(j => {
         const by = new Map(), list = j && j.ok && Array.isArray(j.buildings) ? j.buildings.filter(b => b.dong) : [];
