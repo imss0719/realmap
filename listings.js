@@ -105,6 +105,7 @@
     openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
     toast,
+    plan: () => S.plan || {}, upsell,
     pubCell: id => pubCell(S.items.find(i => i.id === id)), pubClick: (id, el) => pubClick(id, el), pubNew: o => pubNew(o), canPub: () => !!S.canPub,
   };
   // 요금제 안내 (무료 이용자가 Basic 기능을 누르거나 한도에 닿았을 때)
@@ -112,14 +113,13 @@
   const adv = () => !S.plan || S.plan.adv;
   // 지도+리스트(list) 모드: 표가 기본, [지도로 보기]를 켜면 오른쪽에 지도 · 단지(danji) 모드는 Basic부터
   function setMode(m) {
-    if (m === 'danji' && !adv()) { if (S.mode) upsell('단지 모드는 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.'); m = 'list'; }
     S.mode = m === 'danji' ? 'danji' : 'list';
     try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
     const dj = S.mode === 'danji', lv = S.mode === 'list';
     document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv);
     if (!lv) document.body.classList.remove('lvmap');
     $('dj').hidden = !dj; $('lv').hidden = !lv; $('map').style.visibility = dj || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
-    document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.toggle('lock', b.dataset.mode === 'danji' && !adv()); });
+    document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.remove('lock'); });
     if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
     else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }

@@ -70,7 +70,7 @@ window.Danji = (() => {
         S.cx = { items: j.items, memos: j.memos }; S.cur = j.id;
         toast(nm ? `${nm}을(를) 단지 장부에 담았습니다` : '단지를 담았습니다');
       }
-    } catch (e) { toast(e.message || '추가하지 못했습니다', 4000); }
+    } catch (e) { if (e.code === 'full' && S.host.upsell) S.host.upsell(e.message); else toast(e.message || '추가하지 못했습니다', 4000); }
     S.adding = false; S.results = null; draw();
   }
   function search(q) {
@@ -264,6 +264,9 @@ window.Danji = (() => {
     drawTable(AX);
   }
   const boardOn = () => { try { return localStorage.getItem('rm.djboard2') === '1'; } catch { return false; } };
+  // 요금제 단지 한도: 등록한 순서대로 앞의 N곳만 입력 (서버 cxOpen과 같은 규칙)
+  const cxLimit = () => { const P = S.host && S.host.plan ? S.host.plan() : {}; return P.cx || 0; };
+  function cxLocked(cx) { const n = cxLimit(); if (!n || cx.all) return false; return ![...S.cx.items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, n).some(x => x.id === cx.id); }
   function drawComplex(cx) {
     const C = S.C[cx.id];
     if (!C) { loadComplex(cx); $('dj_cxBody').innerHTML = '<div class="card loading">단지 정보를 불러오는 중…</div>'; return; }
@@ -288,6 +291,7 @@ window.Danji = (() => {
         <div class="dongs" id="dj_dongs"><button type="button" data-dong="all" aria-pressed="${C.view === 'all'}">전체</button>${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = dongCounts(cx, d, MM); const sp = C.scan && C.scan.per[d.pnu], wt = !!sp && !sp.done && !sp.cached && !Array.isArray(C.units[k]); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${C.view === 'dong' && k === C.cur}" class="${n.m || n.o || n.e ? 'has' : ''}${wt ? ' wait' : ''}">${esc(d.dong)}${n.m ? `<em title="내 매물">${n.m}</em>` : ''}${n.o ? `<em class="o" title="타부동산 매물">${n.o}</em>` : ''}${n.e ? `<i class="xd" title="만기 임박">${n.e}</i>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
         <div class="dj-scanbar" id="dj_scan" hidden></div>
         ${LL && LL.err ? `<p class="hjwarn">호실 장부를 쓸 수 없어 보기만 됩니다: ${esc(LL.err)}</p>` : ''}
+        ${cxLocked(cx) ? `<p class="hjwarn">요금제 단지 한도(${cxLimit()}곳)를 넘은 단지라 보기만 됩니다. 다른 단지를 빼거나 <a href="/pro.html#price" target="_blank" rel="noopener">요금제를 올리면</a> 다시 입력할 수 있습니다.</p>` : ''}
         ${C.view === 'dong' ? `<div class="tbbar"><button type="button" class="btn ghost sm" id="dj_boardT" aria-pressed="${boardOn()}">${boardOn() ? '현황판 닫기 ▴' : '현황판 보기 ▾'}</button><span class="note">층 × 라인 그림</span></div>
         <div id="dj_gridBox"${boardOn() ? '' : ' hidden'}></div>` : ''}
         <div id="dj_tbl"></div>
@@ -650,6 +654,7 @@ window.Danji = (() => {
     if (k >= 0 && k < NAV.length) return startEdit(cx, i, NAV[k]);
   }
   function startEdit(cx, i, c) {
+    if (cxLocked(cx)) return toast(`요금제 단지 한도(${cxLimit()}곳)를 넘은 단지라 보기만 됩니다`, 3500);
     if (S.ed) endEdit(cx);
     const x = S.rows[i], col = COLS.find(z => z.id === c); if (!x || !col || !col.ed) return;
     cx = x.cx || cx;                                          // 모든 단지 보기에서는 그 줄의 단지
