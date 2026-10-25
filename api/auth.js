@@ -111,6 +111,36 @@ async function checkOffice(bk) {
   if (String(row.sttusSeCode) !== '1' && !/영업/.test(row.sttusSeCodeNm || '')) return { st: 'closed', row };
   return { st: 'ok', row };
 }
+// ---------- 휴대폰 문자 인증 (솔라피) ----------
+// Vercel 환경변수 SOLAPI_KEY · SOLAPI_SECRET · SMS_FROM(솔라피에 등록한 발신번호)이 모두 있어야 켜집니다. 없으면 인증 없이 지금처럼 동작.
+// 인증번호는 6자리 · 5분 · 5번 틀리면 다시 받기. 보내기는 1분에 한 번, 하루 5번(계정·번호 각각).
+const SMS = { key: process.env.SOLAPI_KEY || '', secret: process.env.SOLAPI_SECRET || '', from: String(process.env.SMS_FROM || '').replace(/\D/g, '') };
+const smsOn = () => !!(SMS.key && SMS.secret && SMS.from);
+async function sendSms(to, text) {
+  const date = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), salt = crypto.randomBytes(16).toString('hex');
+  const sig = crypto.createHmac('sha256', SMS.secret).update(date + salt).digest('hex');
+  const r = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
+    method: 'POST', headers: { Authorization: `HMAC-SHA256 apiKey=${SMS.key}, date=${date}, salt=${salt}, signature=${sig}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ to, from: SMS.from, text, type: 'SMS', autoTypeDetect: false }] }),
+  });
+  const j = await r.json().catch(() => ({}));
+  const bad = (j.failedMessageList || [])[0];
+  if (!r.ok || bad || (j.groupInfo && j.groupInfo.count && j.groupInfo.count.registeredFailed)) {
+    console.error('sms fail', r.status, j.errorCode || (bad && bad.statusCode), j.errorMessage || (bad && bad.statusMessage));
+    throw new Error('문자를 보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+  }
+}
+const hashCode = (uid, code) => crypto.createHmac('sha256', SECRET).update(`${uid}:${code}`).digest('hex');
+// 중개사무소 정보 저장 때: 휴대폰이 인증된 번호인지 (예전에 인증한 같은 번호면 그대로)
+async function mobileOk(uid, bk, prevBk) {
+  if (!smsOn()) return true;
+  const d = String(bk.mobile || '').replace(/\D/g, '');
+  if (prevBk && prevBk.mobileOk === d) { bk.mobileOk = d; bk.mobileAt = prevBk.mobileAt; return true; }
+  const ok = await redis(['GET', `realmap:smsok:${uid}`]).catch(() => null);
+  if (ok && ok === d) { bk.mobileOk = d; bk.mobileAt = new Date().toISOString(); return true; }
+  return false;
+}
+const SMS_NEED = '휴대폰 번호 인증을 먼저 해 주세요. (번호 옆 [인증번호 받기])';
 const V_MSG = {
   notfound: '입력하신 등록번호로 개설등록된 중개사무소를 찾지 못했습니다. 중개사무소 등록증의 등록번호를 확인해 주세요.',
   ceo: '대표 공인중개사 성명이 등록 정보와 다릅니다. 대표 공인중개사 명의로 가입해 주세요.',
@@ -144,7 +174,7 @@ async function verifyBk(uid, bk) {
 async function bkGate(uid) {
   if (ADMIN_ID && String(uid) === ADMIN_ID) return null;
   const bk = await loadBk(uid);
-  if (bk && bk.verified) return null;
+  if (bk && bk.verified) return smsOn() && !bk.mobileOk ? { msg: '문자 받을 휴대폰 번호 인증이 필요합니다. 아래 휴대폰 번호 옆 [인증번호 받기]를 눌러 인증해 주세요.', bk } : null;
   if (!bk || !bk.regno) return { msg: V_MSG.need, bk: null };
   if (!(bk.vtry && Date.now() - Date.parse(bk.vtry) < 10 * 60e3)) {
     const v = await verifyBk(uid, bk);
@@ -316,7 +346,7 @@ export default async function (req, res) {
       const P = s ? await planOf(s.id) : null;
       let pend = null; // 가입 신청 후 확인 대기 중이면 화면에 안내
       if (s && P && !P.started) { const b = await loadBk(s.id); if (b && b.pend) pend = { office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile, at: b.pend }; }
-      return send(res, 200, { ok: true, ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && s.id === ADMIN_ID), pend });
+      return send(res, 200, { ok: true, sms: smsOn(), ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && s.id === ADMIN_ID), pend });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
@@ -549,6 +579,45 @@ export default async function (req, res) {
       } catch { return send(res, 200, { ok: true, found: false, down: true }); }
     }
 
+    // 휴대폰 문자 인증: POST { op:'send', phone } → 문자 발송 · { op:'check', phone, code } → 맞으면 30분 동안 이 번호를 인증된 번호로
+    if (action === 'sms') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      if (!smsOn()) return fail(res, 503, 'nosms', '문자 인증이 아직 준비되지 않았습니다.');
+      if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const phone = String(body.phone || '').replace(/\D/g, '');
+      if (!/^01\d{8,9}$/.test(phone)) return fail(res, 400, 'phone', '휴대폰 번호를 확인해 주세요.');
+      const ck = `realmap:smsc:${s.id}`, day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+      if (body.op === 'send') {
+        if ((await redis(['SET', `realmap:smst:${s.id}`, '1', 'EX', 60, 'NX'])) !== 'OK') return fail(res, 429, 'wait', '인증번호는 1분에 한 번 받을 수 있습니다. 잠시 뒤 다시 눌러 주세요.');
+        const [n1, n2] = await Promise.all([redis(['INCR', `realmap:smsd:${s.id}:${day}`]), redis(['INCR', `realmap:smsp:${phone}:${day}`])]);
+        await pipe([['EXPIRE', `realmap:smsd:${s.id}:${day}`, 90000], ['EXPIRE', `realmap:smsp:${phone}:${day}`, 90000]]);
+        if (n1 > 5 || n2 > 5) return fail(res, 429, 'many', '오늘은 인증번호를 더 받을 수 없습니다. 내일 다시 시도하시거나 리얼맵 운영자에게 알려 주세요.');
+        const code = String(crypto.randomInt(100000, 1000000));
+        await redis(['SET', ck, JSON.stringify({ p: phone, h: hashCode(s.id, code), n: 0, e: Date.now() + 300e3 }), 'EX', 300]);
+        try { await sendSms(phone, `[리얼맵] 인증번호 ${code} (5분 안에 입력해 주세요)`); }
+        catch (e) { await redis(['DEL', ck]).catch(() => 0); await redis(['DEL', `realmap:smst:${s.id}`]).catch(() => 0); return fail(res, 502, 'smsfail', e.message); }
+        return send(res, 200, { ok: true, sec: 300 });
+      }
+      if (body.op === 'check') {
+        let rec = null; try { rec = JSON.parse((await redis(['GET', ck])) || 'null'); } catch { rec = null; }
+        if (!rec || rec.e < Date.now()) return fail(res, 400, 'expired', '인증번호가 만료되었습니다. 다시 받아 주세요.');
+        if (rec.p !== phone) return fail(res, 400, 'other', '인증번호를 받은 번호와 다릅니다. 다시 받아 주세요.');
+        if (rec.h !== hashCode(s.id, String(body.code || '').replace(/\D/g, ''))) {
+          rec.n++;
+          if (rec.n >= 5) { await redis(['DEL', ck]); return fail(res, 400, 'tries', '5번 틀려서 인증번호가 취소되었습니다. 다시 받아 주세요.'); }
+          await redis(['SET', ck, JSON.stringify(rec), 'EX', Math.max(1, Math.ceil((rec.e - Date.now()) / 1000))]);
+          return fail(res, 400, 'wrong', `인증번호가 맞지 않습니다. (${5 - rec.n}번 남음)`);
+        }
+        await pipe([['DEL', ck], ['SET', `realmap:smsok:${s.id}`, phone, 'EX', 1800]]);
+        return send(res, 200, { ok: true });
+      }
+      return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+    }
+
     // 중개사 서비스 시작: 중개사무소 정보를 받고 2주 무료 체험을 엽니다 (체험은 한 번만)
     //   POST /api/auth?action=start { bk:{office,addr,regno,ceo,tel,mobile} }
     if (action === 'start') {
@@ -562,6 +631,7 @@ export default async function (req, res) {
       if (!bk) return fail(res, 400, 'need', err);
       let P = await planOf(s.id);
       if (P.started) return send(res, 200, { ok: true, plan: planView(P), bk: await loadBk(s.id) });
+      if (!(await mobileOk(s.id, bk, null))) return fail(res, 400, 'sms', SMS_NEED);
       // 국가 자료로 확인된 중개사무소만 시작. 브이월드 점검 등으로 확인이 안 되면 '확인 대기'로 받아 두고 운영자가 승인
       const v = await verifyBk(s.id, bk);
       if (v.st === 'error') {
@@ -606,6 +676,7 @@ export default async function (req, res) {
       if (!bk) return fail(res, 400, 'need', err);
       // 등록번호·대표자가 그대로면 확인 유지(명칭은 등록된 그대로), 바뀌면 국가 자료로 다시 확인
       const prevBk = await loadBk(s.id);
+      if (!P.op && !(await mobileOk(s.id, bk, prevBk))) return fail(res, 400, 'sms', SMS_NEED);
       if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
         Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
         if (prevBk.vby === 'auto') bk.office = prevBk.office;
