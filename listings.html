@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#14212E">
-<title>내 매물장 - 리얼맵</title>
+<title>리얼맵 중개장부</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <style>
@@ -720,13 +720,13 @@ body.lvmap .bd table.bdt{min-width:720px}
 .allist{overflow-y:auto;flex:1}
 .alit{display:flex;gap:10px;padding:11px 16px;border-bottom:1px solid #F1F4F7;cursor:pointer}.alit:hover{background:#F7F9FB}.alit.un{background:#F7FAFF}
 .alit>div{flex:1;min-width:0}.alit b{font-size:14px;display:block}.alit p{margin:2px 0 0;font-size:13px;color:#33414F;line-height:1.45}.alit small{font-size:11px;color:var(--muted)}.alit .algo{font-size:12px;color:var(--sale);font-weight:700}
-.alic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:15px;flex:none;background:#EEF1F4}.alic.deal{background:#FDECEC}.alic.exp{background:#FFF3D6}.alic.pub{background:#E6EEFB}
+.alic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:15px;flex:none;background:#EEF1F4}.alic.deal{background:#FDECEC}.alic.cust{background:#EDE7FB}.alic.exp{background:#FFF3D6}.alic.pub{background:#E6EEFB}
 .aldot{width:8px;height:8px;border-radius:4px;background:var(--sale);margin-top:6px;flex:none}
 .alnone{padding:40px 16px;text-align:center;color:var(--muted);font-size:14px}
 .alft{padding:9px 14px;font-size:11px;color:var(--muted);background:#F7F9FB;border-top:1px solid #EEF1F4;line-height:1.5}
 .altoasts{position:fixed;right:16px;bottom:16px;width:340px;max-width:calc(100vw - 32px);display:grid;gap:10px;z-index:75}
 .alt{background:#fff;border-radius:14px;box-shadow:0 12px 32px rgba(20,33,46,.25);border:1px solid var(--line);border-left:5px solid #E03131;padding:11px 13px;animation:altin .35s ease;transition:opacity .4s,transform .4s}
-.alt.exp{border-left-color:#E8A23A}.alt.pub{border-left-color:var(--sale)}.alt.more{border-left-color:var(--navy)}.alt.out{opacity:0;transform:translateX(30px)}
+.alt.exp{border-left-color:#E8A23A}.alt.cust{border-left-color:#6741B8}.alt.pub{border-left-color:var(--sale)}.alt.more{border-left-color:var(--navy)}.alt.out{opacity:0;transform:translateX(30px)}
 @keyframes altin{from{opacity:0;transform:translateY(16px)}}
 .alt b{font-size:14px}.alt p{margin:3px 0 7px;font-size:13px;color:#33414F;line-height:1.45}.alt div{display:flex;gap:6px}
 .alt button{border:1.5px solid var(--line);background:#fff;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer}.alt button.p{background:var(--sale);border-color:var(--sale);color:#fff}
@@ -758,13 +758,17 @@ body.cumode .side{display:none!important}body.djmode .legend,body.cumode .legend
 .cu ul.ml li .x{border:0;background:none;color:var(--muted);cursor:pointer}
 .cupop{position:fixed;z-index:80}
 .cu .ci::placeholder,.cu .in1::placeholder{color:#B5BEC8;font-weight:500}
+@media (max-width:700px){.mtog .lg{display:none}}
+.dj .djcap{display:flex;align-items:baseline;gap:8px;margin:2px 2px -4px}.dj .djcap b{font-size:15px}.dj .djcap span{font-size:13px;color:var(--muted)}
+.bd .cmx{display:grid;gap:4px}.bd .cmx>div{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #EADFB5;border-radius:8px;padding:5px 8px}.bd .cmx b{font-size:14px;flex:none}.bd .cmx small{flex:1;min-width:0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bd .cmx em{font-style:normal;color:#9A6200;font-weight:700}.bd .cmx .tl{text-decoration:none}.bd .cmx .b2{border:1.5px solid var(--line);background:#fff;border-radius:7px;padding:2px 9px;font-size:12px;font-weight:700;cursor:pointer}
+.cu .cchip.st-on[aria-pressed=true]{background:#1F7A4D;border-color:#1F7A4D}.cu .cchip.st-hold[aria-pressed=true]{background:#E8A23A;border-color:#E8A23A}.cu .cchip.st-done[aria-pressed=true]{background:#8A96A3;border-color:#8A96A3}
 </style>
 </head>
 <body>
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
-  <h1>내 매물장 <span class="pro">PRO</span></h1>
-  <span class="mtog" role="group" aria-label="보기 방식"><button type="button" data-mode="list">지도+리스트</button><button type="button" data-mode="danji">단지</button><button type="button" data-mode="cust">고객관리</button></span>
+  <h1>리얼맵 중개장부 <span class="pro">PRO</span></h1>
+  <span class="mtog" role="group" aria-label="보기 방식"><button type="button" data-mode="list">매물<span class="lg">관리</span></button><button type="button" data-mode="danji">단지<span class="lg">관리</span></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button></span>
   <span class="sp"></span>
   <span class="fz" role="group" aria-label="글씨 크기"><button type="button" id="fzDn" aria-label="글씨 작게">가−</button><button type="button" id="fzUp" aria-label="글씨 크게">가+</button></span>
   <span class="who" id="who"></span>

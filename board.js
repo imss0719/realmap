@@ -392,6 +392,7 @@ window.Board = (() => {
     return `<div class="dt">${top}
       <div class="dg"><div class="box">${infoHtml(x, RO)}</div>
         <div class="box">${contactsHtml(x, RO)}
+          ${custBox(x)}
           <div class="dt-h" style="margin-top:12px"><b>메모 기록</b></div><input class="in1" data-fk="m:${x.id}" data-mnew="${x.id}" placeholder="새 메모 (Enter로 기록)" ${RO ? 'disabled' : ''}>
           ${L.length ? `<ul class="ml">${L.slice(0, 5).map(e => `<li><span>${esc(e.t ? e.t.slice(3) : '예전')}</span>${esc(e.x)}</li>`).join('')}${L.length > 5 ? `<li class="more">외 ${L.length - 5}건 · 매물카드에서 모두 보기</li>` : ''}</ul>` : ''}</div></div>
       <div class="dt-acts">
@@ -439,6 +440,13 @@ window.Board = (() => {
       ${detKind(x) === 'unit' && /아파트|빌라|오피스텔|주택/.test(x.ptype || '') ? `<label class="nm"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 관리비 없음</label>` : ''}
       ${y ? `<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b> <small>(매매가 − 기보증금 ${sw(y.inv)} 기준)</small></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>` : ''}
       <datalist id="bdMv"><option value="즉시입주"><option value="협의"></datalist>`;
+  }
+  // 이 매물에 맞는 고객 (고객관리에서 찾는 중인 고객)
+  function custBox(x) {
+    const L = H.custFor ? H.custFor(x) : null;
+    if (L == null) return '';
+    return `<div class="dt-h" style="margin-top:12px"><b>맞는 고객 ${L.length}명</b><small>고객관리의 찾는 중 고객 중 조건에 맞는 분</small></div>
+      ${L.length ? `<div class="cmx">${L.slice(0, 5).map(c => `<div><b>${esc(c.name)}</b><small>${esc(c.line)}${c.g === 'over' ? ` · <em>예산 +${sw(c.over)}</em>` : ''}</small>${c.phone ? `<a class="tl" href="tel:${esc(String(c.phone).replace(/\D/g, ''))}" title="전화">☎</a>` : ''}<button type="button" class="b2" data-gcu="${c.id}">이동</button></div>`).join('')}${L.length > 5 ? `<div class="meta">외 ${L.length - 5}명</div>` : ''}</div>` : '<div class="meta">아직 맞는 고객이 없습니다</div>'}`;
   }
   function contactsHtml(x, RO) {
     const cs = [...(x.contacts || []), ...Array(B.cblank.get(x.id) || 0).fill({ role: '소유자' })], dis = RO ? 'disabled' : '';
@@ -505,6 +513,7 @@ window.Board = (() => {
       if (a === 'radd') { B.blank.set(id, (B.blank.get(id) || 0) + 1); refresh(); const q = $('bdT').querySelector(`[data-fk="r:${id}:${(x.rents || []).length + B.blank.get(id) - 1}:fl"]`); if (q) q.focus(); return; }
     });
     r.querySelectorAll('[data-ph]').forEach(b => b.onclick = () => H.viewer(x.photos.map(p => p.url), +b.dataset.ph));
+    r.querySelectorAll('[data-gcu]').forEach(b => b.onclick = e => { e.stopPropagation(); H.goCust(b.dataset.gcu); });
     const mnew = r.querySelector('[data-mnew]');
     if (mnew) mnew.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); const v = mnew.value.trim(); if (!v) return; mnew.value = ''; saveItem(id, it => { it.memo = X.memoAdd(it.memo, v); }, '메모를 기록했습니다'); } };
     if (RO) return;

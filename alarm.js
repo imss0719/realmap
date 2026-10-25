@@ -43,8 +43,8 @@ window.Alarm = (() => {
     A.list.unshift({ ...a, at: Date.now(), read: false });
     return true;
   }
-  const ICON = { deal: '⚠', exp: '⏰', pub: '📍' };
-  const TABS = [['all', '전체'], ['deal', '거래 의심'], ['exp', '만기'], ['pub', '리얼맵']];
+  const ICON = { deal: '⚠', exp: '⏰', pub: '📍', cust: '👤' };
+  const TABS = [['all', '전체'], ['deal', '거래 의심'], ['exp', '만기'], ['cust', '고객'], ['pub', '리얼맵']];
   function itemHtml(a, i) {
     return `<div class="alit${a.read ? '' : ' un'}" data-ai="${i}"><span class="alic ${a.t}">${ICON[a.t] || '•'}</span><div><b>${esc(a.title)}</b><p>${esc(a.body)}</p><small>${md(a.at)}${a.sub ? ' · ' + esc(a.sub) : ''}</small>${a.go ? ` <span class="algo">${esc(a.goTx || '확인하기')} →</span>` : ''}</div>${a.read ? '' : '<i class="aldot"></i>'}</div>`;
   }
@@ -61,7 +61,7 @@ window.Alarm = (() => {
     P.querySelectorAll('[data-ai]').forEach(el => el.onclick = () => { const a = A.list[+el.dataset.ai]; if (!a) return; a.read = true; save(); badge(); drawPanel(); if (a.go) { P.hidden = true; go(a.go); } });
   }
   function toggle() { const P = $('alPanel'); P.hidden = !P.hidden; if (!P.hidden) drawPanel(); }
-  function go(g) { if (g.ls) H.goList(g.ls); else if (g.cx) H.goDanji(g.cx, g.key); }
+  function go(g) { if (g.ls) H.goList(g.ls); else if (g.cx) H.goDanji(g.cx, g.key); else if (g.cu && H.goCust) H.goCust(g.cu); }
   function toast(list) {
     const T = $('alToasts'); if (!T || !list.length) return;
     list.slice(0, 3).forEach((a, n) => {
@@ -76,7 +76,8 @@ window.Alarm = (() => {
   }
 
   // ---------- 알림 만들기 ----------
-  async function run(force) {
+  // lite: 매물을 저장한 직후처럼 가볍게 — 리얼맵 게시 · 고객 맞는 매물만 (단지 장부·실거래는 건너뜀)
+  async function run(force, lite) {
     if (busy || !H) return;
     const fresh = [];
     const push = a => { if (add(a)) fresh.push(a); };
@@ -85,9 +86,31 @@ window.Alarm = (() => {
     for (const x of H.items()) {
       if (!(x.pub && x.pub.on) || x.status !== 'on') continue;
       const left = Date.parse(x.pub.exp) - now, nm = H.name(x);
-      if (left > 0 && left <= 3 * DAY) push({ id: `pub3:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시가 곧 끝납니다', body: `${nm} · ${md(x.pub.exp)}까지. 아직 거래 가능하면 연장해 주세요.`, go: { ls: x.id }, goTx: '그 매물로 가기' });
-      if (left <= 0) push({ id: `pubx:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시 기간이 끝났습니다', body: `${nm} · 지도에서 내려갔습니다. 다시 게시하려면 [기간만료 ▾]를 눌러 주세요.`, go: { ls: x.id }, goTx: '그 매물로 가기' });
+      if (left > 0 && left <= 3 * DAY) push({ id: `pub3:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시가 곧 끝납니다', body: `${nm} · ${md(x.pub.exp)}까지. 아직 거래 가능하면 연장해 주세요.`, go: { ls: x.id }, goTx: '이동' });
+      if (left <= 0) push({ id: `pubx:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시 기간이 끝났습니다', body: `${nm} · 지도에서 내려갔습니다. 다시 게시하려면 [기간만료 ▾]를 눌러 주세요.`, go: { ls: x.id }, goTx: '이동' });
     }
+    // 1-2) 고객관리: 맞는 매물이 새로 생김 · 예산 안으로 내려옴 · 오래 연락 못 한 고객
+    // 처음 실행하거나 새로 등록한 고객은 지금 맞는 매물을 조용히 기억만 하고, 그 뒤에 새로 맞는 것만 알림
+    try {
+      const snap = H.cust ? await H.cust() : [];
+      const first = !A.cm, cm = A.cm || {};
+      for (const { c, list } of snap) {
+        // 조건을 고친 직후(up이 바뀜)도 조용히 다시 기억만 — 예산을 넓혔다고 알림이 쏟아지지 않게
+        const P0 = cm[c.id], prev = P0 && P0.u === c.up ? P0.m : null, cur = {}, nm = c.name || c.phone || '고객';
+        for (const z of list) {
+          cur[z.key] = z.g;
+          if (first || !prev) continue;
+          const was = prev[z.key];
+          if (!was) push({ id: `cm:${c.id}:${z.key}`, t: 'cust', title: `${nm} 고객에게 맞는 매물`, body: `${z.label}${z.g === 'over' ? ' (예산을 조금 넘음)' : ''} — 조건에 새로 맞습니다.`, go: z.go, goTx: '이동' });
+          else if (was === 'over' && z.g === 'ok') push({ id: `cmd:${c.id}:${z.key}:${new Date().toISOString().slice(0, 10)}`, t: 'cust', title: `${nm} 고객 예산 안으로 들어왔습니다`, body: `${z.label} — 가격이 예산 안으로 내려왔습니다.`, go: z.go, goTx: '이동' });
+        }
+        cm[c.id] = { u: c.up, m: cur };
+        const base = c.last || c.at, d = Math.floor((now - Date.parse(base)) / DAY);
+        if (d >= 30) push({ id: `cold:${c.id}:${String(base).slice(0, 10)}`, t: 'cust', title: '오래 연락 못 한 고객', body: `${nm}${c.phone ? ' ' + c.phone : ''} · 마지막 연락 ${d}일 전. 새로 나온 매물을 안내해 보세요.`, go: { cu: c.id }, goTx: '이동' });
+      }
+      A.cm = cm;
+    } catch { /* 고객관리를 못 쓰는 회원 */ }
+    if (lite) { prune(); save(); badge(); drawIfOpen(); toast(fresh); return; }
     // 2) 단지 장부: 만기 · 거래 의심
     let cxs = [];
     try { const j = await H.api('/api/auth?action=cx'); cxs = (j.items || []).slice(0, Math.max(0, (H.plan().cx || 10))); } catch { cxs = []; }
@@ -100,7 +123,7 @@ window.Alarm = (() => {
         const dl = Math.round((Date.parse(r.exp) - now) / DAY), [, dn, ho] = key.split('|'), lab = `${c.name} ${dn}-${ho}`;
         const step = dl < 0 ? (dl >= -30 ? 0 : null) : dl <= 30 ? 30 : dl <= 90 ? 90 : dl <= 183 ? 180 : null;
         if (step == null) continue;
-        push({ id: `exp:${c.id}:${key}:${r.exp}:${step}`, t: 'exp', title: step === 0 ? `만기일이 지났습니다 · ${dn}-${ho}` : `만기 ${step === 180 ? '6개월' : step === 90 ? '3개월' : '1개월'} 전 · ${dn}-${ho}`, body: `${lab} 세입자 만기 ${r.exp.replace(/-/g, '.')} (D${dl >= 0 ? '-' + dl : '+' + -dl}). 재계약·이사 의향을 확인해 보세요.`, go: { cx: c.id, key }, goTx: '그 호로 가기' });
+        push({ id: `exp:${c.id}:${key}:${r.exp}:${step}`, t: 'exp', title: step === 0 ? `만기일이 지났습니다 · ${dn}-${ho}` : `만기 ${step === 180 ? '6개월' : step === 90 ? '3개월' : '1개월'} 전 · ${dn}-${ho}`, body: `${lab} 세입자 만기 ${r.exp.replace(/-/g, '.')} (D${dl >= 0 ? '-' + dl : '+' + -dl}). 재계약·이사 의향을 확인해 보세요.`, go: { cx: c.id, key }, goTx: '이동' });
       }
     }
     // 3) 실거래 확인 (6시간에 한 번)
@@ -110,7 +133,7 @@ window.Alarm = (() => {
       busy = false;
     }
     prune(); save(); badge(); drawIfOpen();
-    const PR = { deal: 0, exp: 1, pub: 2 };
+    const PR = { deal: 0, cust: 1, exp: 2, pub: 3 };
     toast(fresh.sort((x, y) => PR[x.t] - PR[y.t]));
   }
   const drawIfOpen = () => { const P = $('alPanel'); if (P && !P.hidden) drawPanel(); };
@@ -138,7 +161,7 @@ window.Alarm = (() => {
           if (r.ar && t.ex && !near(t.ex, r.ar)) continue;
           if ((r.st.k || []).length && !(r.st.k || []).includes(k)) continue;
           const mine = r.st.src === 'mine';
-          push({ id: `deal:${c.id}:${key}:${t.kind}:${t.date}:${t.price || t.deposit}`, t: 'deal', title: `거래된 것 같습니다 · ${mine ? '내 매물' : '타부동산 매물'}`, body: `${c.name} ${t.aptDong ? t.aptDong + ' ' : ''}${t.floor}층${t.ex ? ' ' + Math.round(t.ex) + '㎡' : ''} ${priceTx(t)} 신고 (계약 ${t.date}). 장부의 ${dn}-${ho}${mine ? '(내 매물)' : r.st.office ? `(${r.st.office})` : ''}와 같은 층${r.ar && t.ex ? '·면적' : ''}입니다.`, sub: '실거래', go: { cx: c.id, key }, goTx: '그 호로 가기' });
+          push({ id: `deal:${c.id}:${key}:${t.kind}:${t.date}:${t.price || t.deposit}`, t: 'deal', title: `거래된 것 같습니다 · ${mine ? '내 매물' : '타부동산 매물'}`, body: `${c.name} ${t.aptDong ? t.aptDong + ' ' : ''}${t.floor}층${t.ex ? ' ' + Math.round(t.ex) + '㎡' : ''} ${priceTx(t)} 신고 (계약 ${t.date}). 장부의 ${dn}-${ho}${mine ? '(내 매물)' : r.st.office ? `(${r.st.office})` : ''}와 같은 층${r.ar && t.ex ? '·면적' : ''}입니다.`, sub: '실거래', go: { cx: c.id, key }, goTx: '이동' });
         }
       }
     });
@@ -154,9 +177,11 @@ window.Alarm = (() => {
         if (unit) { if (!p0.ho || floorOfHo(p0.ho) !== String(+digits(t.floor) || '')) continue; if (x.area && t.ex && !near(t.ex, x.area)) continue; }
         else if (t.approx === 'jibun') continue;                                  // 지번이 가려지고 면적도 확인 못 한 거래는 빼기
         if (kindOf(t) !== (x.kind === 'presale' ? 'sale' : x.kind)) continue;
-        push({ id: `deal:ls:${x.id}:${t.kind}:${t.date}:${t.price || t.deposit}`, t: 'deal', title: '거래된 것 같습니다 · 내 매물', body: `${H.name(x)} — 같은 ${unit ? '층·면적' : t.approx ? '필지(면적 일치)' : '필지'}에서 ${priceTx(t)} 신고 (계약 ${t.date}). 내 매물(${x.kind === 'sale' ? '매매 ' + won(x.price) : x.kind === 'jeonse' ? '전세 ' + won(x.deposit) : '월세'})인지 확인해 보세요.`, sub: '실거래', go: { ls: x.id }, goTx: '그 매물로 가기' });
+        push({ id: `deal:ls:${x.id}:${t.kind}:${t.date}:${t.price || t.deposit}`, t: 'deal', title: '거래된 것 같습니다 · 내 매물', body: `${H.name(x)} — 같은 ${unit ? '층·면적' : t.approx ? '필지(면적 일치)' : '필지'}에서 ${priceTx(t)} 신고 (계약 ${t.date}). 내 매물(${x.kind === 'sale' ? '매매 ' + won(x.price) : x.kind === 'jeonse' ? '전세 ' + won(x.deposit) : '월세'})인지 확인해 보세요.`, sub: '실거래', go: { ls: x.id }, goTx: '이동' });
       }
     });
   }
-  return { mount, run: () => run(true), _state: () => A };
+  let softT = null;
+  const soft = () => { clearTimeout(softT); softT = setTimeout(() => run(false, true), 2500); };
+  return { mount, run: () => run(true), soft, _state: () => A };
 })();

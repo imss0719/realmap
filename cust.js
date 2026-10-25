@@ -140,7 +140,7 @@ window.Cust = (() => {
     const q = $('cuQ');
     q.oninput = () => { C.addQ = q.value; drawPv(); };
     q.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); quickAdd(); } if (e.key === 'Escape') { q.value = ''; C.addQ = ''; drawPv(); } };
-    await load();
+    if (!C.loaded) await load(); else draw();
     loadLedgers().then(() => draw());
   }
   async function load() {
@@ -148,7 +148,23 @@ window.Cust = (() => {
     catch (e) { C.err = e.message; C.code = e.code; }
     C.loaded = true; draw();
   }
+  // 고객관리 화면을 열지 않아도 매물 상세의 '맞는 고객'·알림이 쓰도록 미리 불러 둠
+  let readyP = null;
+  function init(host) { if (!H) { H = host; X = host.X; } return ready(); }
+  function ready() { if (!readyP) readyP = (async () => { if (!C.loaded) await load(); await loadLedgers(); })(); return readyP; }
+  // 알림용: 찾는 중인 고객마다 지금 맞는 매물 목록 [{ c, list:[{ key, g, label, go }] }]
+  function snapshot() {
+    return C.items.filter(c => c.status === 'on').map(c => ({ c, list: matches(c).map(({ m, j }) => ({ key: m.src === 'ls' ? 'ls:' + m.id : `led:${m.cx}:${m.key}`, g: j.g, label: `${m.src === 'ls' ? (m.name || (m.x.addr || '').split(' ').slice(-2).join(' ')) : m.name}${m.dn || m.ho ? ' ' + [m.dn && m.dn + '동', m.ho && m.ho + (/(층|호)$/.test(m.ho) ? '' : '호')].filter(Boolean).join(' ') : ''} ${j.k === 'sale' ? '매매' : KN[j.k]} ${typeof j.price === 'number' ? sw(j.price) : j.price || ''}`.trim(), go: m.src === 'ls' ? { ls: m.id } : { cx: m.cx, key: m.key } })) }));
+  }
+  // 다른 화면에서 '이동': 그 고객을 펼쳐서 보여 줌
+  function reveal(id) {
+    const c = C.items.find(z => z.id === id); if (!c) return;
+    if (C.st !== 'all' && c.status !== C.st) C.st = 'all';
+    C.k = 'all'; C.q = ''; C.open.add(id); C.hl = id; draw();
+    setTimeout(() => { const r = document.querySelector(`#cuT tr[data-cid="${id}"]`); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+  }
   function refresh() { if (EL && $('cuW')) draw(); }
+  const custLine = c => [c.pt.join('·'), c.k.map(k => KN[k]).join('·'), c.bmax && `${sw(c.bmax)} 이하`, (c.dmax || c.rmax) && `월 ${sw(c.dmax) || '-'}/${c.rmax || '-'}`, c.amin && `${c.amin}평↑`, c.where.join('·')].filter(Boolean).join(' · ');
   function drawPv() {
     const o = parse(C.addQ), el = $('cuPv'); if (!el) return;
     if (!C.addQ.trim()) { el.innerHTML = ''; return; }
@@ -160,13 +176,13 @@ window.Cust = (() => {
     if (!o.name && !o.phone) return H.toast('이름이나 연락처를 넣어 주세요');
     try {
       const j = await api('/api/auth?action=cu', { op: 'save', item: o });
-      C.items = j.items; C.limit = j.limit; C.addQ = ''; $('cuQ').value = ''; drawPv();
+      C.items = j.items; C.limit = j.limit; C.addQ = ''; if (window.Alarm && Alarm.soft) Alarm.soft(); $('cuQ').value = ''; drawPv();
       C.st = 'on'; C.open.add(j.item.id); C.hl = j.item.id; draw();
       H.toast(`${j.item.name || j.item.phone} 고객을 저장했습니다`);
     } catch (e) { if (e.code === 'limit') H.upsell(e.message); else H.toast(e.message, 4000); }
   }
   async function op(body, msg) {
-    try { const j = await api('/api/auth?action=cu', body); C.items = j.items; draw(); if (msg) H.toast(msg); return j; }
+    try { const j = await api('/api/auth?action=cu', body); C.items = j.items; draw(); if (window.Alarm && Alarm.soft) Alarm.soft(); if (msg) H.toast(msg); return j; }
     catch (e) { H.toast(e.message, 4000); draw(); }
   }
   const rows = () => C.items.filter(c => (C.st === 'all' || c.status === C.st) && (C.k === 'all' || c.k.includes(C.k)) && (!C.q || [c.name, c.phone, c.where.join(' '), c.note, c.memo, c.pt.join(' ')].join(' ').toLowerCase().includes(C.q.toLowerCase())));
@@ -200,7 +216,7 @@ window.Cust = (() => {
         <td><button type="button" class="det${op ? ' on' : ''}" data-cdet="${c.id}">상세 ${op ? '▴' : '▾'}</button></td></tr>
         ${op ? `<tr class="bd-dt" data-cdt="${c.id}"><td colspan="11">${detailHtml(c, M)}</td></tr>` : ''}`;
     }).join('');
-    $('cuT').innerHTML = `<div class="bd-scroll"><table class="bdt cut"><colgroup><col style="width:13%"><col style="width:12%"><col style="width:12%"><col style="width:9%"><col style="width:14%"><col style="width:7%"><col style="width:76px"><col style="width:66px"><col style="width:9%"><col><col style="width:76px"></colgroup>
+    $('cuT').innerHTML = `<div class="bd-scroll"><table class="bdt cut"><colgroup><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:8%"><col style="width:12%"><col style="width:6%"><col style="width:80px"><col style="width:70px"><col style="width:8%"><col style="width:16%"><col style="width:76px"></colgroup>
       <thead><tr><th>이름 · 연락처</th><th>찾는 것</th><th>예산</th><th>면적</th><th>지역 · 단지</th><th>입주</th><th>상태</th><th>맞는 매물</th><th>마지막 연락</th><th>메모</th><th></th></tr></thead>
       <tbody>${body || `<tr><td colspan="11" class="none">${C.items.length ? '조건에 맞는 고객이 없습니다.' : '<b>아직 등록한 고객이 없습니다</b>위 칸에 한 줄로 쓰고 Enter를 눌러 보세요.'}</td></tr>`}</tbody></table></div>`;
     wire();
@@ -219,12 +235,13 @@ window.Cust = (() => {
     const mrow = ({ m, j }) => `<tr><td><b>${esc(m.src === 'ls' ? (m.name || (m.x.addr || '').split(' ').slice(-2).join(' ')) : m.name)}${m.dn || m.ho ? ` ${esc([m.dn && m.dn + '동', m.ho && m.ho + (/(층|호)$/.test(m.ho) ? '' : '호')].filter(Boolean).join(' '))}` : ''}</b><small>${m.src === 'ls' ? '내 매물' : m.mine ? '단지 장부 · 내 매물' : `단지 장부 · ${esc(m.office || '타부동산')}`}</small></td>
       <td><span class="kd ${j.k}">${j.k === 'sale' ? '매매' : KN[j.k]}</span> ${esc(typeof j.price === 'number' ? sw(j.price) : j.price || '-')}</td><td>${m.area ? `${(m.area / PY).toFixed(1)}평` : '-'}</td>
       <td><span class="sc ${j.g}">${j.g === 'ok' ? '조건 맞음' : `예산 +${sw(j.over)}`}</span></td>
-      <td>${m.src === 'ls' ? `<button type="button" class="b2" data-gls="${m.id}">매물 보기</button>` : `<button type="button" class="b2" data-gcx="${esc(m.cx)}" data-gkey="${esc(m.key)}">그 호로</button>`}</td></tr>`;
+      <td>${m.src === 'ls' ? `<button type="button" class="b2" data-gls="${m.id}">이동</button>` : `<button type="button" class="b2" data-gcx="${esc(m.cx)}" data-gkey="${esc(m.key)}">이동</button>`}</td></tr>`;
     const L = X.memoParse(c.memo);
     return `<div class="dg"><div class="box"><div class="dt-h"><b>맞는 매물 ${M.length}건</b><small>내 매물 + 단지 장부 매물 · 조건에 가까운 순 · 예산을 20% 이내로 넘는 것은 노란색</small>${C.led ? '' : '<small>(단지 장부 불러오는 중…)</small>'}</div>
         ${M.length ? `<table class="ft cmt"><thead><tr><th>매물</th><th>가격</th><th>면적</th><th>맞음</th><th></th></tr></thead><tbody>${M.slice(0, 12).map(mrow).join('')}</tbody></table>${M.length > 12 ? `<div class="meta">외 ${M.length - 12}건 · 조건을 좁혀 보세요</div>` : ''}` : '<div class="meta" style="padding:8px 2px">지금은 조건에 맞는 매물이 없습니다. 조건을 넓히거나 매물을 등록하면 여기에 나타납니다.</div>'}</div>
       <div class="box"><div class="dt-h"><b>조건</b><small>고치고 나가면 저장</small></div>
         <div class="kv2 cuk"><label>이름${inp('name', c.name, '이름')}</label><label>연락처${inp('phone', c.phone, '010-0000-0000')}</label>
+          <label class="w2">상태<div class="cchips">${Object.entries(STN).map(([k, t]) => `<button type="button" class="cchip st-${k}" data-cst2="${k}" aria-pressed="${c.status === k}">${t}</button>`).join('')}</div></label>
           <label class="w2">찾는 것<div class="cchips">${['sale', 'jeonse', 'wolse'].map(k => chk('ck2', k, c.k.includes(k))).join('')}</div></label>
           <label class="w2">유형<div class="cchips">${PT.map(t => chk('cpt', t, c.pt.includes(t))).join('')}</div></label>
           <label>매매·전세 예산 (이하)${inp('bmax', c.bmax ? sw(c.bmax) : '', '예) 7억')}</label><label>월세 보증금 / 월세 (이하)<div class="two2">${inp('dmax', c.dmax ? sw(c.dmax) : '', '5천')}${inp('rmax', c.rmax || '', '300')}</div></label>
@@ -255,6 +272,7 @@ window.Cust = (() => {
           save({ [f]: v });
         }, 0);
       });
+      r.querySelectorAll('[data-cst2]').forEach(b => b.onclick = () => { if (b.dataset.cst2 !== c.status) op({ op: 'status', id, status: b.dataset.cst2 }, `'${STN[b.dataset.cst2]}'(으)로 바꿨습니다`); });
       r.querySelectorAll('[data-ck2]').forEach(b => b.onclick = () => { const k = b.dataset.ck2; save({ k: c.k.includes(k) ? c.k.filter(z => z !== k) : [...c.k, k] }); });
       r.querySelectorAll('[data-cpt]').forEach(b => b.onclick = () => { const t = b.dataset.cpt; save({ pt: c.pt.includes(t) ? c.pt.filter(z => z !== t) : [...c.pt, t] }); });
       const mi = r.querySelector('[data-cmemo]'); if (mi) mi.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); const v = mi.value.trim(); if (v) op({ op: 'memo', id, text: v }, '상담 기록을 남겼습니다'); } };
@@ -273,5 +291,7 @@ window.Cust = (() => {
     const r = td.getBoundingClientRect(); p.style.position = 'fixed'; p.style.left = r.left + 'px'; p.style.top = (r.bottom + 4) + 'px'; p.hidden = false;
     p.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { p.hidden = true; if (b.dataset.s !== c.status) op({ op: 'status', id, status: b.dataset.s }); });
   }
-  return { mount, refresh, matchesFor, _parse: parse };
+  // 매물 상세용: 이 매물에 맞는 찾는 중 고객 (고객 이름 · 조건 한 줄 · 연락처)
+  function forListing(x) { return matchesFor(x).map(({ c, j }) => ({ id: c.id, name: c.name || c.phone, phone: c.phone, line: custLine(c), g: j.g, over: j.over })); }
+  return { init, ready, mount, refresh, reveal, snapshot, forListing, matchesFor, loaded: () => C.loaded, _parse: parse };
 })();

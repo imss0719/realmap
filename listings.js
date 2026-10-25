@@ -72,8 +72,10 @@
       toast(e.message, 4000);
     }
     draw();
-    // 알림 (거래 의심 · 만기 · 리얼맵 게시 기간)
-    if (window.Alarm) Alarm.mount({ items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
+    // 고객관리: 화면을 열지 않아도 매물 상세의 '맞는 고객'·알림에 쓰도록 미리 불러 둠
+    if (window.Cust) Cust.init(custHost()).then(() => { if (S.mode === 'list') draw(); }).catch(() => {});
+    // 알림 (거래 의심 · 만기 · 리얼맵 게시 기간 · 고객)
+    if (window.Alarm) Alarm.mount({ goCust, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
       goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
     let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
@@ -125,10 +127,13 @@
     document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.remove('lock'); });
     if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
-    else if (cu && window.Cust) { if (!S.cuMounted) { S.cuMounted = true; Cust.mount($('cu'), { items: () => S.items, plan: () => S.plan || {}, toast, upsell, X: bdHost().X, goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } }); } else Cust.refresh(); }
+    else if (cu && window.Cust) { if (!S.cuMounted) { S.cuMounted = true; Cust.mount($('cu'), custHost()); } else Cust.refresh(); }
     else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }
     drawList();
   }
+  // 고객관리(cust.js)에 넘기는 것들
+  const custHost = () => ({ items: () => S.items, plan: () => S.plan || {}, toast, upsell, X: bdHost().X, goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
+  const goCust = id => { setMode('cust'); setTimeout(() => window.Cust && Cust.reveal(id), 120); };
   // 지도+리스트 표(board.js)에 넘기는 것들 (아래쪽에 정의된 도우미를 쓰므로 붙일 때 만듦)
   const bdHost = () => ({
     items: () => S.items, adv, upsell, toast, api, post, took, kakao: () => S.kakao, canPub: () => !!S.canPub,
@@ -137,6 +142,7 @@
     pub: id => pubFlow(S.items.find(i => i.id === id)), pubOp: (id, op) => pubOp(id, op),
     brief: id => briefOf(S.items.find(i => i.id === id)), share: id => shareOf(S.items.find(i => i.id === id)),
     viewer: (urls, i) => viewer(urls, i), csv: list => exportCsv(list),
+    custFor: x => window.Cust && Cust.loaded() ? Cust.forListing(x) : null, goCust,
     pubCell: x => pubCell(x), pubClick: (id, el) => pubClick(id, el), roles: ROLES, dirs: DIRS, wcs: WCS,
     focus: id => focusItem(id, false),
     // 표에 지금 걸린 줄만 지도에 (번호는 표의 순서)
@@ -212,7 +218,7 @@
   // 매물장 저장 결과 받기 (게시 중 매물이 필수 항목 부족으로 내려가면 알려 드림)
   // 요금제 한도를 넘은 매물(오래된 쪽)은 보기 전용 — 서버 readOnlyIds와 같은 규칙
   function roIds() { const P = S.plan; if (!P || P.ls == null || !(S.items.length > P.ls)) return new Set(); return new Set([...S.items].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(P.ls).map(x => x.id)); }
-  function took(j) { S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
+  function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // ---------- 지도 ----------
   async function loadMap() {
