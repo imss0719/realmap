@@ -448,9 +448,9 @@ window.Danji = (() => {
       case 'h': {
         const n = r.histN || 0, op = S.hist === x.key;
         const ls = (x.st.mine || []).find(z => z.status !== 'done');
-        // 리얼맵(지도)에 올리기: 내 매물만 — 매물카드가 있으면 열고, 없으면 장부 내용을 채워서 새로 만들기
-        const up = ls ? `<button type="button" class="mbtn on" data-ls="${esc(ls.id)}" title="매물카드 열기 (리얼맵 등록·수정)">지도</button>`
-          : x.st.src === 'mine' && !x.st.done ? `<button type="button" class="mbtn" data-up="${esc(x.key)}" title="리얼맵에 올리기 — 장부 내용으로 매물카드를 채워 엽니다">지도↑</button>` : '';
+        // 리얼맵: 내 매물만 — 상태 버튼 [리얼맵 등록] / [● 게시중 ▾] / [기간만료 ▾] (매물장에 없으면 장부 내용으로 간단 등록창)
+        const up = ls ? (S.host.pubCell ? S.host.pubCell(ls.id) : '') || `<button type="button" class="mbtn on" data-ls="${esc(ls.id)}" title="매물카드 열기">매물</button>`
+          : x.st.src === 'mine' && !x.st.done && !x.st.hold && (!S.host.canPub || S.host.canPub()) ? `<button type="button" class="pbtn reg" data-up="${esc(x.key)}" title="장부 내용으로 리얼맵 지도에 올리기">리얼맵 등록</button>` : '';
         return `<button type="button" class="hbtn${op ? ' on' : ''}" data-hist="${esc(x.key)}">${op ? '기록 ▴' : `기록${n ? ' ' + n : ''}`}</button>${up}`;
       }
       case 'mi': return r.moveIn ? esc(/^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.slice(2).replace(/-/g, '.') : r.moveIn) : '<span class="mut">-</span>';
@@ -544,14 +544,16 @@ window.Danji = (() => {
   // 연락처 펼치기 · 번호를 누르면 전화 (통화 기록이 남음)
   function wireTel(cx, root) {
     root.querySelectorAll('[data-ls]').forEach(b => b.onclick = e => { e.stopPropagation(); if (S.ed) endEdit(S.tcx); S.host.openEdit(b.dataset.ls); });
+    root.querySelectorAll('[data-pubm]').forEach(b => b.onclick = e => { e.stopPropagation(); if (S.ed) endEdit(S.tcx); S.host.pubClick(b.dataset.pubm, b); });
     root.querySelectorAll('[data-up]').forEach(b => b.onclick = e => {
       e.stopPropagation(); if (S.ed) endEdit(S.tcx);
       const x = S.rows.find(z => z.key === b.dataset.up); if (!x) return;
       const r = x.r || {}, pr = r.pr || {}, k = (x.st.k || [])[0] || 'sale';
       const pre = { kind: k, ...(k === 'sale' ? { price: pr.sale || 0 } : k === 'jeonse' ? { deposit: pr.jeonse || 0 } : { deposit: pr.wd || 0, rent: pr.wr || 0 }),
         ...(r.tels && r.tels.length ? { contacts: r.tels.map(t => ({ role: t.l || '소유자', name: '', phone: t.n })) } : {}) };
-      S.host.openAdd(x.pnu, x.dn, x.ho, pre);
-      toast('장부 내용으로 매물카드를 채웠습니다. 사진·설명을 더하고 저장한 뒤 [리얼맵 등록]을 눌러 주세요.', 5000);
+      if (!S.host.pubNew) { S.host.openAdd(x.pnu, x.dn, x.ho, pre); return; }
+      const dir = x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', mi = r.moveIn ? (/^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.replace(/-/g, '.') : String(r.moveIn)) : '';
+      S.host.pubNew({ pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, ptype: '아파트', pre });
     });
     root.querySelectorAll('[data-tx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.telOpen = S.telOpen || new Set(); const k = b.dataset.tx; S.telOpen.has(k) ? S.telOpen.delete(k) : S.telOpen.add(k); redrawRow(cx, k); });
     root.querySelectorAll('[data-tcall]').forEach(a => a.onclick = e => {

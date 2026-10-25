@@ -105,6 +105,7 @@
     openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
     toast,
+    pubCell: id => pubCell(S.items.find(i => i.id === id)), pubClick: (id, el) => pubClick(id, el), pubNew: o => pubNew(o), canPub: () => !!S.canPub,
   };
   // 요금제 안내 (무료 이용자가 Basic 기능을 누르거나 한도에 닿았을 때)
   function upsell(msg) { if (confirm(`${msg}\n\n요금제 안내를 열어 볼까요?`)) window.open('/pro.html#price', '_blank'); }
@@ -119,6 +120,7 @@
     if (!lv) document.body.classList.remove('lvmap');
     $('dj').hidden = !dj; $('lv').hidden = !lv; $('map').style.visibility = dj || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
     document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.toggle('lock', b.dataset.mode === 'danji' && !adv()); });
+    if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
     else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }
     drawList();
@@ -131,6 +133,7 @@
     pub: id => pubFlow(S.items.find(i => i.id === id)), pubOp: (id, op) => pubOp(id, op),
     brief: id => briefOf(S.items.find(i => i.id === id)), share: id => shareOf(S.items.find(i => i.id === id)),
     viewer: (urls, i) => viewer(urls, i), csv: list => exportCsv(list),
+    pubCell: x => pubCell(x), pubClick: (id, el) => pubClick(id, el), roles: ROLES, dirs: DIRS, wcs: WCS,
     focus: id => focusItem(id, false),
     // 표에 지금 걸린 줄만 지도에 (번호는 표의 순서)
     pins: (ids, fit) => { S.bNo = new Map(ids.map((id, i) => [id, i + 1])); if (document.body.classList.contains('lvmap')) drawPins(!!fit); },
@@ -139,7 +142,7 @@
       $('map').style.visibility = on || S.mode !== 'list' ? '' : 'hidden';
       if (on) setTimeout(() => { if (S.map) { S.map.relayout(); drawPins(true); } }, 60);
     },
-    X: { esc, won, shortWon, priceText, KIND, STAT, PTYPES, ymd, memoParse, memoAdd, splitUnit, guessType, mainTitle, dongPick, hoEq, isPub, pubLive, adMissing, moneyOf, upgrade, ro: () => roIds() },
+    X: { esc, won, shortWon, priceText, KIND, STAT, PTYPES, ymd, memoParse, memoAdd, splitUnit, guessType, mainTitle, dongPick, hoEq, isPub, pubLive, adMissing, moneyOf, upgrade, centroid, ro: () => roIds() },
   });
 
   // ---------- 목록 ----------
@@ -533,7 +536,7 @@
     else setTimeout(() => $('fq') && $('fq').focus(), 50);
   }
   function closeForm() {
-    $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null;
+    $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null; S.pubS = null;
     if (S.bkTmp && S.bkTmp.length) { api('/api/auth?action=listing&op=photodel', post({ urls: S.bkTmp })).catch(() => {}); } // 저장하지 않은 대표 사진 정리
     S.bkTmp = [];
   }
@@ -870,19 +873,189 @@
       toast(op === 'unpub' ? '리얼맵 지도에서 내렸습니다' : op === 'renew' ? '30일 연장했습니다 (확인일 오늘)' : '리얼맵 지도에 올렸습니다. 1분 안에 지도에 나타납니다', 3500);
     } catch (e) {
       if (e.code === 'adlimit' || e.code === 'readonly') return upsell(e.message);
-      if (e.code === 'missing') { const x = S.items.find(i => i.id === id); if (x) { openForm(x); S.form.missing = adMissing(x, S.bk); S.form.scrollAd = true; S.form.pubAfter = x.id; renderForm(true); } }
+      if (e.code === 'missing') { const x = S.items.find(i => i.id === id); if (x) pubSheet(x); }
       toast(e.message, 5000);
     }
   }
-  function pubFlow(x) {
-    if (!x) return;
-    if (!S.bk) return openBk(() => pubFlow(S.items.find(i => i.id === x.id)));
-    const miss = adMissing(x, S.bk);
-    if (miss.length) { openForm(x); S.form.missing = miss; S.form.scrollAd = true; S.form.pubAfter = x.id; renderForm(true); return toast('광고에 필요한 항목을 채운 뒤 저장하고, 다시 리얼맵 등록을 눌러 주세요', 4500); }
+  function pubFlow(x) { if (x) pubSheet(x); }
+  // ---------- 리얼맵 간단 등록창 (단지 모드 · 지도+리스트 공통) ----------
+  // 맨 위 요약 → 비어 있는 필수 항목만 노란 칸 → 자동·입력된 항목은 한 줄씩(눌러서 고침) → [리얼맵 지도에 올리기]
+  // x에 id가 없으면 아직 매물장에 없는 매물(단지 장부에서 바로 올리기): 올릴 때 매물장 저장 + 게시를 한 번에
+  const AUTOK = ['use', 'tfl', 'appr', 'park', 'zone', 'road', 'lp', 'hhld', 'elev'];
+  const MISS_KEY = { '방향': 'dir', '입주 가능일': 'movein', '방 수': 'rb', '욕실 수': 'rb', '관리비': 'mgmt', '관리비 포함 항목': 'mgmt', '건축물 용도': 'use', '지목': 'use', '총 층수': 'fl', '해당 층': 'fl', '사용승인일': 'appr', '주차 대수': 'park', '면적': 'area', '가격': 'price', '매물 종류': 'ptype' };
+  const PS_LB = { dir: '방향', movein: '입주 가능일', rb: '방 · 욕실', mgmt: '관리비', use: '건축물 용도', fl: '해당 층 / 총층', appr: '사용승인일', park: '주차', area: '면적', price: '가격', ptype: '매물 종류', biz: '현재 업종', wc: '화장실', zone: '용도지역' };
+  function pubBody(it) {
+    const keys = moneyOf(it).map(m => m[0]);
+    const b = { ...it, places: (it.places || []).map(P => Object.fromEntries(Object.entries(P).filter(([k]) => !k.startsWith('_')))) };
+    ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) b[k] = null; });
+    if (it.ptype !== '기타') b.ptypeTx = '';
+    delete b._new;
+    return b;
+  }
+  function pubSheet(x0, edit) {
+    if (!x0) return;
+    if (!S.canPub) return toast('지금은 리얼맵 지도 게시를 시범 운영 중이라 올릴 수 없습니다', 4000);
+    if (x0.id && roIds().has(x0.id)) return openForm(x0);
+    if (!S.bk) return openBk(() => pubSheet(x0.id ? S.items.find(i => i.id === x0.id) : x0, edit));
+    const x = upgrade(x0); if (x0._new) x._new = true;
+    if (!x.area) { const t = x.places.reduce((n, p) => n + (p.area || 0), 0); x.area = t ? Math.round(t * 100) / 100 : null; }
+    S.form = null; S.pubS = { x, edit: !!edit, orig: JSON.stringify(pubBody(x)), open: new Set(), tried: false };
+    $('shTitle').textContent = edit ? '리얼맵 게시 내용 수정' : '리얼맵에 올리기';
+    $('sheet').hidden = false; document.body.style.overflow = 'hidden';
+    drawPubSheet();
+    // 예전에 등록해 건축물대장 값(용도·사용승인·주차·층수 등)이 비어 있으면 지금 채움 (빈 칸만)
+    const AUTOM = ['건축물 용도', '사용승인일', '주차 대수', '총 층수', '해당 층', '지목'];
+    if (window.Board && x.pnu && adMissing(x, S.bk).some(m => AUTOM.includes(m))) {
+      const P = S.pubS, p0 = x.places[0] || {}; P.filling = true; drawPubSheet();
+      Board.autoItem({ pnu: p0.pnu || x.pnu, dong: p0.dong, ho: p0.ho, ptype: x.ptype, area: x.area }).then(it => {
+        if (S.pubS !== P) return;
+        const a = P.x.ad || (P.x.ad = {});
+        for (const [k, v] of Object.entries(it.ad || {})) if ((a[k] == null || a[k] === '') && v != null && v !== '') a[k] = v;
+      }).catch(() => {}).finally(() => { if (S.pubS === P) { P.filling = false; drawPubSheet(); } });
+    }
+  }
+  const psKeys = x => {
+    const pt = x.ptype, land = pt === '토지', res = RESID.includes(pt), shop = pt === '상가' || pt === '사무실';
+    if (land) return ['ptype', 'price', 'area', 'use', 'zone'];
+    return ['ptype', 'price', 'area', 'use', 'fl', 'appr', 'park', 'dir', 'movein', ...(res ? ['rb', 'mgmt'] : []), ...(shop ? ['biz', 'wc'] : [])];
+  };
+  function psVal(x, k) {
     const a = x.ad || {};
-    const fl = !a.fl ? '' : a.flx === 'lmh' ? '저·중·고층으로 표시' : `${a.fl}층 표시`;
-    if (!confirm(`리얼맵 지도에 이 매물을 30일 동안 올릴까요?\n\n공개: ${priceText(x)} · ${x.area ? x.area + '㎡' : ''}${fl ? ' · ' + fl : ''} · 사진 ${(x.photos || []).length}장\n중개사무소: ${S.bk.office} (전화 ${S.bk.tel}${S.bk.mobile ? ' · 문자 ' + S.bk.mobile : ''})\n\n호수·소유자 연락처·메모는 공개되지 않습니다.\n거래완료로 바꾸면 지도에서 자동으로 내려갑니다.`)) return;
-    pubOp(x.id, 'pub');
+    switch (k) {
+      case 'ptype': return x.ptype === '기타' ? x.ptypeTx || '기타' : x.ptype;
+      case 'price': return priceText(x);
+      case 'area': return x.area ? `${x.area}㎡ (${(x.area / 3.3058).toFixed(1)}평)` : '';
+      case 'fl': return a.fl || a.tfl ? `${a.fl || '?'}${/^\d+$/.test(a.fl || '') ? '층' : ''} / ${a.tfl ? a.tfl + '층' : '?'}` : '';
+      case 'rb': return a.rooms != null && a.rooms !== '' ? `방 ${a.rooms} · 욕실 ${a.baths ?? '?'}` : '';
+      case 'mgmt': return a.nomgmt ? '없음' : x.mgmt ? `월 ${x.mgmt}만원 · ${a.mgmtT === 'fix' ? '정액' : '실비'}` : '';
+      case 'zone': return a.zone || '';
+      default: return a[k] == null ? '' : String(a[k]);
+    }
+  }
+  function psEditor(x, k) {
+    const a = x.ad || (x.ad = {}), chips = (key, opts, cur) => `<div class="pchips">${opts.map(o => `<button type="button" data-pc="${key}" data-v="${esc(o)}" aria-pressed="${cur === o}">${esc(o)}</button>`).join('')}</div>`;
+    const inp = (key, v, ph, ex = '') => `<input class="pin2" data-pk="${key}" value="${esc(v ?? '')}" placeholder="${ph}" ${ex}>`;
+    switch (k) {
+      case 'dir': return chips('dir', DIRS, a.dir);
+      case 'movein': return `${chips('movein', ['즉시입주', '협의'], a.movein)}${inp('movein', ['즉시입주', '협의'].includes(a.movein) ? '' : a.movein, '또는 날짜 (예: 2026.12 초순)', 'maxlength="20"')}`;
+      case 'rb': return `<div class="prow">방 ${inp('rooms', a.rooms, '예 3', 'inputmode="numeric" maxlength="2" style="width:70px"')} 욕실 ${inp('baths', a.baths, '예 2', 'inputmode="numeric" maxlength="2" style="width:70px"')}</div>`;
+      case 'mgmt': return `<div class="prow">월 ${inp('$mgmt', x.mgmt, '예 25', 'inputmode="numeric" style="width:90px"')} 만원 ${chips('mgmtT', ['실비', '정액'], a.mgmtT === 'fix' ? '정액' : '실비')}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>${a.mgmtT === 'fix' && x.mgmt >= 10 ? `<div class="pchips">${MGI.map(([m, t]) => `<label class="pck"><input type="checkbox" data-mgi2="${m}" ${(a.mgmtInc || []).includes(m) ? 'checked' : ''}>${t}</label>`).join('')}</div><small class="pmeta">정액 10만원 이상이면 포함 항목을 표시해야 합니다</small>` : ''}`;
+      case 'fl': return `<div class="prow">${inp('fl', a.fl, isWhole(x) ? '전체' : '12 (지하 B1)', 'maxlength="8" style="width:110px"')} 층 / 총 ${inp('tfl', a.tfl, '25', 'inputmode="numeric" maxlength="3" style="width:80px"')} 층</div>`;
+      case 'use': return inp('use', a.use, x.ptype === '토지' ? '대 / 전 / 임야' : '공동주택(아파트) / 제2종근린생활시설', 'maxlength="40"');
+      case 'appr': return inp('appr', a.appr, '2014.09.30', 'maxlength="10"');
+      case 'park': return inp('park', a.park, '총 120대 (세대당 1.2대)', 'maxlength="30"');
+      case 'biz': return inp('biz', a.biz, '카페 / 공실', 'maxlength="30"');
+      case 'wc': return chips('wc', WCS, a.wc);
+      case 'zone': return inp('zone', a.zone, '제2종일반주거지역', 'maxlength="40"');
+      case 'area': return `<div class="prow">${inp('$area', x.area, '84.97', 'inputmode="decimal" style="width:120px"')} ㎡</div>`;
+      case 'ptype': return chips('ptype', PTYPES.filter(t => t !== '기타'), x.ptype);
+      case 'price': { const M = (MONEY[x.kind] || MONEY.sale).filter(m => m[2]); return `<div class="prow">${M.map(([mk, lb]) => `${lb} ${inp('$' + mk, x[mk], '만원', 'inputmode="numeric" style="width:120px"')}`).join(' ')} 만원</div>`; }
+    }
+    return '';
+  }
+  function drawPubSheet() {
+    const P = S.pubS; if (!P) return;
+    const x = P.x, a = x.ad || {}, p0 = (x.places && x.places[0]) || {};
+    const miss = adMissing(x, S.bk).filter(m => m !== '중개사무소 정보');
+    const needK = [...new Set(miss.map(m => MISS_KEY[m]).filter(Boolean))];
+    const other = miss.filter(m => !MISS_KEY[m]);
+    const filled = psKeys(x).filter(k => !needK.includes(k));
+    const dh = [p0.dong && (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동'), p0.ho && (/(호|층)$/.test(p0.ho) ? p0.ho : p0.ho + '호')].filter(Boolean).join(' ');
+    const live = pubLive(x);
+    $('form').innerHTML = `<div class="ps">
+      <div class="ps-sum"><b><span class="kd ${x.kind}">${KIND[x.kind]}</span> ${esc(priceText(x))} · ${esc(x.bname || (x.addr || p0.addr || '').split(' ').slice(-2).join(' '))}${dh ? ' ' + esc(dh) : ''}</b>
+        <small>${esc([x.area ? `면적 ${x.area}㎡ (${(x.area / 3.3058).toFixed(1)}평)` : '', a.fl ? `${a.fl}${/^\d+$/.test(a.fl) ? '층' : ''}${a.tfl ? ' / ' + a.tfl + '층' : ''}` : ''].filter(Boolean).join(' · '))} · 호수·연락처·메모는 공개되지 않습니다</small>
+        ${live ? `<small class="ps-live">● ${ymd(x.pub.exp).slice(5)}까지 게시 중</small>` : ''}</div>
+      ${P.filling ? '<div class="ps-fill">건축물대장에서 빈 칸을 채우는 중…</div>' : ''}
+      ${needK.length || other.length ? `<div class="ps-need${P.tried ? ' tried' : ''}"><h4>이것만 채워 주세요 <em>${needK.length + other.length}칸</em></h4>
+        ${needK.map(k => `<div class="pf"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`).join('')}
+        ${other.length ? `<div class="pmeta">${esc(other.join(', '))}: 매물카드(전체 수정)에서 넣어 주세요</div>` : ''}</div>` : `<div class="ps-ok">필수 항목을 모두 채웠습니다</div>`}
+      <div class="ps-auto"><h4>채워진 항목 <small>틀린 것만 눌러서 고치기</small></h4>
+        ${filled.map(k => P.open.has(k) ? `<div class="pf op"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`
+          : `<button type="button" class="pa" data-po="${k}"><span>${PS_LB[k]}</span><b>${esc(psVal(x, k)) || '<i>비어 있음 · 선택</i>'}</b>${AUTOK.includes(k) && psVal(x, k) ? '<u>자동</u>' : ''}</button>`).join('')}</div>
+      <details class="ps-opt"${a.desc ? ' open' : ''}><summary>광고 소개글 · 선택</summary><textarea class="pin2" data-pk="desc" rows="2" maxlength="300" placeholder="예) 남향 로열층, 올수리, 역 도보 5분">${esc(a.desc || '')}</textarea></details>
+      <div class="ps-opt2">사진 ${(x.photos || []).length}장 · <button type="button" class="lnk2" id="psCard">사진 추가 · 전체 수정(매물카드)</button></div>
+      <div class="ps-go"><button type="button" class="btn main" id="psGo">${P.edit ? '저장하기' : isPub(x) ? '다시 게시 (30일)' : '리얼맵 지도에 올리기 (30일)'}</button>
+        <p>${esc(S.bk ? S.bk.office : '')} 정보와 함께 표시됩니다${P.edit ? ' · 필수 항목이 비면 지도에서 내려갑니다' : ''}</p></div></div>`;
+    const F = $('form');
+    const set = () => {
+      F.querySelectorAll('[data-pk]').forEach(i => {
+        let k = i.dataset.pk, v = i.value.trim();
+        if (k.startsWith('$')) { k = k.slice(1); const n = Number(v.replace(/[^\d.]/g, '')); x[k] = n > 0 ? n : null; if (k === 'area' && x.places[0]) { x.places[0].area = x[k]; } return; }
+        if (k === 'movein' && !v && ['즉시입주', '협의'].includes(x.ad.movein)) return;
+        x.ad[k] = k === 'tfl' || k === 'rooms' || k === 'baths' ? (v === '' ? null : parseInt(v, 10)) : v;
+      });
+    };
+    F.querySelectorAll('[data-pk]').forEach(i => { i.oninput = set; i.onchange = () => { set(); }; });
+    F.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => {
+      set(); const k = b.dataset.pc, v = b.dataset.v;
+      if (k === 'ptype') x.ptype = v; else if (k === 'mgmtT') x.ad.mgmtT = v === '정액' ? 'fix' : 'avg'; else x.ad[k] = x.ad[k] === v && k !== 'movein' ? '' : v;
+      drawPubSheet();
+    });
+    F.querySelectorAll('[data-pb]').forEach(c => c.onchange = () => { set(); x.ad[c.dataset.pb] = c.checked; drawPubSheet(); });
+    F.querySelectorAll('[data-mgi2]').forEach(c => c.onchange = () => { x.ad.mgmtInc = [...F.querySelectorAll('[data-mgi2]:checked')].map(z => z.dataset.mgi2); });
+    F.querySelectorAll('[data-po]').forEach(b => b.onclick = () => { set(); P.open.add(b.dataset.po); drawPubSheet(); const n = F.querySelector(`.pf.op [data-pk]`); if (n) n.focus(); });
+    $('psCard').onclick = () => { set(); const it = S.pubS.x; closeForm(); if (it.id) openForm(S.items.find(i => i.id === it.id) || it); else openForm(null, it.pnu, { dong: it.places[0].dong, ho: it.places[0].ho, kind: it.kind, price: it.price, deposit: it.deposit, rent: it.rent, contacts: it.contacts }); };
+    $('psGo').onclick = () => { set(); pubSubmit(); };
+  }
+  async function pubSubmit() {
+    const P = S.pubS, x = P.x;
+    const miss = adMissing(x, S.bk);
+    if (miss.length && !P.edit) { P.tried = true; drawPubSheet(); return toast(`아직 비어 있습니다: ${miss.join(', ')}`, 3500); }
+    $('psGo').disabled = true; $('psGo').textContent = '올리는 중…';
+    let id = x.id;
+    try {
+      if (!id || JSON.stringify(pubBody(x)) !== P.orig) {
+        const j = await api('/api/auth?action=listing', post({ op: 'save', id: id || '', item: pubBody(x) }));
+        took(j); if (!id) id = S.items[0] && S.items[0].id;
+      }
+      if (!P.edit) { const y = S.items.find(i => i.id === id); took(await api('/api/auth?action=listing', post({ op: y && isPub(y) ? 'renew' : 'pub', id }))); }
+      closeForm(); draw();
+      toast(P.edit ? '저장했습니다' : '리얼맵 지도에 올렸습니다. 1분 안에 지도에 나타납니다', 3500);
+    } catch (e) {
+      $('psGo').disabled = false; $('psGo').textContent = P.edit ? '저장하기' : '리얼맵 지도에 올리기 (30일)';
+      if (id && !x.id) { x.id = id; P.orig = JSON.stringify(pubBody(x)); }   // 매물장 저장은 됐고 게시만 실패 → 다시 누르면 게시만
+      if (['adlimit', 'readonly', 'limit'].includes(e.code)) return upsell(e.message);
+      toast(e.message, 5000);
+    }
+  }
+  // 줄 끝 상태 버튼: [리얼맵 등록] / [● 게시중 ▾] / [기간만료]
+  function pubCell(x) {
+    if (!S.canPub || !x || x.status !== 'on') return '';
+    if (pubLive(x)) return `<button type="button" class="pbtn on" data-pubm="${x.id}" title="${ymd(x.pub.exp)}까지 게시">● 게시중 ▾</button>`;
+    if (isPub(x)) return `<button type="button" class="pbtn ex" data-pubm="${x.id}">기간만료 ▾</button>`;
+    return `<button type="button" class="pbtn reg" data-pubm="${x.id}">리얼맵 등록</button>`;
+  }
+  function pubClick(id, el) {
+    const x = S.items.find(i => i.id === id); if (!x) return;
+    if (!isPub(x)) return pubSheet(x);
+    pubMenu(x, el);
+  }
+  function pubMenu(x, el) {
+    let m = $('pubPop'); if (!m) { m = document.createElement('div'); m.id = 'pubPop'; document.body.appendChild(m); document.addEventListener('mousedown', e => { if (!m.hidden && !m.contains(e.target) && !e.target.closest('[data-pubm]')) m.hidden = true; }); addEventListener('scroll', () => { m.hidden = true; }, true); }
+    const live = pubLive(x);
+    m.innerHTML = `<div class="h">${live ? `${ymd(x.pub.exp).slice(5)}까지 게시 · 확인 ${ymd(x.pub.chk).slice(5)}` : '게시 기간이 끝났습니다'}</div>
+      ${live ? `<a href="/?pnu=${x.pnu}&lst=1" target="_blank" rel="noopener">지도에서 보기 ↗</a>` : '<button type="button" data-pm="renew">다시 게시 (30일)</button>'}
+      <button type="button" data-pm="edit">수정하기</button>
+      ${live ? '<button type="button" data-pm="renew">30일 연장</button><button type="button" data-pm="share">링크 복사 (손님에게)</button>' : ''}
+      <button type="button" class="x" data-pm="unpub">지도에서 내리기</button>`;
+    m.hidden = false;
+    const r = el.getBoundingClientRect();
+    m.style.top = `${Math.min(r.bottom + 4, innerHeight - m.offsetHeight - 8)}px`; m.style.left = `${Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8))}px`;
+    m.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => {
+      m.hidden = true; const a = b.dataset.pm;
+      if (a === 'edit') return pubSheet(x, true);
+      if (a === 'renew') return pubOp(x.id, 'renew');
+      if (a === 'share') return shareOf(x);
+      if (a === 'unpub' && confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물장에는 그대로 남습니다)')) pubOp(x.id, 'unpub');
+    });
+  }
+  // 단지 장부에서 바로 올리기: 장부 내용 + 건축물대장으로 매물을 만들어 간단 등록창으로 (저장은 [올리기] 때)
+  async function pubNew(o) {
+    if (!S.canPub) return toast('지금은 리얼맵 지도 게시를 시범 운영 중이라 올릴 수 없습니다', 4000);
+    toast('건축물대장에서 면적·층 정보를 가져오는 중…', 6000);
+    try { const it = await Board.autoItem(o); it._new = true; $('toast').hidden = true; pubSheet(it); }
+    catch (e) { toast(e.message || '정보를 가져오지 못했습니다. 매물카드로 등록해 주세요', 4000); S.mode === 'danji' && openForm(null, o.pnu, { dong: o.dong, ho: o.ho, ...(o.pre || {}) }); }
   }
   // ---------- 손님용 매물 브리핑 (A4 · 인쇄/PDF) ----------
   // 브리핑 편집기(briefing.html)는 필지 정보를 리얼맵 지도에서 받아 옵니다. 매물 내용은 미리 채워 두고 지도 창이 브리핑으로 넘어가게 합니다.
