@@ -47,6 +47,14 @@ window.Danji = (() => {
   }
   function refresh() { if (S.loaded && S.el && S.el.offsetParent !== null) draw(); }
   async function add(pnu) { while (!S.loaded) await new Promise(r => setTimeout(r, 150)); await addComplex({ pnu }); }
+  // 알림에서 '그 호로 가기': 그 단지를 열고 그 호 줄로 (필터는 모두 풀고)
+  async function goto(cxid, key) {
+    while (!S.loaded) await new Promise(r => setTimeout(r, 150));
+    if (!S.cx.items.some(c => c.id === cxid)) return toast('그 단지를 찾지 못했습니다');
+    S.adding = false; S.cur = cxid; S.hist = null; S.F = { ...TF(), st: 'all', k: '', a: '' }; S.focusKey = key;
+    const C = S.C[cxid]; if (C) C.view = 'all';
+    draw();
+  }
   const items = () => S.host.items() || [];
 
   // ---------- 단지 추가 ----------
@@ -513,6 +521,14 @@ window.Danji = (() => {
     const KEY = ALL ? 'rm.djcolA' : 'rm.djcol', ths = [...box.querySelectorAll('table.xt thead th')];
     let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { saved = null; }
     if (Array.isArray(saved) && saved.length === ths.length) ths.forEach((th, n) => { th.style.width = saved[n] + '%'; });
+    // 버튼 칸(기록 · 리얼맵)은 버튼보다 좁아지지 않게: 줄이면 표 밖으로 삐져나감
+    const tbl0 = box.querySelector('table.xt');
+    const minOf = k => {
+      if (!ths[k] || !ths[k].classList.contains('c-h') || !tbl0) return 40;
+      let w = 0; tbl0.querySelectorAll('td.c-h').forEach(td => { let s = 14; [...td.children].forEach(c => { s += c.getBoundingClientRect().width + 4; }); w = Math.max(w, s); });
+      return Math.max(40, Math.ceil(w));
+    };
+    if (tbl0) { const k = ths.findIndex(t => t.classList.contains('c-h')), W = tbl0.getBoundingClientRect().width; if (k >= 0 && W) { const need = minOf(k), now = ths[k].getBoundingClientRect().width; if (now < need - 1 && ths[k].style.width) { const d = need - now, px = ths.map(t => t.getBoundingClientRect().width); const j = px.reduce((b, v, i) => i !== k && v > px[b] ? i : b, k === 0 ? 1 : 0); ths.forEach((t, i) => { t.style.width = ((i === k ? need : i === j ? px[i] - d : px[i]) / W * 100) + '%'; }); } } }
     ths.forEach((th, n) => {
       const h = th.querySelector('.rz'); if (!h) return;
       h.ondblclick = e => { e.stopPropagation(); try { localStorage.removeItem(KEY); } catch { /* 무시 */ } ths.forEach(t => { t.style.width = ''; }); };
@@ -520,9 +536,9 @@ window.Danji = (() => {
         e.preventDefault(); e.stopPropagation();
         const tbl = th.closest('table'), W = tbl.getBoundingClientRect().width, px = ths.map(t => t.getBoundingClientRect().width);
         ths.forEach((t, k) => { t.style.width = (px[k] / W * 100) + '%'; });          // 지금 너비를 %로 고정한 뒤
-        const a = px[n], b = px[n + 1], x0 = e.clientX, MIN = 40;
+        const a = px[n], b = px[n + 1], x0 = e.clientX, MA = minOf(n), MB = minOf(n + 1);
         h.setPointerCapture(e.pointerId); document.body.classList.add('rzing');
-        h.onpointermove = ev => { const d = Math.max(MIN - a, Math.min(b - MIN, ev.clientX - x0)); ths[n].style.width = ((a + d) / W * 100) + '%'; ths[n + 1].style.width = ((b - d) / W * 100) + '%'; };
+        h.onpointermove = ev => { const d = Math.max(MA - a, Math.min(b - MB, ev.clientX - x0)); ths[n].style.width = ((a + d) / W * 100) + '%'; ths[n + 1].style.width = ((b - d) / W * 100) + '%'; };
         h.onpointerup = () => {
           h.onpointermove = h.onpointerup = null; document.body.classList.remove('rzing');
           try { localStorage.setItem(KEY, JSON.stringify(ths.map(t => Math.round(parseFloat(t.style.width) * 100) / 100))); } catch { /* 저장 안 되면 이번만 */ }
@@ -1239,5 +1255,5 @@ window.Danji = (() => {
   }
   function closeSheet() { const f = S.onClose; S.onClose = null; $('djSheet').hidden = true; document.body.style.overflow = ''; if (f) f(); }
 
-  return { mount, refresh, add };
+  return { mount, refresh, add, goto };
 })();

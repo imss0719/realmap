@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>리얼맵 매물장 · 중개사무소를 위한 지도 위 매물 관리</title>
-<meta name="description" content="주소만 넣으면 면적·층·사용승인일까지 자동 입력. 단지 배치표, 손님 조건 검색, 리얼맵 지도 광고, 손님용 브리핑까지. 2주 무료, 매물 10건까지는 계속 무료.">
+<title>리얼맵 매물장 · 꼭 필요한 기능만 남긴 중개사 매물장</title>
+<meta name="description" content="쓸데없는 기능은 뺐습니다. 주소 한 줄이면 면적·층·용도까지 자동 입력, 통건물 층별 현황·토지 필지 합산, 아파트 동·호 장부까지. 2주 무료, 매물 10건까지는 계속 무료.">
 <meta property="og:title" content="리얼맵 매물장 · 2주 무료">
-<meta property="og:description" content="중개사무소 매물 관리, 지도 위에서 한 번에. 매물 10건까지는 계속 무료.">
+<meta property="og:description" content="쓸데없는 기능은 뺐습니다. 주소 한 줄이면 매물 등록 끝. 매물 10건까지는 계속 무료.">
 <meta property="og:image" content="https://realmap.online/og.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -40,7 +40,7 @@ a{color:inherit}
 .hero .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:56px 56px;mask-image:radial-gradient(ellipse at 70% 50%,#000 30%,transparent 75%)}
 .hero .wrap{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;padding-top:90px;padding-bottom:60px;width:100%}
 .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--gold);background:rgba(242,183,5,.12);border:1px solid rgba(242,183,5,.3);border-radius:999px;padding:6px 14px}
-.hero h1{font-size:clamp(38px,5vw,66px);line-height:1.12;margin:22px 0 22px;font-weight:900;letter-spacing:-.045em}
+.hero h1{font-size:clamp(28px,3.5vw,48px);line-height:1.12;margin:22px 0 22px;font-weight:900;letter-spacing:-.045em}
 .hero h1 .ln{display:block;overflow:hidden;white-space:nowrap;padding-bottom:.06em}
 .hero h1 .ln>span{display:inline-block;transform:translateY(105%);animation:up .9s cubic-bezier(.2,.8,.2,1) forwards}
 .hero h1 .ln:nth-child(2)>span{animation-delay:.12s}
@@ -262,7 +262,68 @@ footer a{color:rgba(255,255,255,.8)}
   .btn.lg{padding:16px 24px;font-size:17px}
   .mbox .two{grid-template-columns:1fr}
 }
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv,.hero h1 .ln>span,.hero p.lead,.hero .cta,.hero .free,.hmap .board,.pin,.tlb{opacity:1!important;transform:none!important}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv,.hero h1 .ln>span,.hero p.lead,.hero .cta,.hero .free,.hmap .board,.pin,.tlb,.hcard,.htb .hr,.hin .ent,.hdown{opacity:1!important;transform:none!important}.hin .typ{width:auto!important}}
+
+/* 첫 화면 그래픽: 주소 한 줄 → 표 */
+.hcard-w{justify-self:center;width:100%;max-width:560px;perspective:1400px}
+.hcard{background:#fff;color:var(--fg);border-radius:24px;padding:18px;box-shadow:0 40px 80px rgba(0,0,0,.45);transform:rotateY(-9deg) rotateX(4deg);opacity:0;animation:fade2 1s .3s forwards}
+@keyframes fade2{from{opacity:0;translate:0 14px}to{opacity:1;translate:0 0}}
+.hin{display:flex;align-items:center;gap:8px;border:2px dashed #7FA6E6;background:#F4F8FF;border-radius:12px;padding:10px 12px;font-size:17px;font-weight:800}
+.hin .pl{color:var(--sale);font-size:20px}
+.hin .typ{display:inline-block;overflow:hidden;white-space:nowrap;width:0;animation:typ 1.1s steps(11) .9s forwards}
+@keyframes typ{to{width:7.6em}}
+.hin .cur{width:2px;height:20px;background:var(--navy);animation:blink 1s steps(1) infinite}
+.hin .ent{margin-left:auto;font-size:12px;font-weight:800;color:#fff;background:var(--sale);border-radius:6px;padding:3px 8px;opacity:0;animation:fade .4s 2.1s forwards}
+.hdown{font-size:12px;color:var(--sale);font-weight:800;text-align:center;margin:8px 0 6px;opacity:0;animation:fade .4s 2.3s forwards}
+.htb{width:100%;border-collapse:collapse;font-size:13px}
+.htb th{text-align:left;color:var(--muted);font-size:11px;font-weight:700;padding:6px 5px;border-bottom:1px solid var(--line)}
+.htb td{padding:8px 5px;border-bottom:1px solid #F1F3F5;font-weight:600;white-space:nowrap}
+.htb td small{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.htb td em{font-style:normal;font-size:10px;font-weight:800;color:#1F7A4D;background:#E7F5EC;border-radius:5px;padding:1px 5px;margin-left:4px}
+.htb .hr{opacity:0;animation:fade .5s forwards}
+.htb .hr:nth-child(1){animation-delay:2.5s}.htb .hr:nth-child(2){animation-delay:2.75s}.htb .hr:nth-child(3){animation-delay:2.9s}.htb .hr:nth-child(4){animation-delay:3.05s}
+.htb .hr.n td{animation:glow 1.4s 2.5s ease both}
+.ty{font-size:11px;font-weight:800;border-radius:6px;padding:2px 7px}.ty.b{background:#E6EEFB;color:#1C4FA0}.ty.s{background:#FFF0E0;color:#B45309}.ty.l{background:#E5F4EA;color:#1F7A4D}.ty.a{background:#F1EAFB;color:#6741B8}
+/* 01 지도+리스트 */
+.tabs2{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tabs2 span{border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;color:var(--muted)}.tabs2 span.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.lmt td{font-size:13px}.nb{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:10px;background:var(--navy);color:#fff;font-style:normal;font-size:11px;font-weight:800}
+.edc s{color:var(--muted);margin-left:4px;transition:opacity .4s 1s}.edc b::after{content:attr(data-v);opacity:0;transition:opacity .4s 1.1s}
+.art.go .edc b::after{opacity:1}.art.go .edc s{opacity:.5}
+.art.go .lmt tr.hit td{background:#FFFBEA}
+.mini{position:relative;height:150px;border-radius:14px;background:#EAEFEA;overflow:hidden;margin-top:12px;opacity:0;transform:translateY(16px);transition:.6s .6s}
+.art.go .mini{opacity:1;transform:none}
+.mini .rd{position:absolute;background:#fff}
+.np{position:absolute;background:var(--navy);color:#fff;border-radius:8px;padding:3px 8px;font-size:12px;font-weight:800;box-shadow:0 6px 14px rgba(0,0,0,.2);transform:scale(.6);opacity:0;transition:.4s cubic-bezier(.3,1.5,.5,1)}
+.np.hl{background:var(--gold);color:var(--navy)}
+.art.go .np{transform:none;opacity:1}.art.go .np:nth-of-type(1){transition-delay:.9s}.art.go .np:nth-of-type(2){transition-delay:1.05s}.art.go .np:nth-of-type(3){transition-delay:1.2s}
+/* 03 층별 현황 */
+.fth{font-size:15px;margin-bottom:10px}.fth small{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
+.ft2 td.r,.ft2 th{white-space:nowrap}.ft2 td.r{text-align:right}
+.ft2 td[data-v]::after{content:attr(data-v);opacity:0;transition:opacity .4s}
+.ft2 td[data-v]{background:#FFFCF0}
+.ft2 td.vac::after{color:#E03131;font-weight:800}
+.art.go .ft2 td[data-v]::after{opacity:1}
+.art.go .ft2 tr:nth-child(1) td::after{transition-delay:.3s}.art.go .ft2 tr:nth-child(2) td::after{transition-delay:.55s}.art.go .ft2 tr:nth-child(3) td::after{transition-delay:.8s}.art.go .ft2 tr:nth-child(4) td::after{transition-delay:1.05s}
+.sums2{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.sums2 span{border:1px solid #EADFB5;background:#FFFCF0;border-radius:10px;padding:7px 11px;font-size:13px;font-weight:700;opacity:0;transform:translateY(8px);transition:.4s 1.3s}
+.sums2 b{color:var(--navy)}.sums2 .y b{color:var(--sale)}
+.art.go .sums2 span{opacity:1;transform:none}.art.go .sums2 span:nth-child(2){transition-delay:1.45s}.art.go .sums2 span:nth-child(3){transition-delay:1.6s}.art.go .sums2 span:nth-child(4){transition-delay:1.75s}
+/* 04 단지 장부 */
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.kp div{background:#F5F7F9;border-radius:12px;padding:10px;text-align:center}.kp b{display:block;font-size:22px}.kp small{font-size:11px;color:var(--muted);font-weight:700}.kp .al b{color:#E03131}
+.lg2 tbody tr{opacity:0;transform:translateX(16px);transition:.45s}
+.art.go .lg2 tbody tr{opacity:1;transform:none}.art.go .lg2 tbody tr:nth-child(2){transition-delay:.15s}.art.go .lg2 tbody tr:nth-child(3){transition-delay:.3s}.art.go .lg2 tbody tr:nth-child(4){transition-delay:.45s}
+.lg2 .dd{color:#E03131;font-weight:800}
+.art.go .lg2 .dd{animation:ddp 1.2s 1s 2}
+@keyframes ddp{50%{background:#FDECEC}}
+/* 그 밖에 */
+.cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.c3{background:#fff;border:1px solid var(--line);border-radius:24px;padding:28px 24px}
+.c3 i{font-style:normal;font-size:30px}.c3 b{display:block;font-size:21px;font-weight:900;margin:12px 0 8px}.c3 p{margin:0;color:var(--muted);font-size:16px;line-height:1.7}
+.plan li small.op{font-size:11px;font-weight:800;color:#9A6200;background:#FFF3D6;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+@media (max-width:960px){.cards3{grid-template-columns:1fr}.hcard{transform:none}}
+@media (max-width:600px){.htb th:nth-child(5),.htb td:nth-child(5),.htb th:nth-child(4),.htb td:nth-child(4){display:none}.hin{font-size:15px}.hcard{padding:14px}.hcard-w{min-width:0}}
+.hcard{overflow:hidden;max-width:100%}.hero .wrap>*{min-width:0}
 .smsbox{margin-top:6px;font-size:13px}.smsbox .sms-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .smsbox button{border:1.5px solid #1C64C8;background:#fff;color:#1C64C8;border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}.smsbox button:disabled{opacity:.5}
 .smsbox .sms-check{background:#1C64C8;color:#fff}.smsbox .sms-code{width:110px;border:2px solid #DCE2E8;border-radius:8px;padding:6px 8px;font-size:15px;letter-spacing:2px}
@@ -283,23 +344,21 @@ footer a{color:rgba(255,255,255,.8)}
   <div class="wrap">
     <div>
       <span class="eyebrow">공인중개사 전용 · 리얼맵 매물장</span>
-      <h1><span class="ln"><span>매물 관리,</span></span><span class="ln"><span><b>지도 위에서</b></span></span><span class="ln"><span>한 번에 끝내세요.</span></span></h1>
-      <p class="lead">주소만 넣으면 면적·층·사용승인일까지 자동으로 채워집니다. 단지 배치표, 손님 조건 검색, 리얼맵 지도 광고, 손님용 브리핑까지 한곳에서.</p>
+      <h1><span class="ln"><span>쓸데없는 기능은 뺐습니다.</span></span><span class="ln"><span><b>주소 한 줄</b>이면</span></span><span class="ln"><span>매물 등록 끝.</span></span></h1>
+      <p class="lead">건축물대장·토지대장을 알아서 읽어 면적·층·용도까지 채워 드립니다. 엑셀처럼 표에서 바로 고치고, 아파트는 동·호 장부로 관리하세요.</p>
       <div class="cta"><button class="btn gold lg" type="button" data-start>2주 무료로 시작하기 →</button><a class="btn ghost lg" href="#features">기능 둘러보기</a></div>
-      <div class="free">결제 정보 없이 시작 · <b>매물 10건까지는 계속 무료</b></div>
+      <div class="free">설치 없이 인터넷 창에서 · <b>매물 10건까지는 계속 무료</b></div>
     </div>
-    <div class="hmap" aria-hidden="true">
-      <div class="board">
-        <div class="rd" style="left:0;right:0;top:46%;height:16px"></div><div class="rd" style="top:0;bottom:0;left:38%;width:14px"></div><div class="rd" style="left:0;right:0;top:78%;height:9px"></div><div class="rd" style="top:0;bottom:0;left:76%;width:9px"></div>
-        <div class="blk" style="left:6%;top:8%;width:26%;height:32%"></div><div class="blk" style="left:46%;top:8%;width:24%;height:15%"></div><div class="blk" style="left:46%;top:27%;width:24%;height:14%"></div><div class="blk" style="left:6%;top:54%;width:26%;height:20%"></div><div class="blk" style="left:82%;top:54%;width:14%;height:20%"></div>
-        <div class="park" style="left:48%;top:56%;width:22%;height:18%"></div><div class="riv" style="left:-10%;top:86%;width:130%;height:24px"></div>
-        <div class="tlb" style="left:12%;top:20%;animation-delay:1.4s">8.2억<small>84㎡ · 25.08</small></div>
-        <div class="tlb" style="left:54%;top:30%;animation-delay:1.55s">6.1억<small>59㎡ · 25.07</small></div>
-        <div class="pin" style="left:44%;top:12%;animation-delay:1.1s"><i>매매</i><span><b>8.5억</b><small>84㎡ · 고층</small></span></div>
-        <div class="pin" style="left:8%;top:60%;animation-delay:1.3s"><i class="j">전세</i><span><b>5억</b><small>59㎡ · 12층</small></span></div>
-        <div class="pin" style="left:52%;top:62%;animation-delay:1.5s"><i class="w">월세</i><span><b>1,000/80</b><small>33㎡ · 3층</small></span></div>
-      </div>
-    </div>
+    <div class="hcard-w" aria-hidden="true"><div class="hcard">
+      <div class="hin"><span class="pl">＋</span><span class="typ">서교동 395-12</span><span class="cur"></span><span class="ent">Enter</span></div>
+      <div class="hdown">건축물대장 · 토지대장 확인 → 자동으로 한 줄</div>
+      <table class="htb"><thead><tr><th>유형</th><th>주소 · 건물</th><th>거래 · 가격</th><th>면적</th><th>층</th></tr></thead><tbody>
+        <tr class="hr n"><td><span class="ty b">통건물</span></td><td><b>서교동 395-12</b><small>○○빌딩</small></td><td><span class="kd">매매</span> 68억</td><td>연 829㎡<em>자동</em></td><td>B1~5F<em>자동</em></td></tr>
+        <tr class="hr"><td><span class="ty s">상가</span></td><td><b>노고산동 31-5</b><small>101호</small></td><td><span class="kd w">월세</span> 5,000/320</td><td>전용 46㎡</td><td>1F / 7F</td></tr>
+        <tr class="hr"><td><span class="ty l">토지</span></td><td><b>상암동 5-2</b><small>외 1필지</small></td><td><span class="kd">매매</span> 31억</td><td>합 412㎡</td><td>대 · 2종</td></tr>
+        <tr class="hr"><td><span class="ty a">아파트</span></td><td><b>아현동 777</b><small>102동 702호</small></td><td><span class="kd j">전세</span> 6.8억</td><td>전용 84㎡</td><td>7F / 15F</td></tr>
+      </tbody></table>
+    </div></div>
   </div>
   <div class="scrollhint"><i></i>아래로</div>
 </section>
@@ -307,17 +366,21 @@ footer a{color:rgba(255,255,255,.8)}
 <section class="sec" id="features"><div class="wrap feat">
   <div class="txt">
     <div class="num rv">01</div>
-    <div class="kicker rv" style="--d:.05s">내 매물을 지도 위에</div>
-    <h2 class="big rv" style="--d:.1s">내 매물이<br><em>어디에 있는지</em><br>한눈에 보입니다</h2>
-    <p class="desc rv" style="--d:.15s">엑셀 장부를 뒤질 필요 없이, 등록한 매물이 지도 위에 거래 종류별 색으로 표시됩니다. 누르면 바로 매물 카드가 열립니다.</p>
+    <div class="kicker rv" style="--d:.05s">지도+리스트 모드</div>
+    <h2 class="big rv" style="--d:.1s">모든 매물을<br><em>표 하나</em>로.<br>지도는 필요할 때만.</h2>
+    <p class="desc rv" style="--d:.15s">상가·건물·토지·주거를 탭으로 나눠 보고, 칸을 눌러 바로 고칩니다. 팝업창을 열고 닫을 필요가 없습니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>가격·면적·연락처·메모를 엑셀처럼 바로 수정</li><li>[지도로 보기]를 누르면 지금 보는 매물만 번호 핀으로</li><li>언제든 엑셀 파일로 내려받기</li></ul>
   </div>
   <div class="art rv r" data-art><div class="bar"><i></i><i></i><i></i></div>
-    <div class="fmap">
-      <div class="rd" style="left:0;right:0;top:44%;height:14px"></div><div class="rd" style="top:0;bottom:0;left:40%;width:12px"></div><div class="rd" style="top:0;bottom:0;left:78%;width:8px"></div>
-      <div class="pin" style="left:12%;top:16%"><i>매매</i><span><b>21.5억</b><small>85㎡ · 15층</small></span></div>
-      <div class="pin" style="left:50%;top:22%"><i class="j">전세</i><span><b>8.5억</b><small>85㎡ · 8층</small></span></div>
-      <div class="pin" style="left:20%;top:62%"><i class="w">월세</i><span><b>5,000/180</b><small>33㎡ · 오피스텔</small></span></div>
-      <div class="pin" style="left:56%;top:66%"><i>매매</i><span><b>12.8억</b><small>상가 · 1층</small></span></div>
+    <div class="tabs2"><span class="on">전체 12</span><span>상가·사무실 5</span><span>건물 3</span><span>토지 2</span><span>주거 2</span></div>
+    <div class="lm">
+      <table class="tbl lmt"><thead><tr><th>#</th><th>주소</th><th>가격</th><th>연락처</th></tr></thead><tbody>
+        <tr><td><i class="nb">1</i></td><td>노고산동 31-5</td><td><span class="kd w">월세</span> 5,000/320</td><td>임차인 010-34**</td></tr>
+        <tr class="hit"><td><i class="nb">2</i></td><td>서교동 395-12</td><td class="edc"><span class="kd">매매</span> <b data-v="65억"></b><s>68억</s></td><td>소유자 010-99**</td></tr>
+        <tr><td><i class="nb">3</i></td><td>상암동 5-2</td><td><span class="kd">매매</span> 31억</td><td>소유자 010-56**</td></tr>
+      </tbody></table>
+      <div class="mini"><div class="rd" style="left:0;right:0;top:48%;height:9px"></div><div class="rd" style="top:0;bottom:0;left:44%;width:8px"></div>
+        <span class="np" style="left:14%;top:18%">1 월 5,000/320</span><span class="np hl" style="left:52%;top:28%">2 매 65억</span><span class="np" style="left:22%;top:64%">3 매 31억</span></div>
     </div>
   </div>
 </div></section>
@@ -325,10 +388,10 @@ footer a{color:rgba(255,255,255,.8)}
 <section class="sec alt"><div class="wrap feat rev">
   <div class="txt">
     <div class="num rv">02</div>
-    <div class="kicker rv" style="--d:.05s">주소만 넣으면 끝</div>
+    <div class="kicker rv" style="--d:.05s">주소 한 줄이면 끝</div>
     <h2 class="big rv" style="--d:.1s">면적, 층, 사용승인일<br><em>자동으로</em> 채워집니다</h2>
-    <p class="desc rv" style="--d:.15s">건축물대장·토지대장을 하나하나 떼어 볼 필요가 없습니다. 주소와 호수만 고르면 공공데이터에서 바로 불러옵니다.</p>
-    <ul class="pts rv" style="--d:.2s"><li>집합건물은 동·호수 목록에서 고르기</li><li>전용면적·해당 층 자동 입력</li><li>건축물 용도·주차·위반건축물 여부까지</li></ul>
+    <p class="desc rv" style="--d:.15s">"101동 1503호"까지 치면 호를 찾아 전용면적과 층을 바로 넣습니다. 건물이면 통건물, 건물이 없으면 토지로 알아서 구분합니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>유형을 짐작하고, 틀리면 버튼 한 번으로 바꾸기</li><li>건축물 용도·주차·위반건축물 여부까지</li><li>'68억' '3억2천' '5000/320' 그대로 쳐도 됩니다</li></ul>
   </div>
   <div class="art rv l" data-art><div class="bar"><i></i><i></i><i></i></div>
     <div class="addr">마포래미안푸르지오 101동 1503호<span class="cur"></span></div>
@@ -338,7 +401,7 @@ footer a{color:rgba(255,255,255,.8)}
       <div class="fld"><span>건축물 용도 <em>자동</em></span><b data-v="공동주택 · 아파트"></b></div>
       <div class="fld"><span>사용승인일 <em>자동</em></span><b data-v="2014.09.30"></b></div>
       <div class="fld"><span>주차 <em>자동</em></span><b data-v="세대당 1.2대"></b></div>
-      <div class="fld"><span>세대수·승강기 <em>자동</em></span><b data-v="3,885세대 · 2대"></b></div>
+      <div class="fld"><span>공시가격 <em>자동</em></span><b data-v="12억 1,000만"></b></div>
     </div>
   </div>
 </div></section>
@@ -346,51 +409,53 @@ footer a{color:rgba(255,255,255,.8)}
 <section class="sec"><div class="wrap feat">
   <div class="txt">
     <div class="num rv">03</div>
-    <div class="kicker rv" style="--d:.05s">아파트 단지 모드</div>
-    <h2 class="big rv" style="--d:.1s">단지 전체를<br><em>동·호 배치표</em>로</h2>
-    <p class="desc rv" style="--d:.15s">층과 라인으로 펼친 표 위에 내 매물, 호별 메모, 그 층 실거래가 한 번에 보입니다. 단지 전문 중개사무소라면 이것만으로도 충분합니다.</p>
-    <ul class="pts rv" style="--d:.2s"><li>평형별 시세·전세가율 요약</li><li>호마다 메모 (매도 의향, 수리 상태 등)</li><li>빈 호를 누르면 바로 매물 등록</li></ul>
+    <div class="kicker rv" style="--d:.05s">유형마다 알아서</div>
+    <h2 class="big rv" style="--d:.1s">통건물은 층별 현황,<br>토지는 <em>필지 합산</em>까지</h2>
+    <p class="desc rv" style="--d:.15s">층·용도·면적은 대장에서 깔아 드립니다. 임차인·보증금·월세만 넣으면 합계·공실·수익률이 바로 나옵니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>통건물: 층별 임대 현황 · 수익률 (융자 반영까지)</li><li>토지: 지번만 치면 필지 추가 · 합계 면적 · 평당가</li><li>상가: 호를 고르면 전용면적 · 매매면 수익률</li></ul>
   </div>
   <div class="art rv r" data-art><div class="bar"><i></i><i></i><i></i></div>
-    <div class="djhead"><span class="on">101동</span><span>102동</span><span>103동</span><span>104동</span></div>
-    <div class="dj" id="djGrid"></div>
-    <div class="lg"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:#fff;box-shadow:inset 0 0 0 2px var(--gold)"></i>메모</span><span><i style="background:#FFF6D6"></i>그 층 실거래</span></div>
+    <div class="fth"><b>층별 현황</b> · 서교동 395-12 <small>층·용도·면적 = 건축물대장 자동</small></div>
+    <table class="tbl ft2"><thead><tr><th>층</th><th>용도</th><th style="text-align:right">면적</th><th>임차인</th><th style="text-align:right">보증금 / 월세</th></tr></thead><tbody>
+      <tr><td>5F</td><td>사무소</td><td class="r">128㎡</td><td data-v="세무사사무소"></td><td class="r" data-v="3,000 / 180"></td></tr>
+      <tr><td>4F</td><td>사무소</td><td class="r">128㎡</td><td class="vac" data-v="공실"></td><td class="r" data-v="-"></td></tr>
+      <tr><td>2F</td><td>일반음식점</td><td class="r">141㎡</td><td data-v="한식당"></td><td class="r" data-v="5,000 / 260"></td></tr>
+      <tr><td>1F</td><td>소매점</td><td class="r">152㎡</td><td data-v="카페"></td><td class="r" data-v="1억 / 550"></td></tr>
+    </tbody></table>
+    <div class="sums2"><span>보증금 합계 <b>1.8억</b></span><span>월세 합계 <b>990만</b></span><span>공실 <b>1개 층</b></span><span class="y">연 수익률 <b>1.8%</b></span></div>
   </div>
 </div></section>
 
 <section class="sec alt"><div class="wrap feat rev">
   <div class="txt">
     <div class="num rv">04</div>
-    <div class="kicker rv" style="--d:.05s">손님 조건 검색</div>
-    <h2 class="big rv" style="--d:.1s">손님 조건만 넣으면<br><em>딱 맞는 매물</em>만</h2>
-    <p class="desc rv" style="--d:.15s">"5억 이하, 25평 이상, 아현동" 같은 손님 조건으로 거르고, 단지별·동네별로 묶어 평균가까지 봅니다. 여러 건을 골라 한꺼번에 상태를 바꾸거나 엑셀로 받을 수 있습니다.</p>
+    <div class="kicker rv" style="--d:.05s">아파트 단지 장부</div>
+    <h2 class="big rv" style="--d:.1s">단지 전체를<br><em>동·호 장부</em>로.<br>만기는 먼저 알려 드립니다</h2>
+    <p class="desc rv" style="--d:.15s">내 매물과 타부동산 매물, 세입자 만기, 통화 기록을 호마다 쌓아 두세요. 만기가 다가오면 빨간 D-day로 표시됩니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>첫 화면은 단지 요약 · 동을 누르면 그 동만</li><li>호마다 변경 기록이 쌓이는 장부 (연락처는 암호화 보관)</li><li>층×라인 현황판은 필요할 때만 펼치기</li></ul>
   </div>
   <div class="art rv l" data-art><div class="bar"><i></i><i></i><i></i></div>
-    <div class="chips"><span>매매 12억 이하</span><span>25평 이상</span><span>아현동</span></div>
-    <table class="tbl"><thead><tr><th>거래</th><th>단지</th><th>면적</th><th style="text-align:right">가격</th></tr></thead><tbody>
-      <tr class="gh"><td colspan="4">마포래미안푸르지오 · 평균 10.6억</td></tr>
-      <tr class="hit"><td><span class="kd">매매</span></td><td>101동 고층</td><td>25.7평</td><td style="text-align:right">11억 5,000</td></tr>
-      <tr class="x"><td><span class="kd">매매</span></td><td>103동 중층</td><td>34.5평</td><td style="text-align:right">16억</td></tr>
-      <tr class="hit"><td><span class="kd">매매</span></td><td>102동 저층</td><td>25.7평</td><td style="text-align:right">9억 8,000</td></tr>
-      <tr class="gh"><td colspan="4">아현아이파크 · 평균 11.2억</td></tr>
-      <tr class="x"><td><span class="kd j">전세</span></td><td>105동 고층</td><td>25.6평</td><td style="text-align:right">7억</td></tr>
-      <tr class="hit"><td><span class="kd">매매</span></td><td>106동 중층</td><td>25.6평</td><td style="text-align:right">11억 2,000</td></tr>
-      <tr class="x"><td><span class="kd w">월세</span></td><td>107동 저층</td><td>18.1평</td><td style="text-align:right">5,000/150</td></tr>
+    <div class="kp"><div><b>6</b><small>내 매물</small></div><div><b>4</b><small>타부동산</small></div><div class="al"><b>3</b><small>만기 임박</small></div><div><b>2</b><small>이번 달 계약</small></div></div>
+    <table class="tbl lg2"><thead><tr><th>동·호</th><th>상태</th><th>가격</th><th>만기</th></tr></thead><tbody>
+      <tr><td><b>101-302</b></td><td><span class="kd j">전세</span> 내 매물</td><td>9.8억</td><td class="dd">26.11.08 · D-13</td></tr>
+      <tr><td><b>101-704</b></td><td><span class="kd">매매</span> ○○공인</td><td>22.5억</td><td>-</td></tr>
+      <tr><td><b>101-1502</b></td><td><span class="kd">매매</span> 내 매물</td><td>21.5억</td><td>-</td></tr>
+      <tr><td><b>102-104</b></td><td>임차인 거주</td><td>-</td><td class="dd">26.12.14 · D-49</td></tr>
     </tbody></table>
   </div>
 </div></section>
 
 <section class="statement"><div class="wrap">
-  <h2 id="stmt"><span>매물은</span> <span>장부에만</span> <span>두지 마세요.</span><br><span class="g">리얼맵을 찾는</span> <span class="g">손님에게</span> <span class="g">보여 주세요.</span></h2>
+  <h2 id="stmt"><span>쓰지 않는</span> <span>기능은</span> <span>뺐습니다.</span><br><span class="g">매일 쓰는 것만</span> <span class="g">남겼습니다.</span></h2>
 </div></section>
 
 <section class="sec"><div class="wrap feat">
   <div class="txt">
     <div class="num rv">05</div>
-    <div class="kicker rv" style="--d:.05s">리얼맵 지도 광고</div>
-    <h2 class="big rv" style="--d:.1s">버튼 하나로<br><em>리얼맵 지도에</em> 광고</h2>
-    <p class="desc rv" style="--d:.15s">매물장에서 '리얼맵 등록'만 누르면 지도에 내 매물이 올라갑니다. 손님은 같은 평형 최근 실거래와 비교해 보고 바로 전화·문자로 연락합니다.</p>
-    <ul class="pts rv" style="--d:.2s"><li>법정 표시·광고 명시사항 자동 점검</li><li>호수·소유자 정보는 절대 비공개</li><li>거래완료로 바꾸면 자동으로 내려감</li></ul>
+    <div class="kicker rv" style="--d:.05s">리얼맵 지도 광고 · 오픈 예정</div>
+    <h2 class="big rv" style="--d:.1s">빈 칸만 채우면<br><em>리얼맵 지도</em>에 게시</h2>
+    <p class="desc rv" style="--d:.15s">법정 표시 항목은 대장에서 자동으로 채우고, 방향·입주일처럼 꼭 필요한 것만 묻습니다. 지금은 시범 운영 중이며, 열리면 매물장에서 바로 안내해 드립니다.</p>
+    <ul class="pts rv" style="--d:.2s"><li>법정 표시·광고 명시사항 자동 점검</li><li>호수·소유자 연락처·메모는 공개되지 않음</li><li>거래완료로 바꾸면 지도에서 자동으로 내려감</li></ul>
   </div>
   <div class="art rv r" data-art><div class="bar"><i></i><i></i><i></i></div>
     <div class="admap">
@@ -403,18 +468,12 @@ footer a{color:rgba(255,255,255,.8)}
   </div>
 </div></section>
 
-<section class="sec alt"><div class="wrap feat rev">
-  <div class="txt">
-    <div class="num rv">06</div>
-    <div class="kicker rv" style="--d:.05s">손님용 매물 브리핑 · 자동 작성</div>
-    <h2 class="big rv" style="--d:.1s">A4 한 장 브리핑을<br><em>클릭 한 번</em>으로</h2>
-    <p class="desc rv" style="--d:.15s">매물 사진, 가격, 세대 정보, 토지·건물 정보, 최근 실거래, 위치 지도까지 정리된 브리핑 자료가 바로 만들어집니다. PDF로 저장해 카톡으로 보내거나 인쇄해 상담 때 쓰세요.</p>
-  </div>
-  <div class="art rv l" data-art><div class="bar"><i></i><i></i><i></i></div>
-    <div class="a4wrap"><div class="a4"><div class="h"><i>매매</i><b>마포래미안푸르지오 101동</b><strong>21억 5,000만</strong></div><div class="ph"></div>
-      <div class="k"><div>전용<b>25.7평</b></div><div>방·욕실<b>3 · 2</b></div><div>층<b>15/25</b></div><div>향<b>남향</b></div></div>
-      <div class="ln"></div><div class="ln" style="width:70%"></div><div class="ln"></div><div class="ln" style="width:55%"></div></div></div>
-    <div class="pdfbtn">PDF 저장 ↓</div>
+<section class="sec alt"><div class="wrap">
+  <div class="price-h"><div class="kicker rv">그 밖에 꼭 필요한 것</div><h2 class="big rv" style="--d:.05s">필요한 것만, <em>제대로</em></h2></div>
+  <div class="cards3">
+    <div class="c3 rv" style="--d:0s"><i>🔎</i><b>손님 조건 검색</b><p>"5억 이하, 25평 이상, 아현동"으로 거르고, 단지별·동네별로 묶어 평균가까지 봅니다. 여러 건을 골라 한꺼번에 상태를 바꿉니다.</p></div>
+    <div class="c3 rv" style="--d:.08s"><i>📄</i><b>A4 브리핑 자동 작성</b><p>매물 사진·가격·건물 정보·최근 실거래·위치 지도가 정리된 손님용 브리핑을 클릭 한 번에. PDF로 저장해 카톡으로 보내세요.</p></div>
+    <div class="c3 rv" style="--d:.16s"><i>🔒</i><b>안심하고 쓰도록</b><p>국가 자료로 개설등록이 확인된 중개사무소만 가입합니다. 고객 연락처가 담긴 장부는 암호화해 보관하고, 내 매물은 언제든 엑셀로 내려받을 수 있습니다.</p></div>
   </div>
 </div></section>
 
@@ -426,16 +485,16 @@ footer a{color:rgba(255,255,255,.8)}
   </div>
   <div class="plans">
     <div class="plan rv" style="--d:0s"><h3>무료</h3><div class="for">처음 써보는 분</div><div class="amt" data-m="0" data-y="0">0원</div><div class="yr">&nbsp;</div>
-      <ul><li>매물 10건</li><li>지도 광고 3건</li><li>지도+리스트 모드 (주소만 치면 자동 입력)</li><li>단지 장부 3곳</li><li class="no">손님 조건 검색</li><li>필지 브리핑 (직접 입력)</li><li class="no">매물 브리핑 자동 작성</li></ul>
+      <ul><li>매물 10건</li><li>단지 장부 3곳</li><li>주소 한 줄 자동 입력</li><li>엑셀로 내려받기</li><li>지도 광고 3건 <small class="op">오픈 예정</small></li><li class="no">손님 조건 검색</li><li class="no">브리핑 자동 작성</li></ul>
       <button class="btn line" type="button" data-start>무료로 시작</button></div>
     <div class="plan hot rv" style="--d:.08s"><span class="tag">가장 많이 선택</span><h3>Basic</h3><div class="for">1인·2인 중개사무소</div><div class="amt" data-m="9900" data-y="99000">9,900원<small>/월</small></div><div class="yr" data-yr="월 8,250원꼴 · 19,800원 절약"></div>
-      <ul><li>매물 1,000건</li><li>지도 광고 300건</li><li>단지 장부 10곳</li><li>손님 조건 검색 · 한꺼번에 처리</li><li>매물 브리핑 자동 작성</li><li>담당자 1명 추가 (+4,900원)</li></ul>
+      <ul><li>매물 1,000건</li><li>단지 장부 10곳</li><li>손님 조건 검색 · 한꺼번에 처리</li><li>브리핑 자동 작성</li><li>지도 광고 300건 <small class="op">오픈 예정</small></li></ul>
       <button class="btn gold" type="button" data-start>2주 무료로 써보기</button></div>
     <div class="plan rv" style="--d:.16s"><span class="soon">오픈 예정</span><h3>Premium</h3><div class="for">직원이 있는 사무소</div><div class="amt" data-m="29900" data-y="299000">29,900원<small>/월</small></div><div class="yr" data-yr="59,800원 절약"></div>
-      <ul><li>매물 10,000건</li><li>지도 광고 1,000건</li><li>단지 장부 30곳</li><li>Basic 기능 전부</li><li>담당자 5명까지</li><li>사무소 공동 장부</li></ul>
+      <ul><li>매물 10,000건</li><li>단지 장부 30곳</li><li>직원 계정 5명 · 사무소 공동 장부</li><li>지도 광고 1,000건</li><li>Basic 기능 전부</li></ul>
       <button class="btn off" type="button" disabled>준비 중</button></div>
     <div class="plan rv" style="--d:.24s"><span class="soon">오픈 예정</span><h3>VIP</h3><div class="for">중개법인·대형 사무소</div><div class="amt" data-m="49900" data-y="499000">49,900원<small>/월</small></div><div class="yr" data-yr="99,800원 절약"></div>
-      <ul><li>매물 무제한</li><li>지도 광고 무제한</li><li>단지 장부 100곳</li><li>Basic 기능 전부</li><li>담당자 20명까지</li><li>그 이상은 별도 문의</li></ul>
+      <ul><li>매물 무제한</li><li>단지 장부 100곳</li><li>직원 계정 20명</li><li>지도 광고 무제한</li><li>그 이상은 별도 문의</li></ul>
       <button class="btn off" type="button" disabled>준비 중</button></div>
   </div>
   <p class="vat rv">모든 금액은 부가세 포함입니다. 결제는 곧 열립니다. 지금 시작하시면 2주 동안 Basic 기능을 모두 무료로 쓰실 수 있습니다.</p>
@@ -444,7 +503,7 @@ footer a{color:rgba(255,255,255,.8)}
 <section class="sec" style="padding-top:20px"><div class="wrap">
   <div class="freebox rv z">
     <h2>2주간 무료로 써보고<br>결정하세요.</h2>
-    <p>결제 안 해도 <b>매물 10건까지는 무료!</b></p>
+    <p>결제 안 해도 <b>매물 10건 · 단지 3곳은 무료!</b></p>
     <button class="btn lg" type="button" data-start>지금 무료로 시작하기 →</button>
     <div class="small">카카오 로그인 · 중개사무소 정보 입력 · 1분이면 끝</div>
   </div>
@@ -453,11 +512,12 @@ footer a{color:rgba(255,255,255,.8)}
 <section class="sec alt"><div class="wrap">
   <div class="price-h"><div class="kicker rv">자주 묻는 질문</div><h2 class="big rv" style="--d:.05s">궁금하신 점</h2></div>
   <div class="faq">
-    <details class="rv"><summary>제 매물장을 다른 사람이 볼 수 있나요?</summary><p>아니요. 매물장은 로그인한 본인만 볼 수 있습니다. '리얼맵 등록'을 누른 매물만 지도에 광고로 공개되고, 그때도 호수·소유자 연락처·메모는 공개되지 않습니다.</p></details>
-    <details class="rv"><summary>2주 무료 체험이 끝나면 어떻게 되나요?</summary><p>자동으로 결제되지 않습니다. 무료 이용으로 바뀌어 매물 10건, 지도 광고 3건까지 계속 쓰실 수 있습니다. 체험 때 10건보다 많이 등록하셨다면 매물은 하나도 지워지지 않고, 언제든 보고 엑셀로 내려받으실 수 있습니다. 다만 수정과 상태 변경은 최근 등록한 10건만 가능하며, Basic으로 올리시면 바로 모두 수정하실 수 있습니다.</p></details>
-    <details class="rv"><summary>공인중개사가 아니어도 가입할 수 있나요?</summary><p>리얼맵 매물장은 중개사무소 개설등록을 한 공인중개사를 위한 서비스입니다. 시작할 때 중개사무소 명칭·등록번호 등을 입력하며, 지도 광고에도 이 정보가 함께 표시됩니다.</p></details>
+    <details class="rv"><summary>제 매물장을 다른 사람이 볼 수 있나요?</summary><p>아니요. 매물장과 단지 장부는 로그인한 본인만 볼 수 있습니다. 고객 연락처가 담긴 단지 장부는 암호화해서 보관합니다. 지도 광고가 열린 뒤에도 '리얼맵 등록'을 누른 매물만 공개되고, 호수·소유자 연락처·메모는 공개되지 않습니다.</p></details>
+    <details class="rv"><summary>2주 무료 체험이 끝나면 어떻게 되나요?</summary><p>자동으로 결제되지 않습니다. 무료 이용으로 바뀌어 매물 10건, 단지 장부 3곳까지 계속 쓰실 수 있습니다. 체험 때 더 많이 등록하셨다면 하나도 지워지지 않고 언제든 보고 엑셀로 내려받으실 수 있습니다. 다만 수정은 무료 한도 안에서만 되며, Basic으로 올리시면 바로 모두 수정하실 수 있습니다.</p></details>
+    <details class="rv"><summary>지도 광고는 언제 열리나요?</summary><p>지금은 시범 운영 중입니다. 열리면 매물장 화면에서 바로 안내해 드리고, 그때부터 요금제별 광고 건수만큼 리얼맵 지도에 올리실 수 있습니다.</p></details>
+    <details class="rv"><summary>공인중개사가 아니어도 가입할 수 있나요?</summary><p>리얼맵 매물장은 중개사무소 개설등록을 한 공인중개사를 위한 서비스입니다. 시작할 때 등록번호와 대표 공인중개사 성명을 국가 자료로 확인합니다.</p></details>
     <details class="rv"><summary>결제는 어떻게 하나요?</summary><p>카드 결제를 준비하고 있습니다. 결제가 열리면 매물장 화면에서 바로 안내해 드립니다. 그 전까지는 체험과 무료 이용으로 마음껏 써 보세요.</p></details>
-    <details class="rv"><summary>엑셀로 정리해 둔 매물도 옮길 수 있나요?</summary><p>지금은 한 건씩 등록하시면 됩니다. 주소만 넣으면 대부분 자동으로 채워져서 생각보다 빠릅니다. 매물장은 언제든 엑셀로 내려받을 수 있습니다.</p></details>
+    <details class="rv"><summary>엑셀로 정리해 둔 매물도 옮길 수 있나요?</summary><p>엑셀 파일을 올려 한 번에 옮기는 기능을 준비하고 있습니다. 그 전에는 주소 한 줄씩 넣으시면 면적·층·용도가 자동으로 채워져서 생각보다 빠릅니다. 매물장은 언제든 엑셀로 내려받을 수 있습니다.</p></details>
   </div>
 </div></section>
 
@@ -494,13 +554,6 @@ footer a{color:rgba(255,255,255,.8)}
   // ---------- 나타나기 ----------
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); if (e.target.hasAttribute('data-art')) setTimeout(() => e.target.classList.add('go'), 350); io.unobserve(e.target); } }), { threshold: .18, rootMargin: '0px 0px -8% 0px' });
   document.querySelectorAll('.rv,[data-art]').forEach(el => io.observe(el));
-  // ---------- 단지 배치표 그림 ----------
-  (() => {
-    const g = $('djGrid'), S = { '1503': 's', '1201': 'j', '0802': 'w', '1004': 's', '0603': 'j' }, M = ['1402', '0901', '0504'], T = ['1203', '1204', '0703'];
-    let h = '', n = 0;
-    for (let f = 15; f >= 4; f--) { h += `<div class="fl">${f}F</div>`; for (let l = 1; l <= 4; l++) { const ho = String(f).padStart(2, '0') + '0' + l; h += `<div class="c ${S[ho] || ''}${M.includes(ho) ? ' m' : ''}${T.includes(ho) ? ' t' : ''}" style="transition-delay:${(n++ * 0.025).toFixed(3)}s">${f}0${l}</div>`; } }
-    g.innerHTML = h;
-  })();
   // ---------- 요금 월간/연간 ----------
   const cycle = c => {
     document.querySelectorAll('[data-cycle]').forEach(b => b.setAttribute('aria-pressed', b.dataset.cycle === c));

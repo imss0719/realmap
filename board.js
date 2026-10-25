@@ -880,5 +880,11 @@ window.Board = (() => {
     const r = $('b_' + id); if (r) { r.classList.add('on'); if (scroll) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
   }
   function init(host) { H = host; X = host.X; }
-  return { init, mount, refresh, focus, autoItem, _man: man };
+  // 알림에서 '그 매물로 가기': 거르기를 풀고 그 줄을 펼쳐서 보여 줌
+  function reveal(id) {
+    const x = H.items().find(i => i.id === id); if (!x) return;
+    B.ty = 'all'; B.kind = 'all'; B.q = ''; if (B.st !== 'all' && x.status !== B.st) B.st = 'all';
+    B.open.add(id); B.hl = id; refresh(); setTimeout(() => focus(id, true), 60);
+  }
+  return { init, mount, refresh, focus, reveal, autoItem, _man: man };
 })();
