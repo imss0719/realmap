@@ -393,6 +393,19 @@ body.djmode .side{display:none!important}
 .dj .kpis div{background:var(--soft,#F4F6F8);border-radius:10px;padding:6px 4px;text-align:center}
 .dj .kpis b{display:block;font-size:20px;line-height:1.2}.dj .kpis small{font-size:12px;color:var(--muted)}
 .dj .kpis .al b{color:#C92A2A}
+.dj .djmbar{display:flex;align-items:center;gap:8px;margin:0 0 8px}.dj .djmbar .btn[aria-pressed=true]{border-color:var(--navy);color:var(--navy)}
+.dj .djmap{position:relative;height:340px;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin-bottom:6px}
+.dj .djmap-msg{padding:20px;text-align:center;color:var(--muted);font-size:13px}
+.dj .djmap-ld{position:absolute;left:8px;bottom:8px;z-index:5;background:rgba(255,255,255,.92);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--muted)}
+.djml{border:2px solid #AEB7C0;background:#fff;border-radius:10px;padding:3px 9px;font:inherit;font-size:13px;font-weight:800;color:var(--navy);white-space:nowrap;cursor:pointer;box-shadow:0 1px 4px rgba(20,33,46,.25)}
+.djml.has{border-color:var(--gold);background:#FFF6D6;color:#5C4500}
+.djml.sel{background:var(--navy);border-color:var(--navy);color:#fff}
+.djml.dim{opacity:.55}
+.djml em{font-style:normal;display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:5px;padding:0 5px;border-radius:9px;background:var(--gold);color:var(--navy);font-size:11px;font-weight:800}
+.djml em.o{background:#fff;box-shadow:inset 0 0 0 1.5px var(--navy)}
+.djml i{font-style:normal;margin-left:5px;font-size:11px;color:#E03131}
+.djml.sel i{color:#FFB3B3}
+@media(max-width:700px){.dj .djmap{height:260px}}
 .dj .tbbar{display:flex;align-items:center;gap:8px;margin:2px 0 8px}
 .dj .tbbar .btn[aria-pressed=true]{border-color:var(--navy);color:var(--navy)}
 .dj .tbf{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:2px 0 8px}
@@ -782,6 +795,7 @@ body.cumode .side{display:none!important}body.djmode .legend,body.cumode .legend
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<script src="dongpos.js"></script>
 <script src="danji.js"></script>
 <script src="board.js"></script>
 <script src="sms.js"></script>

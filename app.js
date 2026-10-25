@@ -2607,7 +2607,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 실거래(진한 남색·거래 월)와 구분: 흰 바탕 + 노란 테두리 + 매매/전세/월세 표시. 레벨 6까지 건물별, 7~10은 동별 건수.
   const IS_PHONE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
   const LKIND = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
-  const LS = { on: true, items: [], ovs: new Map(), loaded: false, cmp: {} };
+  const LS = { on: true, items: [], ovs: new Map(), loaded: false, cmp: {}, dq: new Set() };
   const lsMain = x => x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || 0) + (x.pr || 0) : x.kind === 'jeonse' ? x.deposit : x.deposit || 0;
   const lsPrice = x => x.kind === 'wolse' ? `${x.deposit ? eok(x.deposit).replace(/만$/, '') : '0'}/${n(x.rent)}` : x.kind === 'presale' ? `P ${eok(x.pr || 0)}` : eok(lsMain(x));
   const lsPriceFull = x => x.kind === 'wolse' ? `보증금 ${x.deposit ? won(x.deposit) : '없음'} · 월 ${n(x.rent)}만원` : x.kind === 'presale' ? `분양가 ${won(x.price)} + 프리미엄 ${won(x.pr)}` : won(lsMain(x));
@@ -2622,9 +2622,18 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     api('/api/auth?action=pubs').then(j => { LS.items = (j.items || []).filter(x => x.lat && x.lng); LS.loaded = true; drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
   }
   // 건물(필지)별로 묶기: 가장 낮은 가격 하나 + 건수
+  // 가까이(레벨 4 이하) 보면 아파트·오피스텔 매물은 그 동 위에 따로 표시 (동 위치는 DongPos로 한 번만 받음, 못 찾으면 단지 자리)
   function lsGroups() {
-    const g = new Map();
-    for (const x of LS.items) { const k = x.pnu; const e = g.get(k) || g.set(k, { pnu: k, lat: x.lat, lng: x.lng, list: [] }).get(k); e.list.push(x); }
+    const g = new Map(), close = S.map && S.map.getLevel() <= 4 && window.DongPos, b = close ? S.map.getBounds() : null;
+    for (const x of LS.items) {
+      let k = x.pnu, lat = x.lat, lng = x.lng, dn = '';
+      if (close && x.dong) {
+        const p = DongPos.at(x.pnu, x.dong);
+        if (p) { dn = DongPos.norm(x.dong); k += '|' + dn; lat = p.lat; lng = p.lng; }
+        else if (!DongPos.peek(x.pnu) && !LS.dq.has(x.pnu) && b.contain(new kakao.maps.LatLng(x.lat, x.lng))) { LS.dq.add(x.pnu); DongPos.get(x.pnu).then(v => { if (v.list.length) { drawListings(); drawTrades(); } }); }
+      }
+      const e = g.get(k) || g.set(k, { pnu: x.pnu, dn, lat, lng, list: [] }).get(k); e.list.push(x);
+    }
     g.forEach(e => e.list.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'sale' ? -1 : 1) || lsMain(a) - lsMain(b)));
     return [...g.values()];
   }
@@ -2643,13 +2652,13 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (lv <= 6) {
       for (const e of lsGroups()) {
         const ll = new K.LatLng(e.lat, e.lng); if (!b.contain(ll)) continue;
-        const id = 'b' + e.pnu + ':' + e.list.length + ':' + e.list.map(x => x.k + lsMain(x)).join(); show.add(id);
+        const id = 'b' + e.pnu + (e.dn ? '|' + e.dn : '') + ':' + e.list.length + ':' + e.list.map(x => x.k + lsMain(x)).join(); show.add(id);
         let o = LS.ovs.get(id);
         if (!o) {
           const x = e.list[0], el = document.createElement('button');
           el.type = 'button'; el.className = 'llabel';
-          el.title = `${x.bname || x.addr} · 중개사 매물 ${e.list.length}건 (지금 나와 있는 물건)`;
-          el.innerHTML = `<i class="lk-${x.kind}">${LKIND[x.kind]}</i><span><b>${esc(lsPrice(x))}</b><small>${x.area ? Math.round(x.area) + '㎡' : ''}${x.flr ? ' · ' + esc(x.flr) : ''}</small></span>${e.list.length > 1 ? `<em>${e.list.length}</em>` : ''}`;
+          el.title = `${x.bname || x.addr}${e.dn ? ' ' + e.dn + '동' : ''} · 중개사 매물 ${e.list.length}건 (지금 나와 있는 물건)`;
+          el.innerHTML = `<i class="lk-${x.kind}">${LKIND[x.kind]}</i><span><b>${esc(lsPrice(x))}</b><small>${[e.dn ? esc(e.dn) + '동' : '', x.area ? Math.round(x.area) + '㎡' : '', x.flr ? esc(x.flr) : ''].filter(Boolean).join(' · ')}</small></span>${e.list.length > 1 ? `<em>${e.list.length}</em>` : ''}`;
           el.onclick = ev => { ev.stopPropagation(); S.lstJump = true; pickPnu(e.pnu); };
           o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 5, clickable: true });
           LS.ovs.set(id, o);

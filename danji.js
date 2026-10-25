@@ -296,6 +296,8 @@ window.Danji = (() => {
         <div class="sum">${summary(C)}<button type="button" class="lnk" id="dj_bt">${open ? '시세 접기 ▴' : '시세 자세히 ▾'}</button></div>
         ${open ? `<div id="dj_board">${board(C)}</div>` : ''}</div>
       <div class="card gcard">
+        <div class="djmbar"><button type="button" class="btn ghost sm" id="dj_mapT" aria-pressed="${mapOn()}">${mapOn() ? '동 지도 닫기 ▴' : '동 지도 보기 ▾'}</button><span class="note">${mapOn() ? '동을 누르면 그 동만 봅니다' : '동마다 내 매물·타부동산·만기를 지도에서'}</span></div>
+        <div id="dj_mapSlot"></div>
         <div class="dongs" id="dj_dongs"><button type="button" data-dong="all" aria-pressed="${C.view === 'all'}">전체</button>${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = dongCounts(cx, d, MM); const sp = C.scan && C.scan.per[d.pnu], wt = !!sp && !sp.done && !sp.cached && !Array.isArray(C.units[k]); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${C.view === 'dong' && k === C.cur}" class="${n.m || n.o || n.e ? 'has' : ''}${wt ? ' wait' : ''}">${esc(d.dong)}${n.m ? `<em title="내 매물">${n.m}</em>` : ''}${n.o ? `<em class="o" title="타부동산 매물">${n.o}</em>` : ''}${n.e ? `<i class="xd" title="만기 임박">${n.e}</i>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
         <div class="dj-scanbar" id="dj_scan" hidden></div>
         ${LL && LL.err ? `<p class="hjwarn">호실 장부를 쓸 수 없어 보기만 됩니다: ${esc(LL.err)}</p>` : ''}
@@ -315,6 +317,8 @@ window.Danji = (() => {
     });
     fitDongs();
     if (!S.fitOn) { S.fitOn = true; let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(fitDongs, 150); }); }
+    $('dj_mapT').onclick = () => { try { localStorage.setItem('rm.djmap', mapOn() ? '' : '1'); } catch { /* 무시 */ } drawComplex(cx); };
+    drawCxMap(cx, MM);
     if ($('dj_boardT')) $('dj_boardT').onclick = () => { try { localStorage.setItem('rm.djboard2', boardOn() ? '' : '1'); } catch { /* 무시 */ } drawComplex(cx); };
     if (C.scan) scanApply(cx, C);
     // 동 표는 호 목록이 있어야 하므로, 현황판을 닫아 두어도 그림 상자에서 호 목록을 받아 둡니다(상자는 숨김)
@@ -324,6 +328,53 @@ window.Danji = (() => {
     if (sd && !S.seeded && sd !== 'clear') { const tg = S.cx.items.find(c => /마포래미안푸르지오/.test(String(c.name).replace(/\s/g, ''))); if (tg && tg.id !== cx.id) { S.cur = tg.id; return draw(); } }   // 마포래미안푸르지오가 있으면 그 단지로
     if (sd && !S.seeded && C.dongs && C.dongs.length && LL && LL.units) { S.seeded = true; history.replaceState(null, '', location.pathname + '?mode=danji'); setTimeout(() => seedTest(cx, sd === 'clear' ? 'clear' : 'add'), 300); }
   }
+
+  // ---------- 지도 현황판: 동 위치(DongPos) 위에 동마다 내 매물·타부동산·만기 ----------
+  // 지도는 한 번만 만들고, 다시 그릴 때는 같은 지도 상자를 새 자리로 옮겨 붙입니다(깜빡임·재로딩 없음)
+  const mapOn = () => { try { return localStorage.getItem('rm.djmap') === '1'; } catch { return false; } };
+  function drawCxMap(cx, MM) {
+    const slot = $('dj_mapSlot'), C = S.C[cx.id]; if (!slot) return;
+    if (!mapOn() || !C) return;
+    if (!window.kakao || !kakao.maps || !kakao.maps.Map || !window.DongPos) { slot.innerHTML = '<div class="djmap-msg">지도를 불러오는 중입니다…</div>'; setTimeout(() => { if ($('dj_mapSlot') === slot && S.cur === cx.id) drawCxMap(cx, MM); }, 800); return; }
+    const K = kakao.maps, M = S.mp || (S.mp = { el: Object.assign(document.createElement('div'), { className: 'djmap' }), map: null, ovs: [], fit: '' });
+    slot.appendChild(M.el);
+    if (!M.map) M.map = new K.Map(M.el, { center: new K.LatLng(cx.places[0].lat || 37.55, cx.places[0].lng || 126.93), level: 3 });
+    else M.map.relayout();
+    M.ovs.forEach(o => o.setMap(null)); M.ovs = [];
+    const pnus = [...new Set(cx.places.map(p => p.pnu))];
+    const got = pnus.map(p => DongPos.peek(p));
+    if (got.some(v => !v)) {   // 아직 안 받은 필지 → 받은 뒤 다시
+      const ld = document.createElement('div'); ld.className = 'djmap-ld'; ld.textContent = '동 위치를 불러오는 중…'; M.el.appendChild(ld);
+      Promise.all(pnus.map(p => DongPos.get(p))).then(() => { ld.remove(); if (S.cur === cx.id && $('dj_mapSlot')) drawCxMap(cx, mineMap(cx)); });
+      return;
+    }
+    const posOf = d => DongPos.at(d.pnu, d.dong) || pnus.map(p => DongPos.at(p, d.dong)).find(Boolean) || null;
+    const ringOf = d => { for (const p of [d.pnu, ...pnus]) { const v = DongPos.peek(p), b = v && v.by.get(normD(d.dong)); if (b) return b.ring || []; } return []; };
+    const F = TF(), bounds = new K.LatLngBounds(), miss = [];
+    let any = 0;
+    for (const d of C.dongs || []) {
+      const pos = posOf(d); if (!pos) { miss.push(d.dong); continue; }
+      const k = d.pnu + '|' + d.dong, n = dongCounts(cx, d, MM), sel = C.view === 'dong' && C.cur === k;
+      const hit = F.st === 'mine' ? n.m : F.st === 'other' ? n.o : F.st === 'exp' ? n.e : (n.m || n.o || n.e);
+      const col = n.m ? '#F2B705' : n.o ? '#5B7FA6' : '#AEB7C0';
+      const ring = ringOf(d);
+      if (ring.length > 2) {
+        const pg = new K.Polygon({ path: ring.map(([x, y]) => new K.LatLng(y, x)), strokeWeight: sel ? 3 : n.e ? 2 : 1, strokeColor: sel ? '#14212E' : n.e ? '#E03131' : col, strokeOpacity: 1, fillColor: col, fillOpacity: hit ? .45 : .18 });
+        pg.setMap(M.map); M.ovs.push(pg);
+        K.event.addListener(pg, 'click', () => pickDong(cx, k));
+      }
+      const el = document.createElement('button'); el.type = 'button';
+      el.className = `djml${n.m || n.o ? ' has' : ''}${sel ? ' sel' : ''}${hit ? '' : ' dim'}`;
+      el.innerHTML = `${esc(d.dong)}${n.m ? `<em title="내 매물">${n.m}</em>` : ''}${n.o ? `<em class="o" title="타부동산 매물">${n.o}</em>` : ''}${n.e ? `<i title="만기 임박">만기 ${n.e}</i>` : ''}`;
+      el.onclick = e => { e.stopPropagation(); pickDong(cx, k); };
+      const ov = new K.CustomOverlay({ position: new K.LatLng(pos.lat, pos.lng), content: el, yAnchor: .5, zIndex: sel ? 10 : hit ? 5 : 1, clickable: true });
+      ov.setMap(M.map); M.ovs.push(ov); bounds.extend(new K.LatLng(pos.lat, pos.lng)); any++;
+    }
+    if (miss.length) { const m = document.createElement('div'); m.className = 'djmap-ld'; m.textContent = `위치를 못 찾은 동: ${miss.slice(0, 6).join(', ')}${miss.length > 6 ? ` 외 ${miss.length - 6}` : ''}`; M.el.appendChild(m); M.ovs.push({ setMap: () => m.remove() }); }
+    if (!any) { const m = document.createElement('div'); m.className = 'djmap-ld'; m.textContent = C.dongs ? '이 단지는 동 위치 자료가 없습니다' : '동 목록을 불러오는 중…'; M.el.appendChild(m); M.ovs.push({ setMap: () => m.remove() }); return; }
+    if (M.fit !== cx.id + ':' + any) { M.fit = cx.id + ':' + any; M.map.setBounds(bounds, 30, 30, 30, 30); }
+  }
+  function pickDong(cx, k) { const C = S.C[cx.id]; if (!C) return; if (C.view === 'dong' && C.cur === k) C.view = 'all'; else { C.view = 'dong'; C.cur = k; C.picked = true; } S.hist = null; drawComplex(cx); }
 
   // 동 버튼이 많으면 3줄까지만 (고른 동은 항상 보이게) + [동 전체 보기]
   function fitDongs() {
@@ -504,7 +555,7 @@ window.Danji = (() => {
       <tbody>${rows.map((x, i) => rowHtml(x, i) + (S.hist === x.key ? histRowHtml(x) : '')).join('') || `<tr><td colspan="${COLS.length}" class="empty">${ALL ? '조건에 맞는 호가 없습니다. 위에서 필터를 바꿔 보세요.' : C.view === 'all' && F.st === 'all' && !F.k && !F.a ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '조건에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       <p class="note">칸을 누르면 바로 입력 · <b>Enter</b> 저장 후 아래 칸 · <b>Tab</b> 오른쪽 칸 · <b>Esc</b> 취소 · 바뀐 내용은 날짜·시간과 함께 [기록]에 자동으로 남습니다.${C.view === 'dong' ? ` · ${rows.length}호` : ` · ${rows.length}호`}</p>`;
     colWidths(box, ALL);
-    box.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { const g = b.dataset.f, v = g === 'a' ? +b.dataset.v : b.dataset.v; F[g] = g === 'st' ? v : (F[g] === v ? '' : v); drawTable(cx); });
+    box.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { const g = b.dataset.f, v = g === 'a' ? +b.dataset.v : b.dataset.v; F[g] = g === 'st' ? v : (F[g] === v ? '' : v); drawTable(cx); if (!ALL) drawCxMap(cx, MM); });
     $('dj_sort').onchange = e => { F.sort = e.target.value; drawTable(cx); };
     $('dj_csv').onclick = () => exportCsv(cx, rows);
     if ($('dj_addHo')) $('dj_addHo').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) addHo(cx, e.target.value); };

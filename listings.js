@@ -246,8 +246,11 @@
     const seen = new Map();
     rows.forEach(x => {
       // 같은 필지(PNU)면 같은 자리로 봅니다 (검색 위치가 조금씩 달라도 첫 매물 자리에 맞춰 줄 세움)
-      const spot = x.pnu || `${(+x.lat).toFixed(4)},${(+x.lng).toFixed(4)}`;
-      const g = seen.get(spot) || { k: 0, lat: x.lat, lng: x.lng };
+      // 아파트·오피스텔처럼 동이 있으면 그 동 위에 (동 위치를 아직 안 받았으면 받은 뒤 다시 그림)
+      const dn = x.pnu && x.places && x.places[0] && x.places[0].dong, dp = dn && window.DongPos ? DongPos.at(x.pnu, dn) : null;
+      if (dn && window.DongPos && !dp && !DongPos.peek(x.pnu)) { S.dq = S.dq || new Set(); if (!S.dq.has(x.pnu)) { S.dq.add(x.pnu); DongPos.get(x.pnu).then(v => { if (v.list.length) drawPins(false); }); } }
+      const spot = x.pnu ? x.pnu + (dp ? '|' + DongPos.norm(dn) : '') : `${(+x.lat).toFixed(4)},${(+x.lng).toFixed(4)}`;
+      const g = seen.get(spot) || { k: 0, lat: dp ? dp.lat : x.lat, lng: dp ? dp.lng : x.lng };
       const k = g.k; g.k++; seen.set(spot, g);
       const el = document.createElement('div');
       el.className = `pin ${x.status === 'on' ? x.kind : x.status}${S.hl === x.id ? ' hl' : ''}`;
@@ -262,7 +265,7 @@
       let w = el.parentElement; if (w && w !== $('map')) w.style.pointerEvents = 'none';
       el.style.pointerEvents = 'auto';
     });
-    if (fit !== false && rows.length) { if (rows.length === 1) { S.map.setCenter(new kakao.maps.LatLng(rows[0].lat, rows[0].lng)); S.map.setLevel(4); } else S.map.setBounds(bounds, 40, 40, 40, 40); }
+    if (fit !== false && rows.length) { if (rows.length === 1) { const g0 = [...seen.values()][0]; S.map.setCenter(new kakao.maps.LatLng(g0.lat, g0.lng)); S.map.setLevel(4); } else S.map.setBounds(bounds, 40, 40, 40, 40); }
   }
   function focusItem(id, scroll) {
     S.hl = id; const x = S.items.find(i => i.id === id);
@@ -270,7 +273,7 @@
     const c = $('c_' + id); if (c) { c.classList.add('hl'); if (scroll) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     if (S.mode === 'list' && window.Board) Board.focus(id, scroll);
     drawPins(false);
-    if (S.map && x && x.lat) S.map.panTo(new kakao.maps.LatLng(x.lat, x.lng));
+    if (S.map && x && x.lat) { const dp = window.DongPos && x.places && x.places[0] && x.places[0].dong ? DongPos.at(x.pnu, x.places[0].dong) : null; S.map.panTo(new kakao.maps.LatLng(dp ? dp.lat : x.lat, dp ? dp.lng : x.lng)); }
   }
 
   // ---------- 등록 · 수정 ----------
