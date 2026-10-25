@@ -88,7 +88,7 @@
 
   function layout() {
     $('root').innerHTML = `<div class="wrap">
-      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
+      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="lv" id="cu" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
       <div class="side" style="display:grid;gap:12px">
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
         <div id="bkLine"></div>
@@ -116,15 +116,16 @@
   const adv = () => !S.plan || S.plan.adv;
   // 지도+리스트(list) 모드: 표가 기본, [지도로 보기]를 켜면 오른쪽에 지도 · 단지(danji) 모드는 Basic부터
   function setMode(m) {
-    S.mode = m === 'danji' ? 'danji' : 'list';
+    S.mode = m === 'danji' || m === 'cust' ? m : 'list';
     try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
-    const dj = S.mode === 'danji', lv = S.mode === 'list';
-    document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv);
+    const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust';
+    document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu);
     if (!lv) document.body.classList.remove('lvmap');
-    $('dj').hidden = !dj; $('lv').hidden = !lv; $('map').style.visibility = dj || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
+    $('dj').hidden = !dj; $('lv').hidden = !lv; $('cu').hidden = !cu; $('map').style.visibility = dj || cu || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
     document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.remove('lock'); });
     if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
+    else if (cu && window.Cust) { if (!S.cuMounted) { S.cuMounted = true; Cust.mount($('cu'), { items: () => S.items, plan: () => S.plan || {}, toast, upsell, X: bdHost().X, goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } }); } else Cust.refresh(); }
     else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }
     drawList();
   }
@@ -154,7 +155,7 @@
     return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawBk(); drawTabs(); drawList(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); }
+  function draw() { drawBk(); drawTabs(); drawList(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); if (S.mode === 'cust' && window.Cust && S.cuMounted) Cust.refresh(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
