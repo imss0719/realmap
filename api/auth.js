@@ -9,6 +9,7 @@
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
 import { ledger, dropLedger, dropLedgers } from './_ledger.js';
+import { cust, dropCust } from './_cust.js';
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
 const CSECRET = (process.env.KAKAO_CLIENT_SECRET || '').trim();
@@ -27,11 +28,11 @@ export async function dropPhotos(urls) { if (!urls.length) return; try { const {
 // 무료(계속) · 2주 무료 체험 · Basic · Premium · VIP. 저장: realmap:plan:<회원id> { plan, until, trialUsed, at }
 // 시작하지 않은 회원은 매물장을 쓸 수 없고 소개 페이지(/pro.html)로 갑니다. 예전 realmap:pro 목록 회원은 Basic으로 봅니다.
 export const PLANS = {
-  free: { name: '무료', ls: 10, ad: 3, cx: 3, adv: false },
-  trial: { name: '2주 무료 체험', ls: 1000, ad: 300, cx: 10, adv: true },
-  basic: { name: 'Basic', ls: 1000, ad: 300, cx: 10, adv: true },
-  premium: { name: 'Premium', ls: 10000, ad: 1000, cx: 30, adv: true },
-  vip: { name: 'VIP', ls: 1e9, ad: 1e9, cx: 100, adv: true },
+  free: { name: '무료', ls: 10, ad: 3, cx: 3, cu: 10, adv: false },
+  trial: { name: '2주 무료 체험', ls: 1000, ad: 300, cx: 10, cu: 300, adv: true },
+  basic: { name: 'Basic', ls: 1000, ad: 300, cx: 10, cu: 300, adv: true },
+  premium: { name: 'Premium', ls: 10000, ad: 1000, cx: 30, cu: 3000, adv: true },
+  vip: { name: 'VIP', ls: 1e9, ad: 1e9, cx: 100, cu: 1e9, adv: true },
 };
 const TRIAL_DAYS = 14;
 export async function planOf(id) {
@@ -63,7 +64,7 @@ export async function startTrial(uid) {
 // 단지 장부 한도: 등록한 순서대로 앞의 P.cx곳만 입력 가능, 넘는 단지는 보기만 (요금제를 내렸을 때)
 const cxOpen = (items, P) => new Set([...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, P.cx || 0).map(x => x.id));
 const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 10곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
-export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
+export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {
   b = b || {};
@@ -292,6 +293,7 @@ export async function brokerStat(uid, items) {
 // 중개사 서비스 데이터 지우기 (중개사 해지 · 회원 탈퇴 공용) — 일반 회원 정보는 그대로
 async function dropBroker(uid) {
   await dropLedgers(redis, uid); // 단지 장부(호실 장부) — 고객 연락처가 들어 있으므로 가장 먼저
+  await dropCust(redis, uid);    // 고객관리
   try { const b = await loadBk(uid); if (b && b.photo) await dropPhotos([b.photo]); } catch { /* 무시 */ }
   try { const b = await loadBk(uid), d = b && digitsOf(b.regno); if (d && await redis(['HGET', 'realmap:regno', d]) === String(uid)) await redis(['HDEL', 'realmap:regno', d]); } catch { /* 무시 */ }
   try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); const f = ls.map(x => `${uid}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
@@ -537,6 +539,21 @@ export default async function (req, res) {
     }
 
     // 단지 장부 — 호실 장부 (확인된 중개사무소만, 암호화 저장) → api/_ledger.js
+    // 고객관리 — 매수·임차 고객 (확인된 중개사무소만, 암호화 저장) → api/_cust.js
+    if (action === 'cu') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      const P = await planOf(s.id);
+      if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
+      const g = await bkGate(s.id);
+      if (g) return fail(res, 403, 'bk', '고객관리는 고객 연락처를 다루므로 중개사무소 확인이 끝난 회원만 쓸 수 있습니다. ' + (g.msg || ''));
+      let body = {};
+      if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
+      return cust({ redis, uid: s.id, P, send, fail, req, res, body });
+    }
+
     if (action === 'hj') {
       res.setHeader('Cache-Control', 'no-store');
       const s = readSession(req);
