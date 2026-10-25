@@ -27,11 +27,11 @@ export async function dropPhotos(urls) { if (!urls.length) return; try { const {
 // 무료(계속) · 2주 무료 체험 · Basic · Premium · VIP. 저장: realmap:plan:<회원id> { plan, until, trialUsed, at }
 // 시작하지 않은 회원은 매물장을 쓸 수 없고 소개 페이지(/pro.html)로 갑니다. 예전 realmap:pro 목록 회원은 Basic으로 봅니다.
 export const PLANS = {
-  free: { name: '무료', ls: 10, ad: 3, adv: false },
-  trial: { name: '2주 무료 체험', ls: 1000, ad: 300, adv: true },
-  basic: { name: 'Basic', ls: 1000, ad: 300, adv: true },
-  premium: { name: 'Premium', ls: 10000, ad: 1000, adv: true },
-  vip: { name: 'VIP', ls: 1e9, ad: 1e9, adv: true },
+  free: { name: '무료', ls: 10, ad: 3, cx: 3, adv: false },
+  trial: { name: '2주 무료 체험', ls: 1000, ad: 300, cx: 10, adv: true },
+  basic: { name: 'Basic', ls: 1000, ad: 300, cx: 10, adv: true },
+  premium: { name: 'Premium', ls: 10000, ad: 1000, cx: 30, adv: true },
+  vip: { name: 'VIP', ls: 1e9, ad: 1e9, cx: 100, adv: true },
 };
 const TRIAL_DAYS = 14;
 export async function planOf(id) {
@@ -60,8 +60,10 @@ export async function startTrial(uid) {
   const used = await redis(['SISMEMBER', 'realmap:trialused', String(uid)]).catch(() => 0);
   await redis(['SET', `realmap:plan:${uid}`, JSON.stringify(used ? { plan: 'free', trialUsed: true, at: new Date(now).toISOString() } : { plan: 'trial', until: new Date(now + TRIAL_DAYS * 86400e3).toISOString(), trialUsed: true, at: new Date(now).toISOString() })]);
 }
-async function isPro(id) { return (await planOf(id)).adv; }
-export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
+// 단지 장부 한도: 등록한 순서대로 앞의 P.cx곳만 입력 가능, 넘는 단지는 보기만 (요금제를 내렸을 때)
+const cxOpen = (items, P) => new Set([...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, P.cx || 0).map(x => x.id));
+const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 10곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
+export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {
   b = b || {};
@@ -452,7 +454,8 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
-      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '단지 모드는 Basic 요금제부터 쓸 수 있습니다.');
+      const P = await planOf(s.id);
+      if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
       const key = `realmap:cx:${s.id}`;
       let d; try { const v = await redis(['GET', key]); d = v ? JSON.parse(v) : null; } catch { d = null; }
       d = d || { items: [], memos: {} };
@@ -465,9 +468,9 @@ export default async function (req, res) {
       const it = d.items.find(x => x.id === id);
       if (body.op === 'add') {
         const pl = place(body.place); if (!pl) return fail(res, 400, 'bad_pnu', '단지 주소를 먼저 골라 주세요.');
-        if (d.items.length >= 30) return fail(res, 400, 'full', '단지는 30곳까지 등록할 수 있습니다.');
         const dup = d.items.find(x => x.places.some(p => p.pnu === pl.pnu));
         if (dup) return send(res, 200, { ok: true, ...d, id: dup.id });
+        if (d.items.length >= P.cx) return fail(res, 400, 'full', cxFull(P), { plan: planView(P) });
         const nid = Date.now().toString(36) + crypto.randomBytes(2).toString('hex');
         d.items.unshift({ id: nid, name: str(body.name, 40) || pl.addr, places: [pl], at: now });
         await redis(['SET', key, JSON.stringify(d)]);
@@ -509,7 +512,8 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
-      if (!(await isPro(s.id))) return fail(res, 403, 'pro', '단지 모드는 Basic 요금제부터 쓸 수 있습니다.');
+      const P = await planOf(s.id);
+      if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
       const g = await bkGate(s.id);
       if (g) return fail(res, 403, 'bk', '호실 장부는 고객 연락처를 다루므로 중개사무소 확인이 끝난 회원만 쓸 수 있습니다. ' + (g.msg || ''));
       const ck = `realmap:cx:${s.id}`;
@@ -517,6 +521,7 @@ export default async function (req, res) {
       d = d || { items: [], memos: {} }; d.memos = d.memos || {};
       let body = {};
       if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
+      if (req.method === 'POST') { const cid = String(req.query.id || body.id || ''); if (d.items.some(x => x.id === cid) && !cxOpen(d.items, P).has(cid)) return fail(res, 403, 'cxlock', `이 단지는 보기만 됩니다. ${cxFull(P)}`, { plan: planView(P) }); }
       return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body });
     }
 
