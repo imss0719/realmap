@@ -1,7 +1,7 @@
 // 좌표(또는 PNU) → 필지 경계·PNU·지번
 // GET /api/parcel?lat=37.55&lng=126.93   또는   /api/parcel?pnu=1144010700100330001
 // GET /api/parcel?pnu=…&dongs=1[&pnus=…&want=101,102&name=단지명]  → 단지 동 이름·위치 (읽기 전용)
-import { handler, send, fail, need, vworldData, cached, VWORLD_KEY } from './_lib.js';
+import { handler, send, fail, need, vworldData, cached, pool, VWORLD_KEY } from './_lib.js';
 
 export default handler(async (req, res) => {
   if (!need(res, [VWORLD_KEY, 'VWORLD_KEY'])) return;
@@ -90,6 +90,7 @@ const DONG_FIELDS = ['buld_nm_dc', 'bul_dpn_se', 'buld_nm', 'dong_nm', 'bld_nm']
 function dongOf(p) {
   const keys = [...DONG_FIELDS.filter(k => k in p), ...Object.keys(p).filter(k => !DONG_FIELDS.includes(k) && !/emd|li_nm|sig|sido|rd_nm|adr/i.test(k))];
   for (const k of keys) { const v = String(p[k] ?? '').trim(), m = v.match(DONG); if (m) return { dong: m[1].toUpperCase() + '동', from: k }; }
+  const dc = String(p.buld_nm_dc ?? '').trim(); if (/^\d{1,4}$/.test(dc)) return { dong: dc + '동', from: 'buld_nm_dc' };   // 상세건물명에 "401"처럼 숫자만
   return null;
 }
 const r6 = n => Math.round(n * 1e6) / 1e6;
@@ -100,7 +101,7 @@ const r6 = n => Math.round(n * 1e6) / 1e6;
 const nd = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
 const nn = s => String(s || '').replace(/\s|\(.*?\)|아파트|APT|\d+단지$/gi, '');
 async function dongs(pnus, want, name) {
-  const key = 'dongr:v2:' + pnus.join(',') + (want.length ? ':' + want.join(',') : '') + (want.length && name ? ':' + name : '');
+  const key = 'dongr:v3:' + pnus.join(',') + (want.length ? ':' + want.join(',') : '') + (want.length && name ? ':' + name : '');
   try {
     return await cached(key, 24 * 3600e3, async () => { const r = await dongsNow(pnus, want, name); if (!r.ok || !r.total) throw Object.assign(new Error('empty'), { res: r }); return r; });
   } catch (e) { if (e.res) return e.res; throw e; }
@@ -132,8 +133,8 @@ async function dongsNow(pnus, want, name) {
   const same = sn => sn.length >= 19 && pnus.some(pnu => sn.slice(0, 10) === pnu.slice(0, 10) && sn.slice(11, 19) === pnu.slice(11, 19));
   const cx0 = (x1 + x2) / 2, cy0 = (y1 + y2) / 2, base = nn(name), W = new Set(want);
   const best = new Map(), out = [], sample = [];
-  for (const f of feats) {
-    const p = f.properties || {}, c = center(f.geometry); if (!c) continue;
+  const take = (f, far) => {
+    const p = f.properties || {}, c = center(f.geometry); if (!c) return;
     const sn = String(p.bd_mgt_sn || '').replace(/\D/g, ''), inside = pars.some(z => inGeom(c[0], c[1], z.g)), bySn = same(sn);
     const d = dongOf(p), bn = String(p.buld_nm || '').trim();
     const b = {
@@ -142,23 +143,37 @@ async function dongsNow(pnus, want, name) {
       ring: (polys(f.geometry)[0]?.[0] || []).map(([x, y]) => [r6(x), r6(y)]),
     };
     if (W.size) {   // 동 목록에 있는 이름만, 이름마다 가장 그럴듯한 건물 하나
-      if (!d || !W.has(nd(d.dong))) continue;
-      const nm = base && bn && (nn(bn).includes(base) || base.includes(nn(bn)));
-      const score = (inside || bySn ? 0 : 2) + (nm ? 0 : 1) + Math.hypot(c[0] - cx0, (c[1] - cy0) * 1.25);
+      if (!d || !W.has(nd(d.dong))) return;
+      const nm = base && bn && (nn(bn).includes(base) || base.includes(nn(bn))), dist = Math.hypot(c[0] - cx0, (c[1] - cy0) * 1.25);
+      if (far && !nm && dist > 0.003) return;   // 넓게 찾을 때는 단지 이름이 같거나 가까운 것만
+      const score = (inside || bySn ? 0 : 2) + (nm ? 0 : 1) + dist;
       const k = nd(d.dong), cur = best.get(k);
       if (!cur || score < cur.score) best.set(k, { score, b });
     } else {
-      if (!inside && !bySn) continue;
+      if (!inside && !bySn) return;
       if (sample.length < 3) sample.push(p);
       out.push(b);
     }
+  };
+  feats.forEach(f => take(f, false));
+  // 그래도 못 찾은 동이 있으면 (대표지번 필지가 건물과 멀리 떨어진 단지 등) 단지 주변 약 400m를 칸으로 나눠 더 찾음
+  let wide = 0;
+  if (W.size && want.some(w => !best.has(w))) {
+    const E = 0.004, T = 0.004, tiles = [];
+    for (let x = x1 - E; x < x2 + E && tiles.length < 25; x += T) for (let y = y1 - E; y < y2 + E && tiles.length < 25; y += T) tiles.push(`BOX(${x.toFixed(6)},${y.toFixed(6)},${(x + T).toFixed(6)},${(y + T).toFixed(6)})`);
+    const got = await pool(tiles, 4, async box => {
+      const all = [];
+      for (let page = 1; page <= 3; page++) { const f = await vworldData({ data: 'LT_C_SPBD', geomFilter: box, size: '1000', page: String(page) }); all.push(...f); if (f.length < 1000) break; }
+      return all;
+    });
+    for (const r of got) if (r && r.ok) for (const f of r.v) { wide++; take(f, true); }
   }
   best.forEach(v => out.push(v.b));
   const key = s => { const m = s.dong.match(/^(\d+)/); return m ? [0, +m[1], ''] : s.dong ? [1, 0, s.dong] : [2, 0, s.name]; };
   out.sort((a, b) => { const A = key(a), B = key(b); return A[0] - B[0] || A[1] - B[1] || A[2].localeCompare(B[2]); });
   return {
     ok: true, pnu: pnus[0], pnus, addr: pars[0].p.addr || '', jibun: pars[0].p.jibun || '', parcel: pars[0].g,
-    total: out.length, named: out.filter(b => b.dong).length, nearby: feats.length, cut,
+    total: out.length, named: out.filter(b => b.dong).length, nearby: feats.length, cut, wide,
     miss: want.filter(w => !best.has(w)),   // 동 목록에 있는데 못 찾은 동
     buildings: out,
     sample,   // 원본 속성 몇 개 (어느 칸에 동 이름이 들어 있는지 확인용)
