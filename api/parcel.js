@@ -13,7 +13,8 @@ export default handler(async (req, res) => {
   }
   if (req.query.dongs) {
     if (!pnu) return fail(res, 400, 'bad_pnu', '단지(필지)번호를 확인해 주세요. 19자리 숫자여야 합니다.');
-    return send(res, 200, await dongs(pnu), 3600);
+    const d = await dongs(pnu);
+    return send(res, 200, d, d.ok && d.total ? 86400 : 0);
   }
   let params;
   if (pnu) params = { data: 'LP_PA_CBND_BUBUN', attrFilter: `pnu:=:${pnu}` };
@@ -89,7 +90,13 @@ function dongOf(p) {
   return null;
 }
 const r6 = n => Math.round(n * 1e6) / 1e6;
+// 건물 배치는 거의 바뀌지 않으므로 결과를 30일 보관 (Redis 'rmc:dongr:'), 건물을 하나도 못 찾은 결과는 보관하지 않음
 async function dongs(pnu) {
+  try {
+    return await cached('dongr:' + pnu, 24 * 3600e3, async () => { const r = await dongsNow(pnu); if (!r.ok || !r.total) throw Object.assign(new Error('empty'), { res: r }); return r; });
+  } catch (e) { if (e.res) return e.res; throw e; }
+}
+async function dongsNow(pnu) {
   const par = await cached('parcel:' + JSON.stringify({ data: 'LP_PA_CBND_BUBUN', attrFilter: `pnu:=:${pnu}` }), 6 * 3600e3, () => vworldData({ data: 'LP_PA_CBND_BUBUN', attrFilter: `pnu:=:${pnu}` }));
   if (!par.length) return { ok: false, error: 'not_found', message: '이 번호의 필지를 찾지 못했습니다.' };
   const pg = par[0].geometry, pp = par[0].properties || {};
@@ -97,14 +104,11 @@ async function dongs(pnu) {
   for (const P of polys(pg)) for (const [x, y] of P[0]) { x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); }
   const pad = 0.0008;   // 약 80m — 옆 필지에 걸친 같은 단지 건물까지
   const box = `BOX(${(x1 - pad).toFixed(6)},${(y1 - pad).toFixed(6)},${(x2 + pad).toFixed(6)},${(y2 + pad).toFixed(6)})`;
-  const feats = await cached('dongs:' + pnu, 24 * 3600e3, async () => {
-    const all = [];
-    for (let page = 1; page <= 3; page++) {
-      const f = await vworldData({ data: 'LT_C_SPBD', geomFilter: box, size: '1000', page: String(page) });
-      all.push(...f); if (f.length < 1000) break;
-    }
-    return all;
-  });
+  const feats = [];
+  for (let page = 1; page <= 3; page++) {
+    const f = await vworldData({ data: 'LT_C_SPBD', geomFilter: box, size: '1000', page: String(page) });
+    feats.push(...f); if (f.length < 1000) break;
+  }
   const same = sn => sn.length >= 19 && sn.slice(0, 10) === pnu.slice(0, 10) && sn.slice(11, 19) === pnu.slice(11, 19);
   const out = [], sample = [];
   for (const f of feats) {
