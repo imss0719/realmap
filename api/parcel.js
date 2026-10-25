@@ -100,7 +100,7 @@ const r6 = n => Math.round(n * 1e6) / 1e6;
 const nd = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
 const nn = s => String(s || '').replace(/\s|\(.*?\)|아파트|APT|\d+단지$/gi, '');
 async function dongs(pnus, want, name) {
-  const key = 'dongr:' + pnus.join(',') + (want.length ? ':' + want.join(',') : '') + (want.length && name ? ':' + name : '');
+  const key = 'dongr:v2:' + pnus.join(',') + (want.length ? ':' + want.join(',') : '') + (want.length && name ? ':' + name : '');
   try {
     return await cached(key, 24 * 3600e3, async () => { const r = await dongsNow(pnus, want, name); if (!r.ok || !r.total) throw Object.assign(new Error('empty'), { res: r }); return r; });
   } catch (e) { if (e.res) return e.res; throw e; }
@@ -113,13 +113,21 @@ async function dongsNow(pnus, want, name) {
   }
   if (!pars.length) return { ok: false, error: 'not_found', message: '이 번호의 필지를 찾지 못했습니다.' };
   let x1 = 180, y1 = 90, x2 = -180, y2 = -90;
-  for (const { g } of pars) for (const P of polys(g)) for (const [x, y] of P[0]) { x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); }
-  const pad = want.length ? 0.0015 : 0.0008;   // 동 목록으로 찾을 때는 약 150m 여유 (대표지번 필지가 작아도 단지 건물까지)
-  const box = `BOX(${(x1 - pad).toFixed(6)},${(y1 - pad).toFixed(6)},${(x2 + pad).toFixed(6)},${(y2 + pad).toFixed(6)})`;
-  const feats = [];
-  for (let page = 1; page <= 3; page++) {
-    const f = await vworldData({ data: 'LT_C_SPBD', geomFilter: box, size: '1000', page: String(page) });
-    feats.push(...f); if (f.length < 1000) break;
+  const bb = g => { let a = 180, b = 90, c = -180, d = -90; for (const P of polys(g)) for (const [x, y] of P[0]) { a = Math.min(a, x); c = Math.max(c, x); b = Math.min(b, y); d = Math.max(d, y); } return [a, b, c, d]; };
+  for (const { g } of pars) { const [a, b, c, d] = bb(g); x1 = Math.min(x1, a); y1 = Math.min(y1, b); x2 = Math.max(x2, c); y2 = Math.max(y2, d); }
+  // 필지마다 따로 받아 합침 (단지 전체를 한 상자로 받으면 주변 건물이 많아 3,000개 상한에 잘릴 수 있음)
+  const pad = want.length ? 0.0015 : 0.0008;   // 동 목록으로 찾을 때는 약 150m 여유
+  const feats = [], seen = new Set();
+  let cut = false;
+  for (const { g } of pars) {
+    const [a, b, c, d] = bb(g);
+    const box = `BOX(${(a - pad).toFixed(6)},${(b - pad).toFixed(6)},${(c + pad).toFixed(6)},${(d + pad).toFixed(6)})`;
+    for (let page = 1; page <= 4; page++) {
+      const f = await vworldData({ data: 'LT_C_SPBD', geomFilter: box, size: '1000', page: String(page) });
+      for (const x of f) { const c0 = center(x.geometry), id = String((x.properties && x.properties.bd_mgt_sn) || '') + (c0 ? c0[0].toFixed(6) + c0[1].toFixed(6) : ''); if (!seen.has(id)) { seen.add(id); feats.push(x); } }
+      if (f.length < 1000) break;
+      if (page === 4) cut = true;
+    }
   }
   const same = sn => sn.length >= 19 && pnus.some(pnu => sn.slice(0, 10) === pnu.slice(0, 10) && sn.slice(11, 19) === pnu.slice(11, 19));
   const cx0 = (x1 + x2) / 2, cy0 = (y1 + y2) / 2, base = nn(name), W = new Set(want);
@@ -150,7 +158,7 @@ async function dongsNow(pnus, want, name) {
   out.sort((a, b) => { const A = key(a), B = key(b); return A[0] - B[0] || A[1] - B[1] || A[2].localeCompare(B[2]); });
   return {
     ok: true, pnu: pnus[0], pnus, addr: pars[0].p.addr || '', jibun: pars[0].p.jibun || '', parcel: pars[0].g,
-    total: out.length, named: out.filter(b => b.dong).length, nearby: feats.length,
+    total: out.length, named: out.filter(b => b.dong).length, nearby: feats.length, cut,
     miss: want.filter(w => !best.has(w)),   // 동 목록에 있는데 못 찾은 동
     buildings: out,
     sample,   // 원본 속성 몇 개 (어느 칸에 동 이름이 들어 있는지 확인용)
