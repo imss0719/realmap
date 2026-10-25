@@ -234,3 +234,11 @@
 - 단지 장부의 호 입력은 매물 건수에 안 들어감(매물장만 셈). 단지에서 [리얼맵 등록]하면 매물장 1건이 됨.
 - app.js '단지에 담기' 버튼: Pro 전용 → 중개사 서비스 시작한 회원 모두.
 - pro.html 요금표에 단지 장부 3/10/30/100곳.
+
+## 10/25 휴대폰 문자 인증 (솔라피)
+- 켜는 법: Vercel 환경변수 SOLAPI_KEY · SOLAPI_SECRET · SMS_FROM(솔라피에 등록한 발신번호) 셋 다 넣으면 켜짐. 하나라도 없으면 지금처럼 인증 없이 동작(me.sms=false).
+- api/auth.js action=sms: op send(6자리, 5분, 1분 1회, 하루 계정·번호 각 5회, 코드는 HMAC으로만 저장) / op check(5번 틀리면 폐기, 맞으면 realmap:smsok:<uid>=번호 30분).
+- 가입(start)·중개사무소 정보 저장(bk): 휴대폰이 인증된 번호여야 저장(bk.mobileOk). 같은 번호면 다시 인증 안 함. 운영자 제외.
+- bkGate: 켜진 뒤 확인된 회원이라도 mobileOk가 없으면 매물장 입구에서 중개사무소 정보 창(휴대폰 인증) 먼저.
+- 화면: sms.js(SmsAuth.attach) — pro.html 가입 창, listings.html 중개사무소 정보 창. 번호를 바꾸면 인증이 풀림.
+- privacy.html 위탁에 솔라피 주식회사(문자 발송) 추가.

@@ -1154,7 +1154,9 @@
       } catch (er) { toast(er.message || '사진을 올리지 못했습니다. 다른 사진으로 다시 시도해 주세요.', 4000); }
       $('bkAv').classList.remove('up');
     };
+    const SMSA = S.me && S.me.sms && window.SmsAuth && !(S.plan && S.plan.op) ? SmsAuth.attach($('b_mobile'), { done: b.mobileOk }) : null;
     $('bSave').onclick = async () => {
+      if (SMSA && !SMSA.ok()) return toast('휴대폰 번호 인증을 먼저 해 주세요 (번호 아래 [인증번호 받기])', 3500);
       const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
       bk.photo = photo;
       $('bSave').disabled = true;

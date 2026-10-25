@@ -263,6 +263,10 @@ footer a{color:rgba(255,255,255,.8)}
   .mbox .two{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv,.hero h1 .ln>span,.hero p.lead,.hero .cta,.hero .free,.hmap .board,.pin,.tlb{opacity:1!important;transform:none!important}}
+.smsbox{margin-top:6px;font-size:13px}.smsbox .sms-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.smsbox button{border:1.5px solid #1C64C8;background:#fff;color:#1C64C8;border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}.smsbox button:disabled{opacity:.5}
+.smsbox .sms-check{background:#1C64C8;color:#fff}.smsbox .sms-code{width:110px;border:2px solid #DCE2E8;border-radius:8px;padding:6px 8px;font-size:15px;letter-spacing:2px}
+.smsbox .sms-t{color:#E03131;font-weight:700;font-variant-numeric:tabular-nums}.smsbox .sms-msg{color:#5E6A77;margin-top:4px}.smsbox .sms-ok{color:#1F7A4D;font-weight:800}
 </style>
 </head>
 <body>
@@ -472,6 +476,7 @@ footer a{color:rgba(255,255,255,.8)}
   <div class="row"><button class="btn x" type="button" id="mClose">닫기</button><button class="btn gold" type="button" id="mGo">무료 체험 시작</button></div>
 </div></div>
 
+<script src="/sms.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -516,7 +521,9 @@ footer a{color:rgba(255,255,255,.8)}
     // 확인 대기 중인 신청: 넣었던 정보를 채워 두고 안내 (다시 누르면 다시 확인)
     if (me.pend) { ['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].forEach(k => { if (me.pend[k]) $('b_' + k).value = me.pend[k]; }); $('mErr').textContent = '확인 대기 중입니다. 운영자가 확인하면 매물장이 열립니다. 지금 다시 확인하시려면 아래 버튼을 눌러 주세요.'; }
   }
+  let SMSA = null;
   ready.then(() => {
+    if (me.sms && window.SmsAuth && !PREVIEW) SMSA = SmsAuth.attach($('b_mobile'), { onDone: () => { $('mErr').textContent = ''; } });
     if (me.member && me.plan && me.plan.started) document.querySelectorAll('[data-start]').forEach(b => { if (!b.closest('.plan')) b.innerHTML = b.classList.contains('sm') ? '내 매물장' : '내 매물장 열기 →'; });
     if (new URLSearchParams(location.search).get('go') && me.member && !(me.plan && me.plan.started)) start();
   });
@@ -544,6 +551,7 @@ footer a{color:rgba(255,255,255,.8)}
     const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
     if (Object.values(bk).some(v => !v)) return ($('mErr').textContent = '여섯 칸을 모두 입력해 주세요.');
     if (!$('b_ok').checked) return ($('mErr').textContent = '개업공인중개사 확인에 체크해 주세요.');
+    if (SMSA && !SMSA.ok()) return ($('mErr').textContent = '휴대폰 번호 인증을 먼저 해 주세요. (번호 아래 [인증번호 받기])');
     $('mErr').textContent = ''; $('mGo').disabled = true; $('mGo').textContent = '중개사무소 확인 중…';
     if (PREVIEW && me.op) { $('mTitle').textContent = '2주 무료 체험이 시작됐습니다!'; setTimeout(() => location.href = '/listings.html?as=trial', 900); return; }
     try {

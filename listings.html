@@ -705,6 +705,10 @@ body.lvmap .bd table.bdt{min-width:720px}
 .bd-pop .pp small{color:var(--sale);font-size:12px;min-height:14px}
 .bd-pop .pb{display:flex;align-items:center;gap:8px}.bd-pop .pb .hint{flex:1;font-size:12px;color:var(--muted);font-weight:500;margin:0;min-height:0}
 .bd-pop .pb .ok{background:var(--sale);color:#fff;border:0;border-radius:9px;padding:8px 18px;font-weight:800}
+.smsbox{margin-top:6px;font-size:13px}.smsbox .sms-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.smsbox button{border:1.5px solid #1C64C8;background:#fff;color:#1C64C8;border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}.smsbox button:disabled{opacity:.5}
+.smsbox .sms-check{background:#1C64C8;color:#fff}.smsbox .sms-code{width:110px;border:2px solid #DCE2E8;border-radius:8px;padding:6px 8px;font-size:15px;letter-spacing:2px}
+.smsbox .sms-t{color:#E03131;font-weight:700;font-variant-numeric:tabular-nums}.smsbox .sms-msg{color:#5E6A77;margin-top:4px}.smsbox .sms-ok{color:#1F7A4D;font-weight:800}
 </style>
 </head>
 <body>
@@ -727,6 +731,7 @@ body.lvmap .bd table.bdt{min-width:720px}
 <div class="toast" id="toast" hidden></div>
 <script src="danji.js"></script>
 <script src="board.js"></script>
+<script src="sms.js"></script>
 <script src="listings.js"></script>
 </body>
 </html>
