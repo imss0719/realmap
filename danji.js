@@ -263,12 +263,14 @@ window.Danji = (() => {
   //   ① 단지에 필지가 2개 이상 → 필지 단위(이름: 동 번호 첫 자리가 모두 같으면 'N단지', 아니면 지번)
   //   ② 필지가 하나뿐인데 동 번호가 1xx·2xx…로 갈리면 → 동 번호 첫 자리 단위('h1' = 1단지)
   //   고른 하위 단지(C.gsel = 키 목록)만 표·동 칩·오른쪽 목록에. 비어 있으면 전부
-  const headOf = dong => (normD(dong).match(/^(\d)\d{2}$/) || [])[1] || '';
+  const headOf = dong => (normD(dong).match(/^(\d)\d{2}(?!\d)/) || [])[1] || '';   // '101' '101(1단지)' → 1
   function subMode(C) {
     const ds = (C && C.dongs) || []; if (ds.length < 2) return null;
+    // 동 번호 첫 자리(1xx·2xx…)가 2가지 이상이면 그걸로 (관리동·상가동처럼 번호 없는 동은 '기타') — 필지 경계와 단지가 안 맞는 경우가 많음
+    const hs = ds.map(d => headOf(d.dong)).filter(Boolean);
+    if (hs.length >= ds.length * 0.6 && new Set(hs).size >= 2) return 'h';
     if (new Set(ds.map(d => d.pnu)).size >= 2) return 'p';
-    const hs = ds.map(d => headOf(d.dong));
-    return hs.every(Boolean) && new Set(hs).size >= 2 ? 'h' : null;
+    return null;
   }
   const gkOf = (md, pnu, dong) => md === 'p' ? pnu : 'h' + headOf(dong);
   function subOf(cx, C) {
@@ -280,8 +282,8 @@ window.Danji = (() => {
       const heads = [...new Set(ds.map(d => headOf(d.dong)))];
       const pl = md === 'p' && (cx.places || []).find(p => p.pnu === k), jb = md === 'h' ? '' : pl ? String(pl.addr || '').split(' ').slice(-2).join(' ') : k.slice(-8);
       const ns = ds.map(d => dongCounts(cx, d, M)), n = ns.reduce((a, z) => a + z.m + z.o, 0), e = ns.reduce((a, z) => a + z.e, 0);
-      return { k, ds, n, e, nm: heads.length === 1 && heads[0] ? `${heads[0]}단지` : jb };
-    }).sort((a, b) => b.n - a.n || b.e - a.e || a.nm.localeCompare(b.nm, 'ko', { numeric: true }));
+      return { k, ds, n, e, nm: heads.length === 1 && heads[0] ? `${heads[0]}단지` : md === 'h' ? '기타 동' : jb };
+    }).sort((a, b) => md === 'h' ? (a.k === 'h') - (b.k === 'h') || a.k.localeCompare(b.k) : b.n - a.n || b.e - a.e || a.nm.localeCompare(b.nm, 'ko', { numeric: true }));   // 1단지·2단지 … 순 (기타 동은 맨 뒤)
   }
   // 고른 하위 단지 키 (지금 나누는 방식에 맞는 것만)
   const gOn = C => { if (!C || !Array.isArray(C.gsel) || !C.gsel.length) return null; const md = subMode(C); if (!md) return null; const ok = C.gsel.filter(k => (md === 'h') === k.startsWith('h')); return ok.length ? ok : null; };
