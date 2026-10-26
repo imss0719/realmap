@@ -94,6 +94,13 @@ window.Alarm = (() => {
     const impStep = d => { const dl = Math.round((Date.parse(d + 'T00:00:00+09:00') - now) / DAY); return { dl, step: dl < 0 ? (dl >= -3 ? 'x' : null) : dl === 0 ? 0 : dl <= 1 ? 1 : dl <= 7 ? 7 : null }; };
     const impPush = (key, lab, txt, d, go) => { const { dl, step } = impStep(d); if (step == null) return; push({ id: `imp:${key}:${d}:${step}`, t: 'imp', title: step === 'x' ? `챙길 날짜가 지났습니다 · ${lab}` : step === 0 ? `오늘 챙길 것 · ${lab}` : `${step === 1 ? '내일' : '7일 안'} 챙길 것 · ${lab}`, body: `${txt} (${d.slice(5).replace('-', '/')}${dl ? `, D${dl > 0 ? '-' + dl : '+' + -dl}` : ''})`, go, goTx: '이동' }); };
     for (const x of H.items()) if (x.imp && x.impd && x.status !== 'done') impPush(`ls:${x.id}`, H.name(x), x.imp, x.impd, { ls: x.id });
+    // 매물의 만기일 (10/26 — 상가·건물 등 표의 '만기일' 칸): 6개월 · 3개월 · 1개월 전 · 지난 뒤 한 달
+    for (const x of H.items()) {
+      if (!x.exp || x.status === 'done') continue;
+      const dl = Math.round((Date.parse(x.exp + 'T00:00:00+09:00') - now) / DAY), step = dl < 0 ? (dl >= -30 ? 0 : null) : dl <= 30 ? 30 : dl <= 90 ? 90 : dl <= 183 ? 180 : null;
+      if (step == null) continue;
+      push({ id: `lexp:${x.id}:${x.exp}:${step}`, t: 'exp', title: step === 0 ? '만기일이 지났습니다' : `만기 ${step === 180 ? '6개월' : step === 90 ? '3개월' : '1개월'} 전`, body: `${H.name(x)} 만기 ${x.exp.replace(/-/g, '.')} (D${dl >= 0 ? '-' + dl : '+' + -dl}). 재계약·이사 의향을 확인해 보세요.`, go: { ls: x.id }, goTx: '이동' });
+    }
     // 1-2) 고객관리: 맞는 매물이 새로 생김 · 예산 안으로 내려옴 · 오래 연락 못 한 고객
     // 처음 실행하거나 새로 등록한 고객은 지금 맞는 매물을 조용히 기억만 하고, 그 뒤에 새로 맞는 것만 알림
     try {
@@ -124,8 +131,8 @@ window.Alarm = (() => {
     for (const c of cxs) {
       const U = LED[c.id]; if (!U) continue;
       for (const [key, r] of Object.entries(U)) {
-        if (r && r.imp && r.impd && !r.deal) { const [, dn0, ho0] = key.split('|'); impPush(`cx:${c.id}:${key}`, `${c.name} ${dn0}-${ho0}`, r.imp, r.impd, { cx: c.id, key }); }
-        if (!r || !r.exp || r.deal) continue;
+        if (r && r.imp && r.impd) { const [, dn0, ho0] = key.split('|'); impPush(`cx:${c.id}:${key}`, `${c.name} ${dn0}-${ho0}`, r.imp, r.impd, { cx: c.id, key }); }
+        if (!r || !r.exp) continue;   // 10/26: 계약 기록 뒤에도 새 만기로 알림 (계약하면 만기가 새 계약 만기로 바뀜)
         const dl = Math.round((Date.parse(r.exp) - now) / DAY), [, dn, ho] = key.split('|'), lab = `${c.name} ${dn}-${ho}`;
         const step = dl < 0 ? (dl >= -30 ? 0 : null) : dl <= 30 ? 30 : dl <= 90 ? 90 : dl <= 183 ? 180 : null;
         if (step == null) continue;

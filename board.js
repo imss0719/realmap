@@ -9,13 +9,16 @@ window.Board = (() => {
   const $ = id => document.getElementById(id);
   let H = null, EL = null, X = null;                 // host · 붙일 곳 · host가 넘겨준 도우미 모음
   const PY = 3.3058;
-  const TY = [['all', '전체'], ['shop', '상가·사무실'], ['bld', '건물'], ['land', '토지'], ['home', '주거']];
-  const TYP = { shop: ['상가', '사무실'], bld: ['건물', '공장·창고'], land: ['토지'], home: ['아파트', '빌라', '오피스텔', '주택'] };
-  const tyOf = x => Object.keys(TYP).find(k => TYP[k].includes(x.ptype)) || 'etc';
-  const B = Object.assign({ ty: 'all', kind: 'all', st: 'on', sort: 'at', dir: -1, grp: '', f: {}, map: false, rate: 4.5, fo: false },
+  // 10/26 종류별 탭: 위 탭 하나 = 종류 하나 (아파트는 단지 화면이 따로 있고, 여기 'apt'는 단지에 없는 아파트 매물을 볼 때)
+  const CATS = { apt: ['아파트'], shop: ['상가', '사무실'], bld: ['건물'], ofc: ['오피스텔'], home: ['빌라', '주택'], land: ['토지', '공장·창고', '기타'] };
+  const CATNAME = { apt: '아파트 매물', shop: '상가·사무실', bld: '건물', ofc: '오피스텔', home: '빌라·주택', land: '토지·공장' };
+  const catOf = x => Object.keys(CATS).find(k => CATS[k].includes(x.ptype)) || 'land';   // 미지정·기타는 토지·공장 탭
+  const B = Object.assign({ cat: 'shop', sort: 'at', dir: -1, grp: '', f: {}, map: false, rate: 4.5, fo: false, fk: [], fs: ['on'], fc: [], fx: [] },
     (() => { try { return JSON.parse(localStorage.getItem('rm.bd') || 'null') || {}; } catch { return {}; } })(),
     { q: '', open: new Set(), blank: new Map(), cblank: new Map(), hl: null, sel: null, ed: null, add: { q: '', res: null, busy: false, D: null }, L: {}, U: {}, fitNext: true });
-  const keep = () => { try { localStorage.setItem('rm.bd', JSON.stringify({ ty: B.ty, kind: B.kind, st: B.st, sort: B.sort, dir: B.dir, grp: B.grp, f: B.f, map: B.map, rate: B.rate, fo: B.fo, tr: B.tr, mko: B.mko })); } catch { /* 무시 */ } };
+  // 예전 폴더 값({pt, bn})은 버림 · 거르기 배열이 없으면 처음대로
+  if (!CATS[B.cat]) B.cat = 'shop'; if (B.tr && !B.tr.hd) B.tr = null; ['fk', 'fs', 'fc', 'fx'].forEach(k => { if (!Array.isArray(B[k])) B[k] = k === 'fs' ? ['on'] : []; });
+  const keep = () => { try { localStorage.setItem('rm.bd', JSON.stringify({ cat: B.cat, sort: B.sort, dir: B.dir, grp: B.grp, f: B.f, map: B.map, rate: B.rate, fo: B.fo, tr: B.tr, fk: B.fk, fs: B.fs, fc: B.fc, fx: B.fx })); } catch { /* 무시 */ } };
   const esc = s => X.esc(s);
   const m2t = a => a ? `${(+a).toLocaleString(undefined, { maximumFractionDigits: 2 })}㎡` : '';
   const pyt = a => a ? `${(a / PY).toFixed(1)}평` : '';
@@ -66,7 +69,7 @@ window.Board = (() => {
   function bodyOf(it) {
     const keys = X.moneyOf(it).map(m => m[0]);
     const b = { ...it, places: places(it).map(P => Object.fromEntries(Object.entries(P).filter(([k]) => !k.startsWith('_')))) };
-    ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) b[k] = null; });
+    ['price', 'deposit', 'rent', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) b[k] = null; });   // 10/26: 관리비·권리금·현 보증금/월세는 거래 종류와 상관없이 남김(표에서 바로 입력)
     if (it.ptype !== '기타') b.ptypeTx = '';
     return b;
   }
@@ -74,7 +77,8 @@ window.Board = (() => {
     if (X.ro().has(id)) { H.openForm(id); return Promise.resolve(); }
     const L = H.items(), i = L.findIndex(x => x.id === id); if (i < 0) return Promise.resolve();
     const pe = PEND.get(id), orig = pe ? pe.orig : L[i];
-    const it = X.upgrade(pe ? pe.it : L[i]); mut(it);
+    const base = pe ? pe.it : L[i], it = X.upgrade(base); mut(it);
+    autoLines(base, it).forEach(t => { it.memo = X.memoAdd(it.memo, t); });   // 바뀐 내용은 기록에 자동으로 (10/26)
     const tok = { it, orig }; PEND.set(id, tok);
     L[i] = it; refresh();
     Q = Q.then(async () => {
@@ -96,12 +100,29 @@ window.Board = (() => {
   }
 
   // ---------- 거르기 · 정렬 ----------
-  // 표 머리 ▾ 로 거를 수 있는 칸 (값 꺼내는 법) — 10/26. 이 화면에서만 (저장 안 함)
-  const CFV = { ty: x => chip(x), addr: x => x.bname || shortAddr(places(x)[0].addr || x.addr) || '', pr: x => X.KIND[x.kind] || '', st: x => ({ on: '진행', hold: '보류', done: '완료' }[x.status] || '') };
-  function pass(x) {
-    if (B.st !== 'all' && x.status !== B.st) return false;
-    if (B.kind !== 'all' && x.kind !== B.kind) return false;
-    if (B.mko && !x.mk) return false;
+  // 10/26 종류별 탭: 위 탭(B.cat)에서 고른 종류만 · 거르기는 체크 누적(같은 묶음 '또는', 묶음끼리 '그리고')
+  //   B.fk 거래(sale·jeonse·wolse·presale) · B.fs 상태(on·hold·done) · B.fc 챙길 것(imp·mk·pub·vac) · B.fx 칩(층·가격대) · B.cf 칸 ▾
+  const vacant = x => detKind(x) === 'whole' ? rentSum(x).v > 0 : /공실/.test((x.ad || {}).biz || '');   // 통건물 = 공실 층이 있음 · 상가 = 업종 칸이 '공실'
+  const FLAG = { imp: x => !!x.imp, mk: x => !!x.mk, pub: x => X.pubLive(x), vac: x => vacant(x) };
+  const flNo = x => { const f = String((x.ad || {}).fl || places(x)[0].ho || ''); return /^b|지하/i.test(f) ? -1 : parseInt(f, 10) || 0; };
+  const CHIP = {
+    f1: [x => flNo(x) === 1, '1층'], fb: [x => flNo(x) < 0, '지하'], f2: [x => flNo(x) >= 2, '2층 이상'],
+    p30: [x => x.kind === 'sale' && x.price && x.price < 300000, '~30억'], p50: [x => x.kind === 'sale' && x.price >= 300000 && x.price < 500000, '30~50억'], p50p: [x => x.kind === 'sale' && x.price >= 500000, '50억~'],
+  };
+  const CATCHIP = { shop: ['f1', 'fb', 'f2'], bld: ['p30', 'p50', 'p50p'] };
+  const CATKIND = { shop: ['sale', 'wolse', 'jeonse'], bld: ['sale', 'wolse'], land: ['sale', 'wolse', 'jeonse'], apt: ['sale', 'jeonse', 'wolse', 'presale'], ofc: ['sale', 'jeonse', 'wolse', 'presale'], home: ['sale', 'jeonse', 'wolse'] };
+  // 표 머리 아래 ▾ 로 거를 수 있는 칸 (값 꺼내는 법) — 이 화면에서만 (저장 안 함)
+  const CFV = {
+    ty: x => chip(x), nm: x => x.bname || '(이름 없음)', addr: x => hood(x) || '(동네 미상)', kd: x => X.KIND[x.kind] || '', st: x => ({ on: '진행', hold: '보류', done: '완료' }[x.status] || ''),
+    biz: x => (x.ad || {}).biz || '(없음)', zone: x => zoneS((x.ad || {}).zone) || '(없음)', dir: x => (x.ad || {}).dir || '(없음)', jimok: x => (x.ad || {}).use || '(없음)',
+    dn: x => places(x)[0].dong || '(없음)', fl: x => flTx((x.ad || {}).fl) || '(없음)',
+  };
+  function pass(x, any) {
+    if (!any && catOf(x) !== B.cat) return false;
+    if (B.fs.length && !B.fs.includes(x.status)) return false;
+    if (B.fk.length && !B.fk.includes(x.kind)) return false;
+    if (B.fc.length && !B.fc.some(f => FLAG[f] && FLAG[f](x))) return false;
+    if (B.fx.length && !B.fx.some(f => CHIP[f] && CHIP[f][0](x))) return false;
     if (B.cf) for (const k in B.cf) if (B.cf[k] && CFV[k] && !B.cf[k].includes(CFV[k](x))) return false;   // 머리 ▾ 거르기
     const q = B.q.toLowerCase();
     if (q && ![x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)) return false;
@@ -116,11 +137,19 @@ window.Board = (() => {
     }
     return true;
   }
-  const SORT = { at: x => x.at || '', ty: x => chip(x), addr: x => shortAddr(places(x)[0].addr || x.addr), pr: x => mainP(x) || 0, ar: x => x.area || 0, st: x => x.status, memo: x => x.up || '' };
+  const lastMemo = x => { const L = X.memoParse(x.memo); return L[0] ? L[0].t || '' : ''; };
+  const pyOf = (x, a) => a ? a / PY : 0;
+  const SORT = {
+    at: x => x.at || '', ty: x => chip(x), nm: x => x.bname || '', addr: x => shortAddr(places(x)[0].addr || x.addr), pr: x => mainP(x) || 0,
+    ps: x => (x.kind === 'sale' || x.kind === 'presale') && x.price || 0, pj: x => x.kind === 'jeonse' && x.deposit || 0, pdep: x => (x.kind === 'wolse' || x.kind === 'jeonse') && x.deposit || 0, prent: x => x.kind === 'wolse' && x.rent || 0,
+    ar: x => x.area || 0, site: x => siteOf(x), exp: x => x.exp || '', st: x => x.status, memo: x => x.up || '', h: x => x.up || '',
+    ppy: x => { const s = catOf(x) === 'bld' ? siteOf(x) : x.area; return x.kind === 'sale' && x.price && s ? x.price / pyOf(x, s) : 0; },
+    yld: x => { const y = detKind(x) === 'whole' ? yields(x, rentSum(x).d, rentSum(x).r) : yields(x, x.curDep, x.curRent); return y ? y.y : 0; },
+  };
   function rowsNow() {
-    const all = H.items().filter(pass);
-    let rows = B.ty === 'all' || treeOn() ? all : all.filter(x => tyOf(x) === B.ty);
-    if (B.tr && B.tr.pt && treeOn()) rows = rows.filter(x => ptOf(x) === B.tr.pt && (!B.tr.bn || bnOf(x) === B.tr.bn));   // 왼쪽 폴더 (10/26)
+    const all = H.items().filter(x => pass(x));
+    let rows = all;
+    if (B.tr && treeOn()) rows = rows.filter(x => (!B.tr.hd || (B.cat === 'apt' || B.cat === 'ofc' ? bnOf(x) : hood(x) || '동네 미상') === B.tr.hd) && (!B.tr.bn || bnOf(x) === B.tr.bn));   // 왼쪽 폴더
     const f = SORT[B.sort] || SORT.at;
     rows.sort((a, b) => { const A = f(a), C = f(b); return (typeof A === 'number' && typeof C === 'number' ? A - C : String(A).localeCompare(String(C), 'ko', { numeric: true })) * B.dir; });
     return { all, rows };
@@ -166,42 +195,46 @@ window.Board = (() => {
     if (fk) { const n = $('bd').querySelector(`[data-fk="${CSS.escape(fk)}"]`); if (n) { if (n.value !== val) n.value = val; n.focus(); try { n.setSelectionRange(s0, s1); } catch { /* 숫자 칸 등 */ } } }
     H.drawBk && H.drawBk();
   }
-  // ---------- 왼쪽 매물 분류 폴더 (넓은 화면 · 지도 닫았을 때) — 10/26 ----------
-  // 유형 → (아파트·오피스텔은) 단지·건물 이름 / 보류 · 거래완료. 숫자는 지금 거래·찾기 조건 기준
-  const PTO = ['아파트', '오피스텔', '빌라', '주택', '상가', '사무실', '건물', '공장·창고', '토지'];
-  const ptOf = x => PTO.includes(x.ptype) ? x.ptype : '기타';
+  // ---------- 왼쪽 탐색기 (넓은 화면 · 지도 닫았을 때) — 10/26 종류별 ----------
+  // 아파트·오피스텔 = 단지·건물 이름 · 나머지 = 동네 → 건물 이름 (매물 많은 순) · 아래 보류 · 거래완료
   const bnOf = x => x.bname || shortAddr(places(x)[0].addr || x.addr) || '이름 없음';
   const treeOn = () => matchMedia('(min-width:980px)').matches && !B.map;
   function drawTree() {
     const T = $('bdTree'); if (!T) return;
     $('bdLay').classList.toggle('hastree', treeOn());
     if (!treeOn()) { T.innerHTML = ''; return; }
-    const base = H.items().filter(pass);
-    const tr = B.tr || {}, cnt = {}, sub = {};
-    base.forEach(x => { const p = ptOf(x); cnt[p] = (cnt[p] || 0) + 1; if (p === '아파트' || p === '오피스텔') { const n = bnOf(x); (sub[p] = sub[p] || {})[n] = (sub[p][n] || 0) + 1; } });
-    const stc = k => H.items().filter(x => x.status === k).length;
+    const base = H.items().filter(x => pass(x)), tr = B.tr || {}, flat = B.cat === 'apt' || B.cat === 'ofc';
+    const top = {}, sub = {};
+    base.forEach(x => { const h = flat ? bnOf(x) : hood(x) || '동네 미상'; top[h] = (top[h] || 0) + 1; if (!flat && x.bname) { const s = sub[h] || (sub[h] = {}); s[x.bname] = (s[x.bname] || 0) + 1; } });
+    const inCat = H.items().filter(x => catOf(x) === B.cat), stc = k => inCat.filter(x => x.status === k).length;
     const node = (cls, attrs, label, n, on) => `<button type="button" class="tn ${cls}${on ? ' on' : ''}" ${attrs}>${label}<span class="ct">${n || ''}</span></button>`;
-    T.innerHTML = `<div class="tth"><b>매물 분류</b><small>${{ on: '진행 중', hold: '보류', done: '거래완료', all: '전체' }[B.st]} 매물</small></div>
-      ${node('all', 'data-tpt=""', '<i></i>전체', base.length, !tr.pt)}
-      ${[...PTO, '기타'].filter(p => cnt[p]).map(p => node('', `data-tpt="${esc(p)}"`, `<span class="ar">${sub[p] && tr.pt === p ? '▾' : sub[p] ? '▸' : ''}</span><i></i>${esc(p)}`, cnt[p], tr.pt === p && !tr.bn) + (sub[p] && tr.pt === p ? Object.entries(sub[p]).sort((a, b) => b[1] - a[1]).map(([n, c]) => node('d', `data-tpt="${esc(p)}" data-tbn="${esc(n)}"`, `<i></i>${esc(n)}`, c, tr.bn === n)).join('') : '')).join('')}
+    const byN = o => Object.entries(o).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko', { numeric: true }));
+    const stName = B.fs.length === 1 ? { on: '진행 중', hold: '보류', done: '거래완료' }[B.fs[0]] : B.fs.length ? '고른 상태' : '모든';
+    T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b><small>${stName} 매물 · ${flat ? '단지·건물' : '동네 → 건물'}</small></div>
+      ${node('all', 'data-thd=""', '<i></i>전체', base.length, !tr.hd)}
+      ${byN(top).map(([h, n]) => { const s = sub[h], open = s && tr.hd === h; return node('', `data-thd="${esc(h)}"`, `<span class="ar">${s ? (open ? '▾' : '▸') : ''}</span><i></i>${esc(h)}`, n, tr.hd === h && !tr.bn) + (open ? byN(s).map(([b, c]) => node('d', `data-thd="${esc(h)}" data-tbn="${esc(b)}"`, `<i></i>${esc(b)}`, c, tr.bn === b)).join('') : ''); }).join('')}
       <div class="tsep"></div>
-      ${node('s', 'data-tst="hold"', '<i class="g"></i>보류', stc('hold'), B.st === 'hold')}${node('s', 'data-tst="done"', '<i class="g"></i>거래완료', stc('done'), B.st === 'done')}
-      ${B.st !== 'on' ? node('s', 'data-tst="on"', '← 진행 중으로', '', false) : ''}`;
+      ${node('s', 'data-tst="hold"', '<i class="g"></i>보류', stc('hold'), B.fs.length === 1 && B.fs[0] === 'hold')}${node('s', 'data-tst="done"', '<i class="g"></i>거래완료', stc('done'), B.fs.length === 1 && B.fs[0] === 'done')}
+      ${!(B.fs.length === 1 && B.fs[0] === 'on') ? node('s', 'data-tst="on"', '← 진행 중으로', '', false) : ''}`;
     const go = () => { keep(); B.fitNext = true; refresh(); };
-    T.querySelectorAll('[data-tpt]').forEach(b => b.onclick = () => { B.tr = b.dataset.tpt ? { pt: b.dataset.tpt, ...(b.dataset.tbn ? { bn: b.dataset.tbn } : {}) } : null; B.ty = 'all'; go(); });
-    T.querySelectorAll('[data-tst]').forEach(b => b.onclick = () => { B.st = b.dataset.tst; B.tr = null; go(); });
+    T.querySelectorAll('[data-thd]').forEach(b => b.onclick = () => { const h = b.dataset.thd, bn = b.dataset.tbn; B.tr = !h ? null : (tr.hd === h && !bn && !tr.bn && sub[h]) ? null : { hd: h, ...(bn ? { bn } : {}) }; go(); });   // 펼친 동네를 다시 누르면 접힘
+    T.querySelectorAll('[data-tst]').forEach(b => b.onclick = () => { B.fs = [b.dataset.tst]; B.tr = null; go(); });
   }
+  // ---------- 위 거르기 막대 ----------
   function drawBar() {
-    const { all } = rowsNow(), adv = H.adv();
-    const cnt = k => k === 'all' ? all.length : all.filter(x => tyOf(x) === k).length;
-    const f = B.f, fon = adv && Object.values(f).some(v => v);
-    $('bdBar').innerHTML = `<div class="bd-row">
-      <span class="bsg tyg">${TY.map(([k, t]) => `<button type="button" data-ty="${k}" aria-pressed="${B.ty === k}">${t} <small>${cnt(k)}</small></button>`).join('')}</span>
-      <span class="bsg sm">${[['all', '모든 거래'], ['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세'], ['presale', '분양권']].map(([k, t]) => `<button type="button" data-kd="${k}" aria-pressed="${B.kind === k}">${t}</button>`).join('')}</span>
-      <span class="bsg sm">${[['on', '진행'], ['hold', '보류'], ['done', '완료'], ['all', '전체']].map(([k, t]) => `<button type="button" data-st="${k}" aria-pressed="${B.st === k}">${t}</button>`).join('')}</span>
-      <input class="bd-find" id="bdFind" type="search" data-fk="find" placeholder="번호·주소·연락처·메모 찾기" value="${esc(B.q)}">
+    const adv = H.adv(), f = B.f, fon = adv && Object.values(f).some(v => v);
+    const ck = (g, v, t, cls) => `<label class="ck${B[g].includes(v) ? ' on' : ''}${cls ? ' ' + cls : ''}"><input type="checkbox" data-fg="${g}" data-v="${v}" ${B[g].includes(v) ? 'checked' : ''}>${t}</label>`;
+    const KC = { sale: 'k-s', jeonse: 'k-j', wolse: 'k-w', presale: '' };
+    const fOn = B.fk.length || !(B.fs.length === 1 && B.fs[0] === 'on') || B.fc.length || B.fx.length || (B.cf && Object.values(B.cf).some(Boolean)) || B.tr;
+    $('bdBar').innerHTML = `<div class="bd-row bd-fl">
+      <span class="fg">${(CATKIND[B.cat] || []).map(k => ck('fk', k, X.KIND[k], KC[k])).join('')}</span><i class="fsep"></i>
+      <span class="fg">${ck('fs', 'on', '매물')}${ck('fs', 'hold', '보류')}${ck('fs', 'done', '거래완료')}</span><i class="fsep"></i>
+      <span class="fg">${B.cat === 'shop' || B.cat === 'bld' ? ck('fc', 'vac', B.cat === 'bld' ? '공실 있음' : '공실') : ''}${ck('fc', 'imp', '꼭 챙길 것')}${ck('fc', 'mk', '표시한 줄')}${ck('fc', 'pub', '리얼맵 게시중')}</span>
+      ${CATCHIP[B.cat] ? `<i class="fsep"></i><span class="fg ty">${CATCHIP[B.cat].map(k => `<button type="button" data-fg="fx" data-v="${k}" aria-pressed="${B.fx.includes(k)}">${CHIP[k][1]}</button>`).join('')}</span>` : ''}
+      ${fOn ? '<button type="button" class="fclr" id="bdClr2">모두 풀기</button>' : ''}
+      <input class="bd-find" id="bdFind" type="search" data-fk="find" placeholder="이 탭에서 찾기" value="${esc(B.q)}">
       <span class="sp"></span>
-      <span class="mkb" title="누른 줄(파란 줄)에 표시 — 다시 누르면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button><button type="button" id="bdMko" aria-pressed="${!!B.mko}"${B.mko ? ' class="on"' : ''}>표시한 것만</button></span>
+      <span class="mkb" title="줄을 누른 뒤 색을 누르면 표시 · 같은 색을 다시 누르거나 [지우기]면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button></span>
       <button type="button" class="tb${B.fo || fon ? ' on' : ''}${adv ? '' : ' lock'}" id="bdFo">손님 조건${fon ? ' ●' : ''}</button>
       <button type="button" class="tb${B.sel ? ' on' : ''}${adv ? '' : ' lock'}" id="bdSel">여러 건 선택</button>
       <button type="button" class="tb map${B.map ? ' on' : ''}" id="bdMap">${B.map ? '지도 닫기' : '지도로 보기'}</button>
@@ -216,16 +249,15 @@ window.Board = (() => {
       <label>묶어 보기 <select id="bdGrp">${Object.entries(GRP).map(([k, t]) => `<option value="${k}" ${B.grp === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       ${fon || B.grp ? '<button type="button" class="lnk" id="bdClr">조건 지우기</button>' : ''}</div>` : ''}`;
     const go = () => { keep(); B.fitNext = true; refresh(); };
-    $('bdBar').querySelectorAll('[data-ty]').forEach(b => b.onclick = () => { B.ty = b.dataset.ty; go(); });
-    $('bdBar').querySelectorAll('[data-kd]').forEach(b => b.onclick = () => { B.kind = b.dataset.kd; go(); });
-    $('bdBar').querySelectorAll('[data-st]').forEach(b => b.onclick = () => { B.st = b.dataset.st; go(); });
+    $('bdBar').querySelectorAll('[data-fg]').forEach(el => { const t = () => { const g = el.dataset.fg, v = el.dataset.v; B[g] = B[g].includes(v) ? B[g].filter(z => z !== v) : [...B[g], v]; go(); }; if (el.tagName === 'INPUT') el.onchange = t; else el.onclick = t; });
+    if ($('bdClr2')) $('bdClr2').onclick = () => { B.fk = []; B.fs = ['on']; B.fc = []; B.fx = []; B.cf = null; B.tr = null; go(); };
     $('bdFind').oninput = e => { clearTimeout(B.fT); B.fT = setTimeout(() => { B.q = e.target.value.trim(); B.fitNext = true; refresh(); }, 250); };
     $('bdFo').onclick = () => { if (!H.adv()) return H.upsell('손님 조건으로 거르기 · 묶어 보기는 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.'); B.fo = !B.fo; keep(); refresh(); };
     $('bdSel').onclick = () => { if (!H.adv()) return H.upsell('여러 건을 한꺼번에 처리하는 기능은 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.'); B.sel = B.sel ? null : new Set(); refresh(); };
     $('bdMap').onclick = () => { B.map = !B.map; keep(); B.fitNext = true; H.showMap(B.map); refresh(); };
     $('bdCsv').onclick = () => H.csv(B.sel && B.sel.size ? H.items().filter(x => B.sel.has(x.id)) : rowsNow().rows);
     $('bdForm').onclick = () => H.openForm(null);
-    $('bdBar').querySelectorAll('[data-mk]').forEach(b => b.onclick = () => {   // 노랑·빨강 표시 (10/26)
+    $('bdBar').querySelectorAll('[data-mk]').forEach(b => b.onclick = () => {   // 노랑·빨강 표시
       const x = B.hl && H.items().find(i => i.id === B.hl);
       if (!x) return H.toast('표시할 매물 줄을 먼저 눌러 주세요');
       B.ed = null; hidePop();
@@ -234,50 +266,89 @@ window.Board = (() => {
       if (!v && !x.mk) return H.toast('이 줄에는 표시가 없습니다');
       saveItem(x.id, it => { it.mk = v; }, v ? '표시했습니다' : '표시를 지웠습니다');
     });
-    $('bdMko').onclick = () => { B.mko = !B.mko; keep(); B.fitNext = true; refresh(); };
     $('bdBar').querySelectorAll('[data-f]').forEach(i => i.onchange = () => { const v = i.value.trim(); B.f[i.dataset.f] = i.dataset.f === 'where' ? v : (v ? Number(v) : ''); go(); });
     if ($('bdGrp')) $('bdGrp').onchange = e => { B.grp = e.target.value; go(); };
     if ($('bdClr')) $('bdClr').onclick = () => { B.f = {}; B.grp = ''; go(); };
   }
 
-  // 표의 칸: [키, 제목, 정렬 키]
-  const COLS = [['n', '#', 'at'], ['ty', '유형', 'ty'], ['addr', '주소 · 건물', 'addr'], ['pr', '거래 · 가격', 'pr'], ['imp', '꼭 챙길 것', ''], ['ar', '면적', 'ar'], ['fl', '층 · 규모', ''], ['st', '상태', 'st'], ['tel', '연락처', ''], ['memo', '메모', 'memo'], ['act', '', ''], ['pub', '리얼맵', '']];
-  const EDIT = ['ty', 'pr', 'imp', 'ar', 'fl', 'st', 'tel', 'memo'];
-  const VC = () => B.map ? COLS.filter(c => !['fl', 'memo'].includes(c[0])) : COLS;    // 지도를 켜면 표가 좁아져 층·메모 칸은 숨김 (상세에서 보임)
+  // ---------- 표의 칸 (종류마다) — 10/26 ----------
+  //   { id, t: 제목, g: 위 묶음, s: 정렬 키, ed: 'pop'(작은 창) | 'in'(칸에서 바로) | 'det'(상세에서) }
+  const K = (id, t, o = {}) => ({ id, t, ...o });
+  const PRS = { ed: 'pop', g: '의뢰가격' }, CUR = { g: '현상태' };
+  const COMMON_END = [K('imp', '꼭 챙길 것', { ed: 'in' })];
+  const TAIL = [K('tel', '소유주', { ed: 'in' }), K('h', '기록', { s: 'h' }), K('st', '상태', { ed: 'pop', s: 'st' }), K('act', ''), K('pub', '리얼맵')];
+  const RES = cat => [K('n', '번호', { s: 'at' }), ...(cat === 'home' ? [K('ty', '유형', { ed: 'pop', s: 'ty' })] : []), K('nm', cat === 'apt' ? '단지' : '물건명', { s: 'nm' }),
+    ...(cat === 'home' ? [K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' })] : [K('dn', '동'), K('ho', '호')]), K('ar', cat === 'apt' ? '평형 · 타입' : '전용', { ed: 'in', s: 'ar' }), K('dir', '방향', { ed: 'in' }),
+    K('kd', '거래', { ed: 'pop' }), K('ps', '매매', { ...PRS, s: 'ps' }), K('pj', '전세', { ...PRS, s: 'pj' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('mgmt', '관리비', { ed: 'in', g: '의뢰가격' }),
+    ...(cat === 'apt' ? [K('gap', '갭', { g: '의뢰가격' })] : []), ...COMMON_END,
+    K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL];
+  const COLS = {
+    shop: [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' }), K('ho', '호'), K('ar', '전용', { ed: 'in', s: 'ar' }),
+      K('kd', '거래', { ed: 'pop' }), K('ps', '매매', { ...PRS, s: 'ps' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('prem', '권리금', { ed: 'in', g: '의뢰가격' }), K('mgmt', '관리비', { ed: 'in', g: '의뢰가격' }),
+      K('biz', '업종', { ed: 'in' }), ...COMMON_END, K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL],
+    bld: [K('n', '번호', { s: 'at' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }), K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
+      K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ed: 'pop', g: '가격', s: 'ps' }), K('ppy', '대지 평당', { g: '가격', s: 'ppy' }), K('loan', '융자', { ed: 'in', g: '가격' }),
+      K('rdep', '보증금 합', { g: '임대 현황', ed: 'det' }), K('rrent', '월세 합', { g: '임대 현황', ed: 'det' }), K('yld', '수익률', { g: '임대 현황', s: 'yld' }), K('vac', '공실', { g: '임대 현황', ed: 'det' }), ...COMMON_END, ...TAIL],
+    land: [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('addr', '주소', { s: 'addr' }), K('jimok', '지목 · 용도', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }), K('ar', '면적', { ed: 'in', s: 'ar' }), K('road', '도로', { ed: 'det' }),
+      K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('ppy', '평당', { g: '의뢰가격', s: 'ppy' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), ...COMMON_END, ...TAIL],
+    apt: RES('apt'), ofc: RES('ofc'), home: RES('home'),
+  };
+  const MAPHIDE = ['h', 'biz', 'exp', 'cst', 'cdep', 'crent', 'mgmt', 'prem', 'road', 'zone', 'appr', 'scale', 'loan', 'vac', 'dir', 'ty', 'jimok', 'rdep', 'rrent', 'gap', 'pj', 'act'];
+  const VC = () => { const L = COLS[B.cat] || COLS.shop; return B.map ? L.filter(c => !MAPHIDE.includes(c.id)) : L; };    // 지도를 켜면 표가 좁아져 일부 칸은 숨김 (상세에서 보임)
   const impTxt = t => String(t || '').replace(/^\s*(?:20\d{2}[-./])?\d{1,2}\s*(?:[./]|월\s*)\d{1,2}(?:\s*일)?(?![~\d])(?:까지)?\s*[·,:-]?\s*/, '') || t;   // 맨 앞 날짜는 빨간 날짜 표시와 겹치므로 글에서 뺌
   const impSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 7 && dl >= -3; };
+  const ep = (t = '-') => `<span class="ep">${t}</span>`;
+  const cw = v => !v ? '' : v >= 10000 ? sw(v) : Math.round(v).toLocaleString();   // 1억 이상 '8.3억', 그 아래 '5,000'
+  const roleOnly = r => /^(소유자|소유주|연락처)?$/.test(String(r || '').trim());
+  const ymdS = d => d ? String(d).slice(2).replace(/-/g, '.') : '';
+  const expSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 90; };
   function cell(x, c, n) {
-    const P = places(x)[0] || {}, a = x.ad || {};
+    const P = places(x)[0] || {}, a = x.ad || {}, k = x.kind;
     switch (c) {
       case 'n': return `${B.sel ? `<input type="checkbox" data-ck="${x.id}" ${B.sel.has(x.id) ? 'checked' : ''} aria-label="선택">` : ''}<span class="no">${n}</span>`;
-      case 'ty': return `<span class="ty ${tyOf(x)}">${esc(chip(x))}</span>`;
-      case 'addr': { const pl = places(x), u = pl.map(dh).filter(Boolean); return `<b>${esc(shortAddr(P.addr || x.addr))}</b>${pl.length > 1 ? ` <em>외 ${pl.length - 1}${isLand(x) ? '필지' : ''}</em>` : ''}<small>${esc([x.bname, u.slice(0, 2).join(', ') + (u.length > 2 ? ` 외 ${u.length - 2}` : '')].filter(Boolean).join(' · '))}</small>`; }
-      case 'pr': {
-        const p = mainP(x), no = x.kind === 'wolse' ? !x.rent && !x.deposit : !p;
-        let sub = '';
-        if (x.kind === 'sale' && x.price) {
-          const k = detKind(x), ar = k === 'land' ? x.area : k === 'whole' ? siteOf(x) : 0;
-          const rs = k === 'whole' ? rentSum(x) : { d: x.curDep, r: x.curRent }, y = yields(x, rs.d, rs.r);
-          const gap = x.ptype === '아파트' && x.curDep && !x.curRent && x.curDep < x.price ? x.price - x.curDep : 0;   // 갭 = 매매가 - 기존 전세금 (10/26)
-          sub = [ar ? `${k === 'land' ? '평당' : '대지 평당'} ${sw(x.price / (ar / PY))}` : '', gap ? `갭 ${sw(gap)}` : '', !gap && y ? `수익률 ${y.y.toFixed(1)}%` : ''].filter(Boolean).join(' · ');
-        } else if (x.kind === 'wolse' && x.premium) sub = `권리금 ${sw(x.premium)}`;
-        return `<span class="kd ${x.kind}">${X.KIND[x.kind]}</span> ${no ? '<span class="ep">가격 입력</span>' : `<b>${esc(x.kind === 'wolse' ? `${!x.deposit ? '0' : x.deposit >= 10000 ? sw(x.deposit) : x.deposit.toLocaleString()}/${x.rent ? x.rent.toLocaleString() : '-'}` : x.kind === 'presale' ? `P ${sw(x.pr)}${x.price ? ' · ' + sw(x.price) : ''}` : sw(p))}</b>`}${sub ? `<small>${esc(sub)}</small>` : ''}`;
+      case 'ty': return `<span class="ty ${catOf(x)}">${esc(chip(x))}</span>`;
+      case 'nm': return x.bname ? `<b>${esc(x.bname)}</b>` : ep();
+      case 'addr': { const pl = places(x); return `<b>${esc(shortAddr(P.addr || x.addr))}</b>${pl.length > 1 ? ` <em>외 ${pl.length - 1}${isLand(x) ? '필지' : ''}</em>` : ''}`; }
+      case 'dn': return P.dong ? esc(String(P.dong).replace(/동$/, '')) : ep();
+      case 'ho': return P.ho ? esc(String(P.ho).replace(/호$/, '')) : ep();
+      case 'fl': return a.fl || a.tfl ? `${esc(flTx(a.fl) || '?')}${a.tfl ? `<small>/${a.tfl}F</small>` : ''}` : ep('층');
+      case 'ar': {
+        if (!x.area) return ep('면적');
+        if (x.ptype === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평 — 아파트 화면에서 라인 평형을 적으면 정확해집니다"'}>${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''} <small>${esc(String(x.area))}</small>`; }
+        return `<b>${pyt(x.area).replace('.0평', '평')}</b> <small>${m2t(x.area)}</small>`;
       }
-      case 'ar': { if (!x.area) return '<span class="ep">면적</span>'; const k = detKind(x);
-        // 아파트: 공급평 · 타입 + 전용㎡ (10/26 — "34평 84B"처럼). 공급평은 단지관리 라인 설정 값, 없으면 추정(≈)
-        if (x.ptype === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평 — 아파트 화면에서 라인 평형을 적으면 정확해집니다"'}>${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''}`; }
-        return `${k === 'whole' ? '연 ' : k === 'land' ? (places(x).length > 1 ? '합 ' : '') : '전용 '}${m2t(x.area)}<small>${k === 'whole' && siteOf(x) ? `대지 ${m2t(siteOf(x))} · ` : ''}${pyt(x.area)}</small>`; }
-      case 'fl': {
-        const k = detKind(x);
-        if (k === 'land') return esc([a.use, zoneS(a.zone)].filter(Boolean).join(' · ')) || '<span class="ep">-</span>';
-        if (k === 'whole') return `${esc([a.ufl ? `B${a.ufl}` : '', a.tfl ? a.tfl + 'F' : ''].filter(Boolean).join('~')) || '-'}<small>${esc([a.appr ? String(a.appr).slice(0, 4) + '년' : '', a.use ? a.use.split(' · ')[0] : ''].filter(Boolean).join(' · '))}</small>`;
-        return a.fl || a.tfl ? `${esc(flTx(a.fl) || '?')}${a.tfl ? ` / ${a.tfl}F` : ''}` : '<span class="ep">층</span>';
-      }
-      case 'imp': return x.imp ? `<span class="imp">${x.impd ? `<span class="dd${impSoon(x.impd) ? ' soon' : ''}">${esc(x.impd.slice(5).replace('-', '/'))}</span>` : ''}${esc(x.impd ? impTxt(x.imp) : x.imp)}</span>` : '<span class="ep">-</span>';
-      case 'st': return `<span class="st ${x.status}">${{ on: '진행', hold: '보류', done: '완료' }[x.status]}</span>${X.pubLive(x) ? '<i class="pubdot" title="리얼맵 지도에 게시 중"></i>' : ''}`;
-      case 'tel': { const cs = Array.isArray(x.contacts) ? x.contacts.filter(c => c.name || c.phone) : []; const c = cs[0]; return c ? `${esc([c.role, c.name].filter(Boolean).join(' '))}${cs.length > 1 ? ` <em>+${cs.length - 1}</em>` : ''}<small>${esc(c.phone || '')}</small>` : '<span class="ep">연락처</span>'; }
-      case 'memo': { const L = X.memoParse(x.memo); return L.length ? `<span class="mm">${esc(L[0].x)}</span><small>${esc(L[0].t ? L[0].t.slice(3, 8).replace('.', '/') : '')}${L.length > 1 ? ` · 외 ${L.length - 1}건` : ''}</small>` : '<span class="ep">메모</span>'; }
-      case 'pub': return H.pubCell(x) || '<span class="ep">—</span>';
+      case 'dir': return a.dir ? esc(a.dir) : ep();
+      case 'kd': return `<span class="kd ${k}">${X.KIND[k]}</span>`;
+      case 'ps': return (k === 'sale' || k === 'presale') && x.price ? `<b class="pv sale">${cw(x.price)}</b>${k === 'presale' && x.pr ? `<small>P ${cw(x.pr)}</small>` : ''}` : ep();
+      case 'pj': return k === 'jeonse' && x.deposit ? `<b class="pv jeonse">${cw(x.deposit)}</b>` : ep();
+      case 'pdep': { const show = k === 'wolse' || (k === 'jeonse' && !VC().some(z => z.id === 'pj')); return show && x.deposit ? `<b class="pv ${k}">${cw(x.deposit)}</b>` : show && k === 'wolse' ? '<b class="pv wolse">0</b>' : ep(); }
+      case 'prent': return k === 'wolse' && x.rent ? `<b class="pv wolse">${x.rent.toLocaleString()}</b>` : ep();
+      case 'prem': return x.premium ? cw(x.premium) : ep();
+      case 'mgmt': return x.mgmt ? cw(x.mgmt) : a.nomgmt ? '없음' : ep();
+      case 'gap': { const g = k === 'sale' && x.price && x.curDep && x.curDep < x.price ? x.price - x.curDep : 0; return g ? `<b class="gap" title="매매가 - 현 보증금 (자동 계산)">${cw(g)}</b>` : ep(); }
+      case 'biz': return a.biz ? `<span class="${/공실/.test(a.biz) ? 'vac' : 'biz'}">${esc(a.biz)}</span>` : ep();
+      case 'cst': return /공실/.test(a.biz || '') ? '<span class="vac">공실</span>' : x.curRent ? (catOf(x) === 'shop' ? '임차중' : '월세') : x.curDep ? (catOf(x) === 'shop' ? '임차중' : '전세') : ep();
+      case 'cdep': return x.curDep ? cw(x.curDep) : ep();
+      case 'crent': return x.curRent ? x.curRent.toLocaleString() : ep();
+      case 'exp': return x.exp ? `<span class="${expSoon(x.exp) ? 'dd' : ''}">${esc(ymdS(x.exp))}</span>` : ep();
+      case 'site': { const s = detKind(x) === 'land' ? x.area : siteOf(x); return s ? `${pyt(s).replace('.0평', '평')}` : ep(); }
+      case 'tot': return x.area ? pyt(x.area).replace('.0평', '평') : ep();
+      case 'scale': return a.tfl || a.ufl ? esc([a.ufl ? `B${a.ufl}` : '', a.tfl ? a.tfl + 'F' : ''].filter(Boolean).join('~')) : ep();
+      case 'appr': return a.appr ? esc(String(a.appr).slice(0, 4)) : ep();
+      case 'zone': return a.zone ? esc(zoneS(a.zone)) : ep();
+      case 'jimok': return a.use ? esc(String(a.use).split(' · ')[0]) : ep();
+      case 'road': return a.road ? esc(a.road) : ep();
+      case 'ppy': { const s = catOf(x) === 'bld' ? siteOf(x) : x.area; return k === 'sale' && x.price && s ? sw(x.price / (s / PY)) : ep(); }
+      case 'loan': return x.loan ? cw(x.loan) : ep();
+      case 'rdep': { const s = rentSum(x); return s.d ? cw(s.d) : ep(); }
+      case 'rrent': { const s = rentSum(x); return s.r ? s.r.toLocaleString() : ep(); }
+      case 'yld': { const y = detKind(x) === 'whole' ? yields(x, rentSum(x).d, rentSum(x).r) : yields(x, x.curDep, x.curRent); return y ? `<b class="yl">${y.y.toFixed(1)}%</b>` : ep(); }
+      case 'vac': { const v = (x.rents || []).filter(r => /공실/.test(r.label || '')).map(r => r.fl).filter(Boolean); return v.length ? `<span class="vac">${esc(v.slice(0, 3).join(', '))}${v.length > 3 ? ' 외' : ''}</span>` : ep(); }
+      case 'imp': return x.imp ? `<span class="imp">${x.impd ? `<span class="dd${impSoon(x.impd) ? ' soon' : ''}">${esc(x.impd.slice(5).replace('-', '/'))}</span>` : ''}${esc(x.impd ? impTxt(x.imp) : x.imp)}</span>` : ep();
+      case 'st': return `<span class="st ${x.status}">${{ on: '진행', hold: '보류', done: '완료' }[x.status]}</span>`;
+      case 'tel': { const cs = Array.isArray(x.contacts) ? x.contacts.filter(z => z.name || z.phone) : []; const z = cs[0]; return z ? `${esc([roleOnly(z.role) ? '' : z.role, z.name].filter(Boolean).join(' '))}${z.phone ? ` <a class="tl" href="tel:${esc(String(z.phone).replace(/[^\d+]/g, ''))}" data-call="${x.id}:0">${esc(z.phone)}</a>` : ''}${cs.length > 1 ? ` <em>외 ${cs.length - 1}</em>` : ''}` : ep('연락처'); }
+      case 'h': { const L = X.memoParse(x.memo), op = B.hist === x.id; return `${L[0] ? `<span class="hl"><i>${esc(L[0].t ? L[0].t.slice(0, 8) : '예전')}</i> ${esc(L[0].x)}</span>` : ''}<button type="button" class="hbtn${op ? ' on' : ''}" data-hist="${x.id}">${op ? '기록 ▸' : `기록${L.length ? ' ' + L.length : ''}`}</button>`; }
+      case 'pub': return H.pubCell(x) || ep('—');
       case 'act': return `<button type="button" class="det${B.open.has(x.id) ? ' on' : ''}" data-det="${x.id}">상세 ${B.open.has(x.id) ? '▴' : '▾'}</button>`;
     }
     return '';
@@ -285,53 +356,74 @@ window.Board = (() => {
   // 칸 안에서 바로 고치기 (Enter 저장 · Esc 취소 · Tab 다음 칸)
   function editorHtml(x, c) {
     const a = x.ad || {}, fk = `e:${x.id}:${c}`, cs = (x.contacts || [])[0] || {};
-    if (c === 'ar') return `<input class="ced" data-fk="${fk}" inputmode="decimal" value="${x.area || ''}" placeholder="㎡">`;
-    if (c === 'fl') return `<input class="ced" data-fk="${fk}" value="${esc([a.fl, a.tfl].filter(v => v != null && v !== '').join('/'))}" placeholder="3/15 (해당층/총층)">`;
-    if (c === 'tel') return `<input class="ced" data-fk="${fk}" value="${esc([cs.name, cs.phone].filter(Boolean).join(' '))}" placeholder="이름 010-0000-0000">`;
-    if (c === 'memo') return `<input class="ced" data-fk="${fk}" value="" placeholder="새 메모 (Enter로 기록)">`;
-    if (c === 'imp') return `<input class="ced" data-fk="${fk}" value="${esc(x.imp || '')}" maxlength="100" placeholder="예: 11/15 중도금 · 이사 3/10 고정">`;
+    const inp = (v, ph, more = '') => `<input class="ced" data-fk="${fk}" value="${esc(v)}" placeholder="${ph}" ${more}>`;
+    if (c === 'ar') return inp(x.area || '', '㎡', 'inputmode="decimal"');
+    if (c === 'fl') return inp([a.fl, a.tfl].filter(v => v != null && v !== '').join('/'), '3/15 (해당층/총층)');
+    if (c === 'tel') return inp([cs.name, cs.phone].filter(Boolean).join(' '), '이름 010-0000-0000');
+    if (c === 'imp') return inp(x.imp || '', '예: 11/15 중도금 · 이사 3/10 고정', 'maxlength="100"');
+    if (c === 'biz') return inp(a.biz || '', '예: 카페 / 공실', 'maxlength="30"');
+    if (c === 'dir') return `<select class="ced" data-fk="${fk}"><option value="">-</option>${H.dirs.map(d => `<option ${a.dir === d ? 'selected' : ''}>${d}</option>`).join('')}</select>`;
+    if (c === 'exp') return inp(x.exp || '', '', 'type="date"');
+    if (['prem', 'mgmt', 'cdep', 'loan'].includes(c)) return inp(manTx(x[{ prem: 'premium', mgmt: 'mgmt', cdep: 'curDep', loan: 'loan' }[c]]), '만원 (예: 3000, 1억)');
+    if (c === 'crent') return inp(x.curRent || '', '만원', 'inputmode="numeric"');
     return '';
   }
   function rowHtml(x, n, RO) {
     const hl = B.hl === x.id;
-    const tds = VC().map(([c]) => {
-      const ed = B.ed && B.ed.id === x.id && B.ed.c === c;
-      return `<td class="c-${c}${ed ? ' editing' : ''}"${EDIT.includes(c) && !RO.has(x.id) ? ` data-c="${c}"` : ''}>${ed ? editorHtml(x, c) : cell(x, c, n)}</td>`;
+    const tds = VC().map(({ id: c, ed }) => {
+      const e = B.ed && B.ed.id === x.id && B.ed.c === c;
+      return `<td class="c-${c}${e ? ' editing' : ''}"${ed && !RO.has(x.id) ? ` data-c="${c}"` : ''}>${e ? editorHtml(x, c) : cell(x, c, n)}</td>`;
     }).join('');
     return `<tr id="b_${x.id}" data-id="${x.id}" class="${hl ? 'on' : ''}${x.mk === 'y' || x.mk === 'r' ? ' mk-' + x.mk : ''}${x.status === 'done' ? ' dn' : ''}${RO.has(x.id) ? ' ro' : ''}">${tds}</tr>${B.open.has(x.id) ? `<tr class="bd-dt" data-dt="${x.id}"><td colspan="${VC().length}">${detailHtml(x)}</td></tr>` : ''}`;
   }
-  // 왼쪽 #·유형·주소 칸 고정 (10/26) — 글자 크기·촘촘하게 보기로 칸 너비가 바뀌면 다시 잼
+  // 왼쪽 칸(번호 ~ 물건명·주소) 고정 — 글자 크기로 칸 너비가 바뀌면 다시 잼
   let RO_ = null;
+  const FZ = ['n', 'ty', 'nm', 'addr'];
   function fixCols() {
     const tb = $('bdT') && $('bdT').querySelector('table.bdt'); if (!tb) return;
-    const put = () => { const t1 = tb.querySelector('th.c-ty'), t2 = tb.querySelector('th.c-addr'); if (!t1 || !t2) return; tb.classList.remove('fx'); const L = tb.getBoundingClientRect().left; tb.style.setProperty('--l1', (t1.getBoundingClientRect().left - L) + 'px'); tb.style.setProperty('--l2', (t2.getBoundingClientRect().left - L) + 'px'); tb.classList.add('fx'); };
+    const put = () => {
+      tb.classList.remove('fx');
+      const cols = VC().map(c => c.id), last = cols.indexOf('nm') >= 0 ? cols.indexOf('nm') : cols.indexOf('addr'); if (last < 0) return;
+      let left = 0; const fz = cols.slice(0, last + 1).filter(id => FZ.includes(id));
+      if (fz.length !== last + 1) return;   // 앞쪽 칸이 모두 고정 칸일 때만
+      fz.forEach(id => { const th = tb.querySelector(`thead th.c-${id}:not(.fc)`); if (!th) return; tb.style.setProperty('--l-' + id, left + 'px'); left += th.offsetWidth; });
+      tb.dataset.fzl = fz[fz.length - 1]; tb.classList.add('fx');
+    };
+    // 머리 세 줄이 위로 붙을 때 겹치지 않게 (묶음 아래 줄 · 거르기 줄의 위치)
+    const tops = () => { const [r1, r2, r3] = tb.tHead.rows; if (!r1) return; const one = [...r1.cells].find(c => c.rowSpan === 1), h1 = one ? one.offsetHeight : r1.offsetHeight, hA = Math.max(...[...r1.cells].map(c => c.offsetHeight)); [...r1.cells].forEach(c => { c.style.top = '0px'; }); if (r2) [...r2.cells].forEach(c => { c.style.top = h1 + 'px'; }); if (r3) [...r3.cells].forEach(c => { c.style.top = hA + 'px'; }); };
+    tops();
     put();
-    if (window.ResizeObserver) { if (RO_) RO_.disconnect(); RO_ = new ResizeObserver(() => put()); const h = tb.querySelector('th.c-n'); if (h) RO_.observe(h); const h2 = tb.querySelector('th.c-ty'); if (h2) RO_.observe(h2); }
+    if (window.ResizeObserver) { if (RO_) RO_.disconnect(); RO_ = new ResizeObserver(() => { put(); tops(); }); const h = tb.tHead; if (h) RO_.observe(h); }
   }
   function drawTable() {
-    const { rows } = rowsNow(), RO = X.ro();
+    const { rows } = rowsNow(), RO = X.ro(), vc = VC();
     const nos = new Map(rows.map((x, i) => [x.id, i + 1]));
     const groups = new Map(); rows.forEach(x => { const k = H.adv() ? gkey(x) : ''; (groups.get(k) || groups.set(k, []).get(k)).push(x); });
     const avg = list => { const by = {}; list.forEach(x => { const p = mainP(x); if (p) (by[x.kind] || (by[x.kind] = [])).push(p); }); return Object.entries(by).map(([k, v]) => `${X.KIND[k]} ${v.length} · 평균 ${sw(v.reduce((a, b) => a + b, 0) / v.length)}`).join(' / '); };
-    const th = VC().map(([c, t, s]) => `<th class="c-${c}${s ? ' s' : ''}${B.sort === s && s ? ' on' : ''}"${s ? ` data-sort="${s}"` : ''}>${c === 'n' && B.sel ? `<input type="checkbox" id="bdAll" aria-label="모두 선택" ${rows.length && rows.every(x => B.sel.has(x.id)) ? 'checked' : ''}>` : ''}${t}${B.sort === s && s && c !== 'n' ? (B.dir > 0 ? ' ▲' : ' ▼') : ''}${CFV[c] ? `<button type="button" class="cfb${B.cf && B.cf[c] ? ' on' : ''}" data-cf="${c}" title="골라서 보기">▾</button>` : ''}</th>`).join('');
+    // 두 줄 머리: 묶음(의뢰가격·현상태·가격·임대 현황)은 위에 한 칸, 나머지는 두 줄 + 아래 칸별 거르기 줄
+    const leaf = (c, two) => `<th class="c-${c.id}${c.s ? ' s' : ''}${B.sort === c.s && c.s ? ' on' : ''}"${two ? ' rowspan="2"' : ''}${c.s ? ` data-sort="${c.s}"` : ''}>${c.id === 'n' && B.sel ? `<input type="checkbox" id="bdAll" aria-label="모두 선택" ${rows.length && rows.every(x => B.sel.has(x.id)) ? 'checked' : ''}>` : ''}${c.t}${B.sort === c.s && c.s && c.id !== 'n' ? (B.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+    let h1 = '', h2 = '';
+    vc.forEach((c, i) => { if (c.g) { if (!vc[i - 1] || vc[i - 1].g !== c.g) { let n = 0; for (let j = i; j < vc.length && vc[j].g === c.g; j++) n++; h1 += `<th class="grp" colspan="${n}">${c.g}</th>`; } h2 += leaf(c); } else h1 += leaf(c, true); });
+    const fr = vc.map(c => { const on = B.cf && B.cf[c.id]; return `<th class="fc c-${c.id}">${CFV[c.id] ? `<button type="button" class="cfs${on ? ' on' : ''}" data-cf="${c.id}" title="골라서 보기">${on ? esc(on.join(', ')) : ''}</button>` : ''}</th>`; }).join('');
     const D = B.add.D;
-    const body = (D ? draftHtml(D) : '') + [...groups.entries()].map(([k, list]) => (k ? `<tr class="gh"><td colspan="${VC().length}"><b>${esc(k)}</b> <span>${list.length}건${avg(list) ? ' · ' + esc(avg(list)) : ''}</span></td></tr>` : '') + list.map(x => rowHtml(x, nos.get(x.id), RO)).join('')).join('');
-    const empty = !H.items().length ? `<tr><td colspan="${VC().length}" class="none"><b>아직 등록한 매물이 없습니다</b>위 칸에 주소를 치고 Enter를 눌러 보세요. 건물 정보가 자동으로 채워집니다.</td></tr>`
-      : !rows.length && !D ? `<tr><td colspan="${VC().length}" class="none">조건에 맞는 매물이 없습니다.</td></tr>` : '';
+    const body = (D ? draftHtml(D) : '') + [...groups.entries()].map(([k, list]) => (k ? `<tr class="gh"><td colspan="${vc.length}"><b>${esc(k)}</b> <span>${list.length}건${avg(list) ? ' · ' + esc(avg(list)) : ''}</span></td></tr>` : '') + list.map(x => rowHtml(x, nos.get(x.id), RO)).join('')).join('');
+    const empty = !H.items().length ? `<tr><td colspan="${vc.length}" class="none"><b>아직 등록한 매물이 없습니다</b>위 칸에 주소를 치고 Enter를 눌러 보세요. 건물 정보가 자동으로 채워집니다.</td></tr>`
+      : !rows.length && !D ? `<tr><td colspan="${vc.length}" class="none">${H.items().some(x => catOf(x) === B.cat) ? '조건에 맞는 매물이 없습니다.' : `아직 ${esc(CATNAME[B.cat])} 매물이 없습니다. 위 칸에 주소를 치고 Enter를 눌러 보세요.`}</td></tr>` : '';
     const selBar = B.sel && B.sel.size ? `<div class="bd-bulk"><b>${B.sel.size}건 선택</b><button type="button" data-bulk="on">진행</button><button type="button" data-bulk="hold">보류</button><button type="button" data-bulk="done">거래완료</button><button type="button" id="bdSelCsv">선택만 엑셀</button><button type="button" class="lnk" id="bdUnsel">선택 해제</button></div>` : '';
-    $('bdT').innerHTML = `${selBar}<div class="bd-scroll"><table class="bdt"><colgroup>${VC().map(([c]) => `<col class="w-${c}">`).join('')}</colgroup><thead><tr>${th}</tr></thead><tbody>${body}${empty}</tbody></table></div>`;
+    $('bdT').innerHTML = `${selBar}<div class="bd-scroll"><table class="bdt cat-${B.cat}"><thead><tr>${h1}</tr><tr>${h2}</tr><tr class="frow">${fr}</tr></thead><tbody>${body}${empty}</tbody></table></div>`;
     wireTable(rows);
     fixCols();
     if (D) wireDraft(D);
     H.pins(rows.map(x => x.id), B.map && B.fitNext); if (B.map) B.fitNext = false;
-    const ed = B.ed && $('bdT').querySelector('td.editing input');
-    if (ed && document.activeElement !== ed) { ed.focus(); if (ed.select) ed.select(); }
+    const ed = B.ed && $('bdT').querySelector('td.editing .ced');
+    if (ed && document.activeElement !== ed) { ed.focus(); if (ed.select && ed.type !== 'date') ed.select(); }
+    drawHist();
   }
   function wireTable(rows) {
     const T = $('bdT');
     T.querySelectorAll('[data-cf]').forEach(b => b.onclick = e => {
       e.stopPropagation(); const k = b.dataset.cf, cnt = new Map(), keepCf = B.cf;
-      B.cf = { ...(keepCf || {}), [k]: null }; const pool = H.items().filter(pass); B.cf = keepCf;   // 다른 거르기는 그대로 두고 센 숫자
+      B.cf = { ...(keepCf || {}), [k]: null }; const pool = H.items().filter(x => pass(x)); B.cf = keepCf;   // 다른 거르기는 그대로 두고 센 숫자
       pool.forEach(x => { const v = CFV[k](x); cnt.set(v, (cnt.get(v) || 0) + 1); });
       (B.cf && B.cf[k] || []).forEach(v => { if (!cnt.has(v)) cnt.set(v, 0); });
       const vals = [...cnt].map(([v, n]) => ({ v, n })).sort((a, b) => String(a.v).localeCompare(String(b.v), 'ko', { numeric: true }));
@@ -339,17 +431,21 @@ window.Board = (() => {
     });
     T.querySelectorAll('th[data-sort]').forEach(h => h.onclick = e => { if (e.target.closest('input') || e.target.closest('[data-cf]')) return; const s = h.dataset.sort; if (B.sort === s) B.dir *= -1; else { B.sort = s; B.dir = ['at', 'pr', 'ar', 'memo'].includes(s) ? -1 : 1; } keep(); refresh(); });
     T.querySelectorAll('[data-det]').forEach(b => b.onclick = e => { e.stopPropagation(); toggle(b.dataset.det); });
+    T.querySelectorAll('[data-hist]').forEach(b => b.onclick = e => { e.stopPropagation(); const id = b.dataset.hist; B.hist = B.hist === id ? null : id; B.hl = id; refresh(); });
+    T.querySelectorAll('a[data-call]').forEach(a => a.onclick = e => { e.stopPropagation(); callLog(a.dataset.call); });
     T.querySelectorAll('[data-pubm]').forEach(b => b.onclick = e => { e.stopPropagation(); H.pubClick(b.dataset.pubm, b); });
     T.querySelectorAll('tr[data-id]').forEach(r => r.onclick = e => {
       if (e.target.closest('input,button,a,select,textarea')) return;
       const td = e.target.closest('td'), id = r.dataset.id;
       if (B.hl !== id) { B.hl = id; T.querySelectorAll('tr.on[data-id]').forEach(z => z.classList.remove('on')); r.classList.add('on'); }   // 누른 줄 = 표시(노랑·빨강) 대상
       if (td && td.dataset.c && !td.classList.contains('editing')) return startEdit(id, td.dataset.c, td);
-      if (r.classList.contains('ro') && td && EDIT.some(c => td.classList.contains('c-' + c))) return H.openForm(id);   // 보기 전용: 요금제 안내
+      if (r.classList.contains('ro') && td && VC().some(c => c.ed && td.classList.contains('c-' + c.id))) return H.openForm(id);   // 보기 전용: 요금제 안내
       if (td && td.classList.contains('c-addr')) toggle(id);
       H.focus(id);
     });
-    T.querySelectorAll('td.editing input.ced').forEach(inp => {
+    T.querySelectorAll('td.editing .ced').forEach(inp => {
+      if (inp.tagName === 'SELECT') inp.onchange = () => commit(inp);
+      if (inp.type === 'date') { let typing = false; inp.addEventListener('keydown', e => { if (/^\d$/.test(e.key) || e.key === 'Backspace') typing = true; }); inp.onchange = () => { if (!typing && inp.value && +inp.value.slice(0, 4) >= 2000) commit(inp); }; }
       inp.onkeydown = e => {
         if (e.isComposing) return;
         if (e.key === 'Enter') { e.preventDefault(); commit(inp, 'down'); }
@@ -367,9 +463,9 @@ window.Board = (() => {
         const st = b.dataset.bulk, ids = [...B.sel].filter(id => (H.items().find(x => x.id === id) || {}).status !== st);
         if (!ids.length) return H.toast('이미 그 상태입니다');
         if (!confirm(`${ids.length}건을 '${X.STAT[st]}' 처리할까요?`)) return;
-        let ok = 0;
-        for (const id of ids) { try { H.took(await H.api('/api/auth?action=listing', H.post({ op: 'status', id, status: st }))); ok++; } catch (e) { H.toast(e.message, 3500); break; } }
-        B.sel.clear(); H.redraw(); H.toast(`${ok}건을 '${X.STAT[st]}' 처리했습니다`);
+        const RO = X.ro(), ok = ids.filter(id => !RO.has(id));
+        for (const id of ok) await saveItem(id, it => { it.status = st; });   // 10/26: 기록에 '상태 · …'가 남도록 저장으로
+        B.sel.clear(); H.redraw(); H.toast(`${ok.length}건을 '${X.STAT[st]}' 처리했습니다${ok.length < ids.length ? ` (보기 전용 ${ids.length - ok.length}건 제외)` : ''}`);
       });
     }
     T.querySelectorAll('tr.bd-dt').forEach(r => wireDetail(r, H.items().find(x => x.id === r.dataset.dt)));
@@ -378,22 +474,25 @@ window.Board = (() => {
   function startEdit(id, c, td) {
     const x = H.items().find(i => i.id === id); if (!x) return;
     hidePop();
-    if (c === 'pr') return pricePop(x, td);
+    const col = VC().find(z => z.id === c); if (!col) return;
+    if (col.ed === 'det') { B.open.add(id); B.hl = id; refresh(); return; }   // 건축물대장·임대 현황 값은 상세에서
+    if (['kd', 'ps', 'pj', 'pdep', 'prent'].includes(c)) return pricePop(x, td);
     if (c === 'st') return statusPop(x, td);
     if (c === 'ty') return typePop(x, td);
     if (c === 'ar' && places(x).length > 1) { B.open.add(id); refresh(); return H.toast('필지·호가 여러 개인 매물은 상세에서 하나씩 고칩니다'); }
     B.ed = { id, c }; B.hl = id; refresh();
   }
-  const NAV0 = ['imp', 'ar', 'fl', 'tel', 'memo'];
   function commit(inp, move) {
     if (!B.ed) return;
-    const { id, c } = B.ed, v = inp.value.trim(), x = H.items().find(i => i.id === id);
+    const { id, c } = B.ed, v = String(inp.value || '').trim(), x = H.items().find(i => i.id === id);
     let next = null;
-    if (move === 'next' || move === 'prev') { const NAV = NAV0.filter(k => VC().some(v => v[0] === k)), i = NAV.indexOf(c) + (move === 'next' ? 1 : -1); if (i >= 0 && i < NAV.length) next = { id, c: NAV[i] }; }
-    else if (move === 'down') { const ids = [...$('bdT').querySelectorAll('tr[data-id]')].map(r => r.dataset.id), k = ids.indexOf(id); if (c === 'memo' || c === 'tel') next = null; else if (k >= 0 && ids[k + 1]) next = { id: ids[k + 1], c }; }
+    const NAV = VC().filter(z => z.ed === 'in').map(z => z.id);
+    if (move === 'next' || move === 'prev') { const i = NAV.indexOf(c) + (move === 'next' ? 1 : -1); if (i >= 0 && i < NAV.length) next = { id, c: NAV[i] }; }
+    else if (move === 'down') { const ids = [...$('bdT').querySelectorAll('tr[data-id]')].map(r => r.dataset.id), k = ids.indexOf(id); if (c === 'tel') next = null; else if (k >= 0 && ids[k + 1]) next = { id: ids[k + 1], c }; }
     B.ed = next;
     if (!x) return refresh();
     const a = x.ad || {}, cs = (x.contacts || [])[0] || {};
+    const money = (f, ok) => { const n = man(v); if (Number.isNaN(n)) { H.toast('금액을 확인해 주세요 (예: 3000, 1억)'); return refresh(); } if ((n || null) === (x[f] || null)) return refresh(); return saveItem(id, it => { it[f] = n; if (ok) ok(it, n); }); };
     if (c === 'ar') { const n = parseFloat(v.replace(/[^\d.]/g, '')) || null; if (n === (x.area || null)) return refresh(); return saveItem(id, it => { it.places[0].area = n; it.area = n; }); }
     if (c === 'fl') {
       const [f, t] = v.split('/').map(s => s.trim()); const fl = (f || '').replace(/층$/i, '').replace(/^지하\s*/, 'B').replace(/f$/i, ''), tfl = t ? parseInt(t, 10) || null : (a.tfl ?? null);
@@ -405,10 +504,72 @@ window.Board = (() => {
       if (name === (cs.name || '') && phone.replace(/\D/g, '') === String(cs.phone || '').replace(/\D/g, '')) return refresh();
       return saveItem(id, it => { const c0 = it.contacts[0] || { role: '소유자' }; it.contacts[0] = { ...c0, name, phone: fmtPhone(phone) }; if (!name && !phone) it.contacts.shift(); });
     }
-    if (c === 'memo') { if (!v) return refresh(); return saveItem(id, it => { it.memo = X.memoAdd(it.memo, v); }); }
     if (c === 'imp') { if (v === (x.imp || '')) return refresh(); return saveItem(id, it => { it.imp = v; }); }   // 날짜는 서버가 글에서 찾아 impd로
+    if (c === 'biz' || c === 'dir') { if (v === (a[c] || '')) return refresh(); return saveItem(id, it => { it.ad = { ...(it.ad || {}), [c]: v }; }); }
+    if (c === 'exp') { const d = /^\d{4}-\d{2}-\d{2}$/.test(v) && +v.slice(0, 4) >= 2000 ? v : ''; if (v && !d) { H.toast('날짜를 확인해 주세요 (예: 2027-03-31)'); return refresh(); } if (d === (x.exp || '')) return refresh(); return saveItem(id, it => { it.exp = d; }); }
+    if (c === 'prem') return money('premium');
+    if (c === 'mgmt') return money('mgmt');
+    if (c === 'loan') return money('loan');
+    if (c === 'cdep') return money('curDep');
+    if (c === 'crent') { const n = parseInt(v.replace(/\D/g, ''), 10) || null; if (n === (x.curRent || null)) return refresh(); return saveItem(id, it => { it.curRent = n; }); }
     refresh();
   }
+  // ---------- 기록 창 (10/26 아파트 '상담 기록'과 같은 방식) ----------
+  //   화면 오른쪽에 떠 있는 창 · 직접 쓴 기록은 [고치기]·[×] · 가격·상태 등 바뀐 내용과 전화는 자동으로 남음(회색)
+  //   기록은 매물의 memo 칸('[26.10.26 15:00] 내용' 줄들) 그대로 — 매물 카드의 메모와 같은 것
+  const AUTO = /^(변경|상태|전화) · /;
+  const nowT = () => { const d = new Date(Date.now() + 9 * 3600e3), p = n => String(n).padStart(2, '0'); return `${String(d.getUTCFullYear()).slice(2)}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
+  const memoJoin = a => a.map(e => e.t ? `[${e.t}] ${e.x}` : a.length > 1 ? `[예전 메모] ${e.x}` : e.x).join('\n');
+  function drawHist() {
+    const x = B.hist && H.items().find(i => i.id === B.hist);
+    let P = $('bd_hp');
+    if (!x) { if (P) P.remove(); B.hist = null; return; }
+    if (!P) { P = document.createElement('aside'); P.id = 'bd_hp'; P.className = 'hpanel bdhp'; $('bd').appendChild(P); }
+    else if (P.dataset.id === x.id && P.contains(document.activeElement) && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.value) return;   // 쓰는 중인 글이 지워지지 않게
+    P.dataset.id = x.id;
+    const RO = X.ro().has(x.id), L = X.memoParse(x.memo), cs = (x.contacts || []).filter(c => c.name || c.phone);
+    const title = [x.bname, shortAddr(places(x)[0].addr || x.addr), places(x).map(dh).filter(Boolean)[0]].filter(Boolean).join(' · ');
+    const pr = mainP(x) ? `${X.KIND[x.kind]} ${x.kind === 'wolse' ? `${cw(x.deposit) || 0}/${x.rent || '-'}` : cw(mainP(x))}` : X.KIND[x.kind];
+    P.innerHTML = `<div class="hp-h"><b>${esc(title)}</b><span>${esc(chip(x))} · ${esc(pr)} · ${esc(X.STAT[x.status])}</span><button type="button" class="hp-x" id="bdhp_x" aria-label="닫기">×</button></div>
+      ${cs.length ? `<div class="hp-tel">${cs.map((c, i) => `<a class="tl" href="tel:${esc(String(c.phone || '').replace(/[^\d+]/g, ''))}" data-call="${x.id}:${i}">☎ ${esc([c.role, c.name].filter(Boolean).join(' '))} ${esc(c.phone || '')}</a>`).join('')}</div>` : ''}
+      ${RO ? '' : `<div class="hjmemo"><input class="hjin sm" id="bdhp_in" data-fk="hp:${x.id}" placeholder="기록 남기기 (예: 임차인 통화 — 3월 이사) · Enter" maxlength="500"><button type="button" class="btn dark sm" id="bdhp_add">추가</button></div>`}
+      ${L.length ? `<ul class="hjhist">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button>`}</li>`; }).join('')}</ul>` : '<p class="note">아직 기록이 없습니다.</p>'}
+      <p class="note">가격·상태를 바꾸거나 전화를 걸면 자동으로 남습니다(회색).</p>`;
+    $('bdhp_x').onclick = () => { B.hist = null; refresh(); };
+    P.querySelectorAll('[data-call]').forEach(a => a.onclick = () => callLog(a.dataset.call));
+    if (RO) return;
+    const add = () => { const t = $('bdhp_in').value.trim(); if (!t) return $('bdhp_in').focus(); $('bdhp_in').value = ''; saveItem(x.id, it => { it.memo = X.memoAdd(it.memo, t); }, '기록했습니다'); };
+    $('bdhp_add').onclick = add; $('bdhp_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } };
+    P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => { if (!confirm('이 기록을 지울까요?')) return; const i = +b.dataset.mdel; saveItem(x.id, it => { const a = X.memoParse(it.memo); a.splice(i, 1); it.memo = memoJoin(a); }); });
+    P.querySelectorAll('[data-medit]').forEach(b => b.onclick = () => {
+      const i = +b.dataset.medit, sp = P.querySelector(`.hx[data-hi="${i}"]`), e0 = L[i]; if (!sp || !e0) return;
+      const raw = e0.x.replace(/\s*\(수정됨 [\d. :]+\)$/, '');
+      sp.innerHTML = `<textarea class="hjin sm hed" maxlength="500" rows="2">${esc(raw)}</textarea><button type="button" class="btn dark sm hsv">저장</button><button type="button" class="btn ghost sm hcn">취소</button>`;
+      const ta = sp.querySelector('textarea'); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      const save = () => { const t = ta.value.trim(); if (!t) return H.toast('내용을 적어 주세요. 지우려면 × 를 눌러 주세요'); if (t === raw) return drawHist(); saveItem(x.id, it => { const a = X.memoParse(it.memo); if (a[i]) a[i] = { ...a[i], x: `${t} (수정됨 ${nowT()})` }; it.memo = memoJoin(a); }, '고쳤습니다'); };
+      sp.querySelector('.hsv').onclick = save; sp.querySelector('.hcn').onclick = () => drawHist();
+      ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); save(); } if (e.key === 'Escape') drawHist(); };
+    });
+  }
+  // 전화 버튼 → 기록에 '전화 · 소유자 홍길동' (전화는 그대로 걸림)
+  function callLog(k) {
+    const [id, n] = String(k).split(':'), x = H.items().find(i => i.id === id); if (!x || X.ro().has(id)) return;
+    const c = (x.contacts || [])[+n] || {};
+    saveItem(id, it => { it.memo = X.memoAdd(it.memo, `전화 · ${[c.role, c.name].filter(Boolean).join(' ') || '연락처'}`); });
+  }
+  // 저장할 때 바뀐 내용 → 기록 한 줄 (가격·거래·상태·현상태·만기·유형)
+  const prTx = x => x.kind === 'sale' ? `매매 ${cw(x.price) || '-'}` : x.kind === 'jeonse' ? `전세 ${cw(x.deposit) || '-'}` : x.kind === 'wolse' ? `월세 ${cw(x.deposit) || 0}/${x.rent || '-'}` : `분양권 ${cw(x.price) || '-'}${x.pr ? ' P' + cw(x.pr) : ''}`;
+  function autoLines(a, b) {
+    const out = [];
+    if (a.kind !== b.kind || (a.price || 0) !== (b.price || 0) || (a.deposit || 0) !== (b.deposit || 0) || (a.rent || 0) !== (b.rent || 0) || (a.pr || 0) !== (b.pr || 0)) out.push(`변경 · ${prTx(a)} → ${prTx(b)}`);
+    if ((a.premium || 0) !== (b.premium || 0)) out.push(`변경 · 권리금 ${cw(a.premium) || '없음'} → ${cw(b.premium) || '없음'}`);
+    if ((a.curDep || 0) !== (b.curDep || 0) || (a.curRent || 0) !== (b.curRent || 0)) out.push(`변경 · 현 보증금·월세 ${cw(a.curDep) || 0}/${a.curRent || 0} → ${cw(b.curDep) || 0}/${b.curRent || 0}`);
+    if ((a.exp || '') !== (b.exp || '')) out.push(`변경 · 만기 ${ymdS(a.exp) || '없음'} → ${ymdS(b.exp) || '없음'}`);
+    if (a.status !== b.status) out.push(`상태 · ${X.STAT[a.status]} → ${X.STAT[b.status]}`);
+    if ((a.ptype || '') !== (b.ptype || '')) out.push(`변경 · 유형 ${a.ptype || '미지정'} → ${b.ptype || '미지정'}`);
+    return out;
+  }
+
   // ---------- 작은 창 (가격 · 상태 · 유형) ----------
   function showPop(td, html) {
     const p = $('bdPop'), r = td.getBoundingClientRect(), box = EL.getBoundingClientRect();
@@ -423,13 +584,12 @@ window.Board = (() => {
     const p = showPop(td, `<div class="pl">${[['on', '진행 중'], ['hold', '보류'], ['done', '거래완료']].map(([k, t]) => `<button type="button" data-s="${k}" class="${x.status === k ? 'on' : ''}">${t}</button>`).join('')}</div>`);
     p.querySelectorAll('[data-s]').forEach(b => b.onclick = async () => {
       hidePop(); const st = b.dataset.s; if (st === x.status) return;
-      try { H.took(await H.api('/api/auth?action=listing', H.post({ op: 'status', id: x.id, status: st }))); H.redraw(); H.toast(`'${X.STAT[st]}' 처리했습니다`); }
-      catch (e) { if (e.code === 'readonly') H.upsell(e.message); else H.toast(e.message, 4000); }
+      saveItem(x.id, it => { it.status = st; }, `'${X.STAT[st]}' 처리했습니다`);   // 10/26: 기록에 '상태 · 진행 → 보류'가 남도록 저장으로
     });
   }
   function typePop(x, td) {
     const p = showPop(td, `<div class="pl grid">${X.PTYPES.map(t => `<button type="button" data-t="${t}" class="${x.ptype === t ? 'on' : ''}">${t}</button>`).join('')}</div>`);
-    p.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { hidePop(); const t = b.dataset.t; if (t !== x.ptype) saveItem(x.id, it => { it.ptype = t; }); });
+    p.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { hidePop(); const t = b.dataset.t; if (t === x.ptype) return; const to = catOf({ ptype: t }); saveItem(x.id, it => { it.ptype = t; }, to !== B.cat ? `${CATNAME[to]} 탭으로 옮겼습니다` : ''); });
   }
   const PF = { sale: [['price', '매매가']], jeonse: [['deposit', '전세 보증금']], wolse: [['deposit', '보증금'], ['rent', '월세']], presale: [['price', '분양가'], ['pr', '프리미엄(P)']] };
   function pricePop(x, td) {
@@ -909,9 +1069,10 @@ window.Board = (() => {
       const nx = H.items()[0];
       B.add.D = null; B.add.q = '';
       if (nx) { B.hl = nx.id; if (m === 'whole' || m === 'land') B.open.add(nx.id); }
-      if (B.st !== 'all' && B.st !== 'on') B.st = 'on';
-      if (B.kind !== 'all' && B.kind !== kind) B.kind = 'all';
-      if (B.ty !== 'all' && nx && tyOf(nx) !== B.ty) B.ty = 'all';
+      if (B.fs.length && !B.fs.includes('on')) B.fs = ['on'];
+      if (B.fk.length && !B.fk.includes(kind)) B.fk = [];
+      B.fc = []; B.fx = []; B.cf = null; B.tr = null;
+      if (nx && catOf(nx) !== B.cat) { B.cat = catOf(nx); if (H.onCat) H.onCat(B.cat); H.toast(`${CATNAME[B.cat]} 탭으로 옮겼습니다`, 2500); }   // 등록한 매물의 종류 탭으로
       B.q = ''; keep(); B.fitNext = true;
       H.redraw();
       const q = $('bdQ'); if (q) { q.value = ''; q.focus(); }
@@ -963,8 +1124,12 @@ window.Board = (() => {
   // 알림에서 '그 매물로 가기': 거르기를 풀고 그 줄을 펼쳐서 보여 줌
   function reveal(id) {
     const x = H.items().find(i => i.id === id); if (!x) return;
-    B.ty = 'all'; B.kind = 'all'; B.q = ''; if (B.st !== 'all' && x.status !== B.st) B.st = 'all';
-    B.open.add(id); B.hl = id; refresh(); setTimeout(() => focus(id, true), 60);
+    B.cat = catOf(x); if (H.onCat) H.onCat(B.cat); B.sel = null; B.ed = null; B.add.D = null;
+    B.fk = []; B.fc = []; B.fx = []; B.cf = null; B.tr = null; B.q = ''; if (B.fs.length && !B.fs.includes(x.status)) B.fs = [];
+    B.open.add(id); B.hl = id; keep(); refresh(); setTimeout(() => focus(id, true), 60);
   }
-  return { init, mount, refresh, focus, reveal, autoItem, _man: man };
+  // 위 탭에서 종류를 고름 (listings.js) — 탭을 바꾸면 거르기는 처음대로(상태만 유지)
+  function setCat(c) { if (!CATS[c] || c === B.cat) return; B.cat = c; B.tr = null; B.cf = null; B.fx = []; B.fk = []; B.fc = []; B.ed = null; B.sel = null; B.hist = null; B.add.D = null; keep(); B.fitNext = true; refresh(); }
+  const counts = () => { const o = {}; (H ? H.items() : []).forEach(x => { if (x.status === 'on') { const c = catOf(x); o[c] = (o[c] || 0) + 1; } }); return o; };
+  return { init, mount, refresh, focus, reveal, autoItem, setCat, cat: () => B.cat, catOf, counts, CATNAME, autoLines, _man: man };
 })();

@@ -109,11 +109,12 @@
     $('addBtn').onclick = () => openForm(null);
     $('csvBtn').onclick = () => exportCsv();
     $('find').oninput = e => { S.q = e.target.value.trim(); drawList(); };
-    document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+    document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode, b.dataset.cat));
+    gsWire();
   }
   // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
   const DJ_HOST = {
-    items: () => S.items,
+    items: () => S.items, goAptList: () => setMode('list', 'apt'),
     openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
     toast,
@@ -124,26 +125,49 @@
   function upsell(msg) { if (confirm(`${msg}\n\n요금제 안내를 열어 볼까요?`)) window.open('/pro.html#price', '_blank'); }
   const adv = () => !S.plan || S.plan.adv;
   // 지도+리스트(list) 모드: 표가 기본, [지도로 보기]를 켜면 오른쪽에 지도 · 단지(danji) 모드는 Basic부터
-  function setMode(m) {
+  function setMode(m, cat) {
     S.mode = m === 'danji' || m === 'cust' ? m : 'list';
+    if (S.mode === 'list' && cat && window.Board) Board.setCat(cat);   // 10/26 종류별 탭
     try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
     const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust';
     document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu);
     if (!lv) document.body.classList.remove('lvmap');
     $('dj').hidden = !dj; $('lv').hidden = !lv; $('cu').hidden = !cu; $('map').style.visibility = dj || cu || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
-    document.querySelectorAll('[data-mode]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.mode === S.mode); b.classList.remove('lock'); });
+    syncTabs();
     if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
     else if (cu && window.Cust) { if (!S.cuMounted) { S.cuMounted = true; Cust.mount($('cu'), custHost()); } else Cust.refresh(); }
     else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }
     drawList();
   }
+  // 위 탭 눌림 상태 · 종류별 진행 중 매물 수 (10/26) — 매물 화면에서 '아파트 매물'을 볼 때는 아파트 탭이 눌림
+  function syncTabs() {
+    const cat = window.Board ? Board.cat() : 'shop';
+    document.querySelectorAll('[data-mode]').forEach(b => { const on = b.dataset.mode === S.mode && (!b.dataset.cat || b.dataset.cat === cat) || (S.mode === 'list' && cat === 'apt' && b.dataset.mode === 'danji'); b.setAttribute('aria-pressed', on); b.classList.remove('lock'); });
+    const n = window.Board && S.items ? Board.counts() : {};
+    document.querySelectorAll('[data-cn]').forEach(e => { const v = n[e.dataset.cn] || 0; e.textContent = v ? ' ' + v : ''; });
+  }
+  // ---------- 전체 검색 (위 막대) — 모든 종류 매물에서 찾고, 누르면 그 탭의 그 줄로 ----------
+  function gsWire() {
+    const q = $('gsQ'), box = $('gsRes'); if (!q) return;
+    const hide = () => { box.hidden = true; box.innerHTML = ''; };
+    const run = () => {
+      const v = q.value.trim().toLowerCase(); if (!v) return hide();
+      const hit = (S.items || []).filter(x => [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.ptype, x.imp, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || '')].join(' ').toLowerCase().includes(v));
+      box.hidden = false;
+      box.innerHTML = hit.length ? hit.slice(0, 12).map(x => `<button type="button" data-gs="${esc(x.id)}"><span class="gt">${esc(window.Board ? Board.CATNAME[Board.catOf(x)] : x.ptype)}</span><b>${esc(x.bname || (x.addr || '').split(' ').slice(-2).join(' '))}</b><small>${esc([(x.addr || '').split(' ').slice(-2).join(' '), KIND[x.kind], STAT[x.status], x.owner].filter(Boolean).join(' · '))}</small></button>`).join('') + (hit.length > 12 ? `<div class="gm">외 ${hit.length - 12}건 · 더 자세히 적어 보세요</div>` : '') : '<div class="gm">찾는 매물이 없습니다. (아파트 단지 장부의 호실 기록은 아파트 화면에서 찾아 주세요)</div>';
+      box.querySelectorAll('[data-gs]').forEach(b => b.onclick = () => { const id = b.dataset.gs; hide(); q.value = ''; setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 60); });
+    };
+    let t = 0; q.oninput = () => { clearTimeout(t); t = setTimeout(run, 150); };
+    q.onkeydown = e => { if (e.key === 'Escape') { q.value = ''; hide(); } if (e.key === 'Enter' && !e.isComposing) { const b = box.querySelector('[data-gs]'); if (b) b.click(); } };
+    document.addEventListener('mousedown', e => { if (!e.target.closest('#gsBox')) hide(); });
+  }
   // 고객관리(cust.js)에 넘기는 것들
   const custHost = () => ({ items: () => S.items, plan: () => S.plan || {}, toast, upsell, X: bdHost().X, goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
   const goCust = id => { setMode('cust'); setTimeout(() => window.Cust && Cust.reveal(id), 120); };
   // 지도+리스트 표(board.js)에 넘기는 것들 (아래쪽에 정의된 도우미를 쓰므로 붙일 때 만듦)
   const bdHost = () => ({
-    items: () => S.items, adv, upsell, toast, api, post, took, kakao: () => S.kakao, canPub: () => !!S.canPub,
+    items: () => S.items, adv, upsell, toast, api, post, took, kakao: () => S.kakao, canPub: () => !!S.canPub, onCat: () => syncTabs(),
     redraw: () => draw(), drawBk: () => drawBk(),
     openForm: id => { const x = id && S.items.find(i => i.id === id); openForm(x || null); },
     pub: id => pubFlow(S.items.find(i => i.id === id)), pubOp: (id, op) => pubOp(id, op),
@@ -168,7 +192,7 @@
     return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawBk(); drawTabs(); drawList(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); if (S.mode === 'cust' && window.Cust && S.cuMounted) Cust.refresh(); }
+  function draw() { drawBk(); drawTabs(); drawList(); syncTabs(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); if (S.mode === 'cust' && window.Cust && S.cuMounted) Cust.refresh(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
@@ -788,7 +812,8 @@
     // 화면용 임시값(_로 시작)은 빼고 보냅니다. 거래 종류에 없는 금액 칸은 비웁니다.
     const keys = moneyOf(it).map(m => m[0]);
     const body = { ...it, places: it.places.map(P => Object.fromEntries(Object.entries(P).filter(([k]) => !k.startsWith('_')))) };
-    ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) body[k] = null; });
+    ['price', 'deposit', 'rent', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) body[k] = null; });   // 10/26: 관리비·권리금·현 보증금/월세는 거래 종류와 상관없이 남김
+    { const prev = S.form.edit ? S.items.find(i => i.id === it.id) : null; if (prev && window.Board && Board.autoLines) Board.autoLines(prev, body).forEach(t => { body.memo = memoAdd(body.memo, t); }); }   // 바뀐 내용 자동 기록
     if (it.ptype !== '기타') body.ptypeTx = '';
     if (it.kind === 'jeonse' || it.kind === 'presale') body.rents = [];
     $('fSave').disabled = true; $('fSave').textContent = '저장 중…';
@@ -907,7 +932,7 @@
   function pubBody(it) {
     const keys = moneyOf(it).map(m => m[0]);
     const b = { ...it, places: (it.places || []).map(P => Object.fromEntries(Object.entries(P).filter(([k]) => !k.startsWith('_')))) };
-    ['price', 'deposit', 'rent', 'mgmt', 'premium', 'curDep', 'curRent', 'loan', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) b[k] = null; });
+    ['price', 'deposit', 'rent', 'pr', 'paid'].forEach(k => { if (!keys.includes(k)) b[k] = null; });   // 10/26: 관리비·권리금·현 보증금/월세·융자는 남김 (표에서 바로 입력)
     if (it.ptype !== '기타') b.ptypeTx = '';
     delete b._new;
     return b;

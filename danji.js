@@ -269,7 +269,8 @@ window.Danji = (() => {
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         return `<div class="tn${op ? ' on' : ''}${S.multi.has(c.id) ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${S.multi.has(c.id) ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
         ${fo && C && C.dongs ? C.dongs.map(d => ({ d, m: dongCounts(c, d, mineMap(c)) })).sort((p, q) => (q.m.m + q.m.o) - (p.m.m + p.m.o) || q.m.e - p.m.e).map(({ d, m }) => { const k = d.pnu + '|' + d.dong; return `<button type="button" class="tn d${C.view === 'dong' && C.cur === k ? ' on' : ''}" data-tdong="${esc(k)}"><i></i>${esc(d.dong)}<span class="ct">${m.m + m.o || ''}${m.e ? ` <em>만기 ${m.e}</em>` : ''}</span></button>`; }).join('') : ''}`; }).join('')}
-      <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>`;
+      <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>
+      ${(() => { const n = (S.host.items() || []).filter(x => x.ptype === '아파트' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
       S.fold = S.fold || new Set(); const id = b.dataset.tcx;
@@ -279,6 +280,7 @@ window.Danji = (() => {
     T.querySelectorAll('[data-tck]').forEach(b => b.onchange = () => { const id = b.dataset.tck; if (b.checked) S.multi.add(id); else S.multi.delete(id); saveMulti(); if (multiOn()) { S.cur = '__all'; } else if (S.cur === '__all') { S.cur = [...S.multi][0] || S.cur; } S.adding = false; draw(); });
     T.querySelectorAll('[data-tdong]').forEach(b => b.onclick = () => { const C2 = S.C[S.cur]; if (!C2) return; C2.view = 'dong'; C2.cur = b.dataset.tdong; C2.picked = true; S.hist = null; drawComplex(cur); drawTree(); });
     T.querySelector('[data-tadd]').onclick = () => { S.adding = true; S.results = null; draw(); };
+    const orph = T.querySelector('[data-torph]'); if (orph) orph.onclick = () => S.host.goAptList();   // 10/26 매물 화면의 '아파트 매물'로
   }
   function CI(c) {
     if (S.C[c.id] && S.C[c.id].dongs) return S.C[c.id];
