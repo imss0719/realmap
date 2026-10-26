@@ -193,6 +193,9 @@ async function bkGate(uid) {
 export const PUB_KEY = 'realmap:pub';
 const PUB_DAYS = 30;
 const RESID = ['아파트', '빌라', '오피스텔', '주택'];
+// 10/26 세부 유형 → 원래 큰 유형 (listings.js tbase 와 같은 규칙) — 광고 필수 항목·방향 맞추기는 이 값으로
+const TB = { 주상복합: '아파트', 지식산업센터: '사무실', 연립: '빌라', 다가구: '주택', 숙박: '건물' }, FB = { 빌라: '빌라', 단독: '주택', 상가: '상가', 아파트: '아파트', 토지: '토지' };
+const tbase = x => { const t = (x && x.ptype) || ''; if (t === '재개발' || t === '재건축') return FB[(x.ad || {}).form] || (t === '재건축' ? '아파트' : ''); return TB[t] || t; };
 const canPub = id => (ADMIN_ID && String(id) === ADMIN_ID) || process.env.PUB_OPEN === '1';
 async function pipe(cmds) {
   if (!cmds.length || !R_URL || !R_TOKEN) return;
@@ -211,7 +214,7 @@ export function adMissing(x, bk) {
   if (!x.ptype) miss.push('매물 종류');
   const price = x.kind === 'sale' ? x.price : x.kind === 'jeonse' ? x.deposit : x.kind === 'wolse' ? x.rent : x.price && x.pr;
   if (!price) miss.push('가격');
-  if (x.ptype === '토지') { if (!a.use) miss.push('지목'); return miss; }
+  if (tbase(x) === '토지') { if (!a.use) miss.push('지목'); return miss; }
   if (!x.ptype) return miss;
   // 건축물: 국토부 고시 「중개대상물의 표시·광고 명시사항 세부기준」 제6조
   if (x.kind !== 'presale' && !a.use) miss.push('건축물 용도');
@@ -221,7 +224,7 @@ export function adMissing(x, bk) {
   if (!a.dir) miss.push('방향');
   if (!a.movein) miss.push('입주 가능일');
   if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
-  if (RESID.includes(x.ptype)) {
+  if (RESID.includes(tbase(x))) {
     if (a.rooms == null || a.rooms === '') miss.push('방 수');
     if (a.baths == null || a.baths === '') miss.push('욕실 수');
     if (!x.mgmt && !a.nomgmt) miss.push('관리비');
@@ -243,12 +246,12 @@ function floorText(a) {
 function pubSummary(uid, x, bk) {
   const a = x.ad || {}, p0 = (x.places && x.places[0]) || {};
   return {
-    k: `${uid}:${x.id}`, no: x.no || '', kind: x.kind, ptype: x.ptype, ptypeTx: x.ptypeTx || '',
+    k: `${uid}:${x.id}`, no: x.no || '', kind: x.kind, ptype: x.ptype, ptypeTx: x.ptypeTx || '', pbase: tbase(x), form: a.form || '',
     price: x.price || null, deposit: x.deposit || null, rent: x.rent || null, pr: x.pr || null, mgmt: x.mgmt || null, premium: x.premium || null, nomgmt: !!a.nomgmt,
     area: x.area || null, ak: p0.land ? 'land' : p0.ak || 'ex', n: (x.places || []).length || 1,
     pnu: x.pnu, lat: x.lat, lng: x.lng, addr: x.addr, road: x.road || '', bname: x.bname || '',
-    dong: x.ptype === '아파트' || x.ptype === '오피스텔' ? (p0.dong || '') : '',   // 호수는 공개하지 않음
-    flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', dirB: RESID.includes(x.ptype) ? '주실 기준' : '주출입구 기준', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
+    dong: ['아파트', '오피스텔'].includes(tbase(x)) ? (p0.dong || '') : '',   // 호수는 공개하지 않음
+    flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', dirB: RESID.includes(tbase(x)) ? '주실 기준' : '주출입구 기준', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
@@ -279,7 +282,7 @@ const AD_DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향
 const lineOf = ho => { const n = Number(String(ho || '').replace(/\D/g, '')); return n ? (n >= 100 ? n % 100 : n) : 0; };
 async function syncLineDir(uid, rec, prev, items) {
   const p0 = rec.places[0];
-  if (rec.places.length !== 1 || !['아파트', '오피스텔'].includes(rec.ptype) || !p0.dong || !p0.ho) return false;
+  if (rec.places.length !== 1 || !['아파트', '오피스텔'].includes(tbase(rec)) || !p0.dong || !p0.ho) return false;
   const dn = normD(p0.dong), line = lineOf(p0.ho); if (!dn || !line) return false;
   const ck = `realmap:cx:${uid}`;
   let d = null; try { const v = await redis(['GET', ck]); d = v ? JSON.parse(v) : null; } catch { d = null; }
@@ -308,12 +311,19 @@ function cleanAd(a) {
   const DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
   const MGI = ['gen', 'elec', 'water', 'gas', 'heat', 'net', 'tv', 'etc'];
   const WCS = ['내부 전용', '내부 공용', '외부 공용', '외부 전용'];
+  const STAGES = ['추진위', '조합설립', '사업시행', '관리처분', '이주·철거'], FORMS = ['빌라', '단독', '상가', '아파트', '토지'], MIDS = ['무이자', '이자후불', '자납'];
+  const dec = v => { const x = Number(String(v ?? '').replace(/[^\d.]/g, '')); return x > 0 && x < 1e6 ? Math.round(x * 100) / 100 : null; };
+  const won = v => { const x = Number(String(v ?? '').replace(/[^\d.]/g, '')); return x > 0 && x < 1e9 ? Math.round(x * 100) / 100 : null; };
   return { fl: t(a.fl, 8), tfl: int(a.tfl), ufl: int(a.ufl), flx: a.flx === 'lmh' ? 'lmh' : 'exact', dir: DIRS.includes(a.dir) ? a.dir : '', rooms: int(a.rooms), baths: int(a.baths),
     movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
     mgmtT: a.mgmtT === 'fix' ? 'fix' : 'avg', mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),
-    ty: t(a.ty, 8).replace(/\s/g, '').toUpperCase(), spy: (v => v > 3 && v < 300 ? v : null)(Math.round(Number(a.spy) || 0)) };   // 아파트 타입(84B)·공급평 (10/26)
+    ty: t(a.ty, 8).replace(/\s/g, '').toUpperCase(), spy: (v => v > 3 && v < 300 ? v : null)(Math.round(Number(a.spy) || 0)),   // 아파트 타입(84B)·공급평 (10/26)
+    // 재개발·재건축 (10/26): 구역명·단계·물건 형태·대지지분㎡·감정가·권리가액·조합원 분양·이주비(만원)
+    rz: t(a.rz, 30), stage: STAGES.includes(a.stage) ? a.stage : '', form: FORMS.includes(a.form) ? a.form : '', jshare: dec(a.jshare), apv: won(a.apv), rgt: won(a.rgt), msh: t(a.msh, 20), mvl: won(a.mvl),
+    // 분양권 (10/26): 계약금(만원)·중도금(무이자/이자후불/자납 + 비율 등)·입주예정·전매 가능일
+    down: won(a.down), mid: MIDS.includes(a.mid) ? a.mid : '', midTx: t(a.midTx, 12), due: t(a.due, 12), resale: t(a.resale, 12) };
 }
 // 중개사 명단·통계 (관리 페이지용): realmap:brokers 집합, realmap:bstat:<id> { n, pub, up }
 export async function brokerStat(uid, items) {
@@ -836,7 +846,7 @@ export default async function (req, res) {
           places, contacts, rents, photos,
           ptype: str(it.ptype, 10), ptypeTx: str(it.ptypeTx, 20), kind,
           price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
-          curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
+          curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: (v => { const n = numv(v); return n && /^\s*-/.test(String(v ?? '')) ? -n : n; })(it.pr), paid: numv(it.paid),
           memo: str(it.memo, 20000), status, at: prev ? prev.at : now, up: now,   // 10/26: 기록(자동 기록 포함)이 쌓이므로 memo 5000 → 20000자
           imp: str(it.imp, 100), impd: impDay(it.imp),   // 꼭 챙길 것 (10/26) — 글 속 날짜는 알림용
           mk: ['y', 'r'].includes(it.mk) ? it.mk : '',  // 줄 표시 노랑·빨강 (10/26)
