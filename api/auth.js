@@ -8,7 +8,7 @@
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
-import { ledger, dropLedger, dropLedgers } from './_ledger.js';
+import { ledger, dropLedger, dropLedgers, normD } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
@@ -271,6 +271,33 @@ export async function syncPub(uid, items, bk, P) {
     else { if (x.pub.on && x.status !== 'on') x.pub.on = false; del.push(field); }
   }
   await pipe([...(set.length ? [['HSET', PUB_KEY, ...set]] : []), ...(del.length ? [['HDEL', PUB_KEY, ...del]] : [])]);
+}
+// 아파트·오피스텔은 같은 동·같은 라인이면 방향이 같음 → 매물 방향 ↔ 단지관리 라인 방향을 서로 채움
+//   매물에 방향이 비어 있으면: 단지관리 라인 방향 → 같은 동·라인의 다른 매물 방향 순으로 채움
+//   매물 방향을 새로 넣거나 바꾸면: 그 필지가 담긴 단지관리 단지의 라인 방향에도 저장 (단지관리 표기는 '남'처럼 '향' 없이)
+const AD_DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
+const lineOf = ho => { const n = Number(String(ho || '').replace(/\D/g, '')); return n ? (n >= 100 ? n % 100 : n) : 0; };
+async function syncLineDir(uid, rec, prev, items) {
+  const p0 = rec.places[0];
+  if (rec.places.length !== 1 || !['아파트', '오피스텔'].includes(rec.ptype) || !p0.dong || !p0.ho) return false;
+  const dn = normD(p0.dong), line = lineOf(p0.ho); if (!dn || !line) return false;
+  const ck = `realmap:cx:${uid}`;
+  let d = null; try { const v = await redis(['GET', ck]); d = v ? JSON.parse(v) : null; } catch { d = null; }
+  const cxs = d && Array.isArray(d.items) ? d.items.filter(c => (c.places || []).some(p => p.pnu === p0.pnu)) : [];
+  const keys = [`${p0.pnu}|${dn}|${line}`, `*|${dn}|${line}`];
+  if (!rec.ad.dir) {
+    let v = '';
+    for (const c of cxs) for (const k of keys) if (!v && c.dir && c.dir[k]) v = c.dir[k] + '향';
+    if (!v) { const o = items.find(x => x.id !== rec.id && x.pnu === rec.pnu && x.places && x.places[0] && normD(x.places[0].dong) === dn && lineOf(x.places[0].ho) === line && x.ad && x.ad.dir); if (o) v = o.ad.dir; }
+    if (AD_DIRS.includes(v)) rec.ad.dir = v;
+    return false;
+  }
+  if (prev && prev.ad && prev.ad.dir === rec.ad.dir) return false;   // 방향을 바꾸지 않은 저장은 단지관리를 건드리지 않음
+  const v = rec.ad.dir.replace(/향$/, '');
+  let dirty = false;
+  for (const c of cxs) { c.dir = c.dir || {}; if (c.dir[keys[0]] !== v) { c.dir[keys[0]] = v; dirty = true; } }
+  if (dirty) await redis(['SET', ck, JSON.stringify(d)]);
+  return dirty;
 }
 function cleanAd(a) {
   a = a || {};
@@ -733,6 +760,7 @@ export default async function (req, res) {
         return send(res, 200, { ok: true, url: r.url });
       }
       const key = `realmap:ls:${s.id}`;
+      let cxDirty = false;   // 매물 방향을 단지관리 라인 방향에도 저장했는지
       const raw = await redis(['GET', key]);
       let items = raw ? JSON.parse(raw) : [];
       // 매물번호: 비워 두면 '등록한 해·월-순번' (예: 2610-001)으로 자동으로 붙입니다
@@ -801,6 +829,7 @@ export default async function (req, res) {
           memo: str(it.memo, 5000), status, at: prev ? prev.at : now, up: now,
           ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
         };
+        try { cxDirty = await syncLineDir(s.id, rec, prev, items); } catch { /* 방향 맞추기는 실패해도 저장은 그대로 */ }
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
         if (prev && prev.photos) { const keep = new Set(photos.map(p => p.url)); await dropPhotos(prev.photos.map(p => p.url).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }
       } else if (body.op === 'status') {
@@ -839,7 +868,7 @@ export default async function (req, res) {
       }
       await redis(['SET', key, JSON.stringify(items)]);
       try { const before = items.filter(i => i.pub && i.pub.on).length; await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); if (items.filter(i => i.pub && i.pub.on).length < before) await redis(['SET', key, JSON.stringify(items)]); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
-      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P) });
+      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P), ...(cxDirty ? { cxDirty: true } : {}) });
     }
 
     if (action === 'login') {
