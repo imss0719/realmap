@@ -8,7 +8,7 @@
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
-import { ledger, dropLedger, dropLedgers, normD } from './_ledger.js';
+import { ledger, dropLedger, dropLedgers, normD, impDay } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
@@ -285,6 +285,7 @@ async function syncLineDir(uid, rec, prev, items) {
   let d = null; try { const v = await redis(['GET', ck]); d = v ? JSON.parse(v) : null; } catch { d = null; }
   const cxs = d && Array.isArray(d.items) ? d.items.filter(c => (c.places || []).some(p => p.pnu === p0.pnu)) : [];
   const keys = [`${p0.pnu}|${dn}|${line}`, `*|${dn}|${line}`];
+  for (const c of cxs) { const L = c.lt && (c.lt[keys[0]] || c.lt[keys[1]]); if (L) { if (L.t && !rec.ad.ty) rec.ad.ty = L.t; if (L.py && !rec.ad.spy) rec.ad.spy = L.py; break; } }   // 타입·공급평 (10/26)
   if (!rec.ad.dir) {
     let v = '';
     for (const c of cxs) for (const k of keys) if (!v && c.dir && c.dir[k]) v = c.dir[k] + '향';
@@ -310,7 +311,8 @@ function cleanAd(a) {
     movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
-    mgmtT: a.mgmtT === 'fix' ? 'fix' : 'avg', mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60) };
+    mgmtT: a.mgmtT === 'fix' ? 'fix' : 'avg', mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),
+    ty: t(a.ty, 8).replace(/\s/g, '').toUpperCase(), spy: (v => v > 3 && v < 300 ? v : null)(Math.round(Number(a.spy) || 0)) };   // 아파트 타입(84B)·공급평 (10/26)
 }
 // 중개사 명단·통계 (관리 페이지용): realmap:brokers 집합, realmap:bstat:<id> { n, pub, up }
 export async function brokerStat(uid, items) {
@@ -554,6 +556,14 @@ export default async function (req, res) {
         it.dir = it.dir || {};
         if (DIRS.includes(body.v)) it.dir[dk] = body.v; else delete it.dir[dk];
         if (Object.keys(it.dir).length > 800) return fail(res, 400, 'full', '방향 정보가 너무 많습니다.');
+      } else if (body.op === 'lt') {
+        // 라인별 타입·공급평 (10/26): key = 'PNU|동|라인', t = '84B' 같은 타입 이름, py = 공급평(숫자). 둘 다 비우면 지움
+        const lk = str(body.key, 40);
+        if (!/^(\d{19}|\*)\|[^|]{1,16}\|\d{1,3}$/.test(lk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');
+        const t = str(body.t, 8).replace(/\s/g, '').toUpperCase(), py = Math.round(Number(body.py) || 0);
+        it.lt = it.lt || {};
+        if (t || (py > 3 && py < 300)) it.lt[lk] = { ...(t ? { t } : {}), ...(py > 3 && py < 300 ? { py } : {}) }; else delete it.lt[lk];
+        if (Object.keys(it.lt).length > 800) return fail(res, 400, 'full', '타입 정보가 너무 많습니다.');
       } else if (body.op === 'memo') {
         const mk = str(body.key, 80);
         if (!mk.startsWith(id + '|')) return fail(res, 400, 'bad_key', '메모 위치가 올바르지 않습니다.');
@@ -827,6 +837,7 @@ export default async function (req, res) {
           price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
           curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
           memo: str(it.memo, 5000), status, at: prev ? prev.at : now, up: now,
+          imp: str(it.imp, 100), impd: impDay(it.imp),   // 꼭 챙길 것 (10/26) — 글 속 날짜는 알림용
           ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
         };
         try { cxDirty = await syncLineDir(s.id, rec, prev, items); } catch { /* 방향 맞추기는 실패해도 저장은 그대로 */ }

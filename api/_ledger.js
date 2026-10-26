@@ -46,7 +46,21 @@ const ymd = d => d ? d.slice(2).replace(/-/g, '.') : '';
 const plus2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); const t = new Date(Date.UTC(y + 2, m - 1, dd)); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
 const add2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(y + 2, m - 1, dd)).toISOString().slice(0, 10); };
 
-const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', deal: null, called: '', hist: [] });
+const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, deal: null, called: '', hist: [] });
+// 꼭 챙길 것 글에서 첫 날짜를 찾음: '11/15 중도금' · '11.15까지' · '11월 15일' · '2026-11-15' · '26.11.15' → 'YYYY-MM-DD' (지난 지 60일이 넘은 월·일은 내년으로)
+export function impDay(t, now = new Date(Date.now() + 9 * 3600e3)) {
+  const s = String(t || '');
+  let m = s.match(/(20\d{2})[-./](\d{1,2})[-./](\d{1,2})/) || s.match(/(?:^|\D)(\d{2})\.(\d{1,2})\.(\d{1,2})(?:\D|$)/);
+  let y, mo, d;
+  if (m) { y = +m[1] < 100 ? 2000 + +m[1] : +m[1]; mo = +m[2]; d = +m[3]; }
+  else {
+    m = s.match(/(?:^|[^\d.])(\d{1,2})\s*(?:\/|\.|월\s*)(\d{1,2})(?:\s*일)?(?![\d.])/); if (!m) return '';
+    mo = +m[1]; d = +m[2]; y = now.getUTCFullYear();
+    if (Date.UTC(y, mo - 1, d) < now.getTime() - 60 * 86400e3) y++;
+  }
+  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31)) return '';
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 // 화면에서 온 장부 값 정리 (히스토리·계약 정보는 화면이 직접 고칠 수 없음)
 function clean(b) {
   b = b || {};
@@ -60,9 +74,11 @@ function clean(b) {
     exp: day(b.exp), moveIn: str(b.moveIn, 30), opt: str(b.opt, 200),
     tels: (Array.isArray(b.tels) ? b.tels : []).slice(0, 4).map(t => ({ l: str(t && t.l, 10), n: str(t && t.n, 20).replace(/[^\d\-+ ]/g, '') })).filter(t => t.n),
     note: str(b.note, 300),
+    imp: str(b.imp, 100), impd: impDay(b.imp),   // 꼭 챙길 것 (10/26) — 날짜가 있으면 알림
+    cd: man(b.cd), cr: man(b.cr),                // 현상태: 지금 사는 사람의 보증금·차임(만원) (10/26)
   };
 }
-const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'opt', 'tels', 'note', 'deal'];
+const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'opt', 'tels', 'note', 'imp', 'impd', 'cd', 'cr', 'deal'];
 const snap = r => JSON.parse(JSON.stringify(Object.fromEntries(FIELDS.map(k => [k, r[k]]))));
 export const stTxt = st => !st.src ? '상태 없음' : `${st.src === 'mine' ? '내 매물' : '타부동산' + (st.office ? `(${st.office})` : '')}${st.k.length ? ' ' + st.k.map(k => KN[k]).join('·') : ''}${st.hold ? ' · 보류' : ''}`;
 const prTxt = (k, pr) => k === 'sale' ? `매매 ${won(pr.sale)}` : k === 'jeonse' ? `전세 ${won(pr.jeonse)}` : `월세 ${won(pr.wd)}/${pr.wr || 0}`;
@@ -82,6 +98,8 @@ function diff(a, b) {
   if (a.opt !== b.opt) out.push('옵션 수정');
   if (JSON.stringify(a.tels) !== JSON.stringify(b.tels)) out.push('연락처 수정');      // 번호는 히스토리에 남기지 않음
   if (a.note !== b.note) out.push(b.note ? `메모: ${b.note.slice(0, 60)}` : '메모 지움');
+  if ((a.imp || '') !== (b.imp || '')) out.push(b.imp ? `꼭 챙길 것: ${b.imp.slice(0, 60)}` : '꼭 챙길 것 지움');
+  if ((a.cd || 0) !== (b.cd || 0) || (a.cr || 0) !== (b.cr || 0)) out.push(b.cd || b.cr ? `현 보증금 ${won(b.cd) || 0}${b.cr ? '/' + b.cr : ''}` : '현 보증금 지움');
   return out.join(' · ');
 }
 // 예전 호별 메모("[26.10.24 14:30] 내용" 줄들) → 히스토리 메모 기록
