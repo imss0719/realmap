@@ -201,7 +201,7 @@ window.Board = (() => {
       <span class="bsg sm">${[['on', '진행'], ['hold', '보류'], ['done', '완료'], ['all', '전체']].map(([k, t]) => `<button type="button" data-st="${k}" aria-pressed="${B.st === k}">${t}</button>`).join('')}</span>
       <input class="bd-find" id="bdFind" type="search" data-fk="find" placeholder="번호·주소·연락처·메모 찾기" value="${esc(B.q)}">
       <span class="sp"></span>
-      <span class="mkb" title="누른 줄(파란 줄)에 표시 — 다시 누르면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" id="bdMko" aria-pressed="${!!B.mko}"${B.mko ? ' class="on"' : ''}>표시한 것만</button></span>
+      <span class="mkb" title="누른 줄(파란 줄)에 표시 — 다시 누르면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button><button type="button" id="bdMko" aria-pressed="${!!B.mko}"${B.mko ? ' class="on"' : ''}>표시한 것만</button></span>
       <button type="button" class="tb${B.fo || fon ? ' on' : ''}${adv ? '' : ' lock'}" id="bdFo">손님 조건${fon ? ' ●' : ''}</button>
       <button type="button" class="tb${B.sel ? ' on' : ''}${adv ? '' : ' lock'}" id="bdSel">여러 건 선택</button>
       <button type="button" class="tb map${B.map ? ' on' : ''}" id="bdMap">${B.map ? '지도 닫기' : '지도로 보기'}</button>
@@ -230,7 +230,8 @@ window.Board = (() => {
       if (!x) return H.toast('표시할 매물 줄을 먼저 눌러 주세요');
       B.ed = null; hidePop();
       if (X.ro().has(x.id)) return H.toast('보기 전용 매물은 표시할 수 없습니다');
-      const v = x.mk === b.dataset.mk ? '' : b.dataset.mk;
+      const v = !b.dataset.mk || x.mk === b.dataset.mk ? '' : b.dataset.mk;
+      if (!v && !x.mk) return H.toast('이 줄에는 표시가 없습니다');
       saveItem(x.id, it => { it.mk = v; }, v ? '표시했습니다' : '표시를 지웠습니다');
     });
     $('bdMko').onclick = () => { B.mko = !B.mko; keep(); B.fitNext = true; refresh(); };
