@@ -123,7 +123,7 @@
   }
   // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
   const DJ_HOST = {
-    items: () => S.items, goAptList: () => setMode('list', 'apt'),
+    items: () => S.items, goAptList: () => setMode('list', 'apt'), xlGate: fn => xlGate(fn),
     openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
     toast,
@@ -183,7 +183,7 @@
     openForm: id => { const x = id && S.items.find(i => i.id === id); openForm(x || null); },
     pub: id => pubFlow(S.items.find(i => i.id === id)), pubOp: (id, op) => pubOp(id, op),
     brief: id => briefOf(S.items.find(i => i.id === id)), share: id => shareOf(S.items.find(i => i.id === id)),
-    viewer: (urls, i) => viewer(urls, i), csv: list => exportCsv(list),
+    viewer: (urls, i) => viewer(urls, i), csv: list => exportCsv(list), importXl: () => openImport(),
     custFor: x => window.Cust && Cust.loaded() ? Cust.forListing(x) : null, goCust,
     pubCell: x => pubCell(x), pubClick: (id, el) => pubClick(id, el), roles: ROLES, dirs: DIRS, wcs: WCS,
     focus: id => focusItem(id, false),
@@ -1224,7 +1224,43 @@
   }
 
   // ---------- 엑셀(CSV) 저장 ----------
-  function exportCsv(only) {
+  // ---------- 엑셀 불러오기 (10/26 · ximport.js) ----------
+  function openImport() {
+    if (!window.XImport) return toast('엑셀 불러오기를 준비하는 중입니다. 잠시 뒤 다시 눌러 주세요');
+    XImport.open({ api, post, took, toast, items: () => S.items, plan: () => S.plan || {}, X: bdHost().X, done: () => draw(),
+      office: () => (S.bk && S.bk.office) || '', djReload: () => window.Danji && Danji.reloadCx && Danji.reloadCx(true),   // 아파트 장부 파일 → 단지 장부
+      goDanji: id => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(id), 50); } });
+  }
+  // ---------- 엑셀 내려받기 = 휴대폰 인증 (10/26) ----------
+  //   중개사무소 정보에 등록한 휴대폰으로 인증번호 → 맞으면 30분 동안 다시 묻지 않음 · 문자 인증이 꺼져 있으면 그냥 받음
+  function xlGate(fn) {
+    if (!S.me || !S.me.sms || Date.now() < (S.xlOk || 0)) return fn();
+    const d = String((S.bk && (S.bk.mobileOk || S.bk.mobile)) || '').replace(/\D/g, '');
+    if (!/^01\d{8,9}$/.test(d)) return toast('엑셀 내려받기는 휴대폰 인증이 필요합니다. 중개사무소 정보에 휴대폰 번호를 먼저 넣어 주세요', 4000);
+    const mask = d.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-****-$3');
+    const el = document.createElement('div'); el.className = 'xi'; el.id = 'xlg';
+    el.innerHTML = `<div class="xi-box sm" role="dialog" aria-modal="true" aria-label="엑셀 내려받기 인증"><div class="xi-h"><b>엑셀 내려받기 인증</b><button type="button" class="xi-x" data-x aria-label="닫기">×</button></div>
+      <div class="xi-bd"><p class="xi-m">매물·연락처가 담긴 파일이라 등록된 휴대폰으로 확인합니다. 인증하면 30분 동안은 다시 묻지 않습니다.</p>
+      <div class="xi-row"><b>${mask}</b><button type="button" class="xi-b" id="xlS">인증번호 받기</button></div>
+      <div class="xi-row"><input id="xlC" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" disabled><button type="button" class="xi-b go" id="xlK" disabled>확인</button></div>
+      <p class="xi-err" id="xlE"></p></div></div>`;
+    document.body.appendChild(el);
+    const bye = () => el.remove(), err = m => { $('xlE').textContent = m || ''; };
+    el.querySelector('[data-x]').onclick = bye;
+    $('xlS').onclick = async () => {
+      err(''); $('xlS').disabled = true;
+      try { await api('/api/auth?action=sms', post({ op: 'send', phone: d })); $('xlC').disabled = false; $('xlK').disabled = false; $('xlC').focus(); $('xlS').textContent = '다시 받기'; setTimeout(() => { if ($('xlS')) $('xlS').disabled = false; }, 60000); }
+      catch (e) { err(e.message); $('xlS').disabled = false; }
+    };
+    const ok = async () => {
+      err('');
+      try { await api('/api/auth?action=sms', post({ op: 'check', phone: d, code: $('xlC').value })); S.xlOk = Date.now() + 30 * 60e3; bye(); fn(); }
+      catch (e) { err(e.message); }
+    };
+    $('xlK').onclick = ok; $('xlC').onkeydown = e => { if (e.key === 'Enter') ok(); };
+  }
+  function exportCsv(only) { return xlGate(() => exportCsvNow(only)); }
+  function exportCsvNow(only) {
     const list = Array.isArray(only) ? only : S.items;
     if (!list.length) return toast('저장할 매물이 없습니다');
     const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '대지㎡', '건축㎡', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '프리미엄', '납입액', '연락처', '세부 임대료', '사진 수', '메모', '등록일', '수정일', '리얼맵 링크'];

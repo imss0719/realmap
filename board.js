@@ -263,6 +263,7 @@ window.Board = (() => {
       <button type="button" class="tb${B.fo || fon ? ' on' : ''}${adv ? '' : ' lock'}" id="bdFo">손님 조건${fon ? ' ●' : ''}</button>
       <button type="button" class="tb${B.sel ? ' on' : ''}${adv ? '' : ' lock'}" id="bdSel">여러 건 선택</button>
       <button type="button" class="tb map${B.map ? ' on' : ''}" id="bdMap">${B.map ? '지도 닫기' : '지도로 보기'}</button>
+      <button type="button" class="tb" id="bdXi" title="쓰던 엑셀 매물장을 한 번에 옮기기">엑셀 불러오기</button>
       <button type="button" class="tb" id="bdCsv">엑셀</button>
       <button type="button" class="tb gold" id="bdForm" title="사진·광고 정보까지 한 번에 쓰는 매물 카드">매물 카드로 등록</button>
     </div>
@@ -282,6 +283,7 @@ window.Board = (() => {
     $('bdMap').onclick = () => { B.map = !B.map; keep(); B.fitNext = true; H.showMap(B.map); refresh(); };
     $('bdCsv').onclick = () => H.csv(B.sel && B.sel.size ? H.items().filter(x => B.sel.has(x.id)) : rowsNow().rows);
     $('bdForm').onclick = () => H.openForm(null);
+    $('bdXi').onclick = () => H.importXl && H.importXl();
     $('bdBar').querySelectorAll('[data-mk]').forEach(b => b.onclick = () => {   // 노랑·빨강 표시
       const x = B.hl && H.items().find(i => i.id === B.hl);
       if (!x) return H.toast('표시할 매물 줄을 먼저 눌러 주세요');

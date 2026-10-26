@@ -1112,6 +1112,38 @@ body.cumode .top{padding-bottom:12px}
 }
 .top .navl.hlp{background:var(--gold,#F2B705);color:#14212E;font-size:15px;padding:7px 14px}
 @media (max-width:1100px){.top .hlp{display:none}}
+/* 10/26 엑셀 불러오기 · 내려받기 인증 */
+.xi{position:fixed;inset:0;z-index:200;background:rgba(15,23,32,.5);display:flex;align-items:center;justify-content:center;padding:20px}
+.xi-box{background:#fff;border-radius:16px;width:min(900px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.3);overflow:hidden}
+.xi-box.sm{width:min(440px,100%)}
+.xi-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}.xi-h b{font-size:17px}.xi-h small{color:var(--muted)}
+.xi-x{margin-left:auto;border:0;background:none;font-size:22px;color:var(--muted);cursor:pointer}
+.xi-st{display:flex;gap:6px;padding:8px 18px;background:#F6F8FB;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:#9AA5B1}
+.xi-st span.on{color:var(--navy)}.xi-st span.dn{color:#1F7A4D}.xi-st i{font-style:normal;color:#CBD5E1}
+@media(max-width:600px){.xi-st{font-size:11.5px;gap:4px;padding:8px 12px;overflow-x:auto}.xi-st span{white-space:nowrap}}
+.xi-bd{padding:16px 18px;overflow:auto}
+.xi-bd h3{margin:0 0 4px;font-size:16px}.xi-m{color:var(--muted);font-size:13.5px;margin:6px 0}
+.xi-ch{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.xi-ch button{border:1.5px solid #CBD5E1;background:#fff;border-radius:20px;padding:8px 14px;font-weight:700;font-size:14px;cursor:pointer}
+.xi-ch button[aria-pressed=true]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.xi-drop{display:block;border:2px dashed #94A3B8;border-radius:14px;padding:26px;text-align:center;color:#475569;background:#FAFBFC;cursor:pointer}
+.xi-drop.ov{border-color:var(--gold);background:#FFF8E1}.xi-drop b{display:block;font-size:16px;color:var(--navy);margin-bottom:4px}
+.xi-err{color:#C92A2A;font-weight:700;font-size:14px}.xi-warn{background:#FFF8E6;border:1px solid #F6DFA0;border-radius:10px;padding:10px 12px;font-size:14px;color:#7A5800}
+.xi-r{color:#C92A2A}
+.xi-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 10px}
+.xi-sum div{border-radius:12px;padding:10px;text-align:center;font-size:13px}.xi-sum b{display:block;font-size:22px}.xi-sum small{display:block;font-size:11px;opacity:.7}
+.xi-sum .t{background:#F1F5F9}.xi-sum .g{background:#E7F6EC}.xi-sum .g b{color:#1F7A4D}.xi-sum .y{background:#FFF4D6}.xi-sum .y b{color:#A16207}.xi-sum .n{background:#EEF1F5}.xi-sum .n b{color:#64748B}
+.xi-t{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+.xi-t th,.xi-t td{border-bottom:1px solid #EEF1F5;padding:6px 8px;text-align:left;white-space:nowrap}.xi-t th{background:#F8FAFC;color:#64748B}
+.xi-t td.ex{color:#475569;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.xi-t select{font-size:13px;padding:3px 6px;border:1px solid #86C5A0;border-radius:7px;background:#F2FBF5;min-width:170px}.xi-t select.no{border-color:#E2E8F0;background:#fff;color:#94A3B8}
+.xi-t .tg{display:inline-block;padding:1px 8px;border-radius:9px;font-size:12px;font-weight:700}.xi-t .tg.g{background:#E7F6EC;color:#1F7A4D}.xi-t .tg.y{background:#FFF4D6;color:#A16207}.xi-t .tg.r{background:#FDECEC;color:#C92A2A}.xi-warn .xi-t{background:#fff;margin:8px 0}.xi-warn span{display:block;font-size:13px}.xi-drop+.xi-warn{margin-top:12px}
+.xi-map{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:6px 12px}.xi-map summary{cursor:pointer;font-weight:700;padding:6px 0}.xi-map small{font-weight:500;color:var(--muted)}
+.xi-f{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line)}.xi-f span{margin-right:auto;color:var(--muted);font-size:13px}
+.xi-b{border:1px solid #CBD5E1;background:#fff;border-radius:10px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer}.xi-b.go{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+.xi-b.red{color:#C92A2A;border-color:#F0B4A0;margin-right:auto}.xi-b:disabled{opacity:.5;cursor:default}
+.xi-bar{height:12px;background:#EEF1F5;border-radius:6px;overflow:hidden;margin:10px 0}.xi-bar i{display:block;height:100%;background:var(--gold);transition:width .3s}
+.xi-row{display:flex;gap:8px;align-items:center;margin:10px 0}.xi-row b{font-size:17px;flex:1}.xi-row input{flex:1;border:1px solid #CBD5E1;border-radius:10px;padding:9px 12px;font-size:16px}
 </style>
 </head>
 <body>
@@ -1141,6 +1173,7 @@ body.cumode .top{padding-bottom:12px}
 <script src="sms.js"></script>
 <script src="alarm.js"></script>
 <script src="cust.js"></script>
+<script src="ximport.js"></script>
 <script src="listings.js"></script>
 </body>
 </html>

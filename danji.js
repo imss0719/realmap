@@ -766,7 +766,7 @@ window.Danji = (() => {
       ColPick.open(b, vals, F.cf && F.cf[k], pick => { F.cf = { ...(F.cf || {}), [k]: pick }; redo(); });
     });
     box.querySelectorAll('th[data-srt]').forEach(th => th.onclick = e => { if (e.target.closest('.rz')) return; const k = th.dataset.srt; if (F.sort === k) F.dir = (F.dir || 1) * -1; else { F.sort = k; F.dir = ['pr', 'py', 'ps', 'pj', 'pwd', 'gap', 'up'].includes(k) ? -1 : 1; } drawTable(cx); });
-    $('dj_csv').onclick = () => exportCsv(cx, rows);
+    $('dj_csv').onclick = () => (S.host.xlGate || (f => f()))(() => exportCsv(cx, rows));   // 10/26 휴대폰 인증 뒤 내려받기
     tbf.querySelectorAll('[data-mk]').forEach(b => b.onclick = () => {
       const x = S.rows.find(z => z.key === S.selKey); if (!x) return toast('표시할 줄을 먼저 눌러 주세요');
       const c2 = x.cx || cx; if (cxLocked(c2) || (S.L[c2.id] && S.L[c2.id].err)) return toast('보기만 되는 단지입니다');
@@ -1647,6 +1647,6 @@ window.Danji = (() => {
   function closeSheet() { const f = S.onClose; S.onClose = null; $('djSheet').hidden = true; document.body.style.overflow = ''; if (f) f(); }
 
   // 매물관리에서 방향을 넣어 단지관리 라인 방향이 바뀌었을 때 (서버가 cxDirty로 알려 줌) 단지 목록만 다시 받음
-  async function reloadCx() { if (!S.loaded) return; try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; refresh(); } catch { /* 다음에 열 때 */ } }
+  async function reloadCx(fresh) { if (!S.loaded) return; if (fresh) S.L = {}; try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; refresh(); } catch { /* 다음에 열 때 */ } }
   return { mount, refresh, add, goto, reloadCx };
 })();
