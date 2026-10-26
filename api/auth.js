@@ -838,6 +838,7 @@ export default async function (req, res) {
           curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
           memo: str(it.memo, 5000), status, at: prev ? prev.at : now, up: now,
           imp: str(it.imp, 100), impd: impDay(it.imp),   // 꼭 챙길 것 (10/26) — 글 속 날짜는 알림용
+          mk: ['y', 'r'].includes(it.mk) ? it.mk : '',  // 줄 표시 노랑·빨강 (10/26)
           ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
         };
         try { cxDirty = await syncLineDir(s.id, rec, prev, items); } catch { /* 방향 맞추기는 실패해도 저장은 그대로 */ }

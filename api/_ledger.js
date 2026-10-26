@@ -46,7 +46,7 @@ const ymd = d => d ? d.slice(2).replace(/-/g, '.') : '';
 const plus2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); const t = new Date(Date.UTC(y + 2, m - 1, dd)); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
 const add2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(y + 2, m - 1, dd)).toISOString().slice(0, 10); };
 
-const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, deal: null, called: '', hist: [] });
+const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, called: '', hist: [] });
 // 꼭 챙길 것 글에서 첫 날짜를 찾음: '11/15 중도금' · '11.15까지' · '11월 15일' · '2026-11-15' · '26.11.15' → 'YYYY-MM-DD' (지난 지 60일이 넘은 월·일은 내년으로)
 export function impDay(t, now = new Date(Date.now() + 9 * 3600e3)) {
   const s = String(t || '');
@@ -76,9 +76,10 @@ function clean(b) {
     note: str(b.note, 300),
     imp: str(b.imp, 100), impd: impDay(b.imp),   // 꼭 챙길 것 (10/26) — 날짜가 있으면 알림
     cd: man(b.cd), cr: man(b.cr),                // 현상태: 지금 사는 사람의 보증금·차임(만원) (10/26)
+    mk: ['y', 'r'].includes(b.mk) ? b.mk : '',  // 줄 표시: 노랑·빨강 (10/26)
   };
 }
-const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'opt', 'tels', 'note', 'imp', 'impd', 'cd', 'cr', 'deal'];
+const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'opt', 'tels', 'note', 'imp', 'impd', 'cd', 'cr', 'mk', 'deal'];
 const snap = r => JSON.parse(JSON.stringify(Object.fromEntries(FIELDS.map(k => [k, r[k]]))));
 export const stTxt = st => !st.src ? '상태 없음' : `${st.src === 'mine' ? '내 매물' : '타부동산' + (st.office ? `(${st.office})` : '')}${st.k.length ? ' ' + st.k.map(k => KN[k]).join('·') : ''}${st.hold ? ' · 보류' : ''}`;
 const prTxt = (k, pr) => k === 'sale' ? `매매 ${won(pr.sale)}` : k === 'jeonse' ? `전세 ${won(pr.jeonse)}` : `월세 ${won(pr.wd)}/${pr.wr || 0}`;
@@ -170,7 +171,8 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     const nx = clean(body.rec);
     const before = snap(rec);
     const x = diff(rec, nx);
-    if (!x && !movedMemo) return send(res, 200, { ok: true, rec, same: true });
+    const changed = JSON.stringify(snap(rec)) !== JSON.stringify(snap({ ...rec, ...nx }));   // 줄 표시처럼 기록에 안 남는 칸만 바뀐 경우도 저장
+    if (!x && !changed && !movedMemo) return send(res, 200, { ok: true, rec, same: true });
     Object.assign(rec, nx);
     if (x) push('edit', x, before);
   } else if (op === 'deal') {
@@ -208,6 +210,11 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     const i = Number(body.i), h = rec.hist[i];
     if (!h || h.e !== 'memo') return fail(res, 400, 'bad', '메모 기록만 지울 수 있습니다.');
     rec.hist.splice(i, 1);
+  } else if (op === 'hedit') {   // 상담 기록(메모) 고치기 — 고친 시각을 남김 (10/26)
+    const i = Number(body.i), h = rec.hist[i], t = str(body.text, 500);
+    if (!h || h.e !== 'memo') return fail(res, 400, 'bad', '직접 쓴 상담 기록만 고칠 수 있습니다.');
+    if (!t) return fail(res, 400, 'bad', '내용을 적어 주세요. 지우려면 × 를 눌러 주세요.');
+    if (t !== h.x) { h.x = t; h.ed = now; }
   } else if (op === 'undo') {
     const h = rec.hist[0];
     if (!h || Date.now() - Date.parse(h.t) > 10 * 60e3) return fail(res, 400, 'late', '10분 안의 기록만 되돌릴 수 있습니다.');
