@@ -1048,6 +1048,34 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 .bd .hpanel .hed{width:100%;font:inherit;font-size:14px;border:2px solid var(--line);border-radius:8px;padding:6px}
 .bd .hpanel .note{font-size:12px;color:var(--muted);margin:0}
 @media (max-width:700px){.bd .hpanel{left:0;right:0;top:auto;bottom:0;width:auto;max-height:65vh;border-radius:16px 16px 0 0}}
+/* 10/26 매물 상세 촘촘하게 · 화면 폭에 맞춤 (표가 옆으로 길어도 상세는 보이는 폭 안에) */
+.bdt tr.bd-dt>td{text-align:left;padding:8px 10px 10px}
+.bdt tr.bd-dt .dt{position:sticky;left:10px;width:var(--bdw,100%);max-width:var(--bdw,100%)}
+.bd .bd-dt .dg{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px;margin-top:8px}
+.bd .bd-dt .dt>.dg:first-child{margin-top:0}
+@media (max-width:1100px){.bd .bd-dt .dg{grid-template-columns:1fr}}
+.bd .bd-dt .box{background:#fff;border:1px solid #EFE4BC;border-radius:10px;padding:8px 10px;min-width:0}
+.bd .bd-dt .dt-h{margin-bottom:5px;gap:6px}.bd .bd-dt .dt-h b{font-size:13.5px}.bd .bd-dt .dt-h small{font-size:11.5px}.bd .bd-dt .dt-h em{font-size:11px;padding:1px 7px}.bd .bd-dt .dt-h .lnk{font-size:12px;padding:0 2px}
+.bd .bd-dt .kv2{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px 14px}
+@media (max-width:1300px){.bd .bd-dt .kv2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bd .bd-dt .kv2 label{grid-template-columns:86px minmax(0,1fr);align-items:center;gap:6px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.bd .bd-dt .kv2 .v{height:26px;padding:1px 6px;font-size:13px;border-width:1px;border-radius:5px}
+.bd .bd-dt .kv2 .v.nd{border-width:1px}
+.bd .bd-dt .nm{font-size:12px;margin-top:4px;display:inline-flex;gap:4px;align-items:center}
+.bd .bd-dt .ct{gap:3px}.bd .bd-dt .ct>div{gap:4px}.bd .bd-dt .ct select.ci{width:76px}.bd .bd-dt .ct .lnk{font-size:12px;justify-self:start}
+.bd .bd-dt .ci{height:26px;padding:1px 6px;font-size:13px;border-width:1px;border-radius:5px}
+.bd .bd-dt .ft{width:100%;border-collapse:collapse}.bd .bd-dt .ft th{padding:3px 6px;font-size:11.5px}.bd .bd-dt .ft td{padding:1px 3px}
+.bd .bd-dt .sums{gap:6px;margin-top:6px}.bd .bd-dt .sums>span{padding:2px 8px;font-size:12.5px;border-radius:7px}.bd .bd-dt .sums b{font-size:13.5px}
+.bd .bd-dt .padd .in{height:28px;font-size:13px;padding:2px 8px}
+.bd .bd-dt .cmx{gap:3px}.bd .bd-dt .cmx>div{padding:3px 8px}
+.bd .bd-dt .dt-acts{margin-top:8px;padding-top:6px;gap:6px}.bd .bd-dt .dt-acts .b{padding:3px 10px;font-size:12.5px;border-width:1.5px;border-radius:7px}
+.bd .bd-dt .phs img{width:44px;height:44px}
+/* 10/26 하위 단지 (1단지·2단지) — 탐색기 체크 · 동 칩 앞 단지 칩 */
+.djtree .tn.g{padding-left:24px;font-size:13.5px}.djtree .tn.g.ck{background:#F3F7FD}
+.djtree .tgd .tn.d{padding-left:48px}
+.dj .dongs.sm .gsub{border-color:#9DB8E0;color:#0B4FA3;background:#F3F7FD}
+.dj .dongs.sm .gsub[aria-pressed=true]{background:#0B4FA3;border-color:#0B4FA3;color:#fff}
+.dj .dongs.sm .gsep{display:inline-block;width:1px;height:16px;background:var(--line);margin:0 3px;align-self:center}
 </style>
 </head>
 <body>

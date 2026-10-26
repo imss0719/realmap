@@ -393,6 +393,8 @@ window.Board = (() => {
     const tops = () => { const [r1, r2, r3] = tb.tHead.rows; if (!r1) return; const one = [...r1.cells].find(c => c.rowSpan === 1), h1 = one ? one.offsetHeight : r1.offsetHeight, hA = Math.max(...[...r1.cells].map(c => c.offsetHeight)); [...r1.cells].forEach(c => { c.style.top = '0px'; }); if (r2) [...r2.cells].forEach(c => { c.style.top = h1 + 'px'; }); if (r3) [...r3.cells].forEach(c => { c.style.top = hA + 'px'; }); };
     tops();
     put();
+    const sc = tb.parentNode, bw = () => tb.style.setProperty('--bdw', Math.max(320, sc.clientWidth - 24) + 'px'); bw();   // 상세 폭 = 표 상자 보이는 폭
+    if (window.ResizeObserver) { if (fixCols.so) fixCols.so.disconnect(); fixCols.so = new ResizeObserver(bw); fixCols.so.observe(sc); }
     if (window.ResizeObserver) { if (RO_) RO_.disconnect(); RO_ = new ResizeObserver(() => { put(); tops(); }); const h = tb.tHead; if (h) RO_.observe(h); }
   }
   function drawTable() {
@@ -624,8 +626,7 @@ window.Board = (() => {
       <div class="dg"><div class="box">${infoHtml(x, RO)}</div>
         <div class="box">${contactsHtml(x, RO)}
           ${custBox(x)}
-          <div class="dt-h" style="margin-top:12px"><b>메모 기록</b></div><input class="in1" data-fk="m:${x.id}" data-mnew="${x.id}" placeholder="새 메모 (Enter로 기록)" ${RO ? 'disabled' : ''}>
-          ${L.length ? `<ul class="ml">${L.slice(0, 5).map(e => `<li><span>${esc(e.t ? e.t.slice(3) : '예전')}</span>${esc(e.x)}</li>`).join('')}${L.length > 5 ? `<li class="more">외 ${L.length - 5}건 · 매물카드에서 모두 보기</li>` : ''}</ul>` : ''}</div></div>
+          <div class="dt-h" style="margin-top:8px"><b>기록</b><small>${L.length ? `${esc(L[0].t || '예전')} ${esc(L[0].x.slice(0, 40))}` : '아직 없음'}</small><button type="button" class="lnk" data-a="hist">기록 창 열기${L.length ? ` (${L.length})` : ''} ▸</button></div></div></div>
       <div class="dt-acts">
         ${ph.length ? `<span class="phs">${ph.slice(0, 4).map((p, i) => `<button type="button" data-ph="${i}"><img src="${esc(p.url)}" alt="" loading="lazy"></button>`).join('')}${ph.length > 4 ? `<small>+${ph.length - 4}</small>` : ''}</span>` : '<button type="button" class="b" data-a="card">사진 추가 ▸</button>'}
         <button type="button" class="b" data-a="brief">브리핑</button>
@@ -725,6 +726,7 @@ window.Board = (() => {
       e.stopPropagation();
       const a = b.dataset.a;
       if (a === 'card') return H.openForm(id);
+      if (a === 'hist') { B.hist = id; B.hl = id; return refresh(); }
       if (a === 'cadd') { B.cblank.set(id, (B.cblank.get(id) || 0) + 1); refresh(); const q = $('bdT').querySelector(`[data-fk="c:${id}:${(x.contacts || []).length + B.cblank.get(id) - 1}:name"]`); if (q) q.focus(); return; }
       if (a === 'brief') return H.brief(id);
       if (a === 'del') {
