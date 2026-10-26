@@ -286,10 +286,6 @@ async function syncLineDir(uid, rec, prev, items) {
   const cxs = d && Array.isArray(d.items) ? d.items.filter(c => (c.places || []).some(p => p.pnu === p0.pnu)) : [];
   const keys = [`${p0.pnu}|${dn}|${line}`, `*|${dn}|${line}`];
   for (const c of cxs) { const L = c.lt && (c.lt[keys[0]] || c.lt[keys[1]]); if (L) { if (L.t && !rec.ad.ty) rec.ad.ty = L.t; if (L.py && !rec.ad.spy) rec.ad.spy = L.py; break; } }   // 타입·공급평 (10/26)
-  if ((!rec.ad.ty || !rec.ad.spy) && rec.area) for (const c of cxs) {   // 라인에 없으면 단지 '타입 정리'(전용면적별)에서
-    const hit = Object.entries(c.tm || {}).find(([a]) => Math.abs(Number(a) - rec.area) < 0.06);
-    if (hit) { if (hit[1].t && !rec.ad.ty) rec.ad.ty = hit[1].t; if (hit[1].py && !rec.ad.spy) rec.ad.spy = hit[1].py; break; }
-  }
   if (!rec.ad.dir) {
     let v = '';
     for (const c of cxs) for (const k of keys) if (!v && c.dir && c.dir[k]) v = c.dir[k] + '향';
@@ -561,22 +557,13 @@ export default async function (req, res) {
         if (DIRS.includes(body.v)) it.dir[dk] = body.v; else delete it.dir[dk];
         if (Object.keys(it.dir).length > 800) return fail(res, 400, 'full', '방향 정보가 너무 많습니다.');
       } else if (body.op === 'lt') {
-        // 라인별 타입·공급평 (10/26): key = 'PNU|동|라인', t = '84B' 같은 타입 이름, py = 공급평(숫자). 둘 다 비우면 지움
+        // 라인별 타입·공급평 (10/26): key = 'PNU|동|라인' (또는 'PNU|동|h호' = 그 호만), t = '84B' 같은 타입 이름, py = 공급평(숫자). 둘 다 비우면 지움
         const lk = str(body.key, 40);
-        if (!/^(\d{19}|\*)\|[^|]{1,16}\|\d{1,3}$/.test(lk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');
+        if (!/^(\d{19}|\*)\|[^|]{1,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/.test(lk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');   // 라인 또는 h호(이 호만)
         const t = str(body.t, 8).replace(/\s/g, '').toUpperCase(), py = Math.round(Number(body.py) || 0);
         it.lt = it.lt || {};
         if (t || (py > 3 && py < 300)) it.lt[lk] = { ...(t ? { t } : {}), ...(py > 3 && py < 300 ? { py } : {}) }; else delete it.lt[lk];
         if (Object.keys(it.lt).length > 800) return fail(res, 400, 'full', '타입 정보가 너무 많습니다.');
-      } else if (body.op === 'tm') {
-        // 전용면적별 타입·공급평 (10/26 타입 정리): map = { '84.97': { t: '84A', py: 34 }, ... } — 표 전체를 한 번에 바꿈
-        const m = body.map && typeof body.map === 'object' ? body.map : {}, out = {};
-        for (const [k, v] of Object.entries(m).slice(0, 40)) {
-          const a = Math.round(Number(k) * 100) / 100; if (!(a > 10 && a < 400)) continue;
-          const t = str(v && v.t, 8).replace(/\s/g, '').toUpperCase(), py = Math.round(Number(v && v.py) || 0);
-          if (t || (py > 3 && py < 300)) out[a.toFixed(2)] = { ...(t ? { t } : {}), ...(py > 3 && py < 300 ? { py } : {}) };
-        }
-        if (Object.keys(out).length) it.tm = out; else delete it.tm;   // (cx.at 는 단지를 담은 시각이라 이름을 tm으로)
       } else if (body.op === 'memo') {
         const mk = str(body.key, 80);
         if (!mk.startsWith(id + '|')) return fail(res, 400, 'bad_key', '메모 위치가 올바르지 않습니다.');
