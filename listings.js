@@ -105,9 +105,9 @@
 
   function layout() {
     $('root').innerHTML = `<div class="wrap">
-      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="lv" id="cu" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
+      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="lv" id="cu" hidden></div><div class="lv" id="st" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
       <div class="side" style="display:grid;gap:12px">
-        <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button><button class="btn sub" id="csvBtn" type="button">엑셀로 저장</button></div>
+        <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button></div>
         <div id="bkLine"></div>
         <div class="tabs" id="tabs"></div>
         <div class="tabs" id="kinds"></div>
@@ -115,7 +115,6 @@
         <div class="list" id="list"></div>
       </div></div>`;
     $('addBtn').onclick = () => openForm(null);
-    $('csvBtn').onclick = () => exportCsv();
     $('find').oninput = e => { S.q = e.target.value.trim(); drawList(); };
     document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode, b.dataset.cat));
     document.querySelectorAll('[data-top]').forEach(b => b.onclick = () => { let m = 'danji'; try { m = localStorage.getItem('rm.lslast') || 'danji'; } catch { /* 무시 */ } setMode(m); });   // 10/26 B안: [매물] = 마지막으로 본 종류 탭
@@ -131,20 +130,31 @@
     pubCell: id => pubCell(S.items.find(i => i.id === id)), pubClick: (id, el) => pubClick(id, el), pubNew: o => pubNew(o), canPub: () => !!S.canPub,
   };
   // 요금제 안내 (무료 이용자가 Basic 기능을 누르거나 한도에 닿았을 때)
+  // 중개사 서비스 해지 (설정 → 계정·화면)
+  async function quit() {
+      if (!confirm('중개사 서비스를 해지할까요?\n\n매물장의 매물·사진·지도 광고·중개사무소 정보가 모두 지워지며 되돌릴 수 없습니다.\n먼저 [설정 → 엑셀]에서 매물을 받아 두시길 권합니다.')) return;
+      if (prompt("정말 해지하시려면 '해지'라고 입력해 주세요.") !== '해지') return toast('해지를 취소했습니다');
+      try { await api('/api/auth?action=quit', post({})); alert('중개사 서비스를 해지했습니다. 이용해 주셔서 감사합니다.'); location.href = '/'; } catch (e) { toast(e.message, 4000); }
+  }
+  // 설정 화면 (10/26 · settings.js)
+  const setHost = () => ({ api, post, toast, took, me: () => S.me, bk: () => S.bk, plan: () => S.plan || {}, items: () => S.items || [], canPub: () => !!S.canPub,
+    openBk: () => openBk(), importXl: () => openImport(), quit: () => quit(), xlGate: (info, fn) => xlGate(info, fn), exportLs: () => exportCsvNow(),
+    fz: d => { const b = $(d < 0 ? 'fzDn' : 'fzUp'); if (b && !b.disabled) b.click(); }, djReload: () => { if (window.Sett) Sett.stale(); if (window.Danji && Danji.reloadCx) Danji.reloadCx(true); } });
   function upsell(msg) { if (confirm(`${msg}\n\n요금제 안내를 열어 볼까요?`)) window.open('/pro.html#price', '_blank'); }
   const adv = () => !S.plan || S.plan.adv;
   // 지도+리스트(list) 모드: 표가 기본, [지도로 보기]를 켜면 오른쪽에 지도 · 단지(danji) 모드는 Basic부터
   function setMode(m, cat) {
-    S.mode = m === 'danji' || m === 'cust' ? m : 'list';
+    S.mode = m === 'danji' || m === 'cust' || m === 'set' ? m : 'list';
     if (S.mode === 'list' && cat && window.Board) Board.setCat(cat);   // 10/26 종류별 탭
-    try { localStorage.setItem('rm.lsmode', S.mode); if (S.mode !== 'cust') localStorage.setItem('rm.lslast', S.mode); } catch { /* 무시 */ }
-    const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust';
-    document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu);
+    try { localStorage.setItem('rm.lsmode', S.mode); if (S.mode !== 'cust' && S.mode !== 'set') localStorage.setItem('rm.lslast', S.mode); } catch { /* 무시 */ }
+    const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust', st = S.mode === 'set';
+    document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu || st); document.body.classList.toggle('stmode', st);   // 설정은 고객관리처럼 종류 줄 없이
     if (!lv) document.body.classList.remove('lvmap');
-    $('dj').hidden = !dj; $('lv').hidden = !lv; $('cu').hidden = !cu; $('map').style.visibility = dj || cu || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
+    $('dj').hidden = !dj; $('lv').hidden = !lv; $('cu').hidden = !cu; $('st').hidden = !st; $('map').style.visibility = dj || cu || st || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
     syncTabs();
     if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
     if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
+    else if (st && window.Sett) { if (!S.stMounted) { S.stMounted = true; Sett.mount($('st'), setHost()); } else Sett.refresh(); }
     else if (cu && window.Cust) { if (!S.cuMounted) { S.cuMounted = true; Cust.mount($('cu'), custHost()); } else Cust.refresh(); }
     else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }
     drawList();
@@ -153,7 +163,7 @@
   function syncTabs() {
     const cat = window.Board ? Board.cat() : 'shop';
     document.querySelectorAll('[data-mode]').forEach(b => { const on = b.dataset.mode === S.mode && (!b.dataset.cat || b.dataset.cat === cat) || (S.mode === 'list' && cat === 'apt' && b.dataset.mode === 'danji'); b.setAttribute('aria-pressed', on); b.classList.remove('lock'); });
-    document.querySelectorAll('[data-top]').forEach(b => b.setAttribute('aria-pressed', S.mode !== 'cust'));
+    document.querySelectorAll('[data-top]').forEach(b => b.setAttribute('aria-pressed', S.mode !== 'cust' && S.mode !== 'set'));
     const n = window.Board && S.items ? Board.counts() : {};
     n.all = Object.values(n).reduce((a, v) => a + v, 0);
     document.querySelectorAll('[data-cn]').forEach(e => { const v = n[e.dataset.cn] || 0; e.textContent = v ? ' ' + v : ''; const b = e.closest('.ctab button'); if (b) b.classList.toggle('z', !v && b.getAttribute('aria-pressed') !== 'true' && b.dataset.mode !== 'danji'); });
@@ -203,7 +213,7 @@
     return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawBk(); drawTabs(); drawList(); syncTabs(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); if (S.mode === 'cust' && window.Cust && S.cuMounted) Cust.refresh(); }
+  function draw() { drawBk(); drawTabs(); drawList(); syncTabs(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); if (S.mode === 'cust' && window.Cust && S.cuMounted) Cust.refresh(); if (S.mode === 'set' && window.Sett && S.stMounted) Sett.refresh(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
@@ -1167,12 +1177,11 @@
   function drawBk() {
     for (const el of [$('bkLine'), $('bkLine2')]) if (el) drawBkIn(el);
   }
-  function drawBkIn(el) {
-    const pl = planLine();
-    if (!S.canPub) { el.innerHTML = pl; return; }
-    const n = S.items.filter(pubLive).length;
-    el.innerHTML = pl + `<div class="bkline">${S.bk ? `<span>광고 표시 <b>${esc(S.bk.office)}</b> · 지도 게시 ${n}건${S.bk.mobile ? '' : ' · <b style="color:#B4400B">문자 받을 휴대폰 번호를 넣어 주세요</b>'}</span>` : '<span>중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다</span>'}<button type="button" class="bkEdit">${S.bk ? '수정' : '입력하기'}</button></div>`;
-    el.querySelector('.bkEdit').onclick = () => openBk();
+  function drawBkIn(el) {   // 10/26: 요금제·광고 표시는 [설정]으로 — 표 위에는 체험·무료 안내와 꼭 필요한 알림만
+    const P = S.plan || {}, pl = P.plan === 'trial' || P.plan === 'free' ? planLine() : '';
+    const need = S.canPub && (!S.bk ? '중개사무소 정보를 넣으면 매물을 리얼맵 지도에 올릴 수 있습니다' : !S.bk.mobile ? '문자 받을 휴대폰 번호를 넣어 주세요' : '');
+    el.innerHTML = pl + (need ? `<div class="bkline"><span><b style="color:#B4400B">${need}</b></span><button type="button" class="bkEdit">${S.bk ? '고치기' : '입력하기'}</button></div>` : '');
+    const e = el.querySelector('.bkEdit'); if (e) e.onclick = () => openBk();
   }
   function openBk(then, note) {
     const b = S.bk || {};
@@ -1186,13 +1195,7 @@
       ${f('office', '중개사무소 명칭', '리얼워커스공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 마포구 신촌로34길 39')}
       <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
       <div class="two">${f('tel', '사무소 전화', '02-000-0000', 'tel')}${f('mobile', '휴대폰 (문자 받을 번호)', '010-0000-0000', 'tel')}</div>
-      <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>
-      ${S.bk && !(S.plan && S.plan.op) ? '<div style="margin-top:28px;border-top:1px solid var(--line);padding-top:16px;font-size:14px;color:var(--muted)">중개사 서비스를 그만두시려면 <button type="button" id="bQuit" style="border:0;background:none;color:#C92A2A;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;padding:0">중개사 서비스 해지</button><br>매물장·사진·지도 광고·중개사무소 정보가 모두 지워지고, 일반 회원(관심 부동산 등)은 그대로 남습니다.</div>' : ''}`;
-    if ($('bQuit')) $('bQuit').onclick = async () => {
-      if (!confirm('중개사 서비스를 해지할까요?\n\n매물장의 매물·사진·지도 광고·중개사무소 정보가 모두 지워지며 되돌릴 수 없습니다.\n먼저 [엑셀로 저장]으로 매물을 받아 두시길 권합니다.')) return;
-      if (prompt("정말 해지하시려면 '해지'라고 입력해 주세요.") !== '해지') return toast('해지를 취소했습니다');
-      try { await api('/api/auth?action=quit', post({})); alert('중개사 서비스를 해지했습니다. 이용해 주셔서 감사합니다.'); location.href = '/'; } catch (e) { toast(e.message, 4000); }
-    };
+      <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>`;
     // 대표 사진: 정사각형으로 가운데를 잘라 400px JPEG로 올림. 저장 전에는 임시 (닫으면 정리)
     let photo = b.photo || '';
     S.bkTmp = [];
@@ -1227,20 +1230,21 @@
   // ---------- 엑셀 불러오기 (10/26 · ximport.js) ----------
   function openImport() {
     if (!window.XImport) return toast('엑셀 불러오기를 준비하는 중입니다. 잠시 뒤 다시 눌러 주세요');
-    XImport.open({ api, post, took, toast, items: () => S.items, plan: () => S.plan || {}, X: bdHost().X, done: () => draw(),
-      office: () => (S.bk && S.bk.office) || '', djReload: () => window.Danji && Danji.reloadCx && Danji.reloadCx(true),   // 아파트 장부 파일 → 단지 장부
+    XImport.open({ api, post, took, toast, items: () => S.items, plan: () => S.plan || {}, X: bdHost().X, done: () => { if (window.Sett) Sett.stale(); draw(); },
+      office: () => (S.bk && S.bk.office) || '', djReload: () => { if (window.Sett) Sett.stale(); if (window.Danji && Danji.reloadCx) Danji.reloadCx(true); },   // 아파트 장부 파일 → 단지 장부
       goDanji: id => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(id), 50); } });
   }
   // ---------- 엑셀 내려받기 = 휴대폰 인증 (10/26) ----------
   //   중개사무소 정보에 등록한 휴대폰으로 인증번호 → 맞으면 30분 동안 다시 묻지 않음 · 문자 인증이 꺼져 있으면 그냥 받음
-  function xlGate(fn) {
-    if (!S.me || !S.me.sms || Date.now() < (S.xlOk || 0)) return fn();
+  function xlGate(info, fn) {   // 10/26: 인증 한 번 = 내려받기 한 번 · 서버가 인증할 때 내려받기 기록을 남김 (info = { what, n })
+    if (typeof info === 'function') { fn = info; info = { what: '매물장', n: 0 }; }
+    if (!S.me || !S.me.sms) return fn();
     const d = String((S.bk && (S.bk.mobileOk || S.bk.mobile)) || '').replace(/\D/g, '');
     if (!/^01\d{8,9}$/.test(d)) return toast('엑셀 내려받기는 휴대폰 인증이 필요합니다. 중개사무소 정보에 휴대폰 번호를 먼저 넣어 주세요', 4000);
     const mask = d.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-****-$3');
     const el = document.createElement('div'); el.className = 'xi'; el.id = 'xlg';
     el.innerHTML = `<div class="xi-box sm" role="dialog" aria-modal="true" aria-label="엑셀 내려받기 인증"><div class="xi-h"><b>엑셀 내려받기 인증</b><button type="button" class="xi-x" data-x aria-label="닫기">×</button></div>
-      <div class="xi-bd"><p class="xi-m">매물·연락처가 담긴 파일이라 등록된 휴대폰으로 확인합니다. 인증하면 30분 동안은 다시 묻지 않습니다.</p>
+      <div class="xi-bd"><p class="xi-m">매물·연락처가 담긴 파일이라 대표님 휴대폰으로 확인합니다. <b>인증 한 번에 한 번</b> 받을 수 있고, 받은 기록이 [설정 → 엑셀]에 남습니다.</p><p class="xi-m">받을 것: <b>${esc(info.what || '')}</b>${info.n ? ` · ${Number(info.n).toLocaleString()}건` : ''}</p>
       <div class="xi-row"><b>${mask}</b><button type="button" class="xi-b" id="xlS">인증번호 받기</button></div>
       <div class="xi-row"><input id="xlC" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" disabled><button type="button" class="xi-b go" id="xlK" disabled>확인</button></div>
       <p class="xi-err" id="xlE"></p></div></div>`;
@@ -1254,12 +1258,12 @@
     };
     const ok = async () => {
       err('');
-      try { await api('/api/auth?action=sms', post({ op: 'check', phone: d, code: $('xlC').value })); S.xlOk = Date.now() + 30 * 60e3; bye(); fn(); }
+      try { await api('/api/auth?action=sms', post({ op: 'check', phone: d, code: $('xlC').value, xl: { what: info.what || '', n: info.n || 0 } })); bye(); fn(); }
       catch (e) { err(e.message); }
     };
     $('xlK').onclick = ok; $('xlC').onkeydown = e => { if (e.key === 'Enter') ok(); };
   }
-  function exportCsv(only) { return xlGate(() => exportCsvNow(only)); }
+  function exportCsv(only) { const list = Array.isArray(only) ? only : S.items; return xlGate({ what: Array.isArray(only) ? '매물장 (고른 매물)' : '매물장 전체', n: list.length }, () => exportCsvNow(only)); }
   function exportCsvNow(only) {
     const list = Array.isArray(only) ? only : S.items;
     if (!list.length) return toast('저장할 매물이 없습니다');

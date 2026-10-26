@@ -743,7 +743,7 @@ window.Danji = (() => {
       <span class="fg">${ck('c', 'exp', '만기 임박')}${ck('c', 'imp', '꼭 챙길 것')}${ck('c', 'mk', '표시한 줄')}</span>
       ${types.length ? `<i class="fsep"></i><span class="fg ty">${types.map(t => tch('t', t, esc(t))).join('')}</span>` : areas.length > 1 ? `<i class="fsep"></i><span class="fg ty">${areas.map(a => tch('a', a, `${supPy({ a }).v}평`)).join('')}</span>` : ''}
       ${fOn(F) ? '<button type="button" class="fclr" id="dj_fclr">모두 풀기</button>' : ''}
-      <span class="fg r">${ro || ALL ? '' : `<input id="dj_addHo" class="hjin sm" placeholder="＋ 호 추가 (102-1503)" autocomplete="off">`}<span class="mkb" title="줄을 누른 뒤 색을 누르면 표시 · 같은 색을 다시 누르거나 [지우기]면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button></span><button type="button" class="btn ghost sm" id="dj_csv">엑셀로 받기</button></span>`;
+      <span class="fg r">${ro || ALL ? '' : `<input id="dj_addHo" class="hjin sm" placeholder="＋ 호 추가 (102-1503)" autocomplete="off">`}<span class="mkb" title="줄을 누른 뒤 색을 누르면 표시 · 같은 색을 다시 누르거나 [지우기]면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button></span></span>`;
     // 두 줄 머리: 묶음(의뢰가격·현상태)은 위에 한 칸, 나머지는 두 줄을 차지 + 아래 칸별 거르기 줄
     const vc = VC(); let h1 = '', h2 = '';
     const leaf = (c, n, two) => `<th class="c-${c.id}${SORTC[c.id] ? ' srt' : ''}"${two ? ' rowspan="2"' : ''}${SORTC[c.id] ? ` data-srt="${SORTC[c.id]}" title="눌러서 정렬 (한 번 더 누르면 반대로)"` : ''}>${c.t}${SORTC[c.id] && F.sort === SORTC[c.id] && !(c.id === 'ho' || (c.id === 'dn' && ALL)) ? (F.dir === -1 ? ' ▼' : ' ▲') : ''}${n < vc.length - 1 ? '<i class="rz" title="끌어서 너비 조절 · 더블클릭하면 처음 너비"></i>' : ''}</th>`;
@@ -766,7 +766,6 @@ window.Danji = (() => {
       ColPick.open(b, vals, F.cf && F.cf[k], pick => { F.cf = { ...(F.cf || {}), [k]: pick }; redo(); });
     });
     box.querySelectorAll('th[data-srt]').forEach(th => th.onclick = e => { if (e.target.closest('.rz')) return; const k = th.dataset.srt; if (F.sort === k) F.dir = (F.dir || 1) * -1; else { F.sort = k; F.dir = ['pr', 'py', 'ps', 'pj', 'pwd', 'gap', 'up'].includes(k) ? -1 : 1; } drawTable(cx); });
-    $('dj_csv').onclick = () => (S.host.xlGate || (f => f()))(() => exportCsv(cx, rows));   // 10/26 휴대폰 인증 뒤 내려받기
     tbf.querySelectorAll('[data-mk]').forEach(b => b.onclick = () => {
       const x = S.rows.find(z => z.key === S.selKey); if (!x) return toast('표시할 줄을 먼저 눌러 주세요');
       const c2 = x.cx || cx; if (cxLocked(c2) || (S.L[c2.id] && S.L[c2.id].err)) return toast('보기만 되는 단지입니다');

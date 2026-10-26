@@ -1144,13 +1144,40 @@ body.cumode .top{padding-bottom:12px}
 .xi-b.red{color:#C92A2A;border-color:#F0B4A0;margin-right:auto}.xi-b:disabled{opacity:.5;cursor:default}
 .xi-bar{height:12px;background:#EEF1F5;border-radius:6px;overflow:hidden;margin:10px 0}.xi-bar i{display:block;height:100%;background:var(--gold);transition:width .3s}
 .xi-row{display:flex;gap:8px;align-items:center;margin:10px 0}.xi-row b{font-size:17px;flex:1}.xi-row input{flex:1;border:1px solid #CBD5E1;border-radius:10px;padding:9px 12px;font-size:16px}
+/* 설정 (10/26 · settings.js) */
+#st{padding:18px 22px;overflow:auto}
+.st-w{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;max-width:1200px;align-items:start}
+.st-n{background:#fff;border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0}
+.st-n button{display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;background:none;padding:11px 12px;border-radius:9px;cursor:pointer;font:inherit;color:var(--fg);text-align:left}
+.st-n button b{font-size:15.5px}.st-n button small{color:#94A0AD;font-size:12px;font-weight:600}
+.st-n button[aria-pressed=true]{background:#E8F0FB}.st-n button[aria-pressed=true] b{color:#1C4FA0}.st-n button.off{cursor:default}.st-n button.off b{color:#A9B3BE}
+.st-n hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+.st-m{display:flex;flex-direction:column;gap:14px;min-width:0}
+.st-c{background:#fff;border-radius:14px;padding:18px 20px}
+.st-c h2{margin:0 0 2px;font-size:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.st-c h3{font-size:15.5px;margin:18px 0 6px}
+.st-c em{font-style:normal;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:9px}.st-c em.ok{background:#E7F6EC;color:#1F7A4D}.st-c em.no{background:#FDECEC;color:#C92A2A}.st-c em.gr{background:#EEF1F5;color:#5E6A77}
+.st-d{color:var(--muted);font-size:14px;margin:4px 0 12px;line-height:1.55}
+.st-f{display:grid;grid-template-columns:130px minmax(0,1fr);gap:8px 14px;align-items:center;font-size:15px}.st-f>span{color:var(--muted)}.st-f>div{border:1.5px solid var(--line);border-radius:9px;padding:8px 12px;min-height:40px}.st-f i{color:#A9B3BE;font-style:normal}
+.st-r{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap}
+.st-b{display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--line);background:#fff;border-radius:9px;padding:9px 16px;font:inherit;font-size:14.5px;font-weight:800;color:var(--fg);cursor:pointer;text-decoration:none}
+.st-b.y{background:var(--gold);border-color:var(--gold)}.st-b.n{background:var(--navy);border-color:var(--navy);color:#fff}.st-b:disabled{opacity:.45;cursor:default}
+.st-x{border:1.5px solid #F2B8B8;background:#fff;color:#C92A2A;border-radius:8px;padding:5px 12px;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer}
+.st-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.st-t{border:1.5px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}.st-t b{font-size:15.5px}.st-t>span{color:var(--muted);font-size:13.5px;line-height:1.5;flex:1}.st-t label{display:block;color:var(--fg);font-size:14px}
+.st-tb{border-collapse:collapse;width:100%;font-size:14px}.st-tb th,.st-tb td{text-align:left;padding:8px 10px;border-bottom:1px solid #EEF1F5}.st-tb th{background:#F8FAFC;color:#64748B;font-weight:700}
+.st-pv{border:1.5px dashed var(--line);border-radius:12px;padding:12px 14px;background:#FAFBFC;font-size:14.5px;line-height:1.6}
+.st-u{display:grid;grid-template-columns:110px minmax(0,1fr) 140px;gap:10px 14px;align-items:center;font-size:14.5px}
+.st-bar{height:10px;background:#EEF1F5;border-radius:6px;overflow:hidden}.st-bar i{display:block;height:100%;background:#1C64C8}.st-bar i.hi{background:#E03131}
+.st-fz{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:0!important;padding:0!important}.st-fz small{color:var(--muted)}
+.st-q{border:1.5px solid #F6D3D3}.st-q h2{color:#C92A2A;font-size:16px}
+@media(max-width:979px){#st{padding:12px}.st-w{grid-template-columns:1fr}.st-n{flex-direction:row;overflow-x:auto;position:static}.st-n button{flex-direction:column;align-items:flex-start;white-space:nowrap;gap:0}.st-n hr{display:none}.st-g{grid-template-columns:1fr}.st-f{grid-template-columns:1fr;gap:2px}.st-f>span{margin-top:8px}.st-u{grid-template-columns:90px 1fr;}.st-u>span{grid-column:2}.st-tb{font-size:13px}}
 </style>
 </head>
 <body>
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
   <h1>리얼맵 중개장부 <span class="pro">PRO</span></h1>
-  <span class="mtog" role="group" aria-label="화면"><button type="button" data-top="ls">매물<small data-cn="all"></small></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button></span>
+  <span class="mtog" role="group" aria-label="화면"><button type="button" data-top="ls">매물<small data-cn="all"></small></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button><button type="button" data-mode="set">설정</button></span>
   <span class="sp"></span>
   <span class="gs" id="gsBox"><input id="gsQ" type="search" autocomplete="off" placeholder="전체 검색 (주소·건물·연락처·메모)" aria-label="전체 매물 검색"><span class="gsr" id="gsRes" hidden></span></span>
   <a class="navl hlp" href="/pro-guide.html" target="_blank" rel="noopener" title="중개장부 사용 설명서">설명서 보기</a>
@@ -1174,6 +1201,7 @@ body.cumode .top{padding-bottom:12px}
 <script src="alarm.js"></script>
 <script src="cust.js"></script>
 <script src="ximport.js"></script>
+<script src="settings.js"></script>
 <script src="listings.js"></script>
 </body>
 </html>

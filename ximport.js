@@ -227,6 +227,9 @@ window.XImport = (() => {
     return { P };
   }
 
+  // 불러온 기록 (설정 → 엑셀에서 나중에도 되돌리기) — 기록이 안 남아도 불러오기는 그대로
+  async function imLog(e) { try { const j = await H.api('/api/auth?action=xlog', H.post({ op: 'im', e: { file: S.file, ...e } })); S.logId = j.id; } catch { /* 무시 */ } }
+  async function imDone() { if (!S.logId) return; try { await H.api('/api/auth?action=xlog', H.post({ op: 'imdone', id: S.logId })); } catch { /* 무시 */ } }
   // ---------- 화면 ----------
   const keepMain = v => { try { if (v) localStorage.setItem('rm.ximp.main', JSON.stringify(v)); return JSON.parse(localStorage.getItem('rm.ximp.main') || 'null'); } catch { return null; } };
   const keepMap = (sig, v) => { try { const all = JSON.parse(localStorage.getItem('rm.ximp.map') || '{}'); if (v) { all[sig] = v; localStorage.setItem('rm.ximp.map', JSON.stringify(all)); } return all[sig] || null; } catch { return null; } };
@@ -259,7 +262,7 @@ window.XImport = (() => {
     const rows = sh.rows || [];
     if (rows.length < 2) return step1('내용이 있는 줄을 찾지 못했습니다.');
     const { labels, start } = header(rows);
-    const data = rows.slice(start).map((r, j) => (r._n = start + j + 1, r)).filter(r => r.some(c => clean(c)));
+    const data = rows.slice(start).map((r, j) => (r._n = start + j + 1, r)).filter(r => r.some(c => clean(c)) && !r.some(c => /예시라 지우고/.test(String(c))));   // 리얼맵 양식의 예시 줄은 건너뜀
     const sig = labels.map(norm).join('|');
     let map = keepMap(sig) || autoMap(labels, data);
     if (map.length !== labels.length) map = autoMap(labels, data);
@@ -339,6 +342,7 @@ window.XImport = (() => {
     await Promise.all([worker(), worker(), worker()]);
     await flush(true);
     S.busy = false;
+    if (S.saved) await imLog({ to: 'ls', n: S.saved, ib: S.ib });
     result(fail.sort((a, b) => a.i - b.i));
   }
   function result(fail) {
@@ -355,7 +359,7 @@ window.XImport = (() => {
     };
     if ($('xiUndo')) $('xiUndo').onclick = async () => {
       if (!confirm(`이번에 불러온 ${S.saved}건을 모두 지울까요? (불러온 뒤 고친 내용도 함께 지워집니다)`)) return;
-      try { const j = await H.api('/api/auth?action=listing', H.post({ op: 'unimport', ib: S.ib })); H.took(j); S.dirty = true; H.toast(`${j.unimported || 0}건을 되돌렸습니다`); S.saved = 0; close(); }
+      try { const j = await H.api('/api/auth?action=listing', H.post({ op: 'unimport', ib: S.ib })); H.took(j); S.dirty = true; await imDone(); H.toast(`${j.unimported || 0}건을 되돌렸습니다`); S.saved = 0; close(); }
       catch (e) { H.toast(e.message || '되돌리지 못했습니다'); }
     };
   }
@@ -367,9 +371,9 @@ window.XImport = (() => {
     <table class="xi-t"><tr><th>주소</th><th>물건명</th><th>동</th><th>호</th><th>…</th></tr><tr><td><b>마포구 아현동 777</b></td><td>마래푸</td><td>103</td><td>101</td><td>(그대로)</td></tr></table>
     <span>지번 주소·도로명 주소 둘 다 됩니다. 같은 단지는 같은 주소를 복사해서 붙여 넣으시면 됩니다.</span></div>`;
   const LCOL = [['name', /물건명|단지명|^단지$/], ['dong', /^동$/], ['ho', /^호$/], ['office', /부동산명|중개사무소/], ['prog', /^진행/], ['stt', /^상태$/],
-    ['kind', /거래구분|^거래$/], ['ps', /의뢰가격\/매매|^매매가?$/], ['pj', /의뢰가격\/전세|^전세가?$/], ['pwd', /의뢰가격\/보증금/], ['pwr', /의뢰가격\/월세/],
-    ['opt', /물건내역/], ['cur', /현상태\/구분|^현상태$/], ['cd', /현상태\/(전세|보증)/], ['cr', /현상태\/(차임|월세)/], ['exp', /만기/],
-    ['oN', /(소유주|소유자|집주인)\/이름/], ['oP', /(소유주|소유자|집주인)\/(핸드폰|전화|연락처|휴대폰)/], ['tN', /(세입자|임차인)\/이름/], ['tP', /(세입자|임차인)\/(핸드폰|전화|연락처|휴대폰)/],
+    ['kind', /거래구분|^거래$/], ['ps', /의뢰가격\/매매|^매매가?$/], ['pj', /의뢰가격\/전세|^전세가?$/], ['pwd', /의뢰가격\/보증금|^보증금$/], ['pwr', /의뢰가격\/월세|^월세$/],
+    ['opt', /물건내역/], ['cur', /현상태\/구분|^현상태$/], ['cd', /현상태\/(전세|보증)|^현보증금$|^현전세$/], ['cr', /현상태\/(차임|월세)|^현차임$|^현월세$/], ['exp', /만기/],
+    ['oP', /(소유주|소유자|집주인)\/?(핸드폰|전화|연락처|휴대폰)/], ['oN', /(소유주|소유자|집주인)(\/이름)?$/], ['tP', /(세입자|임차인)\/?(핸드폰|전화|연락처|휴대폰)/], ['tN', /(세입자|임차인)(\/이름)?$/],
     ['note', /상담내역|메모|비고/]];
   const lmap = labels => labels.map(lb => { const n = norm(lb); for (const [k, re] of LCOL) if (re.test(n)) return k; return ''; });
   const DS = { mine: '내 매물', other: '타부동산' };
@@ -501,6 +505,7 @@ window.XImport = (() => {
     };
     await Promise.all([worker(), worker(), worker()]);
     S.busy = false;
+    if (S.made.length || S.newCx.length) await imLog({ to: 'hj', n: S.made.length, made: S.made, newCx: S.newCx, names: [...new Set(S.made.map(([id]) => (S.groups.find(G => G.cx && G.cx.id === id) || {}).name).filter(Boolean))].join(', ') });
     ldResult(fail.sort((a, b) => a.r._n - b.r._n));
   }
   function ldResult(fail) {
@@ -515,6 +520,7 @@ window.XImport = (() => {
       shell('<div class="xi-bd"><p class="xi-m">되돌리는 중…</p></div>');
       let m = 0; for (const [id, key] of S.made) { if (S.newCx.includes(id)) continue; try { await H.api('/api/auth?action=hj', H.post({ id, key, op: 'wipe' })); m++; } catch { /* 다음 */ } }
       for (const id of S.newCx) { try { await H.api('/api/auth?action=cx', H.post({ op: 'del', id })); } catch { /* 다음 */ } }
+      await imDone();
       H.toast(`되돌렸습니다 (${m + S.made.filter(([id]) => S.newCx.includes(id)).length}호${S.newCx.length ? ` · 단지 ${S.newCx.length}곳` : ''})`); S.made = []; close();
     };
   }
