@@ -3,7 +3,7 @@
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
 import { send, fail, MAX_KEYS, vworldData, cached, pool } from './_lib.js';
-import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial, dropPhotos } from './auth.js';
+import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial, dropPhotos, PLANS } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const ADMIN_PW = String(process.env.ADMIN_PASSWORD || '').trim();
@@ -106,6 +106,32 @@ async function brokers(req, res) {
   try {
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      // 계좌이체 입금 확인 · 문의 답변 (10/27)
+      if (['payok', 'payno', 'reply'].includes(body.op)) {
+        const key = body.op === 'reply' ? 'realmap:qna' : 'realmap:pays', id = String(body.id || '').slice(0, 30);
+        const rec = await redis(['HGET', key, id]).then(v => { try { return JSON.parse(v); } catch { return null; } });
+        if (!rec) return fail(res, 404, 'none', '기록을 찾지 못했습니다.');
+        const now = new Date().toISOString();
+        if (body.op === 'reply') {
+          const text = String(body.text || '').replace(/[<>]/g, '').trim().slice(0, 3000); if (!text) return fail(res, 400, 'text', '답변을 적어 주세요.');
+          rec.reply = text; rec.rat = now;
+        } else {
+          if (rec.st !== 'wait') return fail(res, 400, 'done', '이미 처리된 신청입니다.');
+          if (body.op === 'payno') { rec.st = 'no'; rec.why = String(body.why || '').replace(/[<>]/g, '').slice(0, 100); rec.done = now; }
+          else {
+            // 남은 기간 뒤에 이어 붙임 (지금 유료 기간이 남아 있으면 그 끝에서부터 · 요금제는 새로 고른 것으로)
+            const prev = JSON.parse((await redis(['GET', `realmap:plan:${rec.uid}`])) || 'null');
+            const base = new Date(prev && ['basic', 'premium', 'vip'].includes(prev.plan) && prev.until && prev.until > now ? prev.until : now);
+            const until = new Date(base); until.setMonth(until.getMonth() + rec.mon);
+            await redis(['SET', `realmap:plan:${rec.uid}`, JSON.stringify({ plan: rec.plan, until: until.toISOString(), trialUsed: true, at: now, by: 'pay', pay: rec.id, prev: prev && prev.plan })]);
+            await redis(['SADD', 'realmap:brokers', rec.uid]);
+            rec.st = 'ok'; rec.done = now; rec.until = until.toISOString();
+            try { const uid = rec.uid, items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); const P = await planOf(uid); await syncPub(uid, items, await loadBk(uid), P); await redis(['SET', `realmap:ls:${uid}`, JSON.stringify(items)]); await brokerStat(uid, items); } catch { /* 다음 저장 때 */ }
+          }
+        }
+        await redis(['HSET', key, rec.id, JSON.stringify(rec)]);
+        return send(res, 200, { ok: true, rec });
+      }
       const uid = String(body.uid || String(body.k || '').split(':')[0] || '').replace(/\D/g, '');
       if (!uid) return fail(res, 400, 'uid', '회원 번호가 필요합니다.');
       if (body.op === 'plan') {
@@ -159,6 +185,9 @@ async function brokers(req, res) {
     for (let i = 0; i < arr.length; i += 2) { try { const v = JSON.parse(arr[i + 1]); pubs.push({ k: v.k, office: v.bk && v.bk.office, kind: v.kind, ptype: v.ptype, price: v.price, deposit: v.deposit, rent: v.rent, pr: v.pr, addr: v.addr, bname: v.bname, at: v.at, chk: v.chk, exp: v.exp, pnu: v.pnu }); } catch { /* 건너뜀 */ } }
     pubs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
     const dups = ((await redis(['LRANGE', 'realmap:bkdup', '0', '29']).catch(() => [])) || []).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean);
-    return send(res, 200, { ok: true, rows, pubs, dups });
+    const all = async key => { const r = (await redis(['HGETALL', key]).catch(() => [])) || []; const a = Array.isArray(r) ? r : Object.entries(r).flat(); const o = []; for (let i = 1; i < a.length; i += 2) { try { o.push(JSON.parse(a[i])); } catch { /* 건너뜀 */ } } return o.sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 200); };
+    const [pays, qnas] = await Promise.all([all('realmap:pays'), all('realmap:qna')]);
+    pays.forEach(p => { p.pname = (PLANS[p.plan] || {}).name || p.plan; });
+    return send(res, 200, { ok: true, rows, pubs, dups, pays, qnas });
   } catch (e) { return fail(res, 502, 'storage', '중개사 정보를 읽지 못했습니다: ' + e.message); }
 }

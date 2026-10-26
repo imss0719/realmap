@@ -119,7 +119,13 @@ async function checkOffice(bk) {
 // 인증번호는 6자리 · 5분 · 5번 틀리면 다시 받기. 보내기는 1분에 한 번, 하루 5번(계정·번호 각각).
 const SMS = { key: process.env.SOLAPI_KEY || '', secret: process.env.SOLAPI_SECRET || '', from: String(process.env.SMS_FROM || '').replace(/\D/g, '') };
 const smsOn = () => !!(SMS.key && SMS.secret && SMS.from);
-async function sendSms(to, text) {
+// 운영자 휴대폰으로 알림 문자 (입금 신청·새 문의) — Vercel 환경변수 ADMIN_PHONE 이 있을 때만 · 실패해도 무시
+export async function opSms(text) { const to = String(process.env.ADMIN_PHONE || '').replace(/\D/g, ''); if (!smsOn() || !/^01\d{8,9}$/.test(to)) return; try { await sendSms(to, text); } catch { /* 무시 */ } }
+// 요금제 가격(부가세 포함, 원) · 계좌이체 기간 — 12개월은 10개월 값
+export const PRICE = { basic: 9900, premium: 19900, vip: 29900 };
+export const PAY_MON = [1, 6, 12];
+export const payAmt = (plan, mon) => PRICE[plan] * (mon === 12 ? 10 : mon);
+export async function sendSms(to, text) {
   const date = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), salt = crypto.randomBytes(16).toString('hex');
   const sig = crypto.createHmac('sha256', SMS.secret).update(date + salt).digest('hex');
   const r = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
@@ -647,6 +653,54 @@ export default async function (req, res) {
     }
 
     // 휴대폰 문자 인증: POST { op:'send', phone } → 문자 발송 · { op:'check', phone, code } → 맞으면 30분 동안 이 번호를 인증된 번호로
+    // 계좌이체 요금제 신청 · 문의하기 (10/27) — 운영자는 중개사 관리(brokers.html)에서 입금 확인·답변
+    //   GET → { pays:[내 신청], qnas:[내 문의] }
+    //   POST { op:'pay', plan, mon, payer, rcpt:{t:'cash'|'tax', no} } · { op:'paycancel', id } · { op:'ask', cat, text, img }
+    if (action === 'help') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      const J = v => { try { return JSON.parse(v); } catch { return null; } };
+      const mine = async key => { const raw = (await redis(['HGETALL', key])) || []; const arr = Array.isArray(raw) ? raw : Object.entries(raw).flat(); const out = []; for (let i = 1; i < arr.length; i += 2) { const v = J(arr[i]); if (v && v.uid === s.id) out.push(v); } return out.sort((a, b) => String(b.at).localeCompare(String(a.at))); };
+      if (req.method !== 'POST') { const [pays, qnas] = await Promise.all([mine('realmap:pays'), mine('realmap:qna')]); return send(res, 200, { ok: true, pays: pays.slice(0, 30), qnas: qnas.slice(0, 50) }); }
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const t = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
+      const bk = await loadBk(s.id), who = (bk && bk.office) || s.n || '회원';
+      const nid = () => Date.now().toString(36) + crypto.randomBytes(3).toString('hex');
+      if (body.op === 'pay') {
+        const plan = String(body.plan || ''), mon = Number(body.mon);
+        if (!PRICE[plan] || !PAY_MON.includes(mon)) return fail(res, 400, 'bad', '요금제와 기간을 골라 주세요.');
+        if ((await mine('realmap:pays')).filter(x => x.st === 'wait').length >= 3) return fail(res, 400, 'many', '입금 확인을 기다리는 신청이 이미 있습니다. 확인이 끝난 뒤 다시 신청해 주세요.');
+        const rc = body.rcpt && ['cash', 'tax'].includes(body.rcpt.t) ? { t: body.rcpt.t, no: t(body.rcpt.no, 30).replace(/[^\d-]/g, '') } : null;
+        if (rc && !rc.no) return fail(res, 400, 'rcpt', rc.t === 'tax' ? '세금계산서를 받을 사업자번호를 넣어 주세요.' : '현금영수증을 받을 휴대폰 번호를 넣어 주세요.');
+        const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), plan, mon, amt: payAmt(plan, mon), payer: t(body.payer, 30) || who, office: who, rcpt: rc, st: 'wait' };
+        await redis(['HSET', 'realmap:pays', rec.id, JSON.stringify(rec)]);
+        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · ${PLANS[plan].name} ${mon}개월 ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`);
+        return send(res, 200, { ok: true, pay: rec });
+      }
+      if (body.op === 'paycancel') {
+        const rec = J(await redis(['HGET', 'realmap:pays', t(body.id, 30)]));
+        if (!rec || rec.uid !== s.id) return fail(res, 404, 'none', '신청을 찾지 못했습니다.');
+        if (rec.st !== 'wait') return fail(res, 400, 'done', '이미 처리된 신청입니다.');
+        rec.st = 'cancel'; rec.done = new Date().toISOString();
+        await redis(['HSET', 'realmap:pays', rec.id, JSON.stringify(rec)]);
+        return send(res, 200, { ok: true });
+      }
+      if (body.op === 'ask') {
+        const text = t(body.text, 2000); if (text.length < 2) return fail(res, 400, 'text', '문의 내용을 적어 주세요.');
+        const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), k = `realmap:qnad:${s.id}:${day}`;
+        const n = await redis(['INCR', k]); await redis(['EXPIRE', k, 90000]);
+        if (n > 10) return fail(res, 429, 'many', '오늘은 문의를 더 보낼 수 없습니다. 내일 다시 보내 주세요.');
+        const CATS = ['사용법', '오류', '요금·결제', '기타'], img = String(body.img || '');
+        const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), office: who, cat: CATS.includes(body.cat) ? body.cat : '기타', text, img: ownPhoto(img, s.id) ? img : '', reply: '', rat: '' };
+        await redis(['HSET', 'realmap:qna', rec.id, JSON.stringify(rec)]);
+        await opSms(`[리얼맵] 새 문의 · ${who.slice(0, 20)} · ${rec.cat}`);
+        return send(res, 200, { ok: true, qna: rec });
+      }
+      return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+    }
+
     // 설정 화면 기록 (10/26): 엑셀 내려받기 기록(문자 인증 때 서버가 남김) · 엑셀 불러오기 기록(되돌리기용 묶음 정보)
     //   GET → { dl:[{at,what,n,ph}], im:[{id,at,file,to,n,ib?,made?,newCx?,names,undone?}] }
     //   POST { op:'im', e:{file,to,n,ib,made,newCx,names} } · { op:'imdone', id }
