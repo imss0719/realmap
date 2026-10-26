@@ -339,7 +339,7 @@ async function dropBroker(uid) {
   try { const b = await loadBk(uid); if (b && b.photo) await dropPhotos([b.photo]); } catch { /* 무시 */ }
   try { const b = await loadBk(uid), d = b && digitsOf(b.regno); if (d && await redis(['HGET', 'realmap:regno', d]) === String(uid)) await redis(['HDEL', 'realmap:regno', d]); } catch { /* 무시 */ }
   try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); const f = ls.map(x => `${uid}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
-  await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
+  await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['DEL', `realmap:xdl:${uid}`], ['DEL', `realmap:xim:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
 }
 export async function loadBk(uid) { try { const v = await redis(['GET', `realmap:bk:${uid}`]); return v ? JSON.parse(v) : null; } catch { return null; } }
 
@@ -647,6 +647,41 @@ export default async function (req, res) {
     }
 
     // 휴대폰 문자 인증: POST { op:'send', phone } → 문자 발송 · { op:'check', phone, code } → 맞으면 30분 동안 이 번호를 인증된 번호로
+    // 설정 화면 기록 (10/26): 엑셀 내려받기 기록(문자 인증 때 서버가 남김) · 엑셀 불러오기 기록(되돌리기용 묶음 정보)
+    //   GET → { dl:[{at,what,n,ph}], im:[{id,at,file,to,n,ib?,made?,newCx?,names,undone?}] }
+    //   POST { op:'im', e:{file,to,n,ib,made,newCx,names} } · { op:'imdone', id }
+    if (action === 'xlog') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = readSession(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      const IK = `realmap:xim:${s.id}`, J = a => (a || []).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean);
+      if (req.method !== 'POST') {
+        const [dl, im] = await Promise.all([redis(['LRANGE', `realmap:xdl:${s.id}`, 0, 49]), redis(['LRANGE', IK, 0, 29])]);
+        return send(res, 200, { ok: true, dl: J(dl), im: J(im).map(({ made, ...e }) => ({ ...e, nMade: (made || []).length })) });
+      }
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const t = (v, n) => String(v ?? '').replace(/[<>]/g, '').slice(0, n);
+      if (body.op === 'im') {
+        const e = body.e || {};
+        const rec = { id: Date.now().toString(36) + crypto.randomBytes(2).toString('hex'), at: new Date().toISOString(), file: t(e.file, 80), to: e.to === 'hj' ? 'hj' : 'ls', n: Math.max(0, Math.round(Number(e.n) || 0)),
+          ib: t(e.ib, 20), made: (Array.isArray(e.made) ? e.made : []).slice(0, 5000).map(m => [t(m && m[0], 20), t(m && m[1], 60)]), newCx: (Array.isArray(e.newCx) ? e.newCx : []).slice(0, 50).map(x => t(x, 20)), names: t(e.names, 120) };
+        await pipe([['LPUSH', IK, JSON.stringify(rec)], ['LTRIM', IK, 0, 29]]);
+        return send(res, 200, { ok: true, id: rec.id });
+      }
+      if (body.op === 'imget' || body.op === 'imdone') {   // imget: 되돌리기에 쓸 묶음 정보 · imdone: 되돌렸다고 표시
+        const arr = (await redis(['LRANGE', IK, 0, 29])) || [];
+        const i = arr.findIndex(v => { try { return JSON.parse(v).id === body.id; } catch { return false; } });
+        if (i < 0) return fail(res, 404, 'none', '기록을 찾지 못했습니다.');
+        const e = JSON.parse(arr[i]);
+        if (body.op === 'imget') return send(res, 200, { ok: true, e });
+        e.undone = new Date().toISOString(); delete e.made;
+        await redis(['LSET', IK, i, JSON.stringify(e)]);
+        return send(res, 200, { ok: true });
+      }
+      return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+    }
+
     if (action === 'sms') {
       res.setHeader('Cache-Control', 'no-store');
       const s = readSession(req);
@@ -662,7 +697,7 @@ export default async function (req, res) {
         if ((await redis(['SET', `realmap:smst:${s.id}`, '1', 'EX', 60, 'NX'])) !== 'OK') return fail(res, 429, 'wait', '인증번호는 1분에 한 번 받을 수 있습니다. 잠시 뒤 다시 눌러 주세요.');
         const [n1, n2] = await Promise.all([redis(['INCR', `realmap:smsd:${s.id}:${day}`]), redis(['INCR', `realmap:smsp:${phone}:${day}`])]);
         await pipe([['EXPIRE', `realmap:smsd:${s.id}:${day}`, 90000], ['EXPIRE', `realmap:smsp:${phone}:${day}`, 90000]]);
-        if (n1 > 5 || n2 > 5) return fail(res, 429, 'many', '오늘은 인증번호를 더 받을 수 없습니다. 내일 다시 시도하시거나 리얼맵 운영자에게 알려 주세요.');
+        if (n1 > 10 || n2 > 10) return fail(res, 429, 'many', '오늘은 인증번호를 더 받을 수 없습니다. 내일 다시 시도하시거나 리얼맵 운영자에게 알려 주세요.');
         const code = String(crypto.randomInt(100000, 1000000));
         await redis(['SET', ck, JSON.stringify({ p: phone, h: hashCode(s.id, code), n: 0, e: Date.now() + 300e3 }), 'EX', 300]);
         try { await sendSms(phone, `[리얼맵] 인증번호 ${code} (5분 안에 입력해 주세요)`); }
@@ -680,6 +715,11 @@ export default async function (req, res) {
           return fail(res, 400, 'wrong', `인증번호가 맞지 않습니다. (${5 - rec.n}번 남음)`);
         }
         await pipe([['DEL', ck], ['SET', `realmap:smsok:${s.id}`, phone, 'EX', 1800]]);
+        // 엑셀 내려받기 인증(10/26): 인증 한 번 = 내려받기 한 번 · 기록을 남김 (무엇을·몇 건·어느 번호로)
+        if (body.xl && typeof body.xl === 'object') {
+          const e = { at: new Date().toISOString(), what: String(body.xl.what || '').replace(/[<>]/g, '').slice(0, 60), n: Math.max(0, Math.min(1e6, Math.round(Number(body.xl.n) || 0))), ph: phone.replace(/^(\d{3})\d{3,4}(\d{4})$/, '$1-****-$2') };
+          await pipe([['LPUSH', `realmap:xdl:${s.id}`, JSON.stringify(e)], ['LTRIM', `realmap:xdl:${s.id}`, 0, 99]]);
+        }
         return send(res, 200, { ok: true });
       }
       return fail(res, 400, 'op', '알 수 없는 요청입니다.');
