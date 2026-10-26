@@ -218,7 +218,7 @@
   // 매물장 저장 결과 받기 (게시 중 매물이 필수 항목 부족으로 내려가면 알려 드림)
   // 요금제 한도를 넘은 매물(오래된 쪽)은 보기 전용 — 서버 readOnlyIds와 같은 규칙
   function roIds() { const P = S.plan; if (!P || P.ls == null || !(S.items.length > P.ls)) return new Set(); return new Set([...S.items].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(P.ls).map(x => x.id)); }
-  function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
+  function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); if (j.cxDirty && window.Danji && Danji.reloadCx) Danji.reloadCx(); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // ---------- 지도 ----------
   async function loadMap() {

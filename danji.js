@@ -297,13 +297,13 @@ window.Danji = (() => {
         ${open ? `<div id="dj_board">${board(C)}</div>` : ''}</div>
       <div class="card gcard">
         <div class="djmbar"><button type="button" class="btn ghost sm" id="dj_mapT" aria-pressed="${mapOn()}">${mapOn() ? '동 지도 닫기 ▴' : '동 지도 보기 ▾'}</button><span class="note">${mapOn() ? '동을 누르면 그 동만 봅니다' : '동마다 내 매물·타부동산·만기를 지도에서'}</span></div>
-        <div id="dj_mapSlot"></div>
+        ${mapOn() ? '<div class="djsplit"><div id="dj_mapSlot"></div><aside class="djside" id="dj_sideM"></aside></div>' : '<div id="dj_mapSlot"></div>'}
         <div class="dongs" id="dj_dongs"><button type="button" data-dong="all" aria-pressed="${C.view === 'all'}">전체</button>${(C.dongs || []).map(d => { const k = d.pnu + '|' + d.dong; const n = dongCounts(cx, d, MM); const sp = C.scan && C.scan.per[d.pnu], wt = !!sp && !sp.done && !sp.cached && !Array.isArray(C.units[k]); return `<button type="button" data-dong="${esc(k)}" aria-pressed="${C.view === 'dong' && k === C.cur}" class="${n.m || n.o || n.e ? 'has' : ''}${wt ? ' wait' : ''}">${esc(d.dong)}${n.m ? `<em title="내 매물">${n.m}</em>` : ''}${n.o ? `<em class="o" title="타부동산 매물">${n.o}</em>` : ''}${n.e ? `<i class="xd" title="만기 임박">${n.e}</i>` : ''}</button>`; }).join('') || (C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : '')}</div>
         <div class="dj-scanbar" id="dj_scan" hidden></div>
         ${LL && LL.err ? `<p class="hjwarn">호실 장부를 쓸 수 없어 보기만 됩니다: ${esc(LL.err)}</p>` : ''}
         ${cxLocked(cx) ? `<p class="hjwarn">요금제 단지 한도(${cxLimit()}곳)를 넘은 단지라 보기만 됩니다. 다른 단지를 빼거나 <a href="/pro.html#price" target="_blank" rel="noopener">요금제를 올리면</a> 다시 입력할 수 있습니다.</p>` : ''}
         ${C.view === 'dong' ? `<div class="tbbar"><button type="button" class="btn ghost sm" id="dj_boardT" aria-pressed="${boardOn()}">${boardOn() ? '현황판 닫기 ▴' : '현황판 보기 ▾'}</button><span class="note">층 × 라인 그림</span></div>
-        <div id="dj_gridBox"${boardOn() ? '' : ' hidden'}></div>` : ''}
+        <div class="djsplit g"${boardOn() ? '' : ' hidden'}><div id="dj_gridBox"></div><aside class="djside" id="dj_sideG"></aside></div>` : ''}
         <div id="dj_tbl"></div>
         <div class="lgd"><span><i class="lg-c" style="background:var(--sale)"></i>매매</span><span><i class="lg-c" style="background:var(--jeonse)"></i>전세</span><span><i class="lg-c" style="background:var(--wolse)"></i>월세</span><span><em class="lg-n">n</em>내 매물</span><span><em class="lg-n o">n</em>타부동산</span><span><i class="lg-x"></i>만기 임박</span><button type="button" class="lnk" id="dj_addPl">빠진 동이 있나요?</button></div>
       </div>`;
@@ -372,6 +372,23 @@ window.Danji = (() => {
     if (miss.length) console.info('[동 지도] 위치를 못 찾은 동', miss.join(', '));   // 회원 화면에는 표시하지 않음 (위치 없는 동은 아래 동 버튼으로)
     if (!any) { note('이 단지는 지도에 동 위치 자료가 없습니다. 아래 동 버튼으로 보세요.'); return; }
     if (M.fit !== cx.id + ':' + any) { M.fit = cx.id + ':' + any; M.map.setBounds(bounds, 30, 30, 30, 30); }
+  }
+  // ---------- 지도·현황판 옆 매물 목록 (그 동, 동을 안 골랐으면 단지 전체) ----------
+  function drawSide(cx) {
+    const els = ['dj_sideM', 'dj_sideG'].map($).filter(Boolean), C = S.C[cx.id]; if (!els.length || !C || cx.all) return;
+    const MM = mineMap(cx), dongV = C.view === 'dong' && C.cur;
+    let rows = dongV ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
+    rows = sortRows(rows.filter(x => (x.st.src && !x.st.done) || x.st.exp), 'dh');
+    const m = rows.filter(x => x.st.src === 'mine' && !x.st.done).length, o = rows.filter(x => x.st.src === 'other' && !x.st.done).length, e = rows.filter(x => x.st.exp).length;
+    const pills = st => (st.k.length ? st.k : ['']).map(k => `<span class="p ${k ? (st.src === 'mine' ? 'f-' : 'o-') + k : 'f-none'}">${k ? KN[k] : st.src === 'mine' ? '내 매물' : st.src ? '타부동산' : '만기'}</span>`).join('');
+    const html = `<div class="sd-h"><b>${dongV ? esc(C.cur.slice(20)) : '단지 전체'}</b><span>${[m ? `내 매물 ${m}` : '', o ? `타부동산 ${o}` : '', e ? `만기 ${e}` : ''].filter(Boolean).join(' · ') || '매물 없음'}</span></div>`
+      + (rows.length ? rows.map(x => {
+        const r = x.r || {};
+        const sub = [x.a ? `${Math.round(x.a / PY)}평` : '', x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', r.live ? LIVE[r.live] : '', r.exp ? `만기 ${r.exp.slice(2, 7).replace('-', '.')}` : '', x.st.src === 'other' ? (x.st.office || '타부동산') : ''].filter(Boolean).join(' · ');
+        return `<button type="button" class="sd-it${x.st.hold ? ' hold' : ''}" data-go="${esc(x.key)}"><span class="sd-t"><b>${esc(x.dn)}-${esc(x.ho)}</b>${pills(x.st)}</span><span class="sd-p">${prHtml(x)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
+      }).join('') : `<p class="sd-e">${dongV ? '이 동에는' : '이 단지에는'} 아직 매물이 없습니다.</p>`)
+      + (rows.length ? '<p class="sd-n">누르면 아래 표의 그 호로 이동</p>' : '');
+    els.forEach(el => { el.innerHTML = html; el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { S.focusKey = b.dataset.go; S.hist = null; drawTable(cx); }); });
   }
   function pickDong(cx, k) { const C = S.C[cx.id]; if (!C) return; if (C.view === 'dong' && C.cur === k) C.view = 'all'; else { C.view = 'dong'; C.cur = k; C.picked = true; } S.hist = null; drawComplex(cx); }
 
@@ -563,6 +580,7 @@ window.Danji = (() => {
     wireTel(cx, box);
     box.querySelectorAll('[data-gocx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.cur = b.dataset.gocx; S.hist = null; draw(); });
     if (S.hist) wireHist(cx);
+    if (!ALL) drawSide(cx);   // 지도·현황판 옆 매물 목록
     if (S.focusKey) { const tr = box.querySelector(`tr[data-key="${CSS.escape(S.focusKey)}"]`); S.focusKey = null; if (tr) { tr.scrollIntoView({ block: 'center', behavior: 'smooth' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); } }
   }
   // ---------- 칸 너비 조절: 표 전체 너비는 그대로, 경계선을 끌면 옆 칸과 너비를 주고받음 ----------
@@ -603,6 +621,7 @@ window.Danji = (() => {
     const old = S.rows[i]; cx = old.cx || cx;
     const C = CI(cx), x = rowOf(cx, C, mineMap(cx), old.pnu, (dongOf(C, old.dn) || {}).dong || old.dn, old.ho);
     x.fs = old.fs; S.rows[i] = x;
+    clearTimeout(S.sideT); S.sideT = setTimeout(() => drawSide(cx), 120);   // 오른쪽 매물 목록도 맞춤
     if (S.ed && S.ed.i === i) { S.ed.stale = true; return; }
     const tr = document.querySelector(`#dj_tbl tr[data-i="${i}"]`); if (!tr) return;
     tr.outerHTML = rowHtml(x, i);
@@ -1305,5 +1324,7 @@ window.Danji = (() => {
   }
   function closeSheet() { const f = S.onClose; S.onClose = null; $('djSheet').hidden = true; document.body.style.overflow = ''; if (f) f(); }
 
-  return { mount, refresh, add, goto };
+  // 매물관리에서 방향을 넣어 단지관리 라인 방향이 바뀌었을 때 (서버가 cxDirty로 알려 줌) 단지 목록만 다시 받음
+  async function reloadCx() { if (!S.loaded) return; try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; refresh(); } catch { /* 다음에 열 때 */ } }
+  return { mount, refresh, add, goto, reloadCx };
 })();
