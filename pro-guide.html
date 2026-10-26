@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리얼맵 중개장부 사용 설명서</title>
+<meta name="description" content="리얼맵 중개장부 사용법을 실제 화면으로 안내합니다. 매물 등록, 표에서 바로 고치기, 종류별 탭, 재개발·분양권, 아파트 단지 장부, 고객관리, 알림, 지도 광고까지.">
+<link rel="canonical" href="https://realmap.online/pro-guide.html">
+<meta property="og:title" content="리얼맵 중개장부 사용 설명서">
+<meta property="og:description" content="주소 한 줄이면 매물 등록 끝. 실제 화면으로 보는 중개장부 사용법.">
+<meta property="og:image" content="https://realmap.online/guide/pro-list.webp">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#EEF1F4;--surface:#fff;--fg:#14212E;--muted:#5E6A77;--line:#DCE2E8;--soft:#F5F7F9;--accent:#0B6E69;--accent-soft:#E2F1EF;--y:#F2B705;--y-soft:#FFF6D6;--red:#C92A2A;--red-soft:#FFF0F0}
+@media (prefers-color-scheme: dark){:root{--bg:#0E1317;--surface:#151C22;--fg:#E5EAEF;--muted:#94A1AE;--line:#26313A;--soft:#1B242B;--accent:#4BBDB2;--accent-soft:#16302E;--y-soft:#2C2610;--red:#FF8787;--red-soft:#2E1B1B}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.8;font-size:17px;word-break:keep-all}
+a{color:var(--accent)}
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+@media (prefers-color-scheme: dark){.top{background:rgba(21,28,34,.92)}}
+.top .in{max-width:960px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:14px}
+.top .brand{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;font-weight:700;font-size:17px}
+.top .go{margin-left:auto;background:#14212E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:8px 16px;border-radius:999px}
+@media (prefers-color-scheme: dark){.top .go{background:var(--y);color:#14212E}}
+.hero{max-width:960px;margin:0 auto;padding:44px 20px 18px}
+.hero .k{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.02em}
+.hero h1{font-size:36px;line-height:1.3;margin:8px 0 12px;letter-spacing:-.03em}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--y) 62%)}
+.hero p{color:var(--muted);margin:0;max-width:640px}
+.toc{max-width:960px;margin:22px auto 0;padding:0 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.toc a{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--fg);font-weight:600;font-size:15px;line-height:1.35}
+.toc a:hover{border-color:var(--accent)}
+.toc a b{flex:none;width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:14px}
+main{max-width:960px;margin:0 auto;padding:10px 20px 40px}
+section{background:var(--surface);border-radius:18px;padding:34px 36px;margin:22px 0;border:1px solid var(--line)}
+@media (max-width:640px){section{padding:24px 18px;border-radius:14px}.hero h1{font-size:28px}}
+h2{font-size:25px;margin:0 0 6px;letter-spacing:-.02em;display:flex;align-items:center;gap:12px;line-height:1.35}
+h2 .n{flex:none;width:36px;height:36px;border-radius:10px;background:#14212E;color:#fff;display:grid;place-items:center;font-size:17px}
+@media (prefers-color-scheme: dark){h2 .n{background:var(--y);color:#14212E}}
+h3{font-size:19px;margin:28px 0 6px}
+.lead{color:var(--muted);margin:4px 0 18px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--y-soft);color:#9A6200;vertical-align:3px}
+@media (prefers-color-scheme: dark){.tag{color:var(--y)}}
+/* 화면 그림 + 번호 */
+.shot{margin:14px 0 6px}
+.fig{position:relative;display:block;width:100%;border-radius:14px;overflow:visible}
+.fig img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);box-shadow:0 10px 30px rgba(20,33,46,.10);background:#fff}
+.mk{position:absolute;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--y);color:#14212E;border:2.5px solid #fff;font-size:14px;font-weight:700;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.35);line-height:1}
+@media (max-width:640px){.mk{width:22px;height:22px;font-size:12px;border-width:2px}}
+figcaption{font-size:13px;color:var(--muted);margin-top:8px;text-align:center}
+.pair{display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:30px;align-items:start}
+.pair.rev{grid-template-columns:1fr minmax(0,420px)}
+.pair.rev .shot{order:2}
+@media (max-width:780px){.pair,.pair.rev{grid-template-columns:1fr}.pair.rev .shot{order:0}.pair .shot{max-width:440px;margin-left:auto;margin-right:auto;width:100%}}
+ol.pts{list-style:none;padding:0;margin:14px 0;counter-reset:p}
+ol.pts li{position:relative;padding:2px 0 12px 40px;margin:0}
+ol.pts li::before{counter-increment:p;content:counter(p);position:absolute;left:0;top:3px;width:26px;height:26px;border-radius:50%;background:var(--y);color:#14212E;font-size:13px;font-weight:700;display:grid;place-items:center}
+ol.pts li > b{display:block;font-size:17px}
+ol.pts li span.tag{display:inline-block;color:#9A6200;font-size:12px;margin-left:4px}
+ol.pts li > span:not(.tag){display:block;color:var(--muted);font-size:15.5px;line-height:1.7}
+.tip{background:var(--accent-soft);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:15.5px;line-height:1.7}
+.tip b{color:var(--accent)}
+.warn{background:var(--red-soft);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:15.5px;line-height:1.7}
+.warn b{color:var(--red)}
+.keys{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.keys span{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--soft);border:1px solid var(--line)}
+.keys i{width:13px;height:13px;border-radius:4px;display:inline-block}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+@media (max-width:640px){.steps{grid-template-columns:1fr}}
+.steps div{background:var(--soft);border-radius:12px;padding:16px;font-size:15px;line-height:1.6}
+.steps div b{display:block;font-size:16px;margin-bottom:4px}
+.steps div em{font-style:normal;display:inline-block;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px}
+details{border:1px solid var(--line);border-radius:12px;padding:0 18px;margin:10px 0;background:var(--surface)}
+details summary{cursor:pointer;font-weight:700;padding:15px 0;list-style:none;display:flex;justify-content:space-between;gap:10px}
+details summary::after{content:"+";color:var(--muted);font-weight:400;font-size:22px;line-height:1}
+details[open] summary::after{content:"−"}
+details p{margin:0 0 16px;color:var(--muted);font-size:15.5px}
+.cta{display:inline-block;margin:10px 0 0;background:#14212E;color:#fff;padding:14px 28px;border-radius:999px;font-weight:700;text-decoration:none;font-size:17px}
+@media (prefers-color-scheme: dark){.cta{background:var(--y);color:#14212E}}
+.end{text-align:center}
+.end p{color:var(--muted)}
+footer{max-width:960px;margin:0 auto;padding:0 20px 40px;font-size:13px;color:var(--muted)}
+footer a{color:inherit}
+.kb{display:inline-block;font-size:13px;font-weight:700;padding:1px 8px;border-radius:6px;background:var(--soft);border:1px solid var(--line);font-family:inherit;line-height:1.6}
+table.pl{width:100%;border-collapse:collapse;font-size:15px;margin:14px 0}
+table.pl th,table.pl td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:center}
+table.pl th{background:var(--soft);font-weight:700}
+table.pl td:first-child,table.pl th:first-child{text-align:left}
+.wrapx{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="top"><div class="in"><a class="brand" href="/pro.html"><img src="/favicon.svg" width="28" height="28" alt="">리얼맵 중개장부</a><a class="go" href="/listings.html">중개장부 열기</a></div></div>
+
+<div class="hero">
+  <div class="k">중개장부 사용 설명서</div>
+  <h1>주소 한 줄이면 등록 끝,<br><em>표에서 바로 고치는 매물장</em></h1>
+  <p>리얼맵 중개장부를 처음 쓰시는 분을 위해 실제 화면으로 하나씩 안내해 드립니다. 그림 속 매물과 연락처는 모두 예시입니다.</p>
+</div>
+<nav class="toc" aria-label="목차">
+  <a href="#start"><b>1</b>시작하기</a>
+  <a href="#screen"><b>2</b>화면 둘러보기</a>
+  <a href="#add"><b>3</b>매물 등록하기</a>
+  <a href="#edit"><b>4</b>표에서 고치기 · 기록</a>
+  <a href="#kinds"><b>5</b>종류별 탭 활용</a>
+  <a href="#redev"><b>6</b>재개발·재건축 · 분양권</a>
+  <a href="#find"><b>7</b>찾기 · 거르기 · 지도</a>
+  <a href="#danji"><b>8</b>아파트 단지 장부</a>
+  <a href="#cust"><b>9</b>고객관리</a>
+  <a href="#alarm"><b>10</b>알림</a>
+  <a href="#ad"><b>11</b>리얼맵 지도 광고</a>
+  <a href="#plan"><b>12</b>요금제 · 한도</a>
+  <a href="#faq"><b>?</b>자주 묻는 질문</a>
+</nav>
+
+<main>
+
+<section id="start">
+  <h2><span class="n">1</span>시작하기</h2>
+  <p class="lead">카카오 로그인 후 중개사무소 정보를 한 번만 넣으면 바로 시작됩니다. 처음 2주는 Basic 기능을 모두 무료로 쓰실 수 있습니다.</p>
+  <div class="steps">
+    <div><em>1단계</em><b>카카오 로그인</b>리얼맵 첫 화면이나 소개 페이지의 [2주 무료로 시작]을 누르세요.</div>
+    <div><em>2단계</em><b>중개사무소 확인</b>등록번호와 대표 공인중개사 성명을 넣으면 국가 자료로 개설등록을 확인합니다.</div>
+    <div><em>3단계</em><b>휴대폰 인증</b>문자 받을 휴대폰 번호로 인증번호를 받아 넣으면 끝입니다.</div>
+  </div>
+  <div class="tip"><b>체험이 끝나면?</b> 자동으로 결제되지 않습니다. 무료 이용(매물 10건)으로 바뀌고, 체험 때 넣은 매물은 지워지지 않아 언제든 보고 엑셀로 내려받으실 수 있습니다.</div>
+</section>
+
+<section id="screen">
+  <h2><span class="n">2</span>화면 둘러보기</h2>
+  <p class="lead">맨 위는 [매물]과 [고객관리], 그 아래 흰 줄은 매물 종류 탭입니다. 매물은 종류마다 필요한 칸이 다른 표로 정리됩니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/pro-list.webp" width="1600" height="540" alt="중개장부 매물 화면 - 위 메뉴, 종류 탭, 거르기 줄, 주소 입력 칸, 매물 표" loading="lazy"><span class="mk" style="left:19.9%;top:6.0%">1</span><span class="mk" style="left:33.5%;top:14.8%">2</span><span class="mk" style="left:73.8%;top:6.0%">3</span><span class="mk" style="left:87.3%;top:6.0%">4</span><span class="mk" style="left:93.6%;top:6.0%">5</span><span class="mk" style="left:17.4%;top:46.2%">6</span><span class="mk" style="left:22.3%;top:65.2%">7</span><span class="mk" style="left:46.3%;top:76.7%">8</span><span class="mk" style="left:8.3%;top:27.8%">9</span></div><figcaption>상가·사무실 탭 화면</figcaption></div>
+  <ol class="pts">
+    <li><b>매물 · 고객관리</b><span>매물을 누르면 마지막으로 보던 종류 탭으로, 고객관리는 손님 조건 장부로 갑니다.</span></li>
+    <li><b>종류 탭 10개</b><span>아파트 · 상가·사무실 · 건물 · 오피·지산 · 빌라·주택 · 재개발·재건축 · 분양권 · 토지 · 공장·창고 · 숙박·기타. 매물이 없는 탭은 흐리게 보입니다.</span></li>
+    <li><b>전체 검색</b><span>모든 종류에서 주소·건물명·연락처·메모로 찾고, 누르면 그 탭의 그 줄로 바로 갑니다.</span></li>
+    <li><b>알림</b><span>거래 의심·만기·꼭 챙길 것·게시 만료 알림이 모입니다.</span></li>
+    <li><b>글씨 크기</b><span>[가−] [가+]로 화면 전체 글씨를 키우거나 줄입니다.</span></li>
+    <li><b>거르기 줄</b><span>거래·상태·챙길 것을 체크로 여러 개 겹쳐 고릅니다. [모두 풀기]로 처음대로.</span></li>
+    <li><b>주소 입력 칸</b><span>여기에 주소만 치고 Enter를 누르면 새 매물 줄이 만들어집니다. 3번에서 자세히 설명합니다.</span></li>
+    <li><b>매물 표</b><span>칸을 눌러 바로 고칩니다. 칸 제목을 누르면 정렬, 제목 아래 ▾로 값을 골라 볼 수 있습니다.</span></li>
+    <li><b>왼쪽 탐색기</b><span>동네 → 건물 순서로 묶어 보여 줍니다. 아래 [보류] [거래완료]로 지난 매물도 봅니다.</span></li>
+  </ol>
+</section>
+
+<section id="add">
+  <h2><span class="n">3</span>매물 등록하기</h2>
+  <p class="lead">주소 입력 칸에 주소나 건물명을 치고 Enter. 건축물대장·토지대장을 읽어 유형·면적·층·사용승인일을 알아서 채웁니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/pro-add.webp" width="1330" height="172" alt="주소를 넣은 뒤 나오는 새 줄 - 건물 정보, 유형 버튼, 거래 종류, 가격, 등록 버튼" loading="lazy"><span class="mk" style="left:5.3%;top:44.4%">1</span><span class="mk" style="left:68.2%;top:49.4%">2</span><span class="mk" style="left:19.0%;top:77.8%">3</span><span class="mk" style="left:29.9%;top:77.8%">4</span><span class="mk" style="left:55.0%;top:77.8%">5</span></div><figcaption>대흥동 395-12를 넣은 모습</figcaption></div>
+  <ol class="pts">
+    <li><b>찾은 주소와 건물 정보</b><span>용도·층수·사용승인일·집합/일반건물을 확인하세요.</span></li>
+    <li><b>유형</b><span>대장으로 짐작한 유형이 눌려 있습니다. 틀리면 다른 버튼을, 목록에 없으면 [다른 종류…]에서 고르세요. 재개발 탭에서 넣으면 '재개발'로, 분양권 탭에서 넣으면 거래가 '분양권'으로 잡힙니다.</span></li>
+    <li><b>거래 종류</b><span>매매·전세·월세·분양권 중 고릅니다.</span></li>
+    <li><b>가격</b><span>쓰시던 대로 치면 됩니다. <span class="kb">68억</span> <span class="kb">3억2천</span> <span class="kb">5000/320</span>(보증금/월세 — 자동으로 월세) <span class="kb">5억/3천</span>(분양가/프리미엄)</span></li>
+    <li><b>등록</b><span>Enter 또는 [등록 ↵]. 등록한 종류의 탭으로 자동으로 옮겨 보여 드립니다.</span></li>
+  </ol>
+  <div class="tip"><b>호까지 한 번에</b> "마포래미안푸르지오 101동 1503호"처럼 치면 그 호를 찾아 전용면적과 층을 넣습니다. 통건물은 층별 현황이, 토지는 필지 면적이 자동으로 깔립니다.</div>
+  <h3>사진 · 광고 정보까지 넣으려면</h3>
+  <p>거르기 줄의 노란 [매물 카드로 등록]이나, 줄 상세의 [매물카드 전체 수정]을 누르면 사진·소개글·광고 필수 항목까지 한 화면에서 넣을 수 있습니다.</p>
+</section>
+
+<section id="edit">
+  <h2><span class="n">4</span>표에서 고치기 · 기록</h2>
+  <p class="lead">칸을 누르면 그 자리에서 고쳐집니다. 가격·상태처럼 고를 것이 있는 칸은 작은 창이 뜹니다. 줄 끝 [상세 ▾]를 누르면 아래로 상세가 펼쳐집니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/pro-detail.webp" width="1600" height="790" alt="상세를 펼친 매물 - 정보 칸, 연락처, 맞는 고객, 기록 창" loading="lazy"><span class="mk" style="left:46.5%;top:61.6%">1</span><span class="mk" style="left:21.3%;top:66.8%">2</span><span class="mk" style="left:69.6%;top:66.8%">3</span><span class="mk" style="left:24.5%;top:93.4%">4</span><span class="mk" style="left:81.6%;top:15.9%">5</span><span class="mk" style="left:86.6%;top:32.9%">6</span></div><figcaption>상가 매물 상세와 오른쪽 기록 창</figcaption></div>
+  <ol class="pts">
+    <li><b>가격 칸</b><span>누르면 거래 종류와 금액을 고치는 작은 창이 뜹니다.</span></li>
+    <li><b>정보 칸</b><span>회색은 대장에서 자동으로 채운 값, 노란 칸은 리얼맵 광고에 꼭 필요한데 비어 있는 칸입니다. [건축물대장으로 빈 칸 채우기]로 한 번에 채울 수 있습니다.</span></li>
+    <li><b>연락처 · 맞는 고객</b><span>연락처는 여러 명 넣을 수 있고 ☎를 누르면 바로 전화가 걸립니다. 고객관리에서 조건이 맞는 손님이 있으면 여기 보입니다.</span></li>
+    <li><b>사진 · 브리핑 · 필지 정보</b><span>[브리핑]은 손님용 A4 자료를 자동으로 만듭니다.</span></li>
+    <li><b>기록 창</b><span>통화·상담 내용을 날짜·시간과 함께 쌓아 둡니다. 가격·상태·만기를 바꾸거나 전화를 걸면 회색 글씨로 자동으로 남습니다.</span></li>
+    <li><b>기록 남기기</b><span>내용을 치고 Enter. 직접 쓴 기록은 [고치기]·[×]로 고치거나 지울 수 있습니다.</span></li>
+  </ol>
+  <h3>칸에서 바로 고칠 때 쓰는 키</h3>
+  <div class="keys"><span><b>Enter</b> 저장하고 아래 줄로</span><span><b>Tab</b> 저장하고 오른쪽 칸으로</span><span><b>Shift+Tab</b> 왼쪽 칸으로</span><span><b>Esc</b> 취소</span></div>
+  <h3>자주 쓰는 표시</h3>
+  <ul>
+    <li><b>노랑 · 빨강 표시</b> — 줄을 누르고 위의 [노랑] [빨강]. 같은 색을 다시 누르거나 [지우기]로 뺍니다.</li>
+    <li><b>꼭 챙길 것</b> — "11/15 중도금"처럼 앞에 날짜를 쓰면 7일 전·1일 전·당일에 알려 드립니다.</li>
+    <li><b>상태</b> — 진행 · 보류 · 거래완료. 거래완료는 왼쪽 탐색기 아래 [거래완료]에서 다시 볼 수 있습니다.</li>
+    <li><b>만기일</b> — 지금 임차 계약의 만기를 넣으면 6개월·3개월·1개월 전에 알려 드립니다.</li>
+  </ul>
+</section>
+
+<section id="kinds">
+  <h2><span class="n">5</span>종류별 탭 활용</h2>
+  <p class="lead">탭마다 그 종류에 꼭 필요한 칸만 보이고, 탭 안에서 세부 유형을 고를 수 있습니다.</p>
+  <div class="wrapx"><table class="pl"><thead><tr><th>탭</th><th>세부 유형</th><th>이 탭에서 특히</th></tr></thead><tbody>
+    <tr><td><b>아파트</b></td><td>아파트 · 주상복합</td><td>평형·타입, 갭(매매가 − 현 보증금) 자동. 단지 단위 관리는 8번 단지 장부</td></tr>
+    <tr><td><b>상가·사무실</b></td><td>상가 · 사무실</td><td>업종·권리금·관리비, [1층] [지하] [2층 이상] [공실] 거르기</td></tr>
+    <tr><td><b>건물</b></td><td>건물(통건물)</td><td>상세에 층별 현황 → 보증금·월세 합계, 공실, 연 수익률(융자 반영)</td></tr>
+    <tr><td><b>오피·지산</b></td><td>오피스텔 · 지식산업센터</td><td>[원룸] [투룸] [쓰리룸+] 거르기 (상세의 방 수 기준)</td></tr>
+    <tr><td><b>빌라·주택</b></td><td>빌라 · 연립 · 다가구 · 주택</td><td>[원룸] [투룸] [쓰리룸+] 거르기</td></tr>
+    <tr><td><b>토지</b></td><td>토지</td><td>상세에서 지번을 치면 필지 추가 · 합계 면적 · 평당가</td></tr>
+    <tr><td><b>공장·창고</b></td><td>공장·창고</td><td>대지·연면적·규모, 대지 평당가</td></tr>
+    <tr><td><b>숙박·기타</b></td><td>숙박 · 기타(주유소 등 직접 입력)</td><td>건물과 같은 칸</td></tr>
+  </tbody></table></div>
+  <div class="tip"><b>유형을 바꾸면</b> 표의 [유형] 칸을 눌러 다른 유형을 고르면 그 탭으로 자동으로 옮겨집니다.</div>
+</section>
+
+<section id="redev">
+  <h2><span class="n">6</span>재개발·재건축 · 분양권</h2>
+  <p class="lead">보는 기준이 다른 두 종류는 탭을 따로 두었습니다. 재개발 구역의 빌라는 '재개발'로 등록하고, 원래 물건은 '물건 형태' 칸에 적습니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/pro-redev.webp" width="1600" height="560" alt="재개발·재건축 탭 - 구분·단계·물건 형태 거르기와 구역명·단계·권리가액·프리미엄 칸" loading="lazy"><span class="mk" style="left:20.5%;top:49.2%">1</span><span class="mk" style="left:27.0%;top:49.2%">2</span><span class="mk" style="left:19.9%;top:91.6%">3</span><span class="mk" style="left:27.9%;top:91.6%">4</span><span class="mk" style="left:54.2%;top:91.6%">5</span><span class="mk" style="left:61.1%;top:91.6%">6</span></div><figcaption>재개발·재건축 탭</figcaption></div>
+  <ol class="pts">
+    <li><b>구분 거르기</b><span>[재개발] [재건축]</span></li>
+    <li><b>단계 · 물건 형태 거르기</b><span>추진위~이주·철거, 빌라·단독·상가·아파트·토지. 같은 줄은 '또는', 다른 줄끼리는 '그리고'로 겹쳐집니다. 예) 재개발 + 사업시행 + 빌라</span></li>
+    <li><b>구분 칸</b><span>누르면 재개발·재건축을 바꿉니다.</span></li>
+    <li><b>단계 칸</b><span>누르면 단계를 고르는 창이 뜹니다.</span></li>
+    <li><b>감정가 · 권리가액</b><span>감정평가 전이면 비워 두세요.</span></li>
+    <li><b>프리미엄</b><span>매매가 − 권리가액으로 자동 계산됩니다(회색 = 입력하지 않는 칸).</span></li>
+  </ol>
+  <h3>분양권 탭</h3>
+  <ul>
+    <li>거래를 <b>분양권</b>으로 고르면 아파트·오피스텔 어느 종류든 자동으로 이 탭에 모입니다.</li>
+    <li><b>총액</b> = 분양가 + 프리미엄 (자동). 마이너스 프리미엄은 <span class="kb">-1000</span>처럼 앞에 −를 붙여 넣습니다.</li>
+    <li><b>중도금</b> 칸을 누르면 [무이자] [이자후불] [자납]을 고르고 옆에 "60%" 같은 메모를 적을 수 있습니다.</li>
+    <li>[전매 가능] [입주 6개월 이내]로 걸러 볼 수 있습니다. 전매 가능일은 "즉시" 또는 "27.06"처럼 적습니다.</li>
+  </ul>
+</section>
+
+<section id="find">
+  <h2><span class="n">7</span>찾기 · 거르기 · 지도 · 엑셀</h2>
+  <ul>
+    <li><b>이 탭에서 찾기</b> — 거르기 줄의 찾기 칸은 지금 탭 안에서만 찾습니다. 모든 종류에서 찾을 때는 맨 위 전체 검색.</li>
+    <li><b>칸 제목 아래 ▾</b> — 그 칸의 값(업종·동네·용도지역 등)을 골라서 보기.</li>
+    <li><b>손님 조건</b> <span class="tag">Basic</span> — 가격·월세·면적·지역으로 거르고 단지별·동네별·거래별로 묶어 보기.</li>
+    <li><b>여러 건 선택</b> <span class="tag">Basic</span> — 여러 줄을 골라 한꺼번에 진행·보류·거래완료, 고른 것만 엑셀.</li>
+    <li><b>지도로 보기</b> — 지금 표에 걸린 매물만 오른쪽 지도에 번호 핀으로 보여 줍니다.</li>
+    <li><b>엑셀</b> — 지금 보는 표를 엑셀 파일로 내려받습니다.</li>
+  </ul>
+</section>
+
+<section id="danji">
+  <h2><span class="n">8</span>아파트 단지 장부</h2>
+  <p class="lead">자주 보는 아파트 단지를 담아 두고, 동·호마다 내 매물과 타부동산 매물, 세입자 만기, 상담 기록을 쌓는 장부입니다. 위 종류 탭의 [아파트]를 누르면 열립니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/pro-danji.webp" width="1600" height="640" alt="아파트 단지 장부 - 왼쪽 단지 목록과 1단지·2단지, 단지 고르기, 동 칩, 표·동 지도·현황판, 호별 표" loading="lazy"><span class="mk" style="left:7.6%;top:37.0%">1</span><span class="mk" style="left:7.6%;top:42.2%">2</span><span class="mk" style="left:23.8%;top:21.4%">3</span><span class="mk" style="left:19.7%;top:33.0%">4</span><span class="mk" style="left:87.9%;top:21.4%">5</span><span class="mk" style="left:49.1%;top:41.8%">6</span></div><figcaption>아파트 단지 장부 화면</figcaption></div>
+  <ol class="pts">
+    <li><b>단지 목록</b><span>매물이 많은 단지가 위로 옵니다. 이름을 누르면 접고 펼치며, 체크하면 여러 단지를 한 표로 봅니다.</span></li>
+    <li><b>1단지 · 2단지</b><span>여러 단지로 이뤄진 아파트는 하위 단지로 나눠 보여 줍니다. 체크하면 그 단지만 봅니다.</span></li>
+    <li><b>단지 고르기 · 시세 · ⋯ 메뉴</b><span>[시세 ▾]는 이 단지 최근 실거래 요약, [⋯]는 단지 이름 바꾸기 · 빠진 동 더하기 · 단지 빼기입니다.</span></li>
+    <li><b>동 칩</b><span>매물·만기가 있는 동만 작게 보입니다. 위에 [1단지] [2단지] 칩도 있습니다.</span></li>
+    <li><b>표 · 동 지도 · 현황판</b><span>현황판은 층 × 라인 그림으로 한 동을 한눈에 봅니다.</span></li>
+    <li><b>호별 표</b><span>칸을 눌러 바로 입력합니다. 부동산명에 사무소 이름을 적으면 타부동산 매물, [내 매물]로 고르면 내 매물입니다.</span></li>
+  </ol>
+  <div class="tip"><b>타입 · 방향은 한 번만</b> 한 호에 타입(84B)이나 방향을 넣으면 "같은 라인을 모두 바꿀까요?"라고 묻습니다. [예]를 누르면 같은 라인 전체에 들어갑니다.</div>
+  <ul>
+    <li><b>＋ 단지 추가</b> — 단지 이름이나 주소로 찾아 담습니다. 같은 이름의 다른 지번(1~4단지)도 자동으로 붙입니다.</li>
+    <li><b>＋ 호 추가</b> — 표 위 칸에 "102-1503"처럼 치면 그 호가 표에 들어옵니다.</li>
+    <li><b>만기</b> — 만기 임박은 빨간 D-day로 표시되고 6·3·1개월 전에 알려 드립니다.</li>
+    <li><b>엑셀로 받기</b> — 지금 단지 장부를 파일로 내려받습니다.</li>
+  </ul>
+</section>
+
+<section id="cust">
+  <h2><span class="n">9</span>고객관리</h2>
+  <p class="lead">손님 조건을 한 줄로 적으면 이름·연락처·거래·예산·면적·지역·입주 시기로 나눠 정리하고, 맞는 매물을 바로 찾아 줍니다.</p>
+  <div class="shot"><div class="fig"><img src="/guide/pro-cust.webp" width="1600" height="330" alt="고객관리 - 한 줄 입력 칸과 정리된 조건 미리보기" loading="lazy"><span class="mk" style="left:13.7%;top:54.8%">1</span><span class="mk" style="left:21.1%;top:69.5%">2</span></div><figcaption>한 줄로 적은 손님 조건</figcaption></div>
+  <ol class="pts">
+    <li><b>한 줄 입력</b><span>예) 김사장 010-0000-1111 아현동 전세 7억 25평 3월 입주 → Enter</span></li>
+    <li><b>미리보기</b><span>저장 전에 어떻게 나뉘었는지와 맞는 매물 수를 보여 줍니다.</span></li>
+  </ol>
+  <p>고객 줄의 [상세]에서 맞는 매물로 바로 이동하고, 상담 내용을 남기면 마지막 연락일이 오늘로 바뀝니다. 맞는 매물이 새로 생기거나 오래 연락하지 못한 고객이 있으면 알림으로 알려 드립니다.</p>
+</section>
+
+<section id="alarm">
+  <h2><span class="n">10</span>알림</h2>
+  <p class="lead">맨 위 종 아이콘에 모입니다. 새 알림은 오른쪽 아래에 카드로 뜨고 [이동]을 누르면 그 매물로 갑니다.</p>
+  <ul>
+    <li><b>거래된 것 같습니다</b> — 실거래 신고 중 내 매물(단지 장부의 타부동산 매물 포함)과 같은 층·면적인 거래가 있을 때. 실거래는 계약 후 최대 30일 뒤에 신고되므로 '같습니다'로 알려 드립니다.</li>
+    <li><b>만기</b> — 단지 장부 세입자 만기와 매물의 만기일, 6·3·1개월 전과 지났을 때.</li>
+    <li><b>꼭 챙길 것</b> — 글 앞에 날짜가 있으면 7일 전·1일 전·당일.</li>
+    <li><b>고객</b> — 맞는 매물이 새로 생겼을 때, 오래 연락하지 못한 고객.</li>
+    <li><b>지도 광고</b> — 게시 기간이 3일 안에 끝나거나 끝났을 때.</li>
+  </ul>
+</section>
+
+<section id="ad">
+  <h2><span class="n">11</span>리얼맵 지도 광고</h2>
+  <p class="lead">필수 표시 항목이 채워진 매물은 줄 끝 [리얼맵 등록]으로 리얼맵 지도에 올릴 수 있습니다.</p>
+  <ul>
+    <li>법정 표시·광고 명시사항을 자동으로 점검하고, 빠진 칸만 노랗게 보여 드립니다.</li>
+    <li><b>호수 · 소유자 연락처 · 메모는 공개되지 않습니다.</b> 층은 그대로 또는 저·중·고층으로 공개할 수 있습니다.</li>
+    <li>게시는 30일입니다. 아직 거래할 수 있으면 [게시 연장]을 눌러 주세요. 거래완료로 바꾸면 지도에서 자동으로 내려갑니다.</li>
+  </ul>
+</section>
+
+<section id="plan">
+  <h2><span class="n">12</span>요금제 · 한도</h2>
+  <div class="wrapx"><table class="pl"><thead><tr><th></th><th>무료</th><th>Basic</th><th>Premium</th><th>VIP</th></tr></thead><tbody>
+    <tr><td>월 요금 (부가세 포함)</td><td>0원</td><td><b>9,900원</b></td><td><b>19,900원</b></td><td><b>29,900원</b></td></tr>
+    <tr><td>매물</td><td>10건</td><td>1,000건</td><td>5,000건</td><td>무제한*</td></tr>
+    <tr><td>리얼맵 지도 광고</td><td>10건</td><td>300건</td><td>1,000건</td><td>3,000건</td></tr>
+    <tr><td>아파트 단지 장부</td><td>3곳</td><td>20곳</td><td>50곳</td><td>100곳</td></tr>
+    <tr><td>고객관리</td><td>10명</td><td>1,000명</td><td>5,000명</td><td>무제한</td></tr>
+    <tr><td>손님 조건 · 여러 건 선택 · 브리핑</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>담당자 추가 (같은 사무소)</td><td>—</td><td colspan="3">1명당 월 2,900원 · 준비 중</td></tr>
+  </tbody></table></div>
+  <p style="font-size:14px;color:var(--muted)">* 공정 사용 한도: 매물 30,000건. 연간 결제는 2개월 무료입니다. 결제는 곧 열리며, 그 전에는 2주 체험과 무료 이용으로 쓰실 수 있습니다.</p>
+</section>
+
+<section id="faq">
+  <h2><span class="n">?</span>자주 묻는 질문</h2>
+  <details><summary>제 장부를 다른 사람이 볼 수 있나요?</summary><p>아니요. 매물·단지 장부·고객관리는 로그인한 본인만 볼 수 있습니다. 연락처가 담긴 단지 장부와 고객관리는 암호화해서 보관합니다. 지도 광고는 [리얼맵 등록]을 누른 매물만 공개되고, 호수·연락처·메모는 공개되지 않습니다.</p></details>
+  <details><summary>엑셀로 정리해 둔 매물도 옮길 수 있나요?</summary><p>엑셀 파일을 올려 한 번에 옮기는 기능을 준비하고 있습니다. 그 전에는 주소 한 줄씩 넣으시면 면적·층·용도가 자동으로 채워져서 생각보다 빠릅니다.</p></details>
+  <details><summary>휴대폰에서도 쓸 수 있나요?</summary><p>쓸 수는 있지만 표가 넓어 PC 화면에 맞춰 만들었습니다. 사무실에서는 PC로, 밖에서는 확인용으로 쓰시길 권합니다.</p></details>
+  <details><summary>글씨가 작아요.</summary><p>맨 위 [가+]를 누르면 화면 전체 글씨가 커집니다. 이 브라우저에 기억됩니다.</p></details>
+  <details><summary>문의는 어디로 하나요?</summary><p>realwalkers@naver.com 으로 보내 주세요.</p></details>
+</section>
+
+<section class="end">
+  <h2 style="justify-content:center">지금 바로 써 보세요</h2>
+  <p>2주 동안 Basic 기능을 모두 무료로 쓰실 수 있습니다. 결제하지 않아도 매물 10건까지는 계속 무료입니다.</p>
+  <a class="cta" href="/listings.html">중개장부 열기</a> &nbsp; <a href="/pro.html#price">요금 보기</a>
+</section>
+
+</main>
+<script>document.querySelectorAll('.fig img').forEach(function(i){i.style.cursor='zoom-in';i.title='누르면 크게 볼 수 있습니다';i.addEventListener('click',function(){window.open(i.src,'_blank')})});</script>
+<footer>리얼맵 · 운영 주식회사 드림인베스트 · 문의 realwalkers@naver.com · <a href="/privacy.html">개인정보처리방침</a> · <a href="/guide.html">리얼맵 지도 이용 가이드</a></footer>
+</body>
+</html>
