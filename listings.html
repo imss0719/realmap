@@ -23,7 +23,7 @@ a{color:inherit}
 .top .navl{color:#fff;text-decoration:none;font-weight:700;font-size:15px;background:rgba(255,255,255,.12);padding:6px 12px;border-radius:999px;white-space:nowrap}
 .wrap{max-width:1180px;margin:0 auto;padding:14px 16px 120px;display:grid;gap:14px}
 /* 넓은 화면: 왼쪽은 지도로 꽉 채우고, 오른쪽에 목록 */
-@media (min-width:980px){.wrap{display:block;max-width:none;padding-left:0}.mapbox{position:fixed!important;left:16px;top:68px;bottom:16px;right:532px;height:auto!important}.side{width:500px;margin-left:auto}}
+@media (min-width:980px){.wrap{display:block;max-width:none;padding-left:0}.mapbox{position:fixed!important;left:16px;top:calc(var(--toph,60px) + 8px);bottom:16px;right:532px;height:auto!important}.side{width:500px;margin-left:auto}}
 @media (min-width:1500px){.mapbox{right:592px}.side{width:560px}}
 .mapbox{height:34vh;min-height:220px;border-radius:16px;overflow:hidden;background:#dfe4e8;position:relative}
 #map{position:absolute;inset:0}
@@ -757,7 +757,7 @@ body.lvmap .bd table.bdt{min-width:720px}
 /* 알림 */
 .albell{position:relative;width:38px;height:38px;border:0;border-radius:10px;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;margin-right:8px;flex:none}
 .albell b{position:absolute;top:-5px;right:-6px;background:#E03131;color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1px 6px;line-height:1.4}
-.alpanel{position:fixed;right:14px;top:62px;width:400px;max-width:calc(100vw - 28px);max-height:calc(100vh - 80px);background:#fff;border-radius:16px;box-shadow:0 18px 50px rgba(20,33,46,.3);border:1px solid var(--line);z-index:70;display:flex;flex-direction:column;overflow:hidden}
+.alpanel{position:fixed;right:14px;top:calc(var(--toph,60px) + 2px);width:400px;max-width:calc(100vw - 28px);max-height:calc(100vh - 80px);background:#fff;border-radius:16px;box-shadow:0 18px 50px rgba(20,33,46,.3);border:1px solid var(--line);z-index:70;display:flex;flex-direction:column;overflow:hidden}
 .alpanel[hidden]{display:none}
 .alh{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid #EEF1F4}.alh b{font-size:17px}.alh small{flex:1;font-size:12px;color:var(--muted)}.alh button{border:0;background:none;color:var(--sale);font-weight:700;font-size:13px;cursor:pointer}
 .altabs{display:flex;gap:6px;padding:9px 14px;border-bottom:1px solid #EEF1F4;flex-wrap:wrap}.altabs button{border:0;border-radius:999px;padding:4px 11px;font-size:13px;font-weight:700;background:#F1F4F7;color:var(--muted);cursor:pointer}.altabs button[aria-pressed=true]{background:var(--navy);color:#fff}
@@ -1076,17 +1076,40 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 .dj .dongs.sm .gsub{border-color:#9DB8E0;color:#0B4FA3;background:#F3F7FD}
 .dj .dongs.sm .gsub[aria-pressed=true]{background:#0B4FA3;border-color:#0B4FA3;color:#fff}
 .dj .dongs.sm .gsep{display:inline-block;width:1px;height:16px;background:var(--line);margin:0 3px;align-self:center}
+/* 10/26 B안: 맨 위 [매물][고객관리] · 바로 아래 흰 줄에 종류 탭 10개 (매물이 없는 탭은 흐리게) */
+.top{flex-wrap:wrap;padding-bottom:0;row-gap:0}
+.ctab{flex:1 1 100%;order:20;margin:10px -16px 0;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:2px;padding:3px 16px;overflow-x:auto;scrollbar-width:none}
+.ctab::-webkit-scrollbar{display:none}
+.ctab button{border:0;background:none;border-radius:7px;padding:5px 12px;font-weight:700;font-size:14px;color:#334155;white-space:nowrap;line-height:1.35}
+.ctab button:hover{background:#eef2f7}
+.ctab button[aria-pressed=true]{background:var(--navy);color:#fff}
+.ctab button small{font-size:11px;font-weight:700;color:#94a3b8;margin-left:3px}
+.ctab button[aria-pressed=true] small{color:rgba(255,255,255,.7)}
+.ctab button.z{color:#a3adba;font-weight:500}
+.ctab .csep{width:1px;height:18px;background:var(--line);margin:0 6px;flex:none}
+body.cumode .ctab{display:none}
+body.cumode .top{padding-bottom:12px}
+@media (max-width:700px){.ctab{margin-top:8px}}
+/* 재개발·재건축 · 분양권 칸 */
+.bd .tg{display:inline-block;padding:1px 7px;border-radius:9px;font-size:.88em;font-weight:700;white-space:nowrap}
+.bd .tg.re{background:#fde7d9;color:#b4501d}.bd .tg.rc{background:#dbeafe;color:#1d4ed8}.bd .tg.stg{background:#ecfdf5;color:#047857}
+.bd .au{color:#475569}
+.bd .pv.neg{color:#dc2626}
+.bdt .ty.redev{background:#fde7d9;color:#b4501d}.bdt .ty.pre{background:#ede9fe;color:#6d28d9}.bdt .ty.fac{background:#e5e7eb;color:#374151}.bdt .ty.etc{background:#f1f5f9;color:#475569}
+.bd .tys select{font-size:13px;padding:3px 6px;border:1px solid var(--line);border-radius:7px;margin-left:4px}
+.bd .pl .clr{color:#94a3b8}
 </style>
 </head>
 <body>
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
   <h1>리얼맵 중개장부 <span class="pro">PRO</span></h1>
-  <span class="mtog" role="group" aria-label="매물 종류"><button type="button" data-mode="danji">아파트</button><button type="button" data-mode="list" data-cat="shop">상가·사무실<small data-cn="shop"></small></button><button type="button" data-mode="list" data-cat="bld">건물<small data-cn="bld"></small></button><button type="button" data-mode="list" data-cat="ofc">오피스텔<small data-cn="ofc"></small></button><button type="button" data-mode="list" data-cat="home">빌라·주택<small data-cn="home"></small></button><button type="button" data-mode="list" data-cat="land">토지·공장<small data-cn="land"></small></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button></span>
+  <span class="mtog" role="group" aria-label="화면"><button type="button" data-top="ls">매물<small data-cn="all"></small></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button></span>
   <span class="sp"></span>
   <span class="gs" id="gsBox"><input id="gsQ" type="search" autocomplete="off" placeholder="전체 검색 (주소·건물·연락처·메모)" aria-label="전체 매물 검색"><span class="gsr" id="gsRes" hidden></span></span>
   <span class="fz" role="group" aria-label="글씨 크기"><button type="button" id="fzDn" aria-label="글씨 작게">가−</button><button type="button" id="fzUp" aria-label="글씨 크게">가+</button></span>
   <span class="who" id="who"></span>
+  <div class="ctab" id="ctab" role="group" aria-label="매물 종류"><button type="button" data-mode="danji">아파트<small data-cn="apt"></small></button><button type="button" data-mode="list" data-cat="shop">상가·사무실<small data-cn="shop"></small></button><button type="button" data-mode="list" data-cat="bld">건물<small data-cn="bld"></small></button><button type="button" data-mode="list" data-cat="ofc">오피·지산<small data-cn="ofc"></small></button><button type="button" data-mode="list" data-cat="home">빌라·주택<small data-cn="home"></small></button><i class="csep"></i><button type="button" data-mode="list" data-cat="redev">재개발·재건축<small data-cn="redev"></small></button><button type="button" data-mode="list" data-cat="pre">분양권<small data-cn="pre"></small></button><i class="csep"></i><button type="button" data-mode="list" data-cat="land">토지<small data-cn="land"></small></button><button type="button" data-mode="list" data-cat="fac">공장·창고<small data-cn="fac"></small></button><button type="button" data-mode="list" data-cat="etc">숙박·기타<small data-cn="etc"></small></button></div>
 </div>
 <div id="root"></div>
 

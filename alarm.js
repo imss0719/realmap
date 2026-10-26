@@ -180,11 +180,12 @@ window.Alarm = (() => {
     });
     // 매물장: 진행 중인 내 매물 ↔ 같은 필지 거래 (아파트·오피스텔·빌라는 층·면적까지, 나머지는 면적으로 한 번 더 확인)
     const KMAP = { 아파트: 'apt,aptRent', 오피스텔: 'offi,offiRent', 빌라: 'rh,rhRent', 주택: 'sh,shRent', 상가: 'nrg', 사무실: 'nrg', 건물: 'nrg', '공장·창고': 'indu', 토지: 'land' };
-    const ls = H.items().filter(x => x.status === 'on' && KMAP[x.ptype] && x.pnu).slice(0, 40);
+    const tb = x => (H.tbase ? H.tbase(x) : x.ptype);   // 10/26 세부 유형(주상복합·연립 …)은 원래 큰 유형으로
+    const ls = H.items().filter(x => x.status === 'on' && KMAP[tb(x)] && x.pnu).slice(0, 40);
     await limit(ls, 3, async x => {
-      const p0 = (x.places && x.places[0]) || {}, unit = /아파트|오피스텔|빌라/.test(x.ptype), whole = p0.ak === 'tot' || x.ptype === '토지';
-      const area = x.ptype === '토지' ? x.area : whole ? (p0.site || x.area) : x.area;
-      const j = await H.api(`/api/trades?${new URLSearchParams({ pnu: p0.pnu || x.pnu, kinds: KMAP[x.ptype], months: 3, umd: umdOf(p0.addr || x.addr), ...(area ? { area } : {}), name: baseName(x.bname || ''), np: '1' })}`);
+      const p0 = (x.places && x.places[0]) || {}, unit = /아파트|오피스텔|빌라/.test(tb(x)), whole = p0.ak === 'tot' || tb(x) === '토지';
+      const area = tb(x) === '토지' ? x.area : whole ? (p0.site || x.area) : x.area;
+      const j = await H.api(`/api/trades?${new URLSearchParams({ pnu: p0.pnu || x.pnu, kinds: KMAP[tb(x)], months: 3, umd: umdOf(p0.addr || x.addr), ...(area ? { area } : {}), name: baseName(x.bname || ''), np: '1' })}`);
       const after = Math.max(since, Date.parse(x.at || 0) - 14 * DAY);
       for (const t of (j.rows || []).filter(t => !t.cancel && tradeDay(t) >= after)) {
         if (unit) { if (!p0.ho || floorOfHo(p0.ho) !== String(+digits(t.floor) || '')) continue; if (x.area && t.ex && !near(t.ex, x.area)) continue; }

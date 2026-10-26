@@ -259,49 +259,63 @@ window.Danji = (() => {
   const multiOn = () => [...S.multi].filter(id => S.cx.items.some(c => c.id === id)).length >= 2;
   const allList = () => multiOn() ? S.cx.items.filter(c => S.multi.has(c.id)) : S.cx.items;
   const saveMulti = () => { try { localStorage.setItem('rm.djmulti', JSON.stringify([...S.multi])); } catch { /* 무시 */ } };
-  // ---------- 하위 단지 (1단지·2단지 … — 단지에 담긴 필지 단위) · 10/26 ----------
-  //   이름: 그 필지 동 번호 첫 자리가 모두 같으면 'N단지', 아니면 지번. 하위 단지가 2개 이상일 때만 씀
-  //   고른 하위 단지(C.gsel = 필지 PNU 목록)만 표·동 칩·오른쪽 목록에. 비어 있으면 전부
+  // ---------- 하위 단지 (1단지·2단지 … ) · 10/26 ----------
+  //   ① 단지에 필지가 2개 이상 → 필지 단위(이름: 동 번호 첫 자리가 모두 같으면 'N단지', 아니면 지번)
+  //   ② 필지가 하나뿐인데 동 번호가 1xx·2xx…로 갈리면 → 동 번호 첫 자리 단위('h1' = 1단지)
+  //   고른 하위 단지(C.gsel = 키 목록)만 표·동 칩·오른쪽 목록에. 비어 있으면 전부
+  const headOf = dong => (normD(dong).match(/^(\d)\d{2}$/) || [])[1] || '';
+  function subMode(C) {
+    const ds = (C && C.dongs) || []; if (ds.length < 2) return null;
+    if (new Set(ds.map(d => d.pnu)).size >= 2) return 'p';
+    const hs = ds.map(d => headOf(d.dong));
+    return hs.every(Boolean) && new Set(hs).size >= 2 ? 'h' : null;
+  }
+  const gkOf = (md, pnu, dong) => md === 'p' ? pnu : 'h' + headOf(dong);
   function subOf(cx, C) {
+    const md = subMode(C); if (!md) return null;
     const by = new Map();
-    for (const d of (C && C.dongs) || []) (by.get(d.pnu) || by.set(d.pnu, []).get(d.pnu)).push(d);
-    if (by.size < 2) return null;
+    for (const d of C.dongs) { const k = gkOf(md, d.pnu, d.dong); (by.get(k) || by.set(k, []).get(k)).push(d); }
     const M = mineMap(cx);
-    return [...by.entries()].map(([pnu, ds]) => {
-      const heads = [...new Set(ds.map(d => (String(d.dong).match(/^(\d)\d{2}/) || [])[1]).filter(Boolean))];
-      const pl = (cx.places || []).find(p => p.pnu === pnu), jb = pl ? String(pl.addr || '').split(' ').slice(-2).join(' ') : pnu.slice(-8);
+    return [...by.entries()].map(([k, ds]) => {
+      const heads = [...new Set(ds.map(d => headOf(d.dong)))];
+      const pl = md === 'p' && (cx.places || []).find(p => p.pnu === k), jb = md === 'h' ? '' : pl ? String(pl.addr || '').split(' ').slice(-2).join(' ') : k.slice(-8);
       const ns = ds.map(d => dongCounts(cx, d, M)), n = ns.reduce((a, z) => a + z.m + z.o, 0), e = ns.reduce((a, z) => a + z.e, 0);
-      return { pnu, ds, n, e, nm: heads.length === 1 && ds.every(d => /^\d{3}/.test(String(d.dong))) ? `${heads[0]}단지` : jb };
+      return { k, ds, n, e, nm: heads.length === 1 && heads[0] ? `${heads[0]}단지` : jb };
     }).sort((a, b) => b.n - a.n || b.e - a.e || a.nm.localeCompare(b.nm, 'ko', { numeric: true }));
   }
-  const gOn = C => C && Array.isArray(C.gsel) && C.gsel.length ? C.gsel : null;
+  // 고른 하위 단지 키 (지금 나누는 방식에 맞는 것만)
+  const gOn = C => { if (!C || !Array.isArray(C.gsel) || !C.gsel.length) return null; const md = subMode(C); if (!md) return null; const ok = C.gsel.filter(k => (md === 'h') === k.startsWith('h')); return ok.length ? ok : null; };
+  const inSub = (C, gs, pnu, dong) => { const md = subMode(C); if (md === 'h' && !headOf(dong)) return true; return gs.includes(gkOf(md, pnu, dong)); };   // 'A동'처럼 번호가 아닌 동은 어느 하위 단지를 골라도 보임
   function treeDongs(c, C) {
     const M = mineMap(c), dongBtn = d => { const m = dongCounts(c, d, M), k = d.pnu + '|' + d.dong; return { m, html: `<button type="button" class="tn d${C.view === 'dong' && C.cur === k ? ' on' : ''}" data-tdong="${esc(k)}"><i></i>${esc(d.dong)}<span class="ct">${m.m + m.o || ''}${m.e ? ` <em>만기 ${m.e}</em>` : ''}</span></button>` }; };
     const sorted = ds => ds.map(dongBtn).sort((p, q) => (q.m.m + q.m.o) - (p.m.m + p.m.o) || q.m.e - p.m.e).map(z => z.html).join('');
     const G = subOf(c, C); if (!G) return sorted(C.dongs);
     S.gopen = S.gopen || new Set(); const sel = gOn(C) || [];
-    return G.map(g => { const op = S.gopen.has(g.pnu); return `<div class="tn g${sel.includes(g.pnu) ? ' ck' : ''}"><input type="checkbox" data-tgs="${g.pnu}" ${sel.includes(g.pnu) ? 'checked' : ''} aria-label="${esc(g.nm)}만 보기"><button type="button" data-tgo="${g.pnu}"><span class="ar">${op ? '▾' : '▸'}</span>${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
+    return G.map(g => { const op = S.gopen.has(c.id + '|' + g.k); return `<div class="tn g${sel.includes(g.k) ? ' ck' : ''}"><input type="checkbox" data-tgs="${g.k}" ${sel.includes(g.k) ? 'checked' : ''} aria-label="${esc(g.nm)}만 보기"><button type="button" data-tgo="${g.k}"><span class="ar">${op ? '▾' : '▸'}</span>${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
   }
   // 하위 단지 고르기 (탐색기 체크 · 표 위 칩 같은 것)
-  function pickSub(cx, pnu) {
+  function pickSub(cx, k) {
     const C = S.C[cx.id]; if (!C) return;
     const cur = gOn(C) || [];
-    C.gsel = cur.includes(pnu) ? cur.filter(z => z !== pnu) : [...cur, pnu];
-    if (C.view === 'dong' && C.gsel.length && !C.gsel.includes(String(C.cur).slice(0, 19))) C.view = 'all';   // 고른 동이 빠지면 단지 전체로
+    C.gsel = cur.includes(k) ? cur.filter(z => z !== k) : [...cur, k];
+    if (C.view === 'dong' && C.gsel.length && C.cur && !inSub(C, C.gsel, String(C.cur).slice(0, 19), String(C.cur).slice(20))) C.view = 'all';   // 고른 동이 빠지면 단지 전체로
     S.hist = null; drawComplex(cx);
   }
+  // 10/26 단지 순서 = 매물(내+타) 많은 순 · 아직 못 불러온 단지는 뒤(등록 순)
+  const cxN = c => { const L = S.L[c.id]; if (!L || !L.units) return -1; const K = kpi(rowsAll(c, CI(c), mineMap(c))); return K.m + K.o; };
+  const cxSorted = () => S.cx.items.map((c, i) => ({ c, i, n: cxN(c) })).sort((a, b) => b.n - a.n || a.i - b.i).map(z => z.c);
   function drawTree() {
     const T = $('dj_tree'); if (!T) return;
-    const cnt = c => { if (!S.L[c.id]) { loadLedger(c); return ''; } if (!S.L[c.id].units) return ''; const K = kpi(rowsAll(c, CI(c), mineMap(c))); return K.m + K.o; };   // 숫자 = 매물(내+타)
+    const cnt = c => { if (!S.L[c.id]) { loadLedger(c); return ''; } const n = cxN(c); return n < 0 ? '' : n; };   // 숫자 = 매물(내+타)
     const cur = S.cx.items.find(c => c.id === S.cur), C = cur && S.C[cur.id];
     T.innerHTML = `<div class="tth"><b>단지 목록</b><small>체크하면 여러 단지를 한 표로</small></div>
       <button type="button" class="tn all${S.cur === '__all' && !multiOn() ? ' on' : ''}" data-tall>모든 단지<span class="ct">${S.cx.items.length}곳</span></button>
-      ${S.cx.items.map(c => { const op = c.id === S.cur; const n = cnt(c);
+      ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         return `<div class="tn${op ? ' on' : ''}${S.multi.has(c.id) ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${S.multi.has(c.id) ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
         ${fo && C && C.dongs ? treeDongs(c, C) : ''}`; }).join('')}
       <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>
-      ${(() => { const n = (S.host.items() || []).filter(x => x.ptype === '아파트' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
+      ${(() => { const n = (S.host.items() || []).filter(x => (x.ptype === '아파트' || x.ptype === '주상복합') && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
       S.fold = S.fold || new Set(); const id = b.dataset.tcx;
@@ -310,7 +324,7 @@ window.Danji = (() => {
     });
     T.querySelectorAll('[data-tck]').forEach(b => b.onchange = () => { const id = b.dataset.tck; if (b.checked) S.multi.add(id); else S.multi.delete(id); saveMulti(); if (multiOn()) { S.cur = '__all'; } else if (S.cur === '__all') { S.cur = [...S.multi][0] || S.cur; } S.adding = false; draw(); });
     T.querySelectorAll('[data-tgs]').forEach(b => b.onchange = () => pickSub(cur, b.dataset.tgs));
-    T.querySelectorAll('[data-tgo]').forEach(b => b.onclick = () => { S.gopen = S.gopen || new Set(); const k = b.dataset.tgo; S.gopen.has(k) ? S.gopen.delete(k) : S.gopen.add(k); drawTree(); });
+    T.querySelectorAll('[data-tgo]').forEach(b => b.onclick = () => { S.gopen = S.gopen || new Set(); const k = cur.id + '|' + b.dataset.tgo; S.gopen.has(k) ? S.gopen.delete(k) : S.gopen.add(k); drawTree(); });
     T.querySelectorAll('[data-tdong]').forEach(b => b.onclick = () => { const C2 = S.C[S.cur]; if (!C2) return; C2.view = 'dong'; C2.cur = b.dataset.tdong; C2.picked = true; S.hist = null; drawComplex(cur); drawTree(); });
     T.querySelector('[data-tadd]').onclick = () => { S.adding = true; S.results = null; draw(); };
     const orph = T.querySelector('[data-torph]'); if (orph) orph.onclick = () => S.host.goAptList();   // 10/26 매물 화면의 '아파트 매물'로
@@ -452,7 +466,7 @@ window.Danji = (() => {
     const els = ['dj_sideM', 'dj_sideG'].map($).filter(Boolean), C = S.C[cx.id]; if (!els.length || !C || cx.all) return;
     const MM = mineMap(cx), dongV = C.view === 'dong' && C.cur;
     let rows = dongV ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
-    if (!dongV && gOn(C)) rows = rows.filter(x => C.gsel.includes(x.pnu));
+    { const gs = !dongV && gOn(C); if (gs) rows = rows.filter(x => inSub(C, gs, x.pnu, x.dn)); }
     rows = sortRows(rows.filter(x => (x.st.src && !x.st.done) || x.st.exp), 'dh');
     const m = rows.filter(x => x.st.src === 'mine' && !x.st.done).length, o = rows.filter(x => x.st.src === 'other' && !x.st.done).length, e = rows.filter(x => x.st.exp).length;
     const pills = st => (st.k.length ? st.k : ['']).map(k => `<span class="p ${k ? (st.src === 'mine' ? 'f-' : 'o-') + k : 'f-none'}">${k ? KN[k] : st.src === 'mine' ? '내 매물' : st.src ? '타부동산' : '만기'}</span>`).join('');
@@ -470,7 +484,7 @@ window.Danji = (() => {
   // ---------- 단지 고르기 드롭메뉴 (10/26) — 탐색기가 숨는 좁은 화면에서도 ----------
   function cxSelHtml(cur) {
     const multi = cur === '__all' && multiOn();
-    return `<select id="dj_cxSel" class="cxsel" aria-label="단지 고르기">${multi ? `<option value="__all" selected>${esc(allList().map(c => c.name).join(' + '))}</option>` : ''}${S.cx.items.length >= 2 && !multi ? `<option value="__all"${cur === '__all' ? ' selected' : ''}>모든 단지 (${S.cx.items.length}곳)</option>` : ''}${S.cx.items.map(c => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="__add">＋ 단지 추가…</option></select>`;
+    return `<select id="dj_cxSel" class="cxsel" aria-label="단지 고르기">${multi ? `<option value="__all" selected>${esc(allList().map(c => c.name).join(' + '))}</option>` : ''}${S.cx.items.length >= 2 && !multi ? `<option value="__all"${cur === '__all' ? ' selected' : ''}>모든 단지 (${S.cx.items.length}곳)</option>` : ''}${cxSorted().map(c => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="__add">＋ 단지 추가…</option></select>`;
   }
   function wireCxSel() {
     const el = $('dj_cxSel'); if (!el) return;
@@ -483,9 +497,9 @@ window.Danji = (() => {
     const sel = C.view === 'dong' ? C.cur : null;
     const info = ds.map(d => { const k = d.pnu + '|' + d.dong, n = dongCounts(cx, d, MM), sp = C.scan && C.scan.per[d.pnu]; return { d, k, n, wt: !!sp && !sp.done && !sp.cached && !Array.isArray(C.units[k]) }; });
     const G = subOf(cx, C), gs = gOn(C);
-    const pool = gs ? info.filter(z => gs.includes(z.d.pnu)) : info;
+    const pool = gs ? info.filter(z => inSub(C, gs, z.d.pnu, z.d.dong)) : info;
     const show = S.dongAll ? pool : pool.filter(z => z.n.m || z.n.o || z.n.e || z.k === sel);
-    const gHtml = G ? G.map(g => `<button type="button" class="gsub" data-gsub="${g.pnu}" aria-pressed="${!!(gs && gs.includes(g.pnu))}">${esc(g.nm)}${g.n ? `<em>${g.n}</em>` : ''}${g.e ? '<i class="xd" title="만기 임박"></i>' : ''}</button>`).join('') + '<i class="gsep"></i>' : '';
+    const gHtml = G ? G.map(g => `<button type="button" class="gsub" data-gsub="${g.k}" aria-pressed="${!!(gs && gs.includes(g.k))}">${esc(g.nm)}${g.n ? `<em>${g.n}</em>` : ''}${g.e ? '<i class="xd" title="만기 임박"></i>' : ''}</button>`).join('') + '<i class="gsep"></i>' : '';
     return `<div class="dongs sm" id="dj_dongs">${gHtml}<button type="button" data-dong="all" aria-pressed="${C.view === 'all'}">전체</button>${show.map(z => `<button type="button" data-dong="${esc(z.k)}" aria-pressed="${z.k === sel}" class="${z.n.m || z.n.o || z.n.e ? 'has' : ''}${z.wt ? ' wait' : ''}" title="${esc(z.d.dong)}">${chipIn(z.d, z.n)}</button>`).join('')}${pool.length > show.length || S.dongAll ? `<button type="button" class="dall" id="dj_dall">${S.dongAll ? '접기 ◂' : `모든 동 ${pool.length} ▸`}</button>` : ''}</div>`;
   }
   function wireDongChips(cx) {
@@ -705,7 +719,7 @@ window.Danji = (() => {
       if (!rows) { box.innerHTML = '<div class="loading">이 동의 호 목록을 받는 중입니다…</div>'; return; }
       if (!fOn(F)) { /* 동 화면은 빈 줄까지 */ } else rows = rows.filter(x => pass(x, F));
     } else rows = rowsAll(cx, C, MM).filter(x => pass(x, F));
-    if (!ALL && gOn(C)) rows = rows.filter(x => C.gsel.includes(x.pnu));   // 고른 하위 단지만 (10/26)
+    { const gs = !ALL && gOn(C); if (gs) rows = rows.filter(x => inSub(C, gs, x.pnu, x.dn)); }   // 고른 하위 단지만 (10/26)
     // 평형 칩: 지금 보이는 범위의 평형
     const base = ALL ? allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
     const areas = []; base.forEach(x => { if (x.a && !areas.some(a => Math.abs(a - x.a) < 1.5)) areas.push(x.a); }); areas.sort((a, b) => a - b);

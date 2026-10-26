@@ -10,9 +10,12 @@ window.Board = (() => {
   let H = null, EL = null, X = null;                 // host · 붙일 곳 · host가 넘겨준 도우미 모음
   const PY = 3.3058;
   // 10/26 종류별 탭: 위 탭 하나 = 종류 하나 (아파트는 단지 화면이 따로 있고, 여기 'apt'는 단지에 없는 아파트 매물을 볼 때)
-  const CATS = { apt: ['아파트'], shop: ['상가', '사무실'], bld: ['건물'], ofc: ['오피스텔'], home: ['빌라', '주택'], land: ['토지', '공장·창고', '기타'] };
-  const CATNAME = { apt: '아파트 매물', shop: '상가·사무실', bld: '건물', ofc: '오피스텔', home: '빌라·주택', land: '토지·공장' };
-  const catOf = x => Object.keys(CATS).find(k => CATS[k].includes(x.ptype)) || 'land';   // 미지정·기타는 토지·공장 탭
+  //   10/26 오후 세분화: 탭 10개 · 탭 안의 세부 유형(ptype) · 분양권은 거래가 '분양권'이면 종류와 상관없이 분양권 탭
+  const CATS = { apt: ['아파트', '주상복합'], shop: ['상가', '사무실'], bld: ['건물'], ofc: ['오피스텔', '지식산업센터'], home: ['빌라', '연립', '다가구', '주택'],
+    redev: ['재개발', '재건축'], pre: [], land: ['토지'], fac: ['공장·창고'], etc: ['숙박', '기타'] };
+  const CATNAME = { apt: '아파트 매물', shop: '상가·사무실', bld: '건물', ofc: '오피·지산', home: '빌라·주택', redev: '재개발·재건축', pre: '분양권', land: '토지', fac: '공장·창고', etc: '숙박·기타' };
+  const catOf = x => x.kind === 'presale' ? 'pre' : Object.keys(CATS).find(k => CATS[k].includes(x.ptype)) || 'etc';   // 미지정은 숙박·기타 탭
+  const tb = x => (X && X.tbase ? X.tbase(x) : x.ptype);   // 세부 유형 → 원래 큰 유형 (listings.js)
   const B = Object.assign({ cat: 'shop', sort: 'at', dir: -1, grp: '', f: {}, map: false, rate: 4.5, fo: false, fk: [], fs: ['on'], fc: [], fx: [] },
     (() => { try { return JSON.parse(localStorage.getItem('rm.bd') || 'null') || {}; } catch { return {}; } })(),
     { q: '', open: new Set(), blank: new Map(), cblank: new Map(), hl: null, sel: null, ed: null, add: { q: '', res: null, busy: false, D: null }, L: {}, U: {}, fitNext: true });
@@ -28,6 +31,7 @@ window.Board = (() => {
   function man(s) {
     s = String(s ?? '').replace(/[,\s원]/g, '');
     if (!s) return null;
+    if (s[0] === '-') { const v = man(s.slice(1)); return v == null || Number.isNaN(v) ? v : -v; }   // 분양권 마이너스 프리미엄 (10/26)
     let m, t = 0;
     if ((m = s.match(/^([\d.]+)억(.*)$/))) { t += parseFloat(m[1]) * 10000; s = m[2]; }
     if (s) {
@@ -42,7 +46,7 @@ window.Board = (() => {
 
   // ---------- 매물 한 건에서 뽑는 값 ----------
   const places = x => Array.isArray(x.places) && x.places.length ? x.places : [{ pnu: x.pnu, addr: x.addr, lat: x.lat, lng: x.lng, dong: x.dong, ho: x.ho, area: x.area }];
-  const isLand = x => x.ptype === '토지' || places(x).every(p => p.land || p.ak === 'land');
+  const isLand = x => tb(x) === '토지' || places(x).every(p => p.land || p.ak === 'land');
   const isWhole = x => !isLand(x) && places(x)[0].ak === 'tot' && !places(x)[0].ho;
   const detKind = x => isLand(x) ? 'land' : isWhole(x) ? 'whole' : 'unit';
   const mainP = x => x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || x.pr) : x.deposit;
@@ -105,24 +109,38 @@ window.Board = (() => {
   const vacant = x => detKind(x) === 'whole' ? rentSum(x).v > 0 : /공실/.test((x.ad || {}).biz || '');   // 통건물 = 공실 층이 있음 · 상가 = 업종 칸이 '공실'
   const FLAG = { imp: x => !!x.imp, mk: x => !!x.mk, pub: x => X.pubLive(x), vac: x => vacant(x) };
   const flNo = x => { const f = String((x.ad || {}).fl || places(x)[0].ho || ''); return /^b|지하/i.test(f) ? -1 : parseInt(f, 10) || 0; };
+  // 칩: [맞는지, 이름, 묶음] — 같은 묶음은 '또는', 묶음끼리는 '그리고' (예: 재개발 + 사업시행 + 빌라)
+  const ymOf = v => { const m = String(v || '').match(/(\d{2,4})\s*[.\-/년]\s*(\d{1,2})/); if (!m) return null; const y = +m[1] < 100 ? 2000 + +m[1] : +m[1]; return Date.UTC(y, +m[2] - 1, 1); };
+  const resaleOk = x => { const v = String((x.ad || {}).resale || '').trim(); if (/즉시|가능/.test(v)) return true; const d = ymOf(v); return d != null && d <= Date.now(); };
+  const dueSoon = x => { const d = ymOf((x.ad || {}).due); return d != null && d - Date.now() <= 183 * 864e5; };
+  const STAGES = ['추진위', '조합설립', '사업시행', '관리처분', '이주·철거'];
   const CHIP = {
-    f1: [x => flNo(x) === 1, '1층'], fb: [x => flNo(x) < 0, '지하'], f2: [x => flNo(x) >= 2, '2층 이상'],
-    p30: [x => x.kind === 'sale' && x.price && x.price < 300000, '~30억'], p50: [x => x.kind === 'sale' && x.price >= 300000 && x.price < 500000, '30~50억'], p50p: [x => x.kind === 'sale' && x.price >= 500000, '50억~'],
+    f1: [x => flNo(x) === 1, '1층', 'fl'], fb: [x => flNo(x) < 0, '지하', 'fl'], f2: [x => flNo(x) >= 2, '2층 이상', 'fl'],
+    p30: [x => x.kind === 'sale' && x.price && x.price < 300000, '~30억', 'pr'], p50: [x => x.kind === 'sale' && x.price >= 300000 && x.price < 500000, '30~50억', 'pr'], p50p: [x => x.kind === 'sale' && x.price >= 500000, '50억~', 'pr'],
+    r1: [x => +(x.ad || {}).rooms === 1, '원룸', 'rm'], r2: [x => +(x.ad || {}).rooms === 2, '투룸', 'rm'], r3: [x => +(x.ad || {}).rooms >= 3, '쓰리룸+', 'rm'],
+    kre: [x => x.ptype === '재개발', '재개발', 'rk'], krc: [x => x.ptype === '재건축', '재건축', 'rk'],
+    ...Object.fromEntries(STAGES.map((t, i) => ['s' + i, [x => (x.ad || {}).stage === t, t, 'stg']])),
+    ...Object.fromEntries(['빌라', '단독', '상가', '아파트', '토지'].map((t, i) => ['m' + i, [x => (x.ad || {}).form === t, t, 'fm']])),
+    pa: [x => tb(x) === '아파트', '아파트', 'pt'], po: [x => tb(x) !== '아파트', '오피스텔 등', 'pt'],
+    rs: [resaleOk, '전매 가능', 'rs'], d6: [dueSoon, '입주 6개월 이내', 'd6'],
   };
-  const CATCHIP = { shop: ['f1', 'fb', 'f2'], bld: ['p30', 'p50', 'p50p'] };
-  const CATKIND = { shop: ['sale', 'wolse', 'jeonse'], bld: ['sale', 'wolse'], land: ['sale', 'wolse', 'jeonse'], apt: ['sale', 'jeonse', 'wolse', 'presale'], ofc: ['sale', 'jeonse', 'wolse', 'presale'], home: ['sale', 'jeonse', 'wolse'] };
+  const CATCHIP = { shop: ['f1', 'fb', 'f2'], bld: ['p30', 'p50', 'p50p'], home: ['r1', 'r2', 'r3'], ofc: ['r1', 'r2', 'r3'],
+    redev: ['kre', 'krc', '|', 's0', 's1', 's2', 's3', 's4', '|', 'm0', 'm1', 'm2', 'm3', 'm4'], pre: ['pa', 'po', '|', 'rs', 'd6'] };
+  const CATKIND = { shop: ['sale', 'wolse', 'jeonse'], bld: ['sale', 'wolse'], land: ['sale', 'wolse', 'jeonse'], apt: ['sale', 'jeonse', 'wolse'], ofc: ['sale', 'jeonse', 'wolse'], home: ['sale', 'jeonse', 'wolse'],
+    redev: ['sale', 'jeonse', 'wolse'], pre: [], fac: ['sale', 'wolse', 'jeonse'], etc: ['sale', 'wolse', 'jeonse'] };
   // 표 머리 아래 ▾ 로 거를 수 있는 칸 (값 꺼내는 법) — 이 화면에서만 (저장 안 함)
   const CFV = {
     ty: x => chip(x), nm: x => x.bname || '(이름 없음)', addr: x => hood(x) || '(동네 미상)', kd: x => X.KIND[x.kind] || '', st: x => ({ on: '진행', hold: '보류', done: '완료' }[x.status] || ''),
     biz: x => (x.ad || {}).biz || '(없음)', zone: x => zoneS((x.ad || {}).zone) || '(없음)', dir: x => (x.ad || {}).dir || '(없음)', jimok: x => (x.ad || {}).use || '(없음)',
     dn: x => places(x)[0].dong || '(없음)', fl: x => flTx((x.ad || {}).fl) || '(없음)',
+    rz: x => (x.ad || {}).rz || '(없음)', stage: x => (x.ad || {}).stage || '(없음)', form: x => (x.ad || {}).form || '(없음)', rk: x => x.ptype || '', mid: x => (x.ad || {}).mid || '(없음)',
   };
   function pass(x, any) {
     if (!any && catOf(x) !== B.cat) return false;
     if (B.fs.length && !B.fs.includes(x.status)) return false;
     if (B.fk.length && !B.fk.includes(x.kind)) return false;
     if (B.fc.length && !B.fc.some(f => FLAG[f] && FLAG[f](x))) return false;
-    if (B.fx.length && !B.fx.some(f => CHIP[f] && CHIP[f][0](x))) return false;
+    if (B.fx.length) { const G = {}; B.fx.forEach(f => { if (CHIP[f]) (G[CHIP[f][2]] || (G[CHIP[f][2]] = [])).push(f); }); for (const g in G) if (!G[g].some(f => CHIP[f][0](x))) return false; }
     if (B.cf) for (const k in B.cf) if (B.cf[k] && CFV[k] && !B.cf[k].includes(CFV[k](x))) return false;   // 머리 ▾ 거르기
     const q = B.q.toLowerCase();
     if (q && ![x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)) return false;
@@ -143,13 +161,15 @@ window.Board = (() => {
     at: x => x.at || '', ty: x => chip(x), nm: x => x.bname || '', addr: x => shortAddr(places(x)[0].addr || x.addr), pr: x => mainP(x) || 0,
     ps: x => (x.kind === 'sale' || x.kind === 'presale') && x.price || 0, pj: x => x.kind === 'jeonse' && x.deposit || 0, pdep: x => (x.kind === 'wolse' || x.kind === 'jeonse') && x.deposit || 0, prent: x => x.kind === 'wolse' && x.rent || 0,
     ar: x => x.area || 0, site: x => siteOf(x), exp: x => x.exp || '', st: x => x.status, memo: x => x.up || '', h: x => x.up || '',
-    ppy: x => { const s = catOf(x) === 'bld' ? siteOf(x) : x.area; return x.kind === 'sale' && x.price && s ? x.price / pyOf(x, s) : 0; },
+    ppy: x => { const s = ['bld', 'fac', 'etc'].includes(catOf(x)) && siteOf(x) ? siteOf(x) : x.area; return x.kind === 'sale' && x.price && s ? x.price / pyOf(x, s) : 0; },
     yld: x => { const y = detKind(x) === 'whole' ? yields(x, rentSum(x).d, rentSum(x).r) : yields(x, x.curDep, x.curRent); return y ? y.y : 0; },
+    rz: x => (x.ad || {}).rz || '', stage: x => STAGES.indexOf((x.ad || {}).stage), apv: x => (x.ad || {}).apv || 0, rgt: x => (x.ad || {}).rgt || 0, prm: x => premOf(x) || 0, jsh: x => (x.ad || {}).jshare || 0,
+    prp: x => x.pr || 0, ptot: x => (x.price || 0) + (x.pr || 0), due: x => ymOf((x.ad || {}).due) || 0, resale: x => ymOf((x.ad || {}).resale) || 0,
   };
   function rowsNow() {
     const all = H.items().filter(x => pass(x));
     let rows = all;
-    if (B.tr && treeOn()) rows = rows.filter(x => (!B.tr.hd || (B.cat === 'apt' || B.cat === 'ofc' ? bnOf(x) : hood(x) || '동네 미상') === B.tr.hd) && (!B.tr.bn || bnOf(x) === B.tr.bn));   // 왼쪽 폴더
+    if (B.tr && treeOn()) rows = rows.filter(x => (!B.tr.hd || topOf(x) === B.tr.hd) && (!B.tr.bn || bnOf(x) === B.tr.bn));   // 왼쪽 폴더
     const f = SORT[B.sort] || SORT.at;
     rows.sort((a, b) => { const A = f(a), C = f(b); return (typeof A === 'number' && typeof C === 'number' ? A - C : String(A).localeCompare(String(C), 'ko', { numeric: true })) * B.dir; });
     return { all, rows };
@@ -187,6 +207,7 @@ window.Board = (() => {
     H.showMap(B.map);
   }
   function refresh() {
+    if (B.fk.some(k => !(CATKIND[B.cat] || []).includes(k))) { B.fk = B.fk.filter(k => (CATKIND[B.cat] || []).includes(k)); keep(); }   // 예전에 저장한 거래 거르기(분양권 등)가 이 탭에 없으면 버림
     if (!EL || !$('bd')) return;
     // 입력 중인 칸은 다시 그려도 그대로 (값·커서 유지)
     const a = document.activeElement, fk = a && a.dataset && a.dataset.fk && $('bd').contains(a) ? a.dataset.fk : null;
@@ -198,19 +219,23 @@ window.Board = (() => {
   // ---------- 왼쪽 탐색기 (넓은 화면 · 지도 닫았을 때) — 10/26 종류별 ----------
   // 아파트·오피스텔 = 단지·건물 이름 · 나머지 = 동네 → 건물 이름 (매물 많은 순) · 아래 보류 · 거래완료
   const bnOf = x => x.bname || shortAddr(places(x)[0].addr || x.addr) || '이름 없음';
+  // 왼쪽 폴더 맨 위 단계: 아파트·오피·분양권 = 단지·건물 이름 / 재개발·재건축 = 구역명 / 나머지 = 동네
+  const flatCat = () => ['apt', 'ofc', 'pre'].includes(B.cat);
+  const topOf = x => flatCat() ? bnOf(x) : B.cat === 'redev' ? ((x.ad || {}).rz || '구역명 없음') : hood(x) || '동네 미상';
+  const premOf = x => { const a = x.ad || {}; return x.kind === 'sale' && x.price && a.rgt ? x.price - a.rgt : null; };   // 재개발 프리미엄 = 매매가 − 권리가액
   const treeOn = () => matchMedia('(min-width:980px)').matches && !B.map;
   function drawTree() {
     const T = $('bdTree'); if (!T) return;
     $('bdLay').classList.toggle('hastree', treeOn());
     if (!treeOn()) { T.innerHTML = ''; return; }
-    const base = H.items().filter(x => pass(x)), tr = B.tr || {}, flat = B.cat === 'apt' || B.cat === 'ofc';
+    const base = H.items().filter(x => pass(x)), tr = B.tr || {}, flat = flatCat() || B.cat === 'redev';
     const top = {}, sub = {};
-    base.forEach(x => { const h = flat ? bnOf(x) : hood(x) || '동네 미상'; top[h] = (top[h] || 0) + 1; if (!flat && x.bname) { const s = sub[h] || (sub[h] = {}); s[x.bname] = (s[x.bname] || 0) + 1; } });
+    base.forEach(x => { const h = topOf(x); top[h] = (top[h] || 0) + 1; if (!flat && x.bname) { const s = sub[h] || (sub[h] = {}); s[x.bname] = (s[x.bname] || 0) + 1; } });
     const inCat = H.items().filter(x => catOf(x) === B.cat), stc = k => inCat.filter(x => x.status === k).length;
     const node = (cls, attrs, label, n, on) => `<button type="button" class="tn ${cls}${on ? ' on' : ''}" ${attrs}>${label}<span class="ct">${n || ''}</span></button>`;
     const byN = o => Object.entries(o).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko', { numeric: true }));
     const stName = B.fs.length === 1 ? { on: '진행 중', hold: '보류', done: '거래완료' }[B.fs[0]] : B.fs.length ? '고른 상태' : '모든';
-    T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b><small>${stName} 매물 · ${flat ? '단지·건물' : '동네 → 건물'}</small></div>
+    T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b><small>${stName} 매물 · ${B.cat === 'redev' ? '구역별' : flat ? '단지·건물' : '동네 → 건물'}</small></div>
       ${node('all', 'data-thd=""', '<i></i>전체', base.length, !tr.hd)}
       ${byN(top).map(([h, n]) => { const s = sub[h], open = s && tr.hd === h; return node('', `data-thd="${esc(h)}"`, `<span class="ar">${s ? (open ? '▾' : '▸') : ''}</span><i></i>${esc(h)}`, n, tr.hd === h && !tr.bn) + (open ? byN(s).map(([b, c]) => node('d', `data-thd="${esc(h)}" data-tbn="${esc(b)}"`, `<i></i>${esc(b)}`, c, tr.bn === b)).join('') : ''); }).join('')}
       <div class="tsep"></div>
@@ -227,10 +252,10 @@ window.Board = (() => {
     const KC = { sale: 'k-s', jeonse: 'k-j', wolse: 'k-w', presale: '' };
     const fOn = B.fk.length || !(B.fs.length === 1 && B.fs[0] === 'on') || B.fc.length || B.fx.length || (B.cf && Object.values(B.cf).some(Boolean)) || B.tr;
     $('bdBar').innerHTML = `<div class="bd-row bd-fl">
-      <span class="fg">${(CATKIND[B.cat] || []).map(k => ck('fk', k, X.KIND[k], KC[k])).join('')}</span><i class="fsep"></i>
+      ${(CATKIND[B.cat] || []).length ? `<span class="fg">${CATKIND[B.cat].map(k => ck('fk', k, X.KIND[k], KC[k])).join('')}</span><i class="fsep"></i>` : ''}
       <span class="fg">${ck('fs', 'on', '매물')}${ck('fs', 'hold', '보류')}${ck('fs', 'done', '거래완료')}</span><i class="fsep"></i>
       <span class="fg">${B.cat === 'shop' || B.cat === 'bld' ? ck('fc', 'vac', B.cat === 'bld' ? '공실 있음' : '공실') : ''}${ck('fc', 'imp', '꼭 챙길 것')}${ck('fc', 'mk', '표시한 줄')}${ck('fc', 'pub', '리얼맵 게시중')}</span>
-      ${CATCHIP[B.cat] ? `<i class="fsep"></i><span class="fg ty">${CATCHIP[B.cat].map(k => `<button type="button" data-fg="fx" data-v="${k}" aria-pressed="${B.fx.includes(k)}">${CHIP[k][1]}</button>`).join('')}</span>` : ''}
+      ${CATCHIP[B.cat] ? `<i class="fsep"></i><span class="fg ty">${CATCHIP[B.cat].map(k => k === '|' ? '<i class="fsep"></i>' : `<button type="button" data-fg="fx" data-v="${k}" aria-pressed="${B.fx.includes(k)}">${CHIP[k][1]}</button>`).join('')}</span>` : ''}
       ${fOn ? '<button type="button" class="fclr" id="bdClr2">모두 풀기</button>' : ''}
       <input class="bd-find" id="bdFind" type="search" data-fk="find" placeholder="이 탭에서 찾기" value="${esc(B.q)}">
       <span class="sp"></span>
@@ -277,7 +302,7 @@ window.Board = (() => {
   const PRS = { ed: 'pop', g: '의뢰가격' }, CUR = { g: '현상태' };
   const COMMON_END = [K('imp', '꼭 챙길 것', { ed: 'in' })];
   const TAIL = [K('tel', '소유주', { ed: 'in' }), K('h', '기록', { s: 'h' }), K('st', '상태', { ed: 'pop', s: 'st' }), K('act', ''), K('pub', '리얼맵')];
-  const RES = cat => [K('n', '번호', { s: 'at' }), ...(cat === 'home' ? [K('ty', '유형', { ed: 'pop', s: 'ty' })] : []), K('nm', cat === 'apt' ? '단지' : '물건명', { s: 'nm' }),
+  const RES = cat => [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', cat === 'apt' ? '단지' : '물건명', { s: 'nm' }),
     ...(cat === 'home' ? [K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' })] : [K('dn', '동'), K('ho', '호')]), K('ar', cat === 'apt' ? '평형 · 타입' : '전용', { ed: 'in', s: 'ar' }), K('dir', '방향', { ed: 'in' }),
     K('kd', '거래', { ed: 'pop' }), K('ps', '매매', { ...PRS, s: 'ps' }), K('pj', '전세', { ...PRS, s: 'pj' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('mgmt', '관리비', { ed: 'in', g: '의뢰가격' }),
     ...(cat === 'apt' ? [K('gap', '갭', { g: '의뢰가격' })] : []), ...COMMON_END,
@@ -292,7 +317,21 @@ window.Board = (() => {
     land: [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('addr', '주소', { s: 'addr' }), K('jimok', '지목 · 용도', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }), K('ar', '면적', { ed: 'in', s: 'ar' }), K('road', '도로', { ed: 'det' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('ppy', '평당', { g: '의뢰가격', s: 'ppy' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), ...COMMON_END, ...TAIL],
     apt: RES('apt'), ofc: RES('ofc'), home: RES('home'),
+    // 재개발·재건축 (10/26): 프리미엄 = 매매가 − 권리가액 (자동)
+    redev: [K('n', '번호', { s: 'at' }), K('rk', '구분', { ed: 'pop', s: 'ty' }), K('rz', '구역명', { ed: 'in', s: 'rz' }), K('stage', '단계', { ed: 'pop', s: 'stage' }), K('form', '물건 형태', { ed: 'pop' }), K('addr', '주소', { s: 'addr' }),
+      K('jsh', '대지지분', { ed: 'in', s: 'jsh' }), K('ar', '전용', { ed: 'in', s: 'ar' }), K('kd', '거래', { ed: 'pop' }),
+      K('apv', '감정가', { ed: 'in', g: '가격', s: 'apv' }), K('rgt', '권리가액', { ed: 'in', g: '가격', s: 'rgt' }), K('ps', '매매가', { ed: 'pop', g: '가격', s: 'ps' }), K('prm', '프리미엄', { g: '가격', s: 'prm' }),
+      K('msh', '조합원 분양', { ed: 'in' }), K('mvl', '이주비', { ed: 'in' }), ...COMMON_END,
+      K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL],
+    // 분양권 (10/26): 총액 = 분양가 + 프리미엄 (자동)
+    pre: [K('n', '번호', { s: 'at' }), K('ty', '종류', { ed: 'pop', s: 'ty' }), K('nm', '단지명', { s: 'nm' }), K('dn', '동'), K('ho', '호'), K('ar', '평형 · 타입', { ed: 'in', s: 'ar' }),
+      K('ps', '분양가', { ed: 'pop', g: '가격', s: 'ps' }), K('prp', '프리미엄', { ed: 'pop', g: '가격', s: 'prp' }), K('ptot', '총액', { g: '가격', s: 'ptot' }),
+      K('down', '계약금', { ed: 'in', g: '납부' }), K('mid', '중도금', { ed: 'pop', g: '납부' }), K('due', '입주예정', { ed: 'in', s: 'due' }), K('resale', '전매 가능일', { ed: 'in', s: 'resale' }), ...COMMON_END, ...TAIL],
   };
+  // 공장·창고 · 숙박·기타: 건물 칸 + 유형 · 임대
+  COLS.fac = COLS.etc = [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }),
+    K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
+    K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('ppy', '대지 평당', { g: '의뢰가격', s: 'ppy' }), ...COMMON_END, ...TAIL];
   const MAPHIDE = ['h', 'biz', 'exp', 'cst', 'cdep', 'crent', 'mgmt', 'prem', 'road', 'zone', 'appr', 'scale', 'loan', 'vac', 'dir', 'ty', 'jimok', 'rdep', 'rrent', 'gap', 'pj', 'act'];
   const VC = () => { const L = COLS[B.cat] || COLS.shop; return B.map ? L.filter(c => !MAPHIDE.includes(c.id)) : L; };    // 지도를 켜면 표가 좁아져 일부 칸은 숨김 (상세에서 보임)
   const impTxt = t => String(t || '').replace(/^\s*(?:20\d{2}[-./])?\d{1,2}\s*(?:[./]|월\s*)\d{1,2}(?:\s*일)?(?![~\d])(?:까지)?\s*[·,:-]?\s*/, '') || t;   // 맨 앞 날짜는 빨간 날짜 표시와 겹치므로 글에서 뺌
@@ -314,12 +353,29 @@ window.Board = (() => {
       case 'fl': return a.fl || a.tfl ? `${esc(flTx(a.fl) || '?')}${a.tfl ? `<small>/${a.tfl}F</small>` : ''}` : ep('층');
       case 'ar': {
         if (!x.area) return ep('면적');
-        if (x.ptype === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평 — 아파트 화면에서 라인 평형을 적으면 정확해집니다"'}>${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''} <small>${esc(String(x.area))}</small>`; }
+        if (tb(x) === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평 — 아파트 화면에서 라인 평형을 적으면 정확해집니다"'}>${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''} <small>${esc(String(x.area))}</small>`; }
         return `<b>${pyt(x.area).replace('.0평', '평')}</b> <small>${m2t(x.area)}</small>`;
       }
       case 'dir': return a.dir ? esc(a.dir) : ep();
       case 'kd': return `<span class="kd ${k}">${X.KIND[k]}</span>`;
-      case 'ps': return (k === 'sale' || k === 'presale') && x.price ? `<b class="pv sale">${cw(x.price)}</b>${k === 'presale' && x.pr ? `<small>P ${cw(x.pr)}</small>` : ''}` : ep();
+      case 'ps': return (k === 'sale' || k === 'presale') && x.price ? `<b class="pv sale">${cw(x.price)}</b>${k === 'presale' && x.pr && B.cat !== 'pre' ? `<small>P ${cw(x.pr)}</small>` : ''}` : ep();
+      // 재개발·재건축 · 분양권 (10/26)
+      case 'rk': return x.ptype ? `<span class="tg ${x.ptype === '재건축' ? 'rc' : 're'}">${esc(x.ptype)}</span>` : ep();
+      case 'rz': return a.rz ? esc(a.rz) : ep();
+      case 'stage': return a.stage ? `<span class="tg stg">${esc(a.stage)}</span>` : ep();
+      case 'form': return a.form ? esc(a.form) : ep();
+      case 'jsh': return a.jshare ? `${pyt(a.jshare).replace('.0평', '평')}` : ep();
+      case 'apv': return a.apv ? cw(a.apv) : ep();
+      case 'rgt': return a.rgt ? cw(a.rgt) : ep();
+      case 'prm': { const v = premOf(x); return v != null ? `<span class="au" title="매매가 − 권리가액 (자동 계산)">${v < 0 ? '-' : ''}${cw(Math.abs(v))}</span>` : ep(); }
+      case 'msh': return a.msh ? esc(a.msh) : ep();
+      case 'mvl': return a.mvl ? cw(a.mvl) : ep();
+      case 'prp': return k === 'presale' && x.pr ? `<b class="pv ${x.pr < 0 ? 'neg' : 'jeonse'}">${x.pr < 0 ? '-' : ''}${cw(Math.abs(x.pr))}</b>` : ep();
+      case 'ptot': return k === 'presale' && x.price ? `<span class="au" title="분양가 + 프리미엄 (자동 계산)">${cw(x.price + (x.pr || 0))}</span>` : ep();
+      case 'down': return a.down ? cw(a.down) : ep();
+      case 'mid': return a.mid || a.midTx ? esc([a.mid, a.midTx].filter(Boolean).join(' ')) : ep();
+      case 'due': return a.due ? `<span class="${dueSoon(x) ? 'dd' : ''}">${esc(a.due)}</span>` : ep();
+      case 'resale': return a.resale ? esc(a.resale) : ep();
       case 'pj': return k === 'jeonse' && x.deposit ? `<b class="pv jeonse">${cw(x.deposit)}</b>` : ep();
       case 'pdep': { const show = k === 'wolse' || (k === 'jeonse' && !VC().some(z => z.id === 'pj')); return show && x.deposit ? `<b class="pv ${k}">${cw(x.deposit)}</b>` : show && k === 'wolse' ? '<b class="pv wolse">0</b>' : ep(); }
       case 'prent': return k === 'wolse' && x.rent ? `<b class="pv wolse">${x.rent.toLocaleString()}</b>` : ep();
@@ -338,7 +394,7 @@ window.Board = (() => {
       case 'zone': return a.zone ? esc(zoneS(a.zone)) : ep();
       case 'jimok': return a.use ? esc(String(a.use).split(' · ')[0]) : ep();
       case 'road': return a.road ? esc(a.road) : ep();
-      case 'ppy': { const s = catOf(x) === 'bld' ? siteOf(x) : x.area; return k === 'sale' && x.price && s ? sw(x.price / (s / PY)) : ep(); }
+      case 'ppy': { const s = ['bld', 'fac', 'etc'].includes(catOf(x)) && siteOf(x) ? siteOf(x) : x.area; return k === 'sale' && x.price && s ? sw(x.price / (s / PY)) : ep(); }
       case 'loan': return x.loan ? cw(x.loan) : ep();
       case 'rdep': { const s = rentSum(x); return s.d ? cw(s.d) : ep(); }
       case 'rrent': { const s = rentSum(x); return s.r ? s.r.toLocaleString() : ep(); }
@@ -366,6 +422,12 @@ window.Board = (() => {
     if (c === 'exp') return inp(x.exp || '', '', 'type="date"');
     if (['prem', 'mgmt', 'cdep', 'loan'].includes(c)) return inp(manTx(x[{ prem: 'premium', mgmt: 'mgmt', cdep: 'curDep', loan: 'loan' }[c]]), '만원 (예: 3000, 1억)');
     if (c === 'crent') return inp(x.curRent || '', '만원', 'inputmode="numeric"');
+    if (c === 'rz') return inp(a.rz || '', '예: 북아현3구역', 'maxlength="30"');
+    if (c === 'jsh') return inp(a.jshare || '', '㎡', 'inputmode="decimal"');
+    if (['apv', 'rgt', 'mvl', 'down'].includes(c)) return inp(manTx(a[c]), '만원 (예: 3억2천)');
+    if (c === 'msh') return inp(a.msh || '', '예: 84㎡ 신청', 'maxlength="20"');
+    if (c === 'due') return inp(a.due || '', '예: 28.03', 'maxlength="12"');
+    if (c === 'resale') return inp(a.resale || '', '즉시 / 27.06', 'maxlength="12"');
     return '';
   }
   function rowHtml(x, n, RO) {
@@ -478,7 +540,8 @@ window.Board = (() => {
     hidePop();
     const col = VC().find(z => z.id === c); if (!col) return;
     if (col.ed === 'det') { B.open.add(id); B.hl = id; refresh(); return; }   // 건축물대장·임대 현황 값은 상세에서
-    if (['kd', 'ps', 'pj', 'pdep', 'prent'].includes(c)) return pricePop(x, td);
+    if (['kd', 'ps', 'pj', 'pdep', 'prent', 'prp'].includes(c)) return pricePop(x, td);
+    if (['rk', 'stage', 'form', 'mid'].includes(c)) return choicePop(x, td, c);
     if (c === 'st') return statusPop(x, td);
     if (c === 'ty') return typePop(x, td);
     if (c === 'ar' && places(x).length > 1) { B.open.add(id); refresh(); return H.toast('필지·호가 여러 개인 매물은 상세에서 하나씩 고칩니다'); }
@@ -494,7 +557,7 @@ window.Board = (() => {
     B.ed = next;
     if (!x) return refresh();
     const a = x.ad || {}, cs = (x.contacts || [])[0] || {};
-    const money = (f, ok) => { const n = man(v); if (Number.isNaN(n)) { H.toast('금액을 확인해 주세요 (예: 3000, 1억)'); return refresh(); } if ((n || null) === (x[f] || null)) return refresh(); return saveItem(id, it => { it[f] = n; if (ok) ok(it, n); }); };
+    const money = (f, ok) => { const n = man(v); if (Number.isNaN(n) || n < 0) { H.toast('금액을 확인해 주세요 (예: 3000, 1억)'); return refresh(); } if ((n || null) === (x[f] || null)) return refresh(); return saveItem(id, it => { it[f] = n; if (ok) ok(it, n); }); };
     if (c === 'ar') { const n = parseFloat(v.replace(/[^\d.]/g, '')) || null; if (n === (x.area || null)) return refresh(); return saveItem(id, it => { it.places[0].area = n; it.area = n; }); }
     if (c === 'fl') {
       const [f, t] = v.split('/').map(s => s.trim()); const fl = (f || '').replace(/층$/i, '').replace(/^지하\s*/, 'B').replace(/f$/i, ''), tfl = t ? parseInt(t, 10) || null : (a.tfl ?? null);
@@ -514,6 +577,11 @@ window.Board = (() => {
     if (c === 'loan') return money('loan');
     if (c === 'cdep') return money('curDep');
     if (c === 'crent') { const n = parseInt(v.replace(/\D/g, ''), 10) || null; if (n === (x.curRent || null)) return refresh(); return saveItem(id, it => { it.curRent = n; }); }
+    // 재개발·재건축 · 분양권 칸 (모두 ad 안)
+    const adSet = (k, nv) => { if ((nv ?? '') === (a[k] ?? '')) return refresh(); return saveItem(id, it => { it.ad = { ...(it.ad || {}), [k]: nv }; }); };
+    if (['apv', 'rgt', 'mvl', 'down'].includes(c)) { const n = man(v); if (Number.isNaN(n) || n < 0) { H.toast('금액을 확인해 주세요 (예: 3000, 1억)'); return refresh(); } return adSet(c, n || null); }
+    if (c === 'jsh') return adSet('jshare', parseFloat(v.replace(/[^\d.]/g, '')) || null);
+    if (['rz', 'msh', 'due', 'resale'].includes(c)) return adSet(c, v);
     refresh();
   }
   // ---------- 기록 창 (10/26 아파트 '상담 기록'과 같은 방식) ----------
@@ -591,7 +659,25 @@ window.Board = (() => {
   }
   function typePop(x, td) {
     const p = showPop(td, `<div class="pl grid">${X.PTYPES.map(t => `<button type="button" data-t="${t}" class="${x.ptype === t ? 'on' : ''}">${t}</button>`).join('')}</div>`);
-    p.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { hidePop(); const t = b.dataset.t; if (t === x.ptype) return; const to = catOf({ ptype: t }); saveItem(x.id, it => { it.ptype = t; }, to !== B.cat ? `${CATNAME[to]} 탭으로 옮겼습니다` : ''); });
+    p.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { hidePop(); const t = b.dataset.t; if (t === x.ptype) return; const to = catOf({ ...x, ptype: t }); const b0 = tb(x); saveItem(x.id, it => { it.ptype = t; if (/^재(개발|건축)$/.test(t) && !(it.ad || {}).form) it.ad = { ...(it.ad || {}), form: t === '재건축' ? '아파트' : X.formOf(b0) }; }, to !== B.cat ? `${CATNAME[to]} 탭으로 옮겼습니다` : ''); });
+  }
+  // 재개발·재건축 구분 · 단계 · 물건 형태 · 분양권 중도금 — 골라서 바로 저장 (10/26)
+  function choicePop(x, td, c) {
+    const a = x.ad || {};
+    const OPT = { rk: ['재개발', '재건축'], stage: STAGES, form: X.FORMS, mid: ['무이자', '이자후불', '자납'] }[c];
+    const cur = c === 'rk' ? x.ptype : a[c];
+    const p = showPop(td, `<div class="pl">${OPT.map(t => `<button type="button" data-o="${esc(t)}" class="${cur === t ? 'on' : ''}">${esc(t)}</button>`).join('')}${c !== 'rk' && cur ? '<button type="button" data-o="" class="clr">지우기</button>' : ''}</div>
+      ${c === 'mid' ? `<div class="pp"><label>메모<input data-mt="1" value="${esc(a.midTx || '')}" maxlength="12" placeholder="예: 60%, 6회차"></label><div class="pb"><span class="hint">Enter 저장</span><button type="button" class="ok">저장</button></div></div>` : ''}`);
+    const save = (v, tx) => {
+      hidePop();
+      if (c === 'rk') { if (v === x.ptype) return; return saveItem(x.id, it => { it.ptype = v; if (!(it.ad || {}).form) it.ad = { ...(it.ad || {}), form: v === '재건축' ? '아파트' : '빌라' }; }); }
+      const nx = { ...a, [c]: v }; if (c === 'mid') nx.midTx = tx ?? a.midTx ?? '';
+      if (nx[c] === (a[c] || '') && (c !== 'mid' || nx.midTx === (a.midTx || ''))) return;
+      saveItem(x.id, it => { it.ad = { ...(it.ad || {}), ...nx }; });
+    };
+    p.querySelectorAll('[data-o]').forEach(b => b.onclick = () => save(b.dataset.o, c === 'mid' ? p.querySelector('[data-mt]').value.trim() : undefined));
+    const mt = p.querySelector('[data-mt]');
+    if (mt) { const ok = () => save(a.mid || '', mt.value.trim()); p.querySelector('.ok').onclick = ok; mt.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); ok(); } if (e.key === 'Escape') hidePop(); }; }
   }
   const PF = { sale: [['price', '매매가']], jeonse: [['deposit', '전세 보증금']], wolse: [['deposit', '보증금'], ['rent', '월세']], presale: [['price', '분양가'], ['pr', '프리미엄(P)']] };
   function pricePop(x, td) {
@@ -606,10 +692,11 @@ window.Board = (() => {
       p.querySelectorAll('[data-m]').forEach(i => { hint(i); i.oninput = () => hint(i); i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); ok(); } if (e.key === 'Escape') hidePop(); }; });
       const ok = () => {
         const vals = {}; let bad = false;
-        p.querySelectorAll('[data-m]').forEach(i => { const v = man(i.value); if (Number.isNaN(v)) bad = true; vals[i.dataset.m] = v; });
+        p.querySelectorAll('[data-m]').forEach(i => { const v = man(i.value); if (Number.isNaN(v) || (v < 0 && i.dataset.m !== 'pr')) bad = true; vals[i.dataset.m] = v; });   // 마이너스는 분양권 프리미엄만
         if (bad) return H.toast('금액을 확인해 주세요 (예: 3억2천, 5000)');
         hidePop();
-        saveItem(x.id, it => { it.kind = kind; Object.assign(it, vals); });
+        const to = catOf({ ...x, kind });
+        saveItem(x.id, it => { it.kind = kind; Object.assign(it, vals); }, to !== B.cat ? `${CATNAME[to]} 탭으로 옮겼습니다` : '');
       };
       p.querySelector('.ok').onclick = ok;
       const f = p.querySelector('[data-m]'); if (f) { f.focus(); f.select(); }
@@ -640,7 +727,7 @@ window.Board = (() => {
   const MKEY = { '방향': 'dir', '입주 가능일': 'movein', '방 수': 'rooms', '욕실 수': 'baths', '관리비': '#mgmt', '관리비 포함 항목': '#mgmt', '건축물 용도': 'use', '지목': 'use', '총 층수': 'flt', '해당 층': 'flt', '사용승인일': 'appr', '주차 대수': 'park', '면적': '$area' };
   const BKOK = { office: 1, addr: 1, regno: 1, ceo: 1, tel: 1 };
   function fieldsOf(x) {
-    const k = detKind(x), pt = x.ptype, res = /아파트|빌라|오피스텔|주택/.test(pt || ''), shop = pt === '상가' || pt === '사무실';
+    const k = detKind(x), pt = tb(x), res = /아파트|빌라|오피스텔|주택/.test(pt || ''), shop = pt === '상가' || pt === '사무실';
     const M = X.moneyOf(x).map(m => m[0]);
     const LB = { '#mgmt': '관리비 (월·만원)', '#premium': '권리금', '#curDep': '기보증금', '#curRent': '기월세', '#loan': x.kind === 'presale' ? '중도금 대출' : '융자', '#paid': '납입액' };
     if (k === 'land') return [['use', '지목'], ['zone', '용도지역']];
@@ -662,14 +749,14 @@ window.Board = (() => {
       : `<input class="v ${cls}" data-fk="${fk(key)}" data-fd="${key}" value="${esc(v)}" placeholder="${need.has(key) ? '입력 필요' : ''}" ${key === 'movein' ? 'list="bdMv"' : ''} ${dis}>`;
     const cells = fieldsOf(x).map(([key, lb]) => { const v = val(key); const cls = need.has(key) ? 'nd' : AUTOK.includes(key) && v !== '' ? 'au' : ''; return `<label>${lb}${ctl(key, v, cls)}</label>`; }).join('');
     const pk = P.pnu && P.ho ? `${P.pnu}|${P.dong || ''}|${P.ho}` : '';
-    if (pk && B.U[pk] === undefined && /아파트|빌라|오피스텔|주택/.test(x.ptype || '')) hoPrice(P, pk);
+    if (pk && B.U[pk] === undefined && /아파트|빌라|오피스텔|주택/.test(tb(x) || '')) hoPrice(P, pk);
     const gp = pk && B.U[pk] && B.U[pk].price;
     const y = detKind(x) === 'unit' ? yields(x, x.curDep, x.curRent) : null;
     const badge = !H.canPub() || x.status !== 'on' || X.pubLive(x) ? '' : miss.length ? `<em class="nd">리얼맵 등록까지 ${miss.length}칸 남음</em>` : '<em class="ok">리얼맵 필수 항목 모두 채움 → 줄 끝 [리얼맵 등록]</em>';
     const canFill = !RO && miss.some(m => ['건축물 용도', '사용승인일', '주차 대수', '총 층수', '지목'].includes(m));
     return `<div class="dt-h"><b>${esc(chip(x))} 정보</b>${badge}${canFill ? '<button type="button" class="lnk" data-a="autofill">건축물대장으로 빈 칸 채우기</button>' : ''}${detKind(x) === 'unit' && places(x).length ? `<small>${esc(places(x).map(dh).filter(Boolean).join(', '))}${gp ? ` · 공시가격 ${sw(gp.price / 1e4)} (${gp.year})` : ''}</small>` : ''}</div>
       <div class="kv2">${cells}</div>
-      ${detKind(x) === 'unit' && /아파트|빌라|오피스텔|주택/.test(x.ptype || '') ? `<label class="nm"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 관리비 없음</label>` : ''}
+      ${detKind(x) === 'unit' && /아파트|빌라|오피스텔|주택/.test(tb(x) || '') ? `<label class="nm"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 관리비 없음</label>` : ''}
       ${y ? `<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b> <small>(매매가 − 기보증금 ${sw(y.inv)} 기준)</small></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>` : ''}
       <datalist id="bdMv"><option value="즉시입주"><option value="협의"></datalist>`;
   }
@@ -738,7 +825,7 @@ window.Board = (() => {
       if (a === 'autofill') {
         b.disabled = true; b.textContent = '채우는 중…';
         try {
-          const P0 = places(x)[0], it0 = await autoItem({ pnu: P0.pnu || x.pnu, dong: P0.dong, ho: P0.ho, ptype: x.ptype, area: x.area });
+          const P0 = places(x)[0], it0 = await autoItem({ pnu: P0.pnu || x.pnu, dong: P0.dong, ho: P0.ho, ptype: x.ptype, form: (x.ad || {}).form, area: x.area });
           let n = 0; saveItem(id, it => { const ad = it.ad || (it.ad = {}); for (const [k, v] of Object.entries(it0.ad || {})) if ((ad[k] == null || ad[k] === '') && v != null && v !== '') { ad[k] = v; n++; } }).then(() => H.toast(n ? `빈 칸 ${n}개를 채웠습니다` : '건축물대장에도 없는 값입니다. 직접 넣어 주세요'));
         } catch { H.toast('건축물대장을 불러오지 못했습니다', 3500); refresh(); }
         return;
@@ -882,7 +969,9 @@ window.Board = (() => {
       D.tot = (rc && rc.totArea) || Math.round(ts.reduce((a, z) => a + (z.totArea || 0), 0) * 100) / 100 || null;
       D.site = (rc && rc.platArea) || (t && t.platArea) || null;
       D.arch = (rc && rc.archArea) || Math.round(ts.reduce((a, z) => a + (z.archArea || 0), 0) * 100) / 100 || null;
-      D.ty = guess(D); D.guess = D.ty; D.st = 'ready';
+      D.ty = D.bg = guess(D); if (B.cat === 'redev') D.ty = '재개발';
+      if (B.cat === 'pre') D.kind = 'presale';   // 분양권 탭에서 등록하면 거래 = 분양권
+      D.guess = D.ty; D.st = 'ready';
       setType(D, D.ty);
     } catch { if (alive()) { B.add.D = null; refresh(); H.toast('그 위치의 필지를 찾지 못했습니다. 다른 주소로 찾아 주세요', 3500); } }
   }
@@ -894,9 +983,12 @@ window.Board = (() => {
     if (['아파트', '빌라', '오피스텔'].includes(g)) return '주택';
     return '건물';                                     // 일반건물(근생·업무 등) → 통건물로 짐작
   }
-  const dmode = D => D.ty === '토지' ? 'land' : ['건물', '공장·창고'].includes(D.ty) || (D.ty === '주택' && !D.isSet) ? 'whole' : !D.t ? 'free' : D.isSet ? 'unit' : 'floor';
+  // 재개발·재건축으로 등록할 때 물건 형태 짐작 (건축물대장 기준)
+  const formGuess = D => { if (!D.t) return '토지'; const g = X.guessType(D.t); return g === '아파트' ? '아파트' : D.isSet ? '빌라' : g === '주택' ? '단독' : ['상가', '사무실', '건물'].includes(g) ? '상가' : '단독'; };
+  const dmode = D => { const ty = tb({ ptype: D.ty, ad: { form: D.form } }) || '빌라'; return ty === '토지' ? 'land' : ['건물', '공장·창고'].includes(ty) || (ty === '주택' && !D.isSet) ? 'whole' : !D.t ? 'free' : D.isSet ? 'unit' : 'floor'; };
   function setType(D, ty) {
-    D.ty = ty; D.mode = dmode(D);
+    D.ty = ty; if ((ty === '재개발' || ty === '재건축') && !D.form) D.form = ty === '재건축' && D.t ? '아파트' : formGuess(D);
+    D.mode = dmode(D);
     const m = D.mode;
     if (m === 'land') D.area = (D.chr && D.chr.area) || null;
     if (m === 'whole') D.area = D.tot;
@@ -989,8 +1081,10 @@ window.Board = (() => {
     return `<tr class="bd-draft"><td colspan="${VC().length}"><div class="dr">
       <span class="no new">＋</span>
       <div class="d1"><b>${esc(D.addr)}</b>${D.bname ? ` <span class="bn">${esc(D.bname)}</span>` : ''}<small>${esc(facts.join(' · '))}</small></div>
-      <div class="d2"><span class="gs">${D.guess === D.ty ? `건축물대장으로 보면 <b>${esc(D.ty === '건물' ? '통건물' : D.ty)}</b>입니다` : `<b>${esc(D.ty)}</b>(으)로 바꿈`}</span>
-        <span class="tys">${DTY.map(t => `<button type="button" data-dt="${t}" aria-pressed="${D.ty === t}">${t === '건물' ? '통건물' : t}</button>`).join('')}</span></div>
+      <div class="d2"><span class="gs">${D.guess === D.ty && D.bg !== D.ty ? `재개발·재건축 매물로 등록 · 건축물대장으로 보면 <b>${esc(D.bg === '건물' ? '통건물' : D.bg)}</b>` : D.guess === D.ty ? `건축물대장으로 보면 <b>${esc(D.ty === '건물' ? '통건물' : D.ty)}</b>입니다` : `<b>${esc(D.ty)}</b>(으)로 바꿈`}</span>
+        <span class="tys">${(() => { const own = B.cat === 'pre' ? ['아파트', '오피스텔'] : CATS[B.cat] || [], L = [...new Set([D.guess, D.ty, ...own, ...DTY])].filter(t => t && X.PTYPES.includes(t)).slice(0, Math.max(10, own.length + 2));
+          return L.map(t => `<button type="button" data-dt="${t}" aria-pressed="${D.ty === t}">${t === '건물' ? '통건물' : t}</button>`).join('') + `<select data-dto="1" aria-label="다른 종류"><option value="">다른 종류…</option>${X.PTYPES.filter(t => !L.includes(t)).map(t => `<option>${t}</option>`).join('')}</select>`; })()}</span>
+        ${D.ty === '재개발' || D.ty === '재건축' ? `<span class="tys">물건 형태 <select data-dfm="1">${X.FORMS.map(f => `<option ${D.form === f ? 'selected' : ''}>${f}</option>`).join('')}</select></span>` : ''}</div>
     </div><div class="dr dr2">
       ${unit ? `<span class="u">${unit}</span>` : ''}
       <label>면적 <input data-fk="${fk('ar')}" data-dar="1" class="w6 r" inputmode="decimal" value="${D.area || ''}" placeholder="㎡">㎡ <small>${D.area ? pyt(D.area) : ''}</small></label>
@@ -1006,6 +1100,8 @@ window.Board = (() => {
     T.querySelectorAll('[data-dx]').forEach(b => b.onclick = () => { B.add.D = null; refresh(); $('bdQ').focus(); });
     if (D.st !== 'ready') return;
     T.querySelectorAll('[data-dt]').forEach(b => b.onclick = () => setType(D, b.dataset.dt));
+    const dto = T.querySelector('[data-dto]'); if (dto) dto.onchange = () => { if (dto.value) setType(D, dto.value); };
+    const dfm = T.querySelector('[data-dfm]'); if (dfm) dfm.onchange = () => { D.form = dfm.value; setType(D, D.ty); };
     const dd = T.querySelector('[data-dd]'); if (dd) dd.onchange = () => { D.U.cur = dd.value; D.ho = ''; D.area = null; D.aMsg = ''; loadUnits(D); };
     const dh = T.querySelector('[data-dh]'); if (dh) dh.onchange = () => { if (dh.value) pickHo(D, dh.value); else { D.ho = ''; refresh(); } };
     const df = T.querySelector('[data-df]'); if (df) df.onchange = () => { const f = df.value === '' ? null : D.floors[+df.value]; D.fi = f ? +df.value : null; D.ho = f ? f.fl.replace(/^(\d+)F$/, '$1층').replace(/^B(\d+)$/, '지하$1층') : ''; D.fl = f ? (f.gb === '지하' ? 'B' + f.no : String(f.no)) : ''; D.uArea = f ? f.area : null; D.area = D.uArea; D.uUse = f ? f.use : ''; D.aMsg = f ? `${f.fl} 면적 ${m2t(f.area)} (층 전체 · 일부만이면 고쳐 주세요)` : ''; refresh(); };
@@ -1034,7 +1130,7 @@ window.Board = (() => {
       if (t.grnd) ad.tfl = t.grnd; if (t.ugrnd) ad.ufl = t.ugrnd; if (t.useApr) ad.appr = String(t.useApr).slice(0, 10);
       const pk = z => z ? (z.pkTotal || ((z.pkIn || 0) + (z.pkOut || 0) + (z.pkInMech || 0) + (z.pkOutMech || 0))) : 0;
       const tot = pk(rc) || ts.reduce((a, z) => a + pk(z), 0), hh = (rc && rc.hhld) || ts.reduce((a, z) => a + (z.hhld || 0), 0);
-      if (tot) ad.park = hh > 1 && ['아파트', '오피스텔', '빌라'].includes(D.ty) ? `총 ${tot}대 (세대당 ${(tot / hh).toFixed(2).replace(/0$/, '')}대)` : `총 ${tot}대`;
+      if (tot) ad.park = hh > 1 && ['아파트', '오피스텔', '빌라'].includes(tb({ ptype: D.ty, ad: { form: D.form } })) ? `총 ${tot}대 (세대당 ${(tot / hh).toFixed(2).replace(/0$/, '')}대)` : `총 ${tot}대`;
       if (hh > 1) ad.hhld = hh;
       const lift = ts.reduce((a, z) => a + (z.liftP || 0), 0); if (lift) ad.elev = lift;
       if (ts.some(z => /^(y|1|true|위반)/i.test(String(z.viol ?? '')))) ad.viol = true;
@@ -1043,6 +1139,7 @@ window.Board = (() => {
     if (m === 'land') ad.use = c.jimok || '';
     if (c.zone1) ad.zone = [c.zone1, c.zone2].filter(Boolean).join(' · ');
     if (c.road) ad.road = c.road; if (c.price) ad.lp = c.price;
+    if ((D.ty === '재개발' || D.ty === '재건축') && D.form) ad.form = D.form;
     const rents = m === 'whole' && Array.isArray(D.floors) ? D.floors.map(f => ({ fl: f.fl, use: f.use, area: f.area, label: '', deposit: null, rent: null, exp: '', memo: '' })) : [];
     return { kind, status: 'on', ptype: D.ty, ptypeTx: '', bname: m === 'land' ? '' : D.bname, road: t && t.road ? String(t.road).replace(/^서울특별시\s*/, '서울 ') : '', places: [P], contacts, rents, photos: [], ad, memo: '', ...money };
   }
@@ -1056,7 +1153,7 @@ window.Board = (() => {
     const kind = D.kind;
     if (pv) {
       const parts = pv.split('/').map(s => man(s));
-      if (parts.some(v => Number.isNaN(v))) return H.toast('가격을 확인해 주세요 (예: 68억, 3억2천, 5000/320)');
+      if (parts.some((v, i) => Number.isNaN(v) || (v < 0 && !(kind === 'presale' && i === 1)))) return H.toast('가격을 확인해 주세요 (예: 68억, 3억2천, 5000/320)');
       if (kind === 'sale') money.price = parts[0]; else if (kind === 'jeonse') money.deposit = parts[0];
       else if (kind === 'wolse') { if (parts.length > 1) { money.deposit = parts[0]; money.rent = parts[1]; } else money.rent = parts[0]; }
       else { money.price = parts[0]; if (parts[1]) money.pr = parts[1]; }
@@ -1093,7 +1190,7 @@ window.Board = (() => {
     const t = b && X.mainTitle(b), rc = b && b.recap && b.recap.data && b.recap.data[0], ts = ((b && b.titles && b.titles.data) || []).filter(z => z.mainAtch !== '부속건축물');
     const D = { pnu: p.bldPnu || p.pnu || o.pnu, lpnu: p.pnu, addr: p.addr || '', lat: c0.lat || null, lng: c0.lng || null, t, rc, ts, chr: (L && L.chr && L.chr.data) || null, bname: (rc && rc.name) || (t && t.name) || '' };
     D.isSet = !!t && (ts.some(z => z.regstr === '집합') || !!(b.recap && b.recap.data && b.recap.data.length));
-    D.ty = o.ptype || guess(D); D.mode = dmode(D);
+    D.ty = o.ptype || guess(D); D.form = o.form || ''; if (/^재(개발|건축)$/.test(D.ty) && !D.form) D.form = formGuess(D); D.mode = dmode(D);
     if (D.mode === 'unit' && o.ho) {
       const nat = (a, z) => String(a).localeCompare(String(z), 'ko', { numeric: true });
       const dongs = [...new Set(ts.map(z => String(z.dong || '').trim()).filter(Boolean))].sort(nat), byDong = dongs.length >= 2;

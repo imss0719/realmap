@@ -2689,7 +2689,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function lsHere() { const p = S.sel; if (!p) return []; return LS.items.filter(x => x.pnu === p.pnu || (p.bldPnu && x.pnu === p.bldPnu)); }
   // 같은 단지·같은 평형(전용 ±3㎡) 최근 6개월 실거래와 비교 — 아파트·오피스텔·빌라의 매매·전세만
   function lsCompare(x) {
-    const TK2 = { 아파트: 'apt', 오피스텔: 'offi', 빌라: 'rh' }[x.ptype];
+    const TK2 = { 아파트: 'apt', 오피스텔: 'offi', 빌라: 'rh' }[x.pbase || x.ptype];   // pbase = 세부 유형(주상복합 등)의 큰 유형 (10/26)
     if (!TK2 || !['sale', 'jeonse'].includes(x.kind) || !x.area || x.ak !== 'ex' || x.n > 1) return '';
     const kind = TK2 + (x.kind === 'jeonse' ? 'Rent' : ''), key = x.pnu + '|' + kind;
     const C = LS.cmp[key];
@@ -2714,7 +2714,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function lsDetail(x) {
     const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
     const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${x.mgmtT === 'fix' ? ' (정액)' : ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
-    const land = x.ptype === '토지';
+    const land = (x.pbase || x.ptype) === '토지';
     const f = [
       x.area && [x.ak === 'land' ? '토지면적' : x.ak === 'tot' ? '연면적' : '전용면적', `${n(x.area, 2)}㎡ (${(x.area / 3.305785).toFixed(1)}평)`],
       x.use && [land ? '지목' : '건축물 용도', x.use],
@@ -2726,7 +2726,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       (x.rooms != null || x.baths != null) && ['방·욕실', `방 ${x.rooms ?? '-'} · 욕실 ${x.baths ?? '-'}`],
       mg && ['관리비', mg],
       x.premium && ['권리금', won(x.premium)],
-      x.biz && [x.ptype === '상가' ? '현재 업종' : '현재 용도', x.biz],
+      x.biz && [(x.pbase || x.ptype) === '상가' ? '현재 업종' : '현재 용도', x.biz],
       x.wc && ['화장실', x.wc],
       x.facx && ['시설', x.facx],
       x.movein && ['입주 가능일', x.movein],
@@ -2757,7 +2757,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const open = LP.exp.has(x.k), ph = x.photos && x.photos[0];
     const py = x.area ? `${Math.round(x.area / 3.305785)}평` : '';
     const meta = [x.area ? `${n(x.area, 0)}㎡${py ? '(' + py + ')' : ''}` : '', x.flr, x.dir].filter(Boolean).join(' · ');
-    const what = `${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}`;
+    const what = `${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.form && /^재(개발|건축)$/.test(x.ptype) ? `${x.ptype} ${x.form}` : x.ptype)}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}`;
     return `<div class="lc${open ? ' open' : ''}">
       <button type="button" class="lc-top" data-lx="${esc(x.k)}" aria-expanded="${open}">
         ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : '<span class="lc-th none">사진<br>없음</span>'}

@@ -95,7 +95,7 @@ window.Cust = (() => {
   function pool() {
     const ls = H.items().filter(x => x.status === 'on').map(x => {
       const p0 = (x.places && x.places[0]) || {};
-      return { src: 'ls', id: x.id, x, pnu: p0.pnu || x.pnu, dn: String(p0.dong || '').replace(/동$/, ''), ho: String(p0.ho || '').replace(/호$/, ''), name: x.bname || '', addr: [x.addr, x.road, ...(x.places || []).map(p => p.addr)].join(' '), mine: true, ks: [x.kind === 'presale' ? 'sale' : x.kind], pr: { sale: x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || 0) + (x.pr || 0) : 0, jeonse: x.kind === 'jeonse' ? x.deposit : 0, wd: x.kind === 'wolse' ? x.deposit : 0, wr: x.kind === 'wolse' ? x.rent : 0 }, area: x.area || 0, ptype: x.ptype || '' };
+      return { src: 'ls', id: x.id, x, pnu: p0.pnu || x.pnu, dn: String(p0.dong || '').replace(/동$/, ''), ho: String(p0.ho || '').replace(/호$/, ''), name: x.bname || '', addr: [x.addr, x.road, ...(x.places || []).map(p => p.addr)].join(' '), mine: true, ks: [x.kind === 'presale' ? 'sale' : x.kind], pr: { sale: x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || 0) + (x.pr || 0) : 0, jeonse: x.kind === 'jeonse' ? x.deposit : 0, wd: x.kind === 'wolse' ? x.deposit : 0, wr: x.kind === 'wolse' ? x.rent : 0 }, area: x.area || 0, ptype: (X && X.tbase ? X.tbase(x) : x.ptype) || '' };
     });
     const seen = new Set(ls.map(m => `${m.pnu}|${m.dn}|${m.ho}`));
     return [...ls, ...(C.led || []).filter(m => !seen.has(`${m.pnu}|${m.dn}|${m.ho}`))];

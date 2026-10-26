@@ -4,7 +4,14 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const KIND = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
   const STAT = { on: '진행 중', hold: '보류', done: '거래완료' };
-  const PTYPES = ['아파트', '빌라', '오피스텔', '주택', '상가', '사무실', '건물', '공장·창고', '토지', '기타'];
+  // 10/26 종류 세분화: 위 탭(아파트·상가·건물·오피·빌라·재개발·분양권·토지·공장·숙박) 안의 세부 유형
+  const PTYPES = ['아파트', '주상복합', '상가', '사무실', '건물', '오피스텔', '지식산업센터', '빌라', '연립', '다가구', '주택', '재개발', '재건축', '토지', '공장·창고', '숙박', '기타'];
+  const FORMS = ['빌라', '단독', '상가', '아파트', '토지'];   // 재개발·재건축 매물의 물건 형태
+  // 세부 유형 → 원래 큰 유형 (광고 필수 항목·실거래 비교·고객 조건 맞추기는 이 값으로)
+  const TB = { 주상복합: '아파트', 지식산업센터: '사무실', 연립: '빌라', 다가구: '주택', 숙박: '건물' }, FB = { 빌라: '빌라', 단독: '주택', 상가: '상가', 아파트: '아파트', 토지: '토지' };
+  // 재개발·재건축으로 바꿀 때 물건 형태 기본값 (바꾸기 전 큰 유형 → 형태)
+  const formOf = b => ({ 빌라: '빌라', 주택: '단독', 상가: '상가', 사무실: '상가', 건물: '상가', 오피스텔: '상가', 아파트: '아파트', 토지: '토지' })[b] || '빌라';
+  const tbase = x => { const t = (x && x.ptype) || ''; if (t === '재개발' || t === '재건축') return FB[(x.ad || {}).form] || (t === '재건축' ? '아파트' : ''); return TB[t] || t; };
   const S = { me: null, items: [], tab: 'on', kind: 'all', q: '', map: null, pins: new Map(), hl: null, form: null, kakao: false };
 
   async function api(url, opt) {
@@ -71,6 +78,7 @@
     layout();
     const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
     th(); addEventListener('resize', th);
+    if (window.ResizeObserver) new ResizeObserver(th).observe(document.querySelector('.top'));   // 고객관리에서는 종류 줄이 숨어 높이가 바뀜
     loadMap();
     try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = S.asPlan || j.plan; if (!S.vwSet) { setVw(S.items.length ? 'basic' : 'dense', true); S.vwSet = true; } } catch (e) {
       if (e.code === 'start') return location.replace('/pro.html?go=1');
@@ -82,7 +90,7 @@
     // 고객관리: 화면을 열지 않아도 매물 상세의 '맞는 고객'·알림에 쓰도록 미리 불러 둠
     if (window.Cust) Cust.init(custHost()).then(() => { if (S.mode === 'list') draw(); }).catch(() => {});
     // 알림 (거래 의심 · 만기 · 리얼맵 게시 기간 · 고객)
-    if (window.Alarm) Alarm.mount({ goCust, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
+    if (window.Alarm) Alarm.mount({ tbase, goCust, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
       goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
     let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
@@ -110,6 +118,7 @@
     $('csvBtn').onclick = () => exportCsv();
     $('find').oninput = e => { S.q = e.target.value.trim(); drawList(); };
     document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode, b.dataset.cat));
+    document.querySelectorAll('[data-top]').forEach(b => b.onclick = () => { let m = 'danji'; try { m = localStorage.getItem('rm.lslast') || 'danji'; } catch { /* 무시 */ } setMode(m); });   // 10/26 B안: [매물] = 마지막으로 본 종류 탭
     gsWire();
   }
   // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
@@ -128,7 +137,7 @@
   function setMode(m, cat) {
     S.mode = m === 'danji' || m === 'cust' ? m : 'list';
     if (S.mode === 'list' && cat && window.Board) Board.setCat(cat);   // 10/26 종류별 탭
-    try { localStorage.setItem('rm.lsmode', S.mode); } catch { /* 무시 */ }
+    try { localStorage.setItem('rm.lsmode', S.mode); if (S.mode !== 'cust') localStorage.setItem('rm.lslast', S.mode); } catch { /* 무시 */ }
     const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust';
     document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu);
     if (!lv) document.body.classList.remove('lvmap');
@@ -144,8 +153,10 @@
   function syncTabs() {
     const cat = window.Board ? Board.cat() : 'shop';
     document.querySelectorAll('[data-mode]').forEach(b => { const on = b.dataset.mode === S.mode && (!b.dataset.cat || b.dataset.cat === cat) || (S.mode === 'list' && cat === 'apt' && b.dataset.mode === 'danji'); b.setAttribute('aria-pressed', on); b.classList.remove('lock'); });
+    document.querySelectorAll('[data-top]').forEach(b => b.setAttribute('aria-pressed', S.mode !== 'cust'));
     const n = window.Board && S.items ? Board.counts() : {};
-    document.querySelectorAll('[data-cn]').forEach(e => { const v = n[e.dataset.cn] || 0; e.textContent = v ? ' ' + v : ''; });
+    n.all = Object.values(n).reduce((a, v) => a + v, 0);
+    document.querySelectorAll('[data-cn]').forEach(e => { const v = n[e.dataset.cn] || 0; e.textContent = v ? ' ' + v : ''; const b = e.closest('.ctab button'); if (b) b.classList.toggle('z', !v && b.getAttribute('aria-pressed') !== 'true' && b.dataset.mode !== 'danji'); });
   }
   // ---------- 전체 검색 (위 막대) — 모든 종류 매물에서 찾고, 누르면 그 탭의 그 줄로 ----------
   function gsWire() {
@@ -183,7 +194,7 @@
       $('map').style.visibility = on || S.mode !== 'list' ? '' : 'hidden';
       if (on) setTimeout(() => { if (S.map) { S.map.relayout(); drawPins(true); } }, 60);
     },
-    X: { esc, won, shortWon, priceText, KIND, STAT, PTYPES, ymd, memoParse, memoAdd, splitUnit, guessType, mainTitle, dongPick, hoEq, isPub, pubLive, adMissing, moneyOf, upgrade, centroid, ro: () => roIds() },
+    X: { esc, won, shortWon, priceText, KIND, STAT, PTYPES, FORMS, tbase, formOf, ymd, memoParse, memoAdd, splitUnit, guessType, mainTitle, dongPick, hoEq, isPub, pubLive, adMissing, moneyOf, upgrade, centroid, ro: () => roIds() },
   });
 
   // ---------- 목록 ----------
@@ -317,7 +328,7 @@
   };
   const ROLES = ['소유자', '임차인', '관리인', '대리인', '기타'];
   // 거래 종류별 금액 칸 + 상가는 어떤 거래든 권리금 칸 (분양권 제외)
-  function moneyOf(it) { const m = MONEY[it.kind] || MONEY.sale; return it.ptype === '상가' && it.kind !== 'presale' && !m.some(x => x[0] === 'premium') ? [...m, ['premium', '권리금', 0]] : m; }
+  function moneyOf(it) { const m = MONEY[it.kind] || MONEY.sale; return tbase(it) === '상가' && it.kind !== 'presale' && !m.some(x => x[0] === 'premium') ? [...m, ['premium', '권리금', 0]] : m; }
   function guessType(t) {
     if (!t) return '토지';
     const u = `${t.use || ''} ${t.etcUse || ''}`;
@@ -391,7 +402,7 @@
     const pk = x => x ? (x.pkTotal || ((x.pkIn || 0) + (x.pkOut || 0) + (x.pkInMech || 0) + (x.pkOutMech || 0))) : 0;
     const tot = pk(rc) || ts.reduce((a, x) => a + pk(x), 0);
     const hh = (rc && rc.hhld) || ts.reduce((a, x) => a + (x.hhld || 0), 0);
-    if (tot) setAuto(F, 'park', hh > 1 && ['아파트', '오피스텔', '빌라'].includes(F.it.ptype) ? `총 ${tot}대 (세대당 ${(tot / hh).toFixed(2).replace(/0$/, '')}대)` : `총 ${tot}대`);
+    if (tot) setAuto(F, 'park', hh > 1 && ['아파트', '오피스텔', '빌라'].includes(tbase(F.it)) ? `총 ${tot}대 (세대당 ${(tot / hh).toFixed(2).replace(/0$/, '')}대)` : `총 ${tot}대`);
     if (hh > 1) setAuto(F, 'hhld', hh);
     const lift = ts.reduce((a, x) => a + (x.liftP || 0), 0); if (lift) setAuto(F, 'elev', lift);
     if (ts.some(x => /^(y|1|true|위반)/i.test(String(x.viol ?? '')))) { F.it.ad.viol = true; (F.auto || (F.auto = new Set())).add('viol'); }
@@ -408,7 +419,7 @@
       setAuto(F, 'zone', [c.zone1, c.zone2].filter(Boolean).join(' · '));
       setAuto(F, 'road', c.road || '');
       setAuto(F, 'lp', c.price || null);
-      if (F.it.ptype === '토지' || P.land) setAuto(F, 'use', c.jimok || '');
+      if (tbase(F.it) === '토지' || P.land) setAuto(F, 'use', c.jimok || '');
       renderForm(true);
     } catch { /* 직접 입력 */ }
   }
@@ -715,7 +726,8 @@
         <div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn sub" id="addRent" style="flex:1">＋ 세부 임대료 추가</button>${it.rents.length ? '<button type="button" class="btn dark" id="sumRent">합계 반영</button>' : ''}</div>
         ${it.rents.length ? `<div class="meta" style="margin-top:6px">세부 금액은 자동으로 더해지지 않습니다. '합계 반영'을 누르면 합계를 보여 드리고, 확인하시면 위 ${it.kind === 'sale' ? '기보증금·기월세' : '보증금·월세'}에 넣습니다.</div>` : ''}</div>` : ''}
       <div class="fld"><span class="lb">매물 유형</span><div class="seg" id="fType">${PTYPES.map(v => `<button type="button" data-v="${v}" aria-pressed="${it.ptype === v}">${v}</button>`).join('')}</div>
-        ${it.ptype === '기타' ? `<input class="in" id="f_ptypeTx" value="${esc(it.ptypeTx || '')}" maxlength="20" placeholder="예) 숙박시설, 지식산업센터, 주유소" style="margin-top:8px">` : ''}</div>
+        ${it.ptype === '기타' ? `<input class="in" id="f_ptypeTx" value="${esc(it.ptypeTx || '')}" maxlength="20" placeholder="예) 주유소, 종교시설, 주차장" style="margin-top:8px">` : ''}
+        ${it.ptype === '재개발' || it.ptype === '재건축' ? `<div class="sl" style="margin-top:8px">물건 형태 <small>지금 어떤 물건인지</small></div><div class="seg" id="fForm">${FORMS.map(v => `<button type="button" data-v="${v}" aria-pressed="${(it.ad || {}).form === v}">${v}</button>`).join('')}</div>` : ''}</div>
       <div class="two"><div class="fld"><label for="f_no">매물번호<small>비우면 자동</small></label><input class="in" id="f_no" value="${esc(it.no || '')}" maxlength="20" placeholder="${F.edit ? '' : '자동 (예: 2610-001)'}"></div>
         <div class="fld"><label for="f_bname">매물 이름<small>선택</small></label><input class="in" id="f_bname" value="${esc(it.bname || '')}" maxlength="40"></div></div>
       ${adBlock(F)}
@@ -753,8 +765,9 @@
     on('[data-sq]', inp => inp.oninput = () => { const v = num(inp.value); $(inp.dataset.sq).textContent = v ? (v / 3.3058).toFixed(1) + '평' : ''; });
     on('[data-area]', inp => inp.oninput = () => { const v = num(inp.value); $('hp' + inp.dataset.area).textContent = v ? (v / 3.3058).toFixed(1) + '평' : ''; });
     if (!n) return;
-    const seg = (id, key, after) => $(id).querySelectorAll('button').forEach(b => b.onclick = () => { collect(); F.it[key] = b.dataset.v; if (after) after(); renderForm(true); });
-    seg('fKind', 'kind'); seg('fType', 'ptype', () => (F.touchedType = true)); seg('fStat', 'status');
+    const seg = (id, key, after) => $(id).querySelectorAll('button').forEach(b => b.onclick = () => { collect(); F.prevBase = tbase(F.it); F.it[key] = b.dataset.v; if (after) after(); renderForm(true); });
+    seg('fKind', 'kind'); seg('fType', 'ptype', () => { F.touchedType = true; if (/^재(개발|건축)$/.test(F.it.ptype) && !(F.it.ad || {}).form) F.it.ad = { ...(F.it.ad || {}), form: F.it.ptype === '재건축' ? '아파트' : formOf(F.prevBase) }; }); seg('fStat', 'status');
+    if ($('fForm')) $('fForm').querySelectorAll('button').forEach(b => b.onclick = () => { collect(); F.it.ad = { ...(F.it.ad || {}), form: (F.it.ad || {}).form === b.dataset.v ? '' : b.dataset.v }; renderForm(true); });
     on('[data-money]', inp => inp.oninput = () => { $('hm_' + inp.dataset.money).textContent = won(num(inp.value)); });
     // 수익률은 다시 그리지 않고 그 자리만 바꿉니다 (다시 그리면 바로 누른 '저장하기'가 씹힘)
     on('[data-money]', inp => inp.addEventListener('input', () => { if (!['sale', 'presale'].includes(F.it.kind) || !$('yield')) return; collect(); $('yield').innerHTML = yieldHint(F.it); }));
@@ -847,7 +860,7 @@
     if (!x.ptype) miss.push('매물 종류');
     const price = x.kind === 'sale' ? x.price : x.kind === 'jeonse' ? x.deposit : x.kind === 'wolse' ? x.rent : x.price && x.pr;
     if (!price) miss.push('가격');
-    if (x.ptype === '토지') { if (!a.use) miss.push('지목'); return miss; }
+    if (tbase(x) === '토지') { if (!a.use) miss.push('지목'); return miss; }
     if (!x.ptype) return miss;
     if (x.kind !== 'presale' && !a.use) miss.push('건축물 용도');
     if (!a.tfl) miss.push('총 층수');
@@ -856,7 +869,7 @@
     if (!a.dir) miss.push('방향');
     if (!a.movein) miss.push('입주 가능일');
     if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
-    if (RESID.includes(x.ptype)) {
+    if (RESID.includes(tbase(x))) {
       if (a.rooms == null || a.rooms === '') miss.push('방 수');
       if (a.baths == null || a.baths === '') miss.push('욕실 수');
       if (!x.mgmt && !a.nomgmt) miss.push('관리비');
@@ -869,7 +882,7 @@
   function adBlock(F) {
     const it = F.it, a = it.ad || (it.ad = {});
     if (!it.ptype) return '';
-    const pt = it.ptype, land = pt === '토지', res = RESID.includes(pt), shop = pt === '상가' || pt === '사무실', fac = pt === '공장·창고', pre = it.kind === 'presale';
+    const pt = tbase(it), land = pt === '토지', res = RESID.includes(pt), shop = pt === '상가' || pt === '사무실', fac = pt === '공장·창고', pre = it.kind === 'presale';
     const miss = adMissing(it, S.bk).filter(m => m !== '중개사무소 정보');
     const au = k => F.auto && F.auto.has(k) ? '<em class="auto">자동</em>' : '';
     const inp = (k, lb, ph, extra = '', sub = '') => `<div><label class="sl" for="a_${k}">${lb}${au(k)}${sub}</label><input class="in" id="a_${k}" value="${esc(a[k] ?? '')}" placeholder="${ph}" ${extra}></div>`;
@@ -952,7 +965,7 @@
     const AUTOM = ['건축물 용도', '사용승인일', '주차 대수', '총 층수', '해당 층', '지목'];
     if (window.Board && x.pnu && adMissing(x, S.bk).some(m => AUTOM.includes(m))) {
       const P = S.pubS, p0 = x.places[0] || {}; P.filling = true; drawPubSheet();
-      Board.autoItem({ pnu: p0.pnu || x.pnu, dong: p0.dong, ho: p0.ho, ptype: x.ptype, area: x.area }).then(it => {
+      Board.autoItem({ pnu: p0.pnu || x.pnu, dong: p0.dong, ho: p0.ho, ptype: x.ptype, form: (x.ad || {}).form, area: x.area }).then(it => {
         if (S.pubS !== P) return;
         const a = P.x.ad || (P.x.ad = {});
         for (const [k, v] of Object.entries(it.ad || {})) if ((a[k] == null || a[k] === '') && v != null && v !== '') a[k] = v;
@@ -960,7 +973,7 @@
     }
   }
   const psKeys = x => {
-    const pt = x.ptype, land = pt === '토지', res = RESID.includes(pt), shop = pt === '상가' || pt === '사무실';
+    const pt = tbase(x), land = pt === '토지', res = RESID.includes(pt), shop = pt === '상가' || pt === '사무실';
     if (land) return ['ptype', 'price', 'area', 'use', 'zone'];
     return ['ptype', 'price', 'area', 'use', 'fl', 'appr', 'park', 'dir', 'movein', ...(res ? ['rb', 'mgmt'] : []), ...(shop ? ['biz', 'wc'] : [])];
   };
@@ -986,7 +999,7 @@
       case 'rb': return `<div class="prow">방 ${inp('rooms', a.rooms, '예 3', 'inputmode="numeric" maxlength="2" style="width:70px"')} 욕실 ${inp('baths', a.baths, '예 2', 'inputmode="numeric" maxlength="2" style="width:70px"')}</div>`;
       case 'mgmt': return `<div class="prow">월 ${inp('$mgmt', x.mgmt, '예 25', 'inputmode="numeric" style="width:90px"')} 만원 ${chips('mgmtT', ['실비', '정액'], a.mgmtT === 'fix' ? '정액' : '실비')}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>${a.mgmtT === 'fix' && x.mgmt >= 10 ? `<div class="pchips">${MGI.map(([m, t]) => `<label class="pck"><input type="checkbox" data-mgi2="${m}" ${(a.mgmtInc || []).includes(m) ? 'checked' : ''}>${t}</label>`).join('')}</div><small class="pmeta">정액 10만원 이상이면 포함 항목을 표시해야 합니다</small>` : ''}`;
       case 'fl': return `<div class="prow">${inp('fl', a.fl, isWhole(x) ? '전체' : '12 (지하 B1)', 'maxlength="8" style="width:110px"')} 층 / 총 ${inp('tfl', a.tfl, '25', 'inputmode="numeric" maxlength="3" style="width:80px"')} 층</div>`;
-      case 'use': return inp('use', a.use, x.ptype === '토지' ? '대 / 전 / 임야' : '공동주택(아파트) / 제2종근린생활시설', 'maxlength="40"');
+      case 'use': return inp('use', a.use, tbase(x) === '토지' ? '대 / 전 / 임야' : '공동주택(아파트) / 제2종근린생활시설', 'maxlength="40"');
       case 'appr': return inp('appr', a.appr, '2014.09.30', 'maxlength="10"');
       case 'park': return inp('park', a.park, '총 120대 (세대당 1.2대)', 'maxlength="30"');
       case 'biz': return inp('biz', a.biz, '카페 / 공실', 'maxlength="30"');
@@ -1034,7 +1047,7 @@
     F.querySelectorAll('[data-pk]').forEach(i => { i.oninput = set; i.onchange = () => { set(); }; });
     F.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => {
       set(); const k = b.dataset.pc, v = b.dataset.v;
-      if (k === 'ptype') x.ptype = v; else if (k === 'mgmtT') x.ad.mgmtT = v === '정액' ? 'fix' : 'avg'; else x.ad[k] = x.ad[k] === v && k !== 'movein' ? '' : v;
+      if (k === 'ptype') { const b0 = tbase(x); x.ptype = v; if (/^재(개발|건축)$/.test(v) && !x.ad.form) x.ad.form = v === '재건축' ? '아파트' : formOf(b0); } else if (k === 'mgmtT') x.ad.mgmtT = v === '정액' ? 'fix' : 'avg'; else x.ad[k] = x.ad[k] === v && k !== 'movein' ? '' : v;
       drawPubSheet();
     });
     F.querySelectorAll('[data-pb]').forEach(c => c.onchange = () => { set(); x.ad[c.dataset.pb] = c.checked; drawPubSheet(); });
@@ -1110,7 +1123,7 @@
     if (!adv()) return upsell('매물 정보로 브리핑을 자동 작성하는 기능은 Basic 요금제(월 9,900원)부터 쓸 수 있습니다.\n(리얼맵 지도에서 필지를 눌러 [브리핑]으로 직접 입력해 만드는 것은 회원 누구나 무료입니다.)');
     const a = x.ad || {}, p0 = (x.places && x.places[0]) || {}, pnu = x.pnu || p0.pnu;
     if (!pnu) return toast('주소(필지)가 없는 매물이라 브리핑을 만들 수 없습니다');
-    const T = ['아파트', '빌라', '오피스텔'].includes(x.ptype) ? 'apt' : x.ptype === '토지' ? 'land' : 'bld';
+    const T = ['아파트', '빌라', '오피스텔'].includes(tbase(x)) ? 'apt' : tbase(x) === '토지' ? 'land' : 'bld';
     const K = x.kind === 'jeonse' ? '전세' : x.kind === 'wolse' ? (T === 'land' ? '월세' : '월세') : '매매';
     const dong = p0.dong ? (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동') : '';
     const fl = a.fl && a.fl !== '전체' ? `${String(a.fl).replace(/^b/i, '지하 ')}층${a.tfl ? ' / ' + a.tfl + '층' : ''}` : '';
