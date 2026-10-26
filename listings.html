@@ -969,6 +969,22 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 @media (min-width:980px){
   .djlay.hastree .djtree,.bdlay.hastree .bdtree{top:8px;max-height:calc((100vh - var(--toph,60px) - 16px) / var(--fz,1))}
 }
+/* 10/26 상담 기록 창 (오른쪽에 떠 있음 · 휴대폰은 아래에서) */
+.dj .hpanel{position:fixed;right:14px;top:calc((var(--toph,60px) + 12px) / var(--fz,1));width:400px;max-height:calc((100vh - var(--toph,60px) - 28px) / var(--fz,1));overflow:auto;z-index:60;background:#FFFDF6;border:1px solid #E5D9A8;border-radius:14px;box-shadow:0 12px 32px rgba(16,32,48,.22);padding:0 12px 12px}
+.dj .hpanel .hp-h{position:sticky;top:0;background:#FFFDF6;display:flex;align-items:baseline;gap:8px;padding:12px 0 8px;border-bottom:1px solid #EEE3BD;margin-bottom:8px;z-index:1}
+.dj .hpanel .hp-h b{font-size:15px}.dj .hpanel .hp-h span{font-size:12px;color:var(--muted);flex:1;min-width:0}
+.dj .hpanel .hp-x{border:0;background:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:0 2px}
+.dj .hpanel .hbox{position:static;max-width:none}
+.dj .hpanel .hjhist li{flex-wrap:wrap}
+@media (max-width:700px){.dj .hpanel{left:0;right:0;top:auto;bottom:0;width:auto;max-height:65vh;border-radius:16px 16px 0 0}}
+/* 10/26 타입 정리 창 */
+.djmodal{position:fixed;inset:0;z-index:90;background:rgba(16,24,32,.42);display:flex;align-items:center;justify-content:center;padding:16px}
+.djmodal .mbox{background:#fff;border-radius:16px;padding:18px 20px;width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.djmodal .mt{display:block;font-size:17px;margin-bottom:6px}.djmodal .mp{font-size:14px;line-height:1.55;color:#3E4A57;margin:0 0 10px}
+.djmodal .att{width:100%;border-collapse:collapse;font-size:14px}.djmodal .att th{font-size:12px;color:var(--muted);text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+.djmodal .att td{padding:5px 6px;border-bottom:1px solid #F0F2F4}.djmodal .att input{width:80px}
+.djmodal .note{font-size:12.5px;color:var(--muted);margin:10px 0 0;line-height:1.5}
+.djmodal .mbtns{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 </style>
 </head>
 <body>
