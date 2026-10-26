@@ -5,8 +5,11 @@
 window.Sett = (() => {
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const MENU = [['office', '우리 사무소', '정보·광고 표시'], ['excel', '엑셀', '불러오기·내려받기'], ['plan', '요금제', ''], ['acct', '계정·화면', '']];
-  let H = null, el = null, sec = 'office', log = null, cxs = null, cus = null; const off = new Set();   // off: 내려받기에서 체크를 푼 단지
+  const MENU = [['office', '우리 사무소', '정보·광고 표시'], ['excel', '엑셀', '불러오기·내려받기'], ['plan', '요금제', ''], ['help', '문의하기', ''], ['acct', '계정·화면', '']];
+  let H = null, el = null, sec = 'office', log = null, cxs = null, cus = null, hp = null; const off = new Set();   // off: 내려받기에서 체크를 푼 단지 · hp: 내 입금 신청·문의
+  const pf = { plan: '', mon: 12, payer: '', rc: '', rcno: '' }, qf = { cat: '사용법', text: '', img: '' };   // 쓰던 신청서·문의 글 (화면을 다시 그려도 남게)
+  const BANK = { name: '신한은행', no: '140-012-485569', who: '(주)드림인베스트' }, PRICE = { basic: 9900, premium: 19900, vip: 29900 }, PN = { basic: 'Basic', premium: 'Premium', vip: 'VIP' };
+  const PDESC = { basic: '매물 1,000건 · 지도 광고 300건', premium: '매물 5,000건 · 지도 광고 1,000건', vip: '매물 3만 건 · 지도 광고 3,000건' };
   const ymdhm = t => { const d = new Date(new Date(t).getTime() + 9 * 3600e3).toISOString(); return `${d.slice(2, 4)}.${d.slice(5, 7)}.${d.slice(8, 10)} ${d.slice(11, 16)}`; };
   const ymd = t => t ? String(t).slice(0, 10).replace(/-/g, '.') : '';
   const csv = (name, head, rows) => {
@@ -17,14 +20,14 @@ window.Sett = (() => {
   const today = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
   function mount(box, host) { H = host; el = box; try { sec = localStorage.getItem('rm.set') || 'office'; } catch { /* 무시 */ } if (!MENU.some(m => m[0] === sec)) sec = 'office'; draw(); }
-  function refresh() { if (el) draw(); }
+  function refresh() { if (el && !el.contains(document.activeElement)) draw(); }   // 글을 쓰는 중이면 다시 그리지 않음
   function stale() { log = null; cxs = null; cus = null; if (el && !el.hidden) draw(); }   // 엑셀 불러오기 뒤 기록·숫자 새로
-  function go(s) { sec = s; try { localStorage.setItem('rm.set', s); } catch { /* 무시 */ } draw(); }
+  function go(s, fresh) { if (fresh) hp = null; sec = s; try { localStorage.setItem('rm.set', s); } catch { /* 무시 */ } draw(); }
   function draw() {
     el.innerHTML = `<div class="st-w"><nav class="st-n">${MENU.map(([k, t, d]) => `<button type="button" data-s="${k}" aria-pressed="${sec === k}"><b>${t}</b><small>${k === 'plan' ? esc((H.plan() || {}).name || '') : d}</small></button>`).join('')}
       <hr><button type="button" class="off" disabled><b>직원 관리</b><small>준비 중</small></button></nav><div class="st-m" id="stM"></div></div>`;
     el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => go(b.dataset.s));
-    ({ office, excel, plan, acct })[sec]($('stM'));
+    ({ office, excel, plan, help, acct })[sec]($('stM'));
   }
 
   // ---------- 우리 사무소 ----------
@@ -44,6 +47,7 @@ window.Sett = (() => {
   // ---------- 엑셀 ----------
   async function loadLog() { try { log = await H.api('/api/auth?action=xlog'); } catch (e) { log = { dl: [], im: [], err: e.message }; } }
   async function loadCx() { try { cxs = (await H.api('/api/auth?action=cx')).items || []; } catch { cxs = []; } }
+  async function loadHp() { try { hp = await H.api('/api/auth?action=help'); } catch (e) { hp = { pays: [], qnas: [], err: e.message }; } }
   async function loadCu() { try { cus = (await H.api('/api/auth?action=cu')).items || []; } catch (e) { cus = { err: e.message }; } }
   function excel(m) {
     const P = H.plan() || {}, n = H.items().length;
@@ -125,9 +129,77 @@ window.Sett = (() => {
     m.innerHTML = `<section class="st-c"><h2>요금제 <em class="gr">${esc(P.name || '')}${P.until ? ` · ${ymd(P.until)}까지${left != null ? ` (${left}일 남음)` : ''}` : ''}</em></h2>
       <p class="st-d">한도의 90%가 넘으면 막대가 빨갛게 바뀝니다.</p>
       <div class="st-u">${bar('매물', items.length, P.ls, '건')}${bar('지도 광고', pub, P.ad, '건')}${bar('아파트 단지', cxs ? cxs.length : null, P.cx, '곳')}${bar('고객', Array.isArray(cus) ? cus.length : null, P.cu, '명')}</div>
-      <div class="st-r" style="justify-content:flex-start"><a class="st-b" href="/pro.html#price" target="_blank" rel="noopener">요금제 보기 · 바꾸기</a></div></section>`;
+      <div class="st-r" style="justify-content:flex-start"><a class="st-b" href="/pro.html#price" target="_blank" rel="noopener">요금제 자세히 보기</a></div></section>
+      ${payForm()}`;
+    wirePay(m);
     if (!cxs) loadCx().then(() => sec === 'plan' && draw());
     if (!cus) loadCu().then(() => sec === 'plan' && draw());
+    if (!hp) loadHp().then(() => sec === 'plan' && draw());
+  }
+  // 계좌이체 신청 (10/27): 고르기 → 계좌·금액 → [입금했어요] → 운영자가 통장 확인 뒤 켜 줌(남은 기간 뒤에 이어 붙임)
+  function payForm() {
+    const P = H.plan() || {};
+    if (!pf.plan) pf.plan = PRICE[P.plan] ? P.plan : 'basic';
+    if (!pf.payer) pf.payer = (H.bk() && H.bk().office) || '';
+    const amt = PRICE[pf.plan] * (pf.mon === 12 ? 10 : pf.mon), now = new Date().toISOString();
+    const pays = (hp && hp.pays) || [], wait = pays.filter(x => x.st === 'wait');
+    const ST = { wait: '<em class="no">입금 확인 중</em>', ok: '<em class="ok">켜짐</em>', no: '<em class="gr">취소됨</em>', cancel: '<em class="gr">신청 취소</em>' };
+    return `<section class="st-c"><h2>요금제 신청 · 계좌이체</h2>
+      <p class="st-d">${PRICE[P.plan] && P.until > now ? `지금 <b>${esc(P.name)} · ${ymd(P.until)}까지</b> 이용 중입니다. 입금하시면 남은 기간 뒤에 이어서 늘어납니다.` : '입금이 확인되면 그날부터 시작합니다.'}</p>
+      <div class="st-pl">${Object.keys(PRICE).map(k => `<button type="button" data-pp="${k}" aria-pressed="${pf.plan === k}"><b>${PN[k]}</b><span>월 ${PRICE[k].toLocaleString()}원 · ${PDESC[k]}</span></button>`).join('')}</div>
+      <div class="st-per">${[1, 6, 12].map(n => `<button type="button" data-pm="${n}" aria-pressed="${pf.mon === n}">${n}개월${n === 12 ? ' <small>2개월 무료</small>' : ''}</button>`).join('')}</div>
+      <div class="st-acc">${BANK.name} <b>${BANK.no}</b> &nbsp;예금주 <b>${BANK.who}</b> <button type="button" class="st-cp" id="stCp">계좌 복사</button><br>
+        입금자명 <input id="stPayer" value="${esc(pf.payer)}" maxlength="30" placeholder="사무소명"> <small>통장에 찍히는 이름과 같게 적어 주세요</small></div>
+      <div class="st-sum"><span>${PN[pf.plan]} ${pf.mon}개월${pf.mon === 12 ? ' (10개월 값)' : ''} · 부가세 포함</span><b>${amt.toLocaleString()}원</b></div>
+      <div class="st-rc"><label><input type="radio" name="strc" value="" ${pf.rc ? '' : 'checked'}> 영수증 필요 없음</label><label><input type="radio" name="strc" value="cash" ${pf.rc === 'cash' ? 'checked' : ''}> 현금영수증</label><label><input type="radio" name="strc" value="tax" ${pf.rc === 'tax' ? 'checked' : ''}> 세금계산서</label>
+        ${pf.rc ? `<input id="stRcNo" value="${esc(pf.rcno)}" maxlength="20" placeholder="${pf.rc === 'tax' ? '사업자번호 (000-00-00000)' : '휴대폰 번호'}">` : ''}</div>
+      <div class="st-r"><button type="button" class="st-b y" id="stPay" ${wait.length >= 3 ? 'disabled' : ''}>입금했어요 · 신청하기</button></div>
+      <p class="st-d">입금이 확인되면 보통 하루 안에 켜 드리고 알림(🔔)으로 알려 드립니다.</p>
+      ${pays.length ? `<h3>내 신청</h3><table class="st-tb"><tr><th>신청</th><th>요금제</th><th>금액</th><th>상태</th><th></th></tr>${pays.slice(0, 10).map(x => `<tr><td>${ymdhm(x.at)}</td><td>${PN[x.plan] || x.plan} ${x.mon}개월</td><td>${x.amt.toLocaleString()}원</td><td>${ST[x.st] || ''}${x.st === 'ok' && x.until ? ` <small>${ymd(x.until)}까지</small>` : ''}${x.st === 'no' && x.why ? ` <small>${esc(x.why)}</small>` : ''}</td><td>${x.st === 'wait' ? `<button type="button" class="st-x" data-pc="${esc(x.id)}">신청 취소</button>` : ''}</td></tr>`).join('')}</table>` : ''}</section>`;
+  }
+  function wirePay(m) {
+    m.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { pf.plan = b.dataset.pp; draw(); });
+    m.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { pf.mon = +b.dataset.pm; draw(); });
+    m.querySelectorAll('[name="strc"]').forEach(r => r.onchange = () => { pf.rc = r.value; draw(); });
+    $('stPayer').oninput = e => { pf.payer = e.target.value; };
+    if ($('stRcNo')) $('stRcNo').oninput = e => { pf.rcno = e.target.value; };
+    $('stCp').onclick = async () => { try { await navigator.clipboard.writeText(BANK.no.replace(/-/g, '')); H.toast('계좌번호를 복사했습니다'); } catch { prompt('계좌번호를 복사해 주세요', BANK.no); } };
+    $('stPay').onclick = async () => {
+      const amt = PRICE[pf.plan] * (pf.mon === 12 ? 10 : pf.mon);
+      if (!pf.payer.trim()) return H.toast('입금자명을 적어 주세요');
+      if (pf.rc && !pf.rcno.trim()) return H.toast(pf.rc === 'tax' ? '사업자번호를 적어 주세요' : '현금영수증 받을 휴대폰 번호를 적어 주세요');
+      if (!confirm(`${PN[pf.plan]} ${pf.mon}개월 ${amt.toLocaleString()}원\n${BANK.name} ${BANK.no} ${BANK.who}\n입금자명: ${pf.payer}\n\n입금하셨나요? 신청을 보냅니다.`)) return;
+      try { await H.api('/api/auth?action=help', H.post({ op: 'pay', plan: pf.plan, mon: pf.mon, payer: pf.payer, rcpt: pf.rc ? { t: pf.rc, no: pf.rcno } : null })); H.toast('신청했습니다. 입금이 확인되면 알림으로 알려 드립니다', 4500); hp = null; draw(); }
+      catch (e) { H.toast(e.message, 4000); }
+    };
+    m.querySelectorAll('[data-pc]').forEach(b => b.onclick = async () => { if (!confirm('이 신청을 취소할까요?')) return; try { await H.api('/api/auth?action=help', H.post({ op: 'paycancel', id: b.dataset.pc })); hp = null; draw(); } catch (e) { H.toast(e.message, 4000); } });
+  }
+
+  // ---------- 문의하기 (10/27) — 운영자가 중개사 관리 화면에서 답변 · 답변이 오면 알림(🔔) ----------
+  function help(m) {
+    const qs = (hp && hp.qnas) || [];
+    m.innerHTML = `<section class="st-c"><h2>문의하기</h2><p class="st-d">사용법·오류·요금 무엇이든 적어 주세요. 답변은 이 화면과 알림(🔔)으로 드립니다. 오류는 화면을 찍은 사진을 붙이면 빨리 고칠 수 있습니다.</p>
+      <div class="st-per">${['사용법', '오류', '요금·결제', '기타'].map(c => `<button type="button" data-qc="${c}" aria-pressed="${qf.cat === c}">${c}</button>`).join('')}</div>
+      <textarea id="stQ" class="st-ta" rows="6" maxlength="2000" placeholder="예) 엑셀 불러오기에서 주소를 못 찾는 줄이 많아요">${esc(qf.text)}</textarea>
+      <div class="st-r" style="justify-content:space-between;align-items:center"><span><label class="st-b" for="stQi">${qf.img ? '사진 바꾸기' : '사진 붙이기 (선택)'}</label><input type="file" id="stQi" accept="image/*" hidden> ${qf.img ? `<a href="${esc(qf.img)}" target="_blank" rel="noopener">붙인 사진</a> <button type="button" class="st-x" id="stQiX">빼기</button>` : ''}</span><button type="button" class="st-b y" id="stQs">보내기</button></div></section>
+      <section class="st-c"><h2>내 문의</h2>${!hp ? '<p class="st-d">불러오는 중…</p>' : qs.length ? qs.map(q => `<div class="st-qa"><div class="q"><small>${ymdhm(q.at)} · ${esc(q.cat)}</small><p>${esc(q.text)}</p>${q.img ? `<a href="${esc(q.img)}" target="_blank" rel="noopener">사진</a>` : ''}</div>${q.reply ? `<div class="a"><small>리얼맵 답변 · ${ymdhm(q.rat)}</small><p>${esc(q.reply)}</p></div>` : '<div class="a w">답변을 준비하고 있습니다</div>'}</div>`).join('') : '<p class="st-d">아직 보낸 문의가 없습니다.</p>'}</section>`;
+    m.querySelectorAll('[data-qc]').forEach(b => b.onclick = () => { qf.cat = b.dataset.qc; draw(); });
+    $('stQ').oninput = e => { qf.text = e.target.value; };
+    if ($('stQiX')) $('stQiX').onclick = () => { qf.img = ''; draw(); };
+    $('stQi').onchange = async e => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      try {
+        const src = await createImageBitmap(f), k = Math.min(1, 1600 / Math.max(src.width, src.height)), c = document.createElement('canvas');
+        c.width = Math.round(src.width * k); c.height = Math.round(src.height * k); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+        const j = await H.api('/api/auth?action=listing&op=photo', H.post({ data: c.toDataURL('image/jpeg', 0.85) })); qf.img = j.url; draw();
+      } catch (er) { H.toast(er.message || '사진을 올리지 못했습니다', 4000); }
+    };
+    $('stQs').onclick = async () => {
+      if (qf.text.trim().length < 2) return $('stQ').focus();
+      try { await H.api('/api/auth?action=help', H.post({ op: 'ask', cat: qf.cat, text: qf.text, img: qf.img })); qf.text = ''; qf.img = ''; hp = null; H.toast('문의를 보냈습니다. 답변이 오면 알림으로 알려 드립니다', 4500); draw(); }
+      catch (e) { H.toast(e.message, 4000); }
+    };
+    if (!hp) loadHp().then(() => sec === 'help' && draw());
   }
 
   // ---------- 계정·화면 ----------

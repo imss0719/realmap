@@ -474,3 +474,8 @@
 - 10/26 엑셀 내려받기 = 대표 휴대폰 인증 한 번에 한 번(30분 유지 없앰, 선배 결정). sms check에 xl{what,n}을 보내면 서버가 realmap:xdl:<uid>(최근 100)에 기록.
   문자 1분 1번 제한은 그대로라 연달아 받으려면 1분 기다림. 하루 한도 5→10번(회원·번호 각각).
 - 10/26 /api/auth?action=xlog: GET {dl, im} · POST op im(불러오기 기록: ls=ib, hj=made[[cx,key]]+newCx) / imget / imdone. realmap:xim:<uid> 최근 30. 해지(dropBroker) 때 둘 다 지움.
+- 10/27 계좌이체 요금제(PG 없이 시작, 선배 결정): 신한 140-012-485569 (주)드림인베스트. 설정 → 요금제에서 요금제·기간(1/6/12개월, 12개월=10개월 값) · 입금자명 · 현금영수증/세금계산서 번호 → /api/auth?action=help op 'pay'
+  (금액은 서버가 계산 PRICE·payAmt, 대기 3건까지) → realmap:pays(해시) → 운영자 문자(ADMIN_PHONE 환경변수 있을 때만, opSms) → brokers.html [입금 확인 · 켜기] = members.js op 'payok'
+  (지금 유료 기간이 남아 있으면 그 끝에서 mon개월 이어 붙임 · 요금제는 새로 고른 것) / 'payno'(이유). 회원은 알림(📢 note, alarm.js 0번)으로 받음. 영수증 발행은 선배가 홈택스에서.
+- 10/27 문의하기: 설정 → 문의하기(종류·내용·사진 1장 선택, 하루 10건) → realmap:qna → 운영자 문자 → brokers.html [문의] 카드에서 답변(op 'reply') → 회원 설정 화면·알림.
+  설정 화면은 글을 쓰는 중(포커스가 설정 안)이면 다른 화면 갱신 때 다시 그리지 않음 · 쓰던 신청서·문의 글은 pf/qf에 보관.

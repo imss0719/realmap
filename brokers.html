@@ -89,6 +89,7 @@ dialog .row{margin-top:10px}
     return j;
   }
   async function load(body) {
+    if (body && ['payok', 'payno', 'reply'].includes(body.op)) { const r = await call(body); if (!r.ok) return alert(r.message || '처리하지 못했습니다.'); return load(); }   // 입금 확인·답변 뒤 목록 다시
     if (!data) app.innerHTML = '<div class="card"><p>중개사 목록을 불러오는 중입니다…</p></div>';
     const j = await call(body);
     if (j.error === 'login') return login();
@@ -111,6 +112,7 @@ dialog .row{margin-top:10px}
       <div class="stat"><span>체험 3일 안에 끝남</span><b class="${soon.length ? 'soon' : ''}">${soon.length}</b></div>
       <div class="stat"><span>지도 광고 게시 중</span><b>${data.pubs.length}</b></div>
     </div>
+    ${payQna()}
     <div class="card"><h2>중개사 회원 <small>${rows.length}명 · 최근 활동 순</small></h2>
       <div class="tools"><input type="search" id="q" placeholder="사무소명·대표·등록번호·전화로 찾기" value="${esc(q)}" style="width:260px">
         <select id="fp"><option value="">전체 요금제</option><option value="trial">체험 중</option><option value="free">무료</option><option value="paid">유료</option></select>
@@ -142,11 +144,29 @@ dialog .row{margin-top:10px}
     document.getElementById('fp').value = fp; document.getElementById('fp').onchange = e => { fp = e.target.value; draw(); };
     document.getElementById('re').onclick = () => load();
     document.getElementById('csv').onclick = () => csv(rows);
+    app.querySelectorAll('[data-payok]').forEach(b => b.onclick = () => { const p = data.pays.find(x => x.id === b.dataset.payok); if (confirm(`${p.office} · ${p.pname} ${p.mon}개월 ${p.amt.toLocaleString()}원\n입금자 ${p.payer}\n\n통장에서 입금을 확인하셨나요? 요금제를 켭니다 (남은 기간 뒤에 이어 붙임).`)) load({ op: 'payok', id: p.id }); });
+    app.querySelectorAll('[data-payno]').forEach(b => b.onclick = () => { const why = prompt('신청을 취소할까요? 이유를 적어 주세요 (회원에게 보입니다)', '입금이 확인되지 않았습니다'); if (why !== null) load({ op: 'payno', id: b.dataset.payno, why }); });
+    app.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => { const t = document.getElementById('rp_' + b.dataset.rep); if (!t.value.trim()) return t.focus(); load({ op: 'reply', id: b.dataset.rep, text: t.value }); });
     app.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => planDlg(R.find(r => r.id === b.dataset.plan)));
     app.querySelectorAll('[data-vf]').forEach(b => b.onclick = () => { if (confirm(b.dataset.on ? '이 사무소의 등록번호·대표·영업 상태를 확인하셨나요?\n확인 표시를 하고, 승인 대기였다면 체험을 시작합니다.' : '확인 표시를 취소할까요? (이 회원은 매물장을 쓸 수 없게 됩니다)')) load({ uid: b.dataset.vf, op: 'verify', on: !!b.dataset.on }); });
     app.querySelectorAll('[data-noph]').forEach(b => b.onclick = () => { if (confirm('이 사무소의 대표 사진을 지울까요? (부적절한 사진일 때)')) load({ uid: b.dataset.noph, op: 'nophoto' }); });
     app.querySelectorAll('[data-off]').forEach(b => b.onclick = () => { if (confirm('이 중개사의 지도 광고를 모두 내릴까요? (매물장 자료는 그대로)')) load({ uid: b.dataset.off, op: 'unpubAll' }); });
     app.querySelectorAll('[data-unpub]').forEach(b => b.onclick = () => { if (confirm('이 광고를 지도에서 내릴까요?')) load({ k: b.dataset.unpub, op: 'unpub' }); });
+  }
+  // 계좌이체 입금 확인 · 문의 (10/27)
+  function payQna() {
+    const P = data.pays || [], Q = data.qnas || [], wait = P.filter(p => p.st === 'wait'), done = P.filter(p => p.st !== 'wait').slice(0, 30);
+    const ST = { ok: '켜 줌', no: '취소(운영자)', cancel: '취소(회원)' };
+    const rc = p => p.rcpt ? `${p.rcpt.t === 'tax' ? '세금계산서' : '현금영수증'} ${esc(p.rcpt.no)}` : '-';
+    const open = Q.filter(q => !q.reply), ans = Q.filter(q => q.reply).slice(0, 20);
+    const qrow = q => `<tr><td>${d8(q.at)}<small>${esc(q.cat)}</small></td><td><b>${esc(q.office)}</b></td><td style="white-space:pre-wrap;max-width:420px">${esc(q.text)}${q.img ? `<br><a href="${esc(q.img)}" target="_blank" rel="noopener">사진 보기</a>` : ''}</td>
+      <td>${q.reply ? `<div style="white-space:pre-wrap;max-width:360px">${esc(q.reply)}</div><small>${d8(q.rat)} 답변</small>` : `<textarea id="rp_${esc(q.id)}" rows="3" style="width:320px;font:inherit;padding:6px;border:1px solid #CBD5E1;border-radius:8px" placeholder="답변 (회원 설정 화면·알림으로 보입니다)"></textarea><div><button class="btn sm" type="button" data-rep="${esc(q.id)}">답변 보내기</button></div>`}</td></tr>`;
+    return `<div class="card"><h2>입금 확인 대기 <small>${wait.length}건 · 계좌이체 신청 · 통장 확인 뒤 [입금 확인 · 켜기]</small></h2>
+      ${wait.length ? `<div class="tw"><table><thead><tr><th>신청</th><th>사무소 · 입금자명</th><th>요금제</th><th>금액</th><th>영수증</th><th></th></tr></thead><tbody>${wait.map(p => `<tr><td>${d8(p.at)}<small>${new Date(p.at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })}</small></td><td><b>${esc(p.office)}</b><small>입금자 ${esc(p.payer)}</small></td><td>${esc(p.pname)} ${p.mon}개월</td><td><b>${p.amt.toLocaleString()}원</b></td><td>${rc(p)}</td><td><div class="acts"><button class="btn sm" type="button" data-payok="${esc(p.id)}">입금 확인 · 켜기</button><button class="btn sm ghost" type="button" data-payno="${esc(p.id)}">취소</button></div></td></tr>`).join('')}</tbody></table></div>` : '<p>기다리는 신청이 없습니다.</p>'}
+      ${done.length ? `<details style="margin-top:10px"><summary>입금 기록 ${done.length}건</summary><div class="tw"><table><thead><tr><th>신청</th><th>사무소 · 입금자명</th><th>요금제</th><th>금액</th><th>영수증</th><th>처리</th></tr></thead><tbody>${done.map(p => `<tr><td>${d8(p.at)}</td><td>${esc(p.office)}<small>${esc(p.payer)}</small></td><td>${esc(p.pname)} ${p.mon}개월</td><td>${p.amt.toLocaleString()}원</td><td>${rc(p)}</td><td>${ST[p.st] || p.st}<small>${d8(p.done)}${p.until ? ` · ${d8(p.until)}까지` : ''}${p.why ? ` · ${esc(p.why)}` : ''}</small></td></tr>`).join('')}</tbody></table></div></details>` : ''}</div>
+    <div class="card"><h2>문의 <small>답변 전 ${open.length}건</small></h2>
+      ${open.length ? `<div class="tw"><table><thead><tr><th>날짜</th><th>사무소</th><th>내용</th><th>답변</th></tr></thead><tbody>${open.map(qrow).join('')}</tbody></table></div>` : '<p>답변을 기다리는 문의가 없습니다.</p>'}
+      ${ans.length ? `<details style="margin-top:10px"><summary>답변한 문의 ${ans.length}건</summary><div class="tw"><table><tbody>${ans.map(qrow).join('')}</tbody></table></div></details>` : ''}</div>`;
   }
   function planDlg(r) {
     const dlg = document.getElementById('dlg');

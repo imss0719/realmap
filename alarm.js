@@ -44,7 +44,7 @@ window.Alarm = (() => {
     A.list.unshift({ ...a, at: Date.now(), read: false });
     return true;
   }
-  const ICON = { deal: '⚠', exp: '⏰', pub: '📍', cust: '👤', imp: '⚑' };
+  const ICON = { deal: '⚠', exp: '⏰', pub: '📍', cust: '👤', imp: '⚑', note: '📢' };
   const TABS = [['all', '전체'], ['imp', '챙길 것'], ['deal', '거래 의심'], ['exp', '만기'], ['cust', '고객'], ['pub', '리얼맵']];
   function itemHtml(a, i) {
     return `<div class="alit${a.read ? '' : ' un'}" data-ai="${i}"><span class="alic ${a.t}">${ICON[a.t] || '•'}</span><div><b>${esc(a.title)}</b><p>${esc(a.body)}</p><small>${md(a.at)}${a.sub ? ' · ' + esc(a.sub) : ''}</small>${a.go ? ` <span class="algo">${esc(a.goTx || '확인하기')} →</span>` : ''}</div>${a.read ? '' : '<i class="aldot"></i>'}</div>`;
@@ -62,7 +62,7 @@ window.Alarm = (() => {
     P.querySelectorAll('[data-ai]').forEach(el => el.onclick = () => { const a = A.list[+el.dataset.ai]; if (!a) return; a.read = true; save(); badge(); drawPanel(); if (a.go) { P.hidden = true; go(a.go); } });
   }
   function toggle() { const P = $('alPanel'); P.hidden = !P.hidden; if (!P.hidden) drawPanel(); }
-  function go(g) { if (g.ls) H.goList(g.ls); else if (g.cx) H.goDanji(g.cx, g.key); else if (g.cu && H.goCust) H.goCust(g.cu); }
+  function go(g) { if (g.set && H.goSet) return H.goSet(g.set); if (g.ls) H.goList(g.ls); else if (g.cx) H.goDanji(g.cx, g.key); else if (g.cu && H.goCust) H.goCust(g.cu); }
   function toast(list) {
     const T = $('alToasts'); if (!T || !list.length) return;
     list.slice(0, 3).forEach((a, n) => {
@@ -90,6 +90,12 @@ window.Alarm = (() => {
       if (left > 0 && left <= 3 * DAY) push({ id: `pub3:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시가 곧 끝납니다', body: `${nm} · ${md(x.pub.exp)}까지. 아직 거래 가능하면 연장해 주세요.`, go: { ls: x.id }, goTx: '이동' });
       if (left <= 0) push({ id: `pubx:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시 기간이 끝났습니다', body: `${nm} · 지도에서 내려갔습니다. 다시 게시하려면 [기간만료 ▾]를 눌러 주세요.`, go: { ls: x.id }, goTx: '이동' });
     }
+    // 0) 리얼맵 소식 (10/27): 계좌이체 요금제가 켜짐·취소됨 · 문의 답변
+    if (H.help && !lite) try {
+      const j = await H.help();
+      for (const x of j.pays || []) if (x.st === 'ok' || x.st === 'no') push({ id: `pay:${x.id}:${x.st}`, t: 'note', title: x.st === 'ok' ? '요금제가 켜졌습니다' : '요금제 신청이 취소되었습니다', body: x.st === 'ok' ? `${x.mon}개월 · ${String(x.until || '').slice(0, 10).replace(/-/g, '.')}까지. 화면을 새로 고치면 늘어난 한도가 바로 보입니다.` : (x.why || '입금이 확인되지 않았습니다') + ' · 궁금하시면 [설정 → 문의하기]로 알려 주세요.', go: { set: 'plan' }, goTx: '보기' });
+      for (const q of j.qnas || []) if (q.reply) push({ id: `qna:${q.id}:${q.rat}`, t: 'note', title: '문의에 답변이 왔습니다', body: q.text.slice(0, 50), go: { set: 'help' }, goTx: '답변 보기' });
+    } catch { /* 다음에 */ }
     // 1-1) 꼭 챙길 것 (매물관리)
     const impStep = d => { const dl = Math.round((Date.parse(d + 'T00:00:00+09:00') - now) / DAY); return { dl, step: dl < 0 ? (dl >= -3 ? 'x' : null) : dl === 0 ? 0 : dl <= 1 ? 1 : dl <= 7 ? 7 : null }; };
     const impPush = (key, lab, txt, d, go) => { const { dl, step } = impStep(d); if (step == null) return; push({ id: `imp:${key}:${d}:${step}`, t: 'imp', title: step === 'x' ? `챙길 날짜가 지났습니다 · ${lab}` : step === 0 ? `오늘 챙길 것 · ${lab}` : `${step === 1 ? '내일' : '7일 안'} 챙길 것 · ${lab}`, body: `${txt} (${d.slice(5).replace('-', '/')}${dl ? `, D${dl > 0 ? '-' + dl : '+' + -dl}` : ''})`, go, goTx: '이동' }); };

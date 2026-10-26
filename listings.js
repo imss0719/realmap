@@ -90,7 +90,7 @@
     // 고객관리: 화면을 열지 않아도 매물 상세의 '맞는 고객'·알림에 쓰도록 미리 불러 둠
     if (window.Cust) Cust.init(custHost()).then(() => { if (S.mode === 'list') draw(); }).catch(() => {});
     // 알림 (거래 의심 · 만기 · 리얼맵 게시 기간 · 고객)
-    if (window.Alarm) Alarm.mount({ tbase, goCust, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
+    if (window.Alarm) Alarm.mount({ tbase, goCust, help: () => api('/api/auth?action=help'), goSet: s => { setMode('set'); if (window.Sett) Sett.go(s, true); }, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
       goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
     let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
