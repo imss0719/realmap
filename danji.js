@@ -475,7 +475,7 @@ window.Danji = (() => {
     // 타입·공급평: 이 호만 따로 적은 값(PNU|동|h호) → 라인 값(PNU|동|라인) — 10/26
     const L0 = cx.lt || {}, lh = L0[`${pnu}|${dn}|h${h}`], ll = L0[`${pnu}|${dn}|${line}`] || L0[`*|${dn}|${line}`];
     const lt = lh || ll ? { ...(ll || {}), ...(lh || {}) } : null;
-    return { key, pnu, dn, ho: h, st, r: st.r, a, line, dir: (cx.dir || {})[`${pnu}|${dn}|${line}`] || '', lt, cx };
+    return { key, pnu, dn, ho: h, st, r: st.r, a, line, dir: (cx.dir || {})[`${pnu}|${dn}|h${h}`] || (cx.dir || {})[`${pnu}|${dn}|${line}`] || '', lt, cx };   // 이 호만 적은 방향이 먼저
   }
   // 단지 전체: 장부에 적힌 호 + 매물장 매물이 있는 호 + 방금 추가한 호
   function rowsAll(cx, C, MM) {
@@ -929,9 +929,8 @@ window.Danji = (() => {
           endEdit(cx); ltAsk(cx, x, td, col.ed, v);   // 같은 라인 모두 / 이 호만 — 고르면 저장
           return;
         } else if (col.ed === 'dir') {
-          const lk = `${x.pnu}|${x.dn}|${x.line}`;
-          post({ op: 'dir', id: cx.id, key: lk, v }).then(j => { S.cx = { items: j.items, memos: j.memos }; const n = j.items.find(z => z.id === cx.id); if (n) cx.dir = n.dir; S.rows.forEach(z => { if (z.pnu === x.pnu && z.dn === x.dn && z.line === x.line) redrawRow(cx, z.key); }); }).catch(er => toast(er.message));
-          cx.dir = { ...(cx.dir || {}), [lk]: v }; x.dir = v;
+          endEdit(cx); ltAsk(cx, x, td, 'dir', v);   // 방향도 같은 라인 모두 / 이 호만
+          return;
         } else saveRow(cx, x, D => {
           if (col.ed === 'area') { const m = String(v).replace(/\s/g, '').match(/^(\d+(?:\.\d+)?)(평|㎡|m2|m²)?$/i); D.ar = !v.trim() ? 0 : m ? Math.round((m[2] === '평' ? +m[1] * PY : +m[1]) * 100) / 100 : D.ar; if (v.trim() && !m) toast('전용면적을 84처럼 ㎡로 적어 주세요'); }
           else if (col.ed === 'live') D.live = v;
@@ -975,20 +974,28 @@ window.Danji = (() => {
 
   // 평형·타입을 적으면 "같은 라인 모두 바꿀까요?" — [같은 라인 모두] 라인 값 · [이 호만] 그 호 값(PNU|동|h호) (10/26)
   function ltAsk(cx, x, td, ed, v) {
-    const val = ed === 'py' ? +(String(v).replace(/\D/g, '') || 0) : String(v).trim().toUpperCase();
+    const val = ed === 'py' ? +(String(v).replace(/\D/g, '') || 0) : ed === 'dir' ? String(v).trim() : String(v).trim().toUpperCase();
     const C = CI(cx), U = C.units && C.units[`${x.pnu}|${(dongOf(C, x.dn) || {}).dong}`];
     const n = Array.isArray(U) ? U.filter(u => { const h = +digits(u.ho); return u.flrGb !== '지하' && (h >= 100 ? h % 100 : h) === x.line; }).length : 0;
-    const what = ed === 'py' ? (val ? val + '평' : '빈 값') : (val || '빈 값');
+    const what = ed === 'py' ? (val ? val + '평' : '빈 값') : ed === 'dir' ? (val ? val + '향' : '빈 값') : (val || '빈 값');
     const save = async key => {
       closePop();
-      const lt = { ...((cx.lt || {})[key] || {}) }; if (ed === 'py') lt.py = val; else lt.t = val;
-      cx.lt = { ...(cx.lt || {}), [key]: lt };
-      S.rows.filter(z => z.pnu === x.pnu && z.dn === x.dn && z.line === x.line).forEach(z => redrawRow(cx, z.key));
-      try { const j = await post({ op: 'lt', id: cx.id, key, t: lt.t || '', py: lt.py || 0 }); S.cx = { items: j.items, memos: j.memos }; const nn = j.items.find(z => z.id === cx.id); if (nn) cx.lt = nn.lt; toast(key.includes('|h') ? `${x.dn}-${x.ho}만 ${what}(으)로 적었습니다` : `${x.dn}동 ${x.line}라인 모든 호를 ${what}(으)로 바꿨습니다`); }
+      const redo = () => S.rows.filter(z => z.pnu === x.pnu && z.dn === x.dn && z.line === x.line).forEach(z => redrawRow(cx, z.key));
+      try {
+        if (ed === 'dir') {
+          if (val) cx.dir = { ...(cx.dir || {}), [key]: val }; else { cx.dir = { ...(cx.dir || {}) }; delete cx.dir[key]; }
+          redo();
+          const j = await post({ op: 'dir', id: cx.id, key, v: val }); S.cx = { items: j.items, memos: j.memos }; const nn = j.items.find(z => z.id === cx.id); if (nn) cx.dir = nn.dir;
+        } else {
+          const lt = { ...((cx.lt || {})[key] || {}) }; if (ed === 'py') lt.py = val; else lt.t = val;
+          cx.lt = { ...(cx.lt || {}), [key]: lt }; redo();
+          const j = await post({ op: 'lt', id: cx.id, key, t: lt.t || '', py: lt.py || 0 }); S.cx = { items: j.items, memos: j.memos }; const nn = j.items.find(z => z.id === cx.id); if (nn) cx.lt = nn.lt;
+        }
+        redo(); toast(key.includes('|h') ? `${x.dn}-${x.ho}만 ${what}(으)로 적었습니다` : `${x.dn}동 ${x.line}라인 모든 호를 ${what}(으)로 바꿨습니다`); }
       catch (er) { toast(er.message); }
     };
     const p = openPop(td, `<b class="pt">${esc(x.dn)}동 ${x.line}라인을 모두 ${esc(what)}(으)로 바꿀까요?</b>
-      <p class="note" style="margin:2px 0 8px">같은 라인은 보통 ${ed === 'py' ? '평형' : '타입'}이 같습니다.${n ? ` 이 라인은 ${n}호입니다.` : ''}</p>
+      <p class="note" style="margin:2px 0 8px">같은 라인은 보통 ${ed === 'py' ? '평형' : ed === 'dir' ? '방향' : '타입'}이 같습니다.${n ? ` 이 라인은 ${n}호입니다.` : ''}</p>
       <div class="pr2"><button type="button" class="btn dark sm" id="la_all">네, 같은 라인 모두</button><button type="button" class="btn ghost sm" id="la_one">이 호만</button><button type="button" class="btn ghost sm" id="la_no">취소</button></div>`);
     S.ed = { i: -1, c: ed };   // 창이 떠 있는 동안 표를 다시 그리지 않게
     $('la_all').onclick = () => { S.ed = null; save(`${x.pnu}|${x.dn}|${x.line}`); };
