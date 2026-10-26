@@ -3,7 +3,7 @@
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
 import { send, fail, MAX_KEYS, vworldData, cached, pool } from './_lib.js';
-import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial, dropPhotos, PLANS } from './auth.js';
+import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial, dropPhotos, PLANS, lsLoad, lsMutate } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const ADMIN_PW = String(process.env.ADMIN_PASSWORD || '').trim();
@@ -126,7 +126,7 @@ async function brokers(req, res) {
             await redis(['SET', `realmap:plan:${rec.uid}`, JSON.stringify({ plan: rec.plan, until: until.toISOString(), trialUsed: true, at: now, by: 'pay', pay: rec.id, prev: prev && prev.plan })]);
             await redis(['SADD', 'realmap:brokers', rec.uid]);
             rec.st = 'ok'; rec.done = now; rec.until = until.toISOString();
-            try { const uid = rec.uid, items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); const P = await planOf(uid); await syncPub(uid, items, await loadBk(uid), P); await redis(['SET', `realmap:ls:${uid}`, JSON.stringify(items)]); await brokerStat(uid, items); } catch { /* 다음 저장 때 */ }
+            try { const uid = rec.uid, P = await planOf(uid), bk = await loadBk(uid); const items = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, items); } catch { /* 다음 저장 때 */ }
           }
         }
         await redis(['HSET', key, rec.id, JSON.stringify(rec)]);
@@ -153,17 +153,14 @@ async function brokers(req, res) {
         const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
         if (bk.photo) { await dropPhotos([bk.photo]); bk.photo = ''; await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]); }
       } else if (body.op === 'unpub' || body.op === 'unpubAll') {
-        const items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]');
         const lid = String(body.k || '').split(':')[1] || '';
-        const hit = items.filter(x => x.pub && x.pub.on && (body.op === 'unpubAll' || x.id === lid));
-        hit.forEach(x => { x.pub.on = false; x.pub.byOp = new Date().toISOString(); });
-        await redis(['SET', `realmap:ls:${uid}`, JSON.stringify(items)]);
+        const items = await lsMutate(redis, uid, ls => { ls.filter(x => x.pub && x.pub.on && (body.op === 'unpubAll' || x.id === lid)).forEach(x => { x.pub.on = false; x.pub.byOp = new Date().toISOString(); }); });
         const f = body.op === 'unpubAll' ? items.map(x => `${uid}:${x.id}`) : [`${uid}:${lid}`];
         if (f.length) await redis(['HDEL', PUB_KEY, ...f]);
         await brokerStat(uid, items);
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
       // 공개 목록·통계 다시 맞춤
-      try { const items = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); const P = await planOf(uid); await syncPub(uid, items, await loadBk(uid), P); await redis(['SET', `realmap:ls:${uid}`, JSON.stringify(items)]); await brokerStat(uid, items); } catch { /* 다음 저장 때 */ }
+      try { const P = await planOf(uid), bk = await loadBk(uid); const items = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, items); } catch { /* 공개 목록은 다음 저장 때 */ }
     }
     let ids = (await redis(['SMEMBERS', 'realmap:brokers'])) || [];
     const legacy = (await redis(['SMEMBERS', 'realmap:pro'])) || [];

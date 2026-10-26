@@ -10,6 +10,8 @@ import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
 import { ledger, dropLedger, dropLedgers, normD, impDay } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
+import { lsLoad, lsSave, lsMutate, lsDrop } from './_ls.js';
+export { lsLoad, lsSave, lsMutate };
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
 const CSECRET = (process.env.KAKAO_CLIENT_SECRET || '').trim();
@@ -344,7 +346,8 @@ async function dropBroker(uid) {
   await dropCust(redis, uid);    // 고객관리
   try { const b = await loadBk(uid); if (b && b.photo) await dropPhotos([b.photo]); } catch { /* 무시 */ }
   try { const b = await loadBk(uid), d = b && digitsOf(b.regno); if (d && await redis(['HGET', 'realmap:regno', d]) === String(uid)) await redis(['HDEL', 'realmap:regno', d]); } catch { /* 무시 */ }
-  try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${uid}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); const f = ls.map(x => `${uid}:${x.id}`); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
+  try { const ls = await lsDrop(redis, uid); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); } catch { /* 무시 */ }
+  try { const f = ((await redis(['HKEYS', PUB_KEY])) || []).filter(k => String(k).startsWith(`${uid}:`)); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }   // 지도 광고는 공개 목록에서 이 회원 것 모두
   await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['DEL', `realmap:xdl:${uid}`], ['DEL', `realmap:xim:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
 }
 export async function loadBk(uid) { try { const v = await redis(['GET', `realmap:bk:${uid}`]); return v ? JSON.parse(v) : null; } catch { return null; } }
@@ -803,7 +806,7 @@ export default async function (req, res) {
       if (v.st !== 'ok') return fail(res, 400, 'verify', v.msg);
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       if (!P.started) { await startTrial(s.id); P = await planOf(s.id); }
-      await brokerStat(s.id, JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'));
+      await brokerStat(s.id, (await lsLoad(redis, s.id)).items);
       return send(res, 200, { ok: true, plan: planView(P), bk });
     }
     // 운영자: 요금제 직접 지정 (계좌이체 회원 등) — POST { uid, plan, days }
@@ -852,7 +855,7 @@ export default async function (req, res) {
       bk.photo = ph && ownPhoto(ph, s.id) ? ph : '';
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       if (prevBk && prevBk.photo && prevBk.photo !== bk.photo) await dropPhotos([prevBk.photo]);
-      try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await syncPub(s.id, ls, bk, P); await redis(['SET', `realmap:ls:${s.id}`, JSON.stringify(ls)]); } catch { /* 다음 저장 때 반영 */ }
+      try { await lsMutate(redis, s.id, ls => syncPub(s.id, ls, bk, P)); } catch { /* 다음 저장 때 반영 */ }
       return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
     }
 
@@ -876,16 +879,16 @@ export default async function (req, res) {
         const r = await put(`ls/${s.id}/${Date.now().toString(36)}.jpg`, buf, { access: 'public', contentType: 'image/jpeg', addRandomSuffix: true, cacheControlMaxAge: 31536000 });
         return send(res, 200, { ok: true, url: r.url });
       }
-      const key = `realmap:ls:${s.id}`;
+      const L = await lsLoad(redis, s.id);   // 10/27: 매물 1건씩 암호화 저장 (api/_ls.js)
+      const save = () => lsSave(redis, s.id, items, L.prev);
       let cxDirty = false;   // 매물 방향을 단지관리 라인 방향에도 저장했는지
-      const raw = await redis(['GET', key]);
-      let items = raw ? JSON.parse(raw) : [];
+      let items = L.items;
       // 매물번호: 비워 두면 '등록한 해·월-순번' (예: 2610-001)으로 자동으로 붙입니다
       const ym = iso => { const d = new Date(new Date(iso || Date.now()).getTime() + 9 * 3600e3); return String(d.getUTCFullYear()).slice(2) + String(d.getUTCMonth() + 1).padStart(2, '0'); };
       const nextNo = (list, iso) => { const p = ym(iso) + '-'; const max = list.reduce((m, x) => { const k = String(x.no || ''); return k.startsWith(p) ? Math.max(m, Number(k.slice(p.length)) || 0) : m; }, 0); return p + String(max + 1).padStart(3, '0'); };
       if (items.some(x => !x.no)) { // 예전에 등록한 매물은 등록일 순서대로 번호를 붙여 둡니다
         [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
-        await redis(['SET', key, JSON.stringify(items)]);
+        await save();
       }
       if (action === 'listings') { await brokerStat(s.id, items); return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id), plan: planView(P) }); }
       if (req.query.op === 'photodel') { // 저장하지 않고 닫은 사진 정리 (저장된 매물에 쓰인 사진은 지우지 않음)
@@ -1017,8 +1020,8 @@ export default async function (req, res) {
         const x = items.find(i => i.id === (id || (items[0] && items[0].id)));
         if (x && x.pub && x.pub.on && x.status === 'on') { const miss = adMissing(x, bk); if (miss.length) { x.pub.on = false; warn = `필수 항목(${miss.join(', ')})이 빠져 리얼맵 지도에서 내렸습니다.`; } }
       }
-      await redis(['SET', key, JSON.stringify(items)]);
-      try { const before = items.filter(i => i.pub && i.pub.on).length; await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); if (items.filter(i => i.pub && i.pub.on).length < before) await redis(['SET', key, JSON.stringify(items)]); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
+      await save();
+      try { await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); await save(); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
       return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P), ...(cxDirty ? { cxDirty: true } : {}), ...(body.imported ? { imported: body.imported } : {}), ...(body.unimported != null ? { unimported: body.unimported } : {}) });
     }
 
@@ -1079,7 +1082,6 @@ export default async function (req, res) {
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
-      try { const ls = JSON.parse((await redis(['GET', `realmap:ls:${s.id}`])) || '[]'); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id))); } catch { /* 무시 */ }
       try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['DEL', `realmap:cx:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]);
         await dropBroker(s.id); await redis(['SREM', 'realmap:trialused', String(s.id)]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
