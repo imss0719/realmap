@@ -812,15 +812,15 @@ export default async function (req, res) {
       if (id && ro.has(id) && ['save', 'status', 'pub', 'renew'].includes(body.op)) return fail(res, 403, 'readonly', P.plan === 'free'
         ? `무료 이용은 최근 등록한 매물 ${P.ls}건만 수정할 수 있습니다. 이 매물은 보기와 엑셀 내려받기만 됩니다. Basic(월 9,900원)이면 모두 수정하실 수 있습니다.`
         : `${P.name} 요금제는 최근 등록한 매물 ${P.ls.toLocaleString()}건만 수정할 수 있습니다.`, { plan: planView(P) });
-      if (body.op === 'save') {
-        const it = body.item || {};
+      // 매물 한 건 → 저장할 모양 (매물 카드 저장 · 엑셀 불러오기 같이 씀). imp = { ib: 묶음 번호, at: 등록일 } (엑셀 불러오기일 때만)
+      const build = (it, prev, imp) => {
         const pnuOk = v => { const x = String(v || '').replace(/\D/g, ''); return /^\d{19}$/.test(x) ? x : ''; };
         // 주소 여러 개 (상가 여러 칸, 토지 여러 필지)
         const places = (Array.isArray(it.places) ? it.places : []).map(p => ({
           pnu: pnuOk(p.pnu), addr: str(p.addr, 80), lat: Number(p.lat) || null, lng: Number(p.lng) || null, bname: str(p.bname, 40),
           dong: str(p.dong, 20), ho: str(p.ho, 20), area: numv(p.area), site: numv(p.site), arch: numv(p.arch), land: !!p.land, ak: ['ex', 'tot', 'land'].includes(p.ak) ? p.ak : '',
         })).filter(p => p.pnu).slice(0, 30);
-        if (!places.length) return fail(res, 400, 'bad_pnu', '주소를 먼저 골라 주세요.');
+        if (!places.length) return { err: ['bad_pnu', '주소를 먼저 골라 주세요.'] };
         const contacts = (Array.isArray(it.contacts) ? it.contacts : []).map(c => ({ role: str(c.role, 10), name: str(c.name, 20), phone: str(c.phone, 20).replace(/[^\d-]/g, '') }))
           .filter(c => c.name || c.phone).slice(0, 10);
         // 임대 현황 · 층별 현황 (통건물: 층·용도·면적은 건축물대장에서 자동, 나머지는 직접) — fl·use·area·biz·exp는 10/25 추가
@@ -831,13 +831,9 @@ export default async function (req, res) {
         const photos = (Array.isArray(it.photos) ? it.photos : []).map(p => ({ url: String(p && p.url || '') })).filter(p => ownPhoto(p.url, s.id)).slice(0, 30);
         const kind = ['sale', 'jeonse', 'wolse', 'presale'].includes(it.kind) ? it.kind : 'sale';
         const status = ['on', 'hold', 'done'].includes(it.status) ? it.status : 'on';
-        const prev = id ? items.find(x => x.id === id) : null;
-        if (!prev && items.length >= P.ls) return fail(res, 400, 'limit', P.plan === 'free'
-          ? `무료 이용은 매물 ${P.ls}건까지입니다. Basic(월 9,900원)으로 올리시면 1,000건까지 등록하실 수 있습니다.`
-          : `${P.name} 요금제는 매물 ${P.ls.toLocaleString()}건까지입니다. 거래완료된 매물을 정리하시거나 요금제를 올려 주세요.`, { plan: planView(P) });
         const p0 = places[0], c0 = contacts[0] || {};
         let no = str(it.no, 20);
-        if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) return fail(res, 400, 'dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`);
+        if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) { if (!imp) return { err: ['dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`] }; no = ''; }   // 엑셀 불러오기: 겹치면 새 번호
         if (!no) no = prev && prev.no ? prev.no : nextNo(items, now);
         const areaSum = places.reduce((a, p) => a + (p.area || 0), 0);
         const rec = {
@@ -854,10 +850,45 @@ export default async function (req, res) {
           mk: ['y', 'r'].includes(it.mk) ? it.mk : '',  // 줄 표시 노랑·빨강 (10/26)
           exp: /^\d{4}-\d{2}-\d{2}$/.test(String(it.exp || '')) ? String(it.exp) : '',   // 만기일 (지금 임차 계약 · 10/26) — 알림용
           ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
+          ...(imp ? { ib: imp.ib } : prev && prev.ib ? { ib: prev.ib } : {}),   // 엑셀 불러오기 묶음 번호 (10/26 · 되돌리기용)
         };
+        if (imp && imp.at) rec.at = imp.at;   // 엑셀의 등록일
+        return { rec, photos };
+      };
+      if (body.op === 'save') {
+        const prev = id ? items.find(x => x.id === id) : null;
+        if (!prev && items.length >= P.ls) return fail(res, 400, 'limit', P.plan === 'free'
+          ? `무료 이용은 매물 ${P.ls}건까지입니다. Basic(월 9,900원)으로 올리시면 1,000건까지 등록하실 수 있습니다.`
+          : `${P.name} 요금제는 매물 ${P.ls.toLocaleString()}건까지입니다. 거래완료된 매물을 정리하시거나 요금제를 올려 주세요.`, { plan: planView(P) });
+        const r = build(body.item || {}, prev, null);
+        if (r.err) return fail(res, 400, r.err[0], r.err[1]);
+        const rec = r.rec, photos = r.photos;
         try { cxDirty = await syncLineDir(s.id, rec, prev, items); } catch { /* 방향 맞추기는 실패해도 저장은 그대로 */ }
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
         if (prev && prev.photos) { const keep = new Set(photos.map(p => p.url)); await dropPhotos(prev.photos.map(p => p.url).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }
+      } else if (body.op === 'import') {
+        // 엑셀 불러오기 (10/26): 한 번에 최대 200건 · 한 번에 저장 · 묶음 번호(ib)로 나중에 한꺼번에 되돌리기
+        const list = Array.isArray(body.items) ? body.items.slice(0, 200) : [];
+        const ib = str(body.ib, 20).replace(/[^\w-]/g, '');
+        if (!ib || !list.length) return fail(res, 400, 'bad', '불러올 매물이 없습니다.');
+        const room = Math.max(0, P.ls - items.length);
+        if (list.length > room) return fail(res, 400, 'limit', `${P.name} 요금제는 매물 ${P.ls.toLocaleString()}건까지라 ${room.toLocaleString()}건만 더 넣을 수 있습니다. 요금제를 올리시거나 나눠서 불러와 주세요.`, { plan: planView(P), room });
+        const okIds = [], bad = [];
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i] || {}, at = /^\d{4}-\d{2}-\d{2}/.test(String(it.at || '')) && String(it.at) <= now ? new Date(String(it.at).slice(0, 10) + 'T00:00:00+09:00').toISOString() : '';
+          const r = build({ ...it, photos: [] }, null, { ib, at });
+          if (r.err) { bad.push({ i, msg: r.err[1] }); continue; }
+          r.rec.id = Date.now().toString(36) + crypto.randomBytes(3).toString('hex') + i.toString(36);
+          items = [r.rec, ...items]; okIds.push(r.rec.id);
+        }
+        body.imported = { n: okIds.length, bad };
+      } else if (body.op === 'unimport') {
+        const ib = str(body.ib, 20); if (!ib) return fail(res, 400, 'bad', '되돌릴 묶음이 없습니다.');
+        const gone = items.filter(x => x.ib === ib);
+        for (const g of gone) if (g.pub && g.pub.on) { g.pub.on = false; try { await redis(['HDEL', PUB_KEY, `${s.id}:${g.id}`]); } catch { /* 무시 */ } }
+        items = items.filter(x => x.ib !== ib);
+        await dropPhotos(gone.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id)));
+        body.unimported = gone.length;
       } else if (body.op === 'status') {
         const st = ['on', 'hold', 'done'].includes(body.status) ? body.status : null;
         if (!st) return fail(res, 400, 'status', '상태가 올바르지 않습니다.');
@@ -894,7 +925,7 @@ export default async function (req, res) {
       }
       await redis(['SET', key, JSON.stringify(items)]);
       try { const before = items.filter(i => i.pub && i.pub.on).length; await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); if (items.filter(i => i.pub && i.pub.on).length < before) await redis(['SET', key, JSON.stringify(items)]); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
-      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P), ...(cxDirty ? { cxDirty: true } : {}) });
+      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P), ...(cxDirty ? { cxDirty: true } : {}), ...(body.imported ? { imported: body.imported } : {}), ...(body.unimported != null ? { unimported: body.unimported } : {}) });
     }
 
     if (action === 'login') {
