@@ -197,9 +197,11 @@ window.Board = (() => {
   }
 
   // 표의 칸: [키, 제목, 정렬 키]
-  const COLS = [['n', '#', 'at'], ['ty', '유형', 'ty'], ['addr', '주소 · 건물', 'addr'], ['pr', '거래 · 가격', 'pr'], ['ar', '면적', 'ar'], ['fl', '층 · 규모', ''], ['st', '상태', 'st'], ['tel', '연락처', ''], ['memo', '메모', 'memo'], ['act', '', ''], ['pub', '리얼맵', '']];
-  const EDIT = ['ty', 'pr', 'ar', 'fl', 'st', 'tel', 'memo'];
+  const COLS = [['n', '#', 'at'], ['ty', '유형', 'ty'], ['addr', '주소 · 건물', 'addr'], ['pr', '거래 · 가격', 'pr'], ['imp', '꼭 챙길 것', ''], ['ar', '면적', 'ar'], ['fl', '층 · 규모', ''], ['st', '상태', 'st'], ['tel', '연락처', ''], ['memo', '메모', 'memo'], ['act', '', ''], ['pub', '리얼맵', '']];
+  const EDIT = ['ty', 'pr', 'imp', 'ar', 'fl', 'st', 'tel', 'memo'];
   const VC = () => B.map ? COLS.filter(c => !['fl', 'memo'].includes(c[0])) : COLS;    // 지도를 켜면 표가 좁아져 층·메모 칸은 숨김 (상세에서 보임)
+  const impTxt = t => String(t || '').replace(/^\s*(?:20\d{2}[-./])?\d{1,2}\s*(?:[./]|월\s*)\d{1,2}(?:\s*일)?(?![~\d])(?:까지)?\s*[·,:-]?\s*/, '') || t;   // 맨 앞 날짜는 빨간 날짜 표시와 겹치므로 글에서 뺌
+  const impSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 7 && dl >= -3; };
   function cell(x, c, n) {
     const P = places(x)[0] || {}, a = x.ad || {};
     switch (c) {
@@ -212,17 +214,22 @@ window.Board = (() => {
         if (x.kind === 'sale' && x.price) {
           const k = detKind(x), ar = k === 'land' ? x.area : k === 'whole' ? siteOf(x) : 0;
           const rs = k === 'whole' ? rentSum(x) : { d: x.curDep, r: x.curRent }, y = yields(x, rs.d, rs.r);
-          sub = [ar ? `${k === 'land' ? '평당' : '대지 평당'} ${sw(x.price / (ar / PY))}` : '', y ? `수익률 ${y.y.toFixed(1)}%` : ''].filter(Boolean).join(' · ');
+          const gap = x.ptype === '아파트' && x.curDep && !x.curRent && x.curDep < x.price ? x.price - x.curDep : 0;   // 갭 = 매매가 - 기존 전세금 (10/26)
+          sub = [ar ? `${k === 'land' ? '평당' : '대지 평당'} ${sw(x.price / (ar / PY))}` : '', gap ? `갭 ${sw(gap)}` : '', !gap && y ? `수익률 ${y.y.toFixed(1)}%` : ''].filter(Boolean).join(' · ');
         } else if (x.kind === 'wolse' && x.premium) sub = `권리금 ${sw(x.premium)}`;
         return `<span class="kd ${x.kind}">${X.KIND[x.kind]}</span> ${no ? '<span class="ep">가격 입력</span>' : `<b>${esc(x.kind === 'wolse' ? `${!x.deposit ? '0' : x.deposit >= 10000 ? sw(x.deposit) : x.deposit.toLocaleString()}/${x.rent ? x.rent.toLocaleString() : '-'}` : x.kind === 'presale' ? `P ${sw(x.pr)}${x.price ? ' · ' + sw(x.price) : ''}` : sw(p))}</b>`}${sub ? `<small>${esc(sub)}</small>` : ''}`;
       }
-      case 'ar': { if (!x.area) return '<span class="ep">면적</span>'; const k = detKind(x); return `${k === 'whole' ? '연 ' : k === 'land' ? (places(x).length > 1 ? '합 ' : '') : '전용 '}${m2t(x.area)}<small>${k === 'whole' && siteOf(x) ? `대지 ${m2t(siteOf(x))} · ` : ''}${pyt(x.area)}</small>`; }
+      case 'ar': { if (!x.area) return '<span class="ep">면적</span>'; const k = detKind(x);
+        // 아파트: 공급평 · 타입 + 전용㎡ (10/26 — "34평 84B"처럼). 공급평은 단지관리 라인 설정 값, 없으면 추정(≈)
+        if (x.ptype === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="공급평 추정 — 단지관리 현황판 라인 머리에서 정확히 적을 수 있습니다"'}>${a.spy ? '' : '≈'}${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''}<small>전용 ${m2t(x.area)}</small>`; }
+        return `${k === 'whole' ? '연 ' : k === 'land' ? (places(x).length > 1 ? '합 ' : '') : '전용 '}${m2t(x.area)}<small>${k === 'whole' && siteOf(x) ? `대지 ${m2t(siteOf(x))} · ` : ''}${pyt(x.area)}</small>`; }
       case 'fl': {
         const k = detKind(x);
         if (k === 'land') return esc([a.use, zoneS(a.zone)].filter(Boolean).join(' · ')) || '<span class="ep">-</span>';
         if (k === 'whole') return `${esc([a.ufl ? `B${a.ufl}` : '', a.tfl ? a.tfl + 'F' : ''].filter(Boolean).join('~')) || '-'}<small>${esc([a.appr ? String(a.appr).slice(0, 4) + '년' : '', a.use ? a.use.split(' · ')[0] : ''].filter(Boolean).join(' · '))}</small>`;
         return a.fl || a.tfl ? `${esc(flTx(a.fl) || '?')}${a.tfl ? ` / ${a.tfl}F` : ''}` : '<span class="ep">층</span>';
       }
+      case 'imp': return x.imp ? `<span class="imp">${x.impd ? `<span class="dd${impSoon(x.impd) ? ' soon' : ''}">${esc(x.impd.slice(5).replace('-', '/'))}</span>` : ''}${esc(x.impd ? impTxt(x.imp) : x.imp)}</span>` : '<span class="ep">-</span>';
       case 'st': return `<span class="st ${x.status}">${{ on: '진행', hold: '보류', done: '완료' }[x.status]}</span>${X.pubLive(x) ? '<i class="pubdot" title="리얼맵 지도에 게시 중"></i>' : ''}`;
       case 'tel': { const cs = Array.isArray(x.contacts) ? x.contacts.filter(c => c.name || c.phone) : []; const c = cs[0]; return c ? `${esc([c.role, c.name].filter(Boolean).join(' '))}${cs.length > 1 ? ` <em>+${cs.length - 1}</em>` : ''}<small>${esc(c.phone || '')}</small>` : '<span class="ep">연락처</span>'; }
       case 'memo': { const L = X.memoParse(x.memo); return L.length ? `<span class="mm">${esc(L[0].x)}</span><small>${esc(L[0].t ? L[0].t.slice(3, 8).replace('.', '/') : '')}${L.length > 1 ? ` · 외 ${L.length - 1}건` : ''}</small>` : '<span class="ep">메모</span>'; }
@@ -238,6 +245,7 @@ window.Board = (() => {
     if (c === 'fl') return `<input class="ced" data-fk="${fk}" value="${esc([a.fl, a.tfl].filter(v => v != null && v !== '').join('/'))}" placeholder="3/15 (해당층/총층)">`;
     if (c === 'tel') return `<input class="ced" data-fk="${fk}" value="${esc([cs.name, cs.phone].filter(Boolean).join(' '))}" placeholder="이름 010-0000-0000">`;
     if (c === 'memo') return `<input class="ced" data-fk="${fk}" value="" placeholder="새 메모 (Enter로 기록)">`;
+    if (c === 'imp') return `<input class="ced" data-fk="${fk}" value="${esc(x.imp || '')}" maxlength="100" placeholder="예: 11/15 중도금 · 이사 3/10 고정">`;
     return '';
   }
   function rowHtml(x, n, RO) {
@@ -314,7 +322,7 @@ window.Board = (() => {
     if (c === 'ar' && places(x).length > 1) { B.open.add(id); refresh(); return H.toast('필지·호가 여러 개인 매물은 상세에서 하나씩 고칩니다'); }
     B.ed = { id, c }; B.hl = id; refresh();
   }
-  const NAV0 = ['ar', 'fl', 'tel', 'memo'];
+  const NAV0 = ['imp', 'ar', 'fl', 'tel', 'memo'];
   function commit(inp, move) {
     if (!B.ed) return;
     const { id, c } = B.ed, v = inp.value.trim(), x = H.items().find(i => i.id === id);
@@ -336,6 +344,7 @@ window.Board = (() => {
       return saveItem(id, it => { const c0 = it.contacts[0] || { role: '소유자' }; it.contacts[0] = { ...c0, name, phone: fmtPhone(phone) }; if (!name && !phone) it.contacts.shift(); });
     }
     if (c === 'memo') { if (!v) return refresh(); return saveItem(id, it => { it.memo = X.memoAdd(it.memo, v); }); }
+    if (c === 'imp') { if (v === (x.imp || '')) return refresh(); return saveItem(id, it => { it.imp = v; }); }   // 날짜는 서버가 글에서 찾아 impd로
     refresh();
   }
   // ---------- 작은 창 (가격 · 상태 · 유형) ----------

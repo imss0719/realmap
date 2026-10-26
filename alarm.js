@@ -4,6 +4,7 @@
 //   deal  거래된 것 같습니다 — 실거래 신고 중 내 매물(매물장)·단지 장부의 내 매물/타부동산 매물과 같은 층·면적(또는 같은 필지·면적)인 거래
 //   exp   단지 장부 세입자 만기 — 6개월·3개월·1개월 전, 만기일 지남
 //   pub   리얼맵 게시 3일 안에 끝남 · 게시 기간 끝남
+//   imp   꼭 챙길 것(10/26) — 글에 날짜가 있으면 7일 전 · 1일 전 · 당일 · 지난 뒤 3일까지 (매물관리·단지 장부)
 // 실거래는 계약 후 최대 30일 뒤에 신고되므로 '같습니다'로만 알리고, 6시간에 한 번만 확인합니다(서버도 캐시).
 window.Alarm = (() => {
   const $ = id => document.getElementById(id);
@@ -43,8 +44,8 @@ window.Alarm = (() => {
     A.list.unshift({ ...a, at: Date.now(), read: false });
     return true;
   }
-  const ICON = { deal: '⚠', exp: '⏰', pub: '📍', cust: '👤' };
-  const TABS = [['all', '전체'], ['deal', '거래 의심'], ['exp', '만기'], ['cust', '고객'], ['pub', '리얼맵']];
+  const ICON = { deal: '⚠', exp: '⏰', pub: '📍', cust: '👤', imp: '⚑' };
+  const TABS = [['all', '전체'], ['imp', '챙길 것'], ['deal', '거래 의심'], ['exp', '만기'], ['cust', '고객'], ['pub', '리얼맵']];
   function itemHtml(a, i) {
     return `<div class="alit${a.read ? '' : ' un'}" data-ai="${i}"><span class="alic ${a.t}">${ICON[a.t] || '•'}</span><div><b>${esc(a.title)}</b><p>${esc(a.body)}</p><small>${md(a.at)}${a.sub ? ' · ' + esc(a.sub) : ''}</small>${a.go ? ` <span class="algo">${esc(a.goTx || '확인하기')} →</span>` : ''}</div>${a.read ? '' : '<i class="aldot"></i>'}</div>`;
   }
@@ -89,6 +90,10 @@ window.Alarm = (() => {
       if (left > 0 && left <= 3 * DAY) push({ id: `pub3:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시가 곧 끝납니다', body: `${nm} · ${md(x.pub.exp)}까지. 아직 거래 가능하면 연장해 주세요.`, go: { ls: x.id }, goTx: '이동' });
       if (left <= 0) push({ id: `pubx:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시 기간이 끝났습니다', body: `${nm} · 지도에서 내려갔습니다. 다시 게시하려면 [기간만료 ▾]를 눌러 주세요.`, go: { ls: x.id }, goTx: '이동' });
     }
+    // 1-1) 꼭 챙길 것 (매물관리)
+    const impStep = d => { const dl = Math.round((Date.parse(d + 'T00:00:00+09:00') - now) / DAY); return { dl, step: dl < 0 ? (dl >= -3 ? 'x' : null) : dl === 0 ? 0 : dl <= 1 ? 1 : dl <= 7 ? 7 : null }; };
+    const impPush = (key, lab, txt, d, go) => { const { dl, step } = impStep(d); if (step == null) return; push({ id: `imp:${key}:${d}:${step}`, t: 'imp', title: step === 'x' ? `챙길 날짜가 지났습니다 · ${lab}` : step === 0 ? `오늘 챙길 것 · ${lab}` : `${step === 1 ? '내일' : '7일 안'} 챙길 것 · ${lab}`, body: `${txt} (${d.slice(5).replace('-', '/')}${dl ? `, D${dl > 0 ? '-' + dl : '+' + -dl}` : ''})`, go, goTx: '이동' }); };
+    for (const x of H.items()) if (x.imp && x.impd && x.status !== 'done') impPush(`ls:${x.id}`, H.name(x), x.imp, x.impd, { ls: x.id });
     // 1-2) 고객관리: 맞는 매물이 새로 생김 · 예산 안으로 내려옴 · 오래 연락 못 한 고객
     // 처음 실행하거나 새로 등록한 고객은 지금 맞는 매물을 조용히 기억만 하고, 그 뒤에 새로 맞는 것만 알림
     try {
@@ -119,6 +124,7 @@ window.Alarm = (() => {
     for (const c of cxs) {
       const U = LED[c.id]; if (!U) continue;
       for (const [key, r] of Object.entries(U)) {
+        if (r && r.imp && r.impd && !r.deal) { const [, dn0, ho0] = key.split('|'); impPush(`cx:${c.id}:${key}`, `${c.name} ${dn0}-${ho0}`, r.imp, r.impd, { cx: c.id, key }); }
         if (!r || !r.exp || r.deal) continue;
         const dl = Math.round((Date.parse(r.exp) - now) / DAY), [, dn, ho] = key.split('|'), lab = `${c.name} ${dn}-${ho}`;
         const step = dl < 0 ? (dl >= -30 ? 0 : null) : dl <= 30 ? 30 : dl <= 90 ? 90 : dl <= 183 ? 180 : null;
@@ -133,7 +139,7 @@ window.Alarm = (() => {
       busy = false;
     }
     prune(); save(); badge(); drawIfOpen();
-    const PR = { deal: 0, cust: 1, exp: 2, pub: 3 };
+    const PR = { imp: 0, deal: 1, cust: 2, exp: 3, pub: 4 };
     toast(fresh.sort((x, y) => PR[x.t] - PR[y.t]));
   }
   const drawIfOpen = () => { const P = $('alPanel'); if (P && !P.hidden) drawPanel(); };
