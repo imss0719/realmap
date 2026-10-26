@@ -268,7 +268,7 @@ window.Danji = (() => {
       ${S.cx.items.map(c => { const op = c.id === S.cur; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         return `<div class="tn${op ? ' on' : ''}${S.multi.has(c.id) ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${S.multi.has(c.id) ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
-        ${fo && C && C.dongs ? C.dongs.map(d => { const k = d.pnu + '|' + d.dong, m = dongCounts(c, d, mineMap(c)); return `<button type="button" class="tn d${C.view === 'dong' && C.cur === k ? ' on' : ''}" data-tdong="${esc(k)}"><i></i>${esc(d.dong)}<span class="ct">${m.m + m.o || ''}${m.e ? ` <em>만기 ${m.e}</em>` : ''}</span></button>`; }).join('') : ''}`; }).join('')}
+        ${fo && C && C.dongs ? C.dongs.map(d => ({ d, m: dongCounts(c, d, mineMap(c)) })).sort((p, q) => (q.m.m + q.m.o) - (p.m.m + p.m.o) || q.m.e - p.m.e).map(({ d, m }) => { const k = d.pnu + '|' + d.dong; return `<button type="button" class="tn d${C.view === 'dong' && C.cur === k ? ' on' : ''}" data-tdong="${esc(k)}"><i></i>${esc(d.dong)}<span class="ct">${m.m + m.o || ''}${m.e ? ` <em>만기 ${m.e}</em>` : ''}</span></button>`; }).join('') : ''}`; }).join('')}
       <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>`;
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
