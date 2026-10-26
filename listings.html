@@ -867,6 +867,72 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 .cfpop label{display:flex;align-items:center;gap:6px;padding:4px 4px;border-radius:6px;cursor:pointer}.cfpop label:hover{background:#F3F6F9}
 .cfpop label span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cfpop label small{color:var(--muted);font-size:12px}
 .cfpop .cfb{margin-top:8px;text-align:right}.cfpop .ok{border:0;background:var(--navy);color:#fff;border-radius:8px;padding:6px 16px;font-weight:700;cursor:pointer}
+/* 10/26 아파트 화면 정리 — 머리 한 줄 · 보기 탭 · 동 칩 · 체크 거르기 · 두 줄 머리 표 (기획안 촘촘함) */
+.dj .hd1{padding:8px 12px!important}
+.dj .h1r{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap}
+.dj .cxsel{font:inherit;font-size:16px;font-weight:800;color:var(--fg);border:1px solid #C5CDD6;border-radius:8px;padding:4px 8px;background:#fff;max-width:420px;cursor:pointer}
+.dj .h1r .hm{font-size:13px;color:var(--muted)}.dj .h1r .hm b{color:var(--fg)}.dj .h1r .hm b.r{color:#C92A2A}
+.dj .h1r .sp{flex:1}
+.dj .h1r .btn{min-height:30px;padding:2px 10px;font-size:13px;border-radius:7px}.dj .h1r .btn.on{border-color:var(--navy);color:var(--navy)}
+.dj .mmw{position:relative;display:inline-flex}
+.dj .mmenu{position:absolute;right:0;top:calc(100% + 4px);z-index:40;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(16,32,48,.16);padding:4px;display:grid;min-width:150px}
+.dj .mmenu[hidden]{display:none}.dj .mmenu button{border:0;background:none;text-align:left;padding:7px 10px;border-radius:6px;font:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap}.dj .mmenu button:hover{background:#F3F6F9}.dj .mmenu .red{color:#C92A2A}
+.dj .vtab{display:inline-flex;border:1px solid #C5CDD6;border-radius:8px;overflow:hidden}
+.dj .vtab button{border:0;background:#fff;padding:4px 12px;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer;min-height:30px}.dj .vtab button+button{border-left:1px solid #DCE2E8}
+.dj .vtab button[aria-pressed=true]{background:var(--navy);color:#fff}
+.dj .hd1 .sum{margin-top:8px}
+.dj #dj_cxBody .gcard{padding:8px 10px}
+.dj #dj_cxBody{display:grid;gap:8px}
+.dj .djfrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 6px}
+.dj #dj_cxBody .gcard .dongs.sm{display:flex;flex-wrap:wrap;gap:3px;margin:0;padding:0;position:static;box-shadow:none;background:none}
+.dj .dongs.sm button{border:1px solid #D3DAE1;border-radius:5px;padding:0 6px;font-size:12px;font-weight:700;line-height:20px;min-height:0;background:#fff;color:var(--fg);display:inline-flex;align-items:center}
+.dj .dongs.sm button.has{border-color:#9AA6B2}
+.dj .dongs.sm button em{min-width:0;height:auto;margin-left:3px;padding:0 4px;border-radius:7px;font-size:10.5px;line-height:15px;background:var(--navy);color:#fff}
+.dj .dongs.sm button .xd{display:inline-block;width:6px;height:6px;border-radius:50%;background:#E03131;margin-left:3px}.dj .dongs.sm button .xd::before{content:none}
+.dj .dongs.sm button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}.dj .dongs.sm button[aria-pressed=true] em{background:#fff;color:var(--navy)}
+.dj .dongs.sm .dall{border-style:dashed;color:var(--sale);background:#fff}
+.dj .djfrow .tbf{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin:0;flex:1 1 520px;min-width:0}
+.dj .tbf .ck{display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:600;color:#3E4A57;cursor:pointer;white-space:nowrap;user-select:none}
+.dj .tbf .ck input{margin:0;width:14px;height:14px;accent-color:var(--navy)}
+.dj .tbf .ck.on{color:var(--navy);font-weight:800}.dj .tbf .ck.k-s.on{color:var(--sale)}.dj .tbf .ck.k-j.on{color:var(--jeonse)}.dj .tbf .ck.k-w.on{color:var(--wolse)}
+.dj .tbf .fg{gap:8px}
+.dj .tbf .fsep{display:inline-block;width:1px;height:15px;background:var(--line)}
+.dj .tbf .ty button{padding:0 8px;font-size:12px;line-height:20px;border-width:1px}
+.dj .tbf .fclr{border:0;background:none;color:var(--sale);padding:0 2px;font-size:12.5px;font-weight:700}
+.dj .tbf .fg.r{margin-left:auto;gap:6px}.dj .tbf #dj_addHo{width:150px;height:28px;font-size:12.5px}.dj .tbf .btn{min-height:28px;font-size:12.5px;padding:2px 9px}
+.dj .gcard.tab-map #dj_tbl,.dj .gcard.tab-grid #dj_tbl{display:none}
+.dj .gcard.tab-map .tbf .fg.r,.dj .gcard.tab-grid .tbf .fg.r{display:none}
+.dj .gcard.tab-map .djsplit,.dj .gcard.tab-grid .djsplit{margin-bottom:6px}
+/* 표: 머리 세 줄(묶음 · 칸 이름 · 거르기)이 위에 붙고, 왼쪽 동·호는 옆으로 밀어도 남음 */
+@media (min-width:901px){.dj .tbw{max-height:calc((100vh - var(--toph,60px) - 16px) / var(--fz,1));overflow:auto!important}}
+.dj .xt thead th{position:sticky;z-index:3;background:#F1F4F7;color:#3E4A57;text-align:center;padding:4px 6px;font-size:12px;border-right:1px solid #E1E6EB;border-bottom:1px solid #DCE2E8}
+.dj .xt thead th.grp{background:#E9EDF2}
+.dj .xt thead tr.frow th{padding:2px 3px;background:#FAFBFC}
+.dj .xt .cfs{display:block;width:100%;min-width:22px;height:18px;border:1px solid #DCE2E8;border-radius:3px;background:#fff;position:relative;font-size:11px;text-align:left;padding:0 13px 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3E4A57;cursor:pointer;max-width:140px}
+.dj .xt .cfs::after{content:'▾';position:absolute;right:3px;top:1px;font-size:9px;color:#9AA6B2}.dj .xt .cfs.on{background:#FFF4C2;border-color:#F5C44E}
+.dj .xt .c-cxn{position:sticky;left:var(--l-cxn,0)}.dj .xt .c-dn{position:sticky;left:var(--l-dn,0)}.dj .xt .c-ho{position:sticky;left:var(--l-ho,0);box-shadow:inset -1px 0 0 #DCE2E8}
+.dj .xt tbody td.c-cxn,.dj .xt tbody td.c-dn,.dj .xt tbody td.c-ho{z-index:1}
+.dj .xt tbody :where(td.c-cxn,td.c-dn,td.c-ho){background:#fff}
+.dj .xt thead th.c-cxn,.dj .xt thead th.c-dn,.dj .xt thead th.c-ho{z-index:5}
+.dj .xt tr.on td.c-dn{box-shadow:inset 3px 0 0 var(--navy)}
+.dj .xt td{text-align:center}
+.dj .xt td.c-cxn,.dj .xt td.c-imp,.dj .xt td.c-own,.dj .xt td.c-ten,.dj .xt td.c-h,.dj .xt td.c-opt,.dj .xt td.c-note{text-align:left}
+.dj .xt td.c-ps,.dj .xt td.c-pj,.dj .xt td.c-pwd,.dj .xt td.c-pwr,.dj .xt td.c-gap,.dj .xt td.c-cd,.dj .xt td.c-cr{text-align:right}
+.dj .xt .pv{font-weight:800}.dj .xt .pv.sale{color:var(--sale)}.dj .xt .pv.jeonse{color:var(--jeonse)}.dj .xt .pv.wolse{color:var(--wolse)}.dj .xt .dn{color:var(--muted)}
+.dj .xt b.gap{color:#7B4FD6}.dj .xt b.gap.est{opacity:.6;font-weight:600}
+.dj .xt .ofm{font-weight:700;color:var(--navy)}.dj .xt small.hold{color:#E8A23A;font-weight:700;margin-left:2px}
+.dj .xt .hl{display:inline-block;max-width:240px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;color:#3E4A57;margin-right:4px}.dj .xt .hl i{font-style:normal;color:var(--muted);font-size:11px}
+.dj .xt td.c-h{white-space:nowrap}.dj .xt td.c-ty small,.dj .xt td.c-own small,.dj .xt td.c-ten small{margin-left:2px;font-size:11px}
+.dj .xt td.c-imp{min-width:140px;max-width:300px}
+.dj .xt th.c-dn{min-width:40px}.dj .xt th.c-ho{min-width:46px}.dj .xt th.c-ar{width:auto;min-width:40px}.dj .xt th.c-ty{width:auto;min-width:56px}.dj .xt th.c-dir{min-width:36px}
+.dj .xt th.c-ps,.dj .xt th.c-pj,.dj .xt th.c-pwd,.dj .xt th.c-gap,.dj .xt th.c-cd{min-width:52px}.dj .xt th.c-pwr,.dj .xt th.c-cr,.dj .xt th.c-live{min-width:38px}
+.dj .xt th.c-exp{width:auto;min-width:64px}.dj .xt th.c-h{width:auto;min-width:120px}.dj .xt th.c-pub{min-width:64px}
+@media (min-width:901px){
+  body.dense .dj table.xt{font-size:12.5px}
+  body.dense .dj .xt td{height:26px;padding:0 6px}
+  body.dense .dj .xt thead th{padding:3px 5px;font-size:11.5px}
+  body.dense .dj .xt .hbtn,body.dense .dj .xt .pbtn,body.dense .dj .xt .mbtn{padding:0 6px;font-size:11px;line-height:18px}
+}
 /* 10/26 보기: 기본 ↔ 촘촘하게 (한 화면에 더 많은 줄 · 기존 매물장처럼) */
 .vw{display:inline-flex;border:1px solid rgba(255,255,255,.25);border-radius:8px;overflow:hidden;margin-right:6px}
 .vw button{border:0;background:transparent;color:#C9D2DB;font-size:13px;font-weight:700;padding:0 10px;height:32px;cursor:pointer}.vw button[aria-pressed=true]{background:var(--gold);color:var(--navy)}
@@ -892,15 +958,25 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
   body.dense .bdt tbody tr[data-id]:nth-child(even):not(.on):not(.mk-y){background:#FAFBFC}
   body.dense .bdt .det,body.dense .bdt .pbtn{padding:1px 7px;font-size:12px}
 }
+/* 10/26 아파트 표 촘촘함 (기획안) — 위 '촘촘하게' 규칙보다 뒤에 둠 */
+@media (min-width:901px){
+  body.dense .dj table.xt{font-size:12.5px}
+  body.dense .dj .xt tbody td{height:26px;padding:0 6px}
+  body.dense .dj .xt thead th{padding:3px 5px;font-size:11.5px}
+  body.dense .dj .xt thead tr.frow th{padding:2px 3px}
+}
+/* 10/26 왼쪽 목록: 화면(스크롤 상자) 맨 위에 붙게 — 상자 안 기준이라 위 막대 높이를 빼지 않음 */
+@media (min-width:980px){
+  .djlay.hastree .djtree,.bdlay.hastree .bdtree{top:8px;max-height:calc((100vh - var(--toph,60px) - 16px) / var(--fz,1))}
+}
 </style>
 </head>
 <body>
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
   <h1>리얼맵 중개장부 <span class="pro">PRO</span></h1>
-  <span class="mtog" role="group" aria-label="보기 방식"><button type="button" data-mode="list">매물<span class="lg">관리</span></button><button type="button" data-mode="danji">단지<span class="lg">관리</span></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button></span>
+  <span class="mtog" role="group" aria-label="보기 방식"><button type="button" data-mode="list">매물<span class="lg">관리</span></button><button type="button" data-mode="danji">아파트</button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button></span>
   <span class="sp"></span>
-  <span class="vw" role="group" aria-label="표 보기"><button type="button" data-vw="basic">기본</button><button type="button" data-vw="dense">촘촘하게</button></span>
   <span class="fz" role="group" aria-label="글씨 크기"><button type="button" id="fzDn" aria-label="글씨 작게">가−</button><button type="button" id="fzUp" aria-label="글씨 크게">가+</button></span>
   <span class="who" id="who"></span>
 </div>

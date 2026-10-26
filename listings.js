@@ -52,7 +52,7 @@
     document.querySelectorAll('[data-vw]').forEach(b => b.setAttribute('aria-pressed', b.dataset.vw === S.vw));
     if (save) { try { localStorage.setItem('rm.vw', S.vw); } catch { /* 무시 */ } }
   }
-  (() => { let v = null; try { v = localStorage.getItem('rm.vw'); } catch { /* 무시 */ } setVw(v || 'basic', false); S.vwSet = !!v; document.querySelectorAll('[data-vw]').forEach(b => b.onclick = () => { setVw(b.dataset.vw, true); if (window.Danji && S.mode === 'danji') Danji.refresh(); }); })();
+  setVw('dense', false); S.vwSet = true;   // 10/26: 촘촘하게가 기본 (기본/촘촘하게 버튼 없앰 — 크기는 가−/가+)
   (() => { let i = 3; try { const v = localStorage.getItem('rm.fz2'); const o = localStorage.getItem('rm.fz'); if (v !== null) i = +v; else if (o !== null) i = +o + 2; } catch { /* 무시 */ } setFz(i); $('fzDn').onclick = () => setFz(S.fz - 1); $('fzUp').onclick = () => setFz(S.fz + 1); })();
 
   // ---------- 시작 ----------

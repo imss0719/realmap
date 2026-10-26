@@ -264,7 +264,7 @@ window.Board = (() => {
       }
       case 'ar': { if (!x.area) return '<span class="ep">면적</span>'; const k = detKind(x);
         // 아파트: 공급평 · 타입 + 전용㎡ (10/26 — "34평 84B"처럼). 공급평은 단지관리 라인 설정 값, 없으면 추정(≈)
-        if (x.ptype === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평 — 단지관리에서 라인 평형을 적으면 정확해집니다"'}>${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''}`; }
+        if (x.ptype === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평 — 아파트 화면에서 라인 평형을 적으면 정확해집니다"'}>${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''}`; }
         return `${k === 'whole' ? '연 ' : k === 'land' ? (places(x).length > 1 ? '합 ' : '') : '전용 '}${m2t(x.area)}<small>${k === 'whole' && siteOf(x) ? `대지 ${m2t(siteOf(x))} · ` : ''}${pyt(x.area)}</small>`; }
       case 'fl': {
         const k = detKind(x);
