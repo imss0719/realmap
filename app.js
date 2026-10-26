@@ -1755,6 +1755,34 @@
     try { if (S.me.op) localStorage.setItem('rm.op', '1'); } catch { /* 무시 */ }
     drawAcct();
     loadFavs();
+    proTicker();
+  }
+  // ---------- 중개장부 띠 광고 (10/26) ----------
+  //   PC에서만 · 지도 아래 가운데 좁은 칸을 작은 글씨로 한 번 지나감 (방문(탭)당 한 번) · 중개장부를 시작한 회원은 안 보임
+  //   운영자 확인용: 주소 뒤에 ?tk=1
+  function proTicker() {
+    const force = /[?&]tk=1/.test(location.search);
+    if (!force) {
+      if (!matchMedia('(min-width:980px)').matches) return;
+      const pl = S.me && S.me.plan && S.me.plan.plan;
+      if (pl && pl !== 'none') return;
+      try { if (sessionStorage.getItem('rm.tk')) return; } catch { /* 무시 */ }
+    }
+    const box = document.querySelector('.map'); if (!box) return;
+    let tries = 0;
+    const start = () => {
+      if (document.querySelector('.wel') && tries++ < 60) return setTimeout(start, 2000);   // 첫 안내 창이 떠 있으면 닫힌 뒤에
+      try { sessionStorage.setItem('rm.tk', '1'); } catch { /* 무시 */ }
+      const el = document.createElement('div');
+      el.className = 'rmt'; el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<a href="/pro.html" target="_blank" rel="noopener" tabindex="-1">중개사 전용<i></i>부동산 매물장 <em>월 9,900원</em><i></i>주소 한 줄이면 등록 끝<i></i>2주 무료 →</a>';
+      box.appendChild(el);
+      const a = el.firstChild, W = el.clientWidth, T = a.offsetWidth;
+      const run = a.animate([{ transform: `translateX(${W}px)` }, { transform: `translateX(${-T}px)` }], { duration: (W + T) / 28 * 1000, easing: 'linear' });   // 일정한 속도 (초당 약 28px)
+      a.onmouseenter = () => run.pause(); a.onmouseleave = () => run.play();
+      run.onfinish = () => el.remove();
+    };
+    setTimeout(start, 8000);
   }
   const here = () => location.pathname + location.search;
   function drawAcct() {

@@ -662,3 +662,12 @@ a.favbtn{text-decoration:none}
 .lav.lg{width:52px;height:52px;margin:0}.lav.lg b{font-size:20px}
 .lbk .lav.lg{align-self:flex-start}
 .lc-more .lbk{display:grid;grid-template-columns:52px 1fr;gap:4px 10px}.lc-more .lbk .lbtn{grid-column:1/-1}
+
+/* 10/26 중개장부 띠 광고: 지도 아래 가운데 좁은 칸 · 배경 없이 작은 글씨 · 한 번 지나감 */
+.rmt{position:absolute;left:50%;transform:translateX(-50%);bottom:30px;width:min(560px,46%);height:22px;overflow:hidden;z-index:4;pointer-events:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 88%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 88%,transparent 100%)}
+.rmt a{position:absolute;left:0;top:0;white-space:nowrap;text-decoration:none;pointer-events:auto;font-weight:700;font-size:13px;line-height:22px;color:#14212E;
+  -webkit-text-stroke:3px #fff;paint-order:stroke fill;will-change:transform}
+.rmt a em{font-style:normal;color:#B07F00}
+.rmt a i{display:inline-block;width:4px;height:4px;border-radius:50%;background:#F2B705;margin:0 9px;vertical-align:2px}
+@media (max-width:979px){.rmt{display:none}}
