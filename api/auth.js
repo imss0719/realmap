@@ -837,9 +837,10 @@ export default async function (req, res) {
           ptype: str(it.ptype, 10), ptypeTx: str(it.ptypeTx, 20), kind,
           price: numv(it.price), deposit: numv(it.deposit), rent: numv(it.rent), mgmt: numv(it.mgmt), premium: numv(it.premium),
           curDep: numv(it.curDep), curRent: numv(it.curRent), loan: numv(it.loan), pr: numv(it.pr), paid: numv(it.paid),
-          memo: str(it.memo, 5000), status, at: prev ? prev.at : now, up: now,
+          memo: str(it.memo, 20000), status, at: prev ? prev.at : now, up: now,   // 10/26: 기록(자동 기록 포함)이 쌓이므로 memo 5000 → 20000자
           imp: str(it.imp, 100), impd: impDay(it.imp),   // 꼭 챙길 것 (10/26) — 글 속 날짜는 알림용
           mk: ['y', 'r'].includes(it.mk) ? it.mk : '',  // 줄 표시 노랑·빨강 (10/26)
+          exp: /^\d{4}-\d{2}-\d{2}$/.test(String(it.exp || '')) ? String(it.exp) : '',   // 만기일 (지금 임차 계약 · 10/26) — 알림용
           ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
         };
         try { cxDirty = await syncLineDir(s.id, rec, prev, items); } catch { /* 방향 맞추기는 실패해도 저장은 그대로 */ }
