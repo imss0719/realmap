@@ -285,10 +285,11 @@ async function syncLineDir(uid, rec, prev, items) {
   let d = null; try { const v = await redis(['GET', ck]); d = v ? JSON.parse(v) : null; } catch { d = null; }
   const cxs = d && Array.isArray(d.items) ? d.items.filter(c => (c.places || []).some(p => p.pnu === p0.pnu)) : [];
   const keys = [`${p0.pnu}|${dn}|${line}`, `*|${dn}|${line}`];
-  for (const c of cxs) { const L = c.lt && (c.lt[keys[0]] || c.lt[keys[1]]); if (L) { if (L.t && !rec.ad.ty) rec.ad.ty = L.t; if (L.py && !rec.ad.spy) rec.ad.spy = L.py; break; } }   // 타입·공급평 (10/26)
+  const hk = `${p0.pnu}|${dn}|h${String(p0.ho).replace(/\D/g, '') || String(p0.ho).replace(/\s|호$/g, '')}`;   // 아파트 화면에서 '이 호만' 적은 값 (10/26)
+  for (const c of cxs) { const L = c.lt && (c.lt[hk] || c.lt[keys[0]] || c.lt[keys[1]]); if (L) { if (L.t && !rec.ad.ty) rec.ad.ty = L.t; if (L.py && !rec.ad.spy) rec.ad.spy = L.py; break; } }   // 타입·공급평 (10/26)
   if (!rec.ad.dir) {
     let v = '';
-    for (const c of cxs) for (const k of keys) if (!v && c.dir && c.dir[k]) v = c.dir[k] + '향';
+    for (const c of cxs) for (const k of [hk, ...keys]) if (!v && c.dir && c.dir[k]) v = c.dir[k] + '향';
     if (!v) { const o = items.find(x => x.id !== rec.id && x.pnu === rec.pnu && x.places && x.places[0] && normD(x.places[0].dong) === dn && lineOf(x.places[0].ho) === line && x.ad && x.ad.dir); if (o) v = o.ad.dir; }
     if (AD_DIRS.includes(v)) rec.ad.dir = v;
     return false;
@@ -552,7 +553,7 @@ export default async function (req, res) {
       } else if (body.op === 'dir') {
         // 라인별 방향 (같은 라인은 보통 같은 방향): key = 'PNU|동|라인'
         const dk = str(body.key, 40), DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
-        if (!/^(\d{19}|\*)\|[^|]{1,16}\|\d{1,3}$/.test(dk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');
+        if (!/^(\d{19}|\*)\|[^|]{1,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/.test(dk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');   // 라인 또는 h호(이 호만)
         it.dir = it.dir || {};
         if (DIRS.includes(body.v)) it.dir[dk] = body.v; else delete it.dir[dk];
         if (Object.keys(it.dir).length > 800) return fail(res, 400, 'full', '방향 정보가 너무 많습니다.');
