@@ -46,6 +46,13 @@
     try { localStorage.setItem('rm.fz2', String(i)); } catch { /* 무시 */ }
     $('fzDn').disabled = i === 0; $('fzUp').disabled = i === FZ.length - 1;
   }
+  // ---------- 표 보기: 기본 ↔ 촘촘하게 (10/26) — 이 기기에 기억. 처음 쓰는 회원은 '촘촘하게', 이미 매물이 있는 회원은 '기본'으로 시작 ----------
+  function setVw(v, save) {
+    S.vw = v === 'dense' ? 'dense' : 'basic'; document.body.classList.toggle('dense', S.vw === 'dense');
+    document.querySelectorAll('[data-vw]').forEach(b => b.setAttribute('aria-pressed', b.dataset.vw === S.vw));
+    if (save) { try { localStorage.setItem('rm.vw', S.vw); } catch { /* 무시 */ } }
+  }
+  (() => { let v = null; try { v = localStorage.getItem('rm.vw'); } catch { /* 무시 */ } setVw(v || 'basic', false); S.vwSet = !!v; document.querySelectorAll('[data-vw]').forEach(b => b.onclick = () => { setVw(b.dataset.vw, true); if (window.Danji && S.mode === 'danji') Danji.refresh(); }); })();
   (() => { let i = 3; try { const v = localStorage.getItem('rm.fz2'); const o = localStorage.getItem('rm.fz'); if (v !== null) i = +v; else if (o !== null) i = +o + 2; } catch { /* 무시 */ } setFz(i); $('fzDn').onclick = () => setFz(S.fz - 1); $('fzUp').onclick = () => setFz(S.fz + 1); })();
 
   // ---------- 시작 ----------
@@ -65,7 +72,7 @@
     const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
     th(); addEventListener('resize', th);
     loadMap();
-    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = S.asPlan || j.plan; } catch (e) {
+    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = S.asPlan || j.plan; if (!S.vwSet) { setVw(S.items.length ? 'basic' : 'dense', true); S.vwSet = true; } } catch (e) {
       if (e.code === 'start') return location.replace('/pro.html?go=1');
       // 중개사무소 확인이 안 된 계정: 정보를 등록증과 같게 고치면 바로 열림
       if (e.code === 'verify') { S.bk = (e.data && e.data.bk) || null; draw(); return openBk(() => location.reload(), e.message); }
@@ -1202,4 +1209,29 @@
   }
 
   init();
+})();
+
+// ---------- 표 머리 ▾ 칸별 거르기 (매물관리 · 단지관리 같이 씀) — 10/26 ----------
+//   ColPick.open(버튼, [{v, n}], 고른 값 배열|null(=전부), 고른 뒤(배열|null))
+window.ColPick = (() => {
+  let box = null;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const close = () => { if (box) { box.remove(); box = null; } };
+  document.addEventListener('mousedown', e => { if (box && !box.contains(e.target) && !e.target.closest('[data-cf]')) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  function open(btn, vals, sel, done) {
+    const was = box && box.dataset.k === btn.dataset.cf; close(); if (was) return;
+    const on = new Set(sel || vals.map(o => o.v));
+    box = document.createElement('div'); box.className = 'cfpop'; box.dataset.k = btn.dataset.cf;
+    box.innerHTML = `<div class="cfa"><button type="button" data-a="1">모두</button><button type="button" data-a="0">모두 끄기</button></div>
+      <div class="cfl">${vals.map((o, i) => `<label><input type="checkbox" data-i="${i}" ${on.has(o.v) ? 'checked' : ''}><span>${esc(o.v || '(비어 있음)')}</span><small>${o.n}</small></label>`).join('')}</div>
+      <div class="cfb"><button type="button" class="ok">적용</button></div>`;
+    document.body.appendChild(box);
+    const r = btn.getBoundingClientRect();
+    box.style.top = (r.bottom + 4) + 'px'; box.style.left = Math.max(8, Math.min(r.left - 8, innerWidth - box.offsetWidth - 8)) + 'px';
+    const cks = [...box.querySelectorAll('input[data-i]')];
+    box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => cks.forEach(c => { c.checked = b.dataset.a === '1'; }));
+    box.querySelector('.ok').onclick = () => { const pick = cks.filter(c => c.checked).map(c => vals[c.dataset.i].v); close(); done(pick.length === vals.length ? null : pick); };
+  }
+  return { open, close };
 })();

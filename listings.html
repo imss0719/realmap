@@ -806,6 +806,92 @@ body.cumode .side{display:none!important}body.djmode .legend,body.cumode .legend
 .dj .djcap{display:flex;align-items:baseline;gap:8px;margin:2px 2px -4px}.dj .djcap b{font-size:15px}.dj .djcap span{font-size:13px;color:var(--muted)}
 .bd .cmx{display:grid;gap:4px}.bd .cmx>div{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #EADFB5;border-radius:8px;padding:5px 8px}.bd .cmx b{font-size:14px;flex:none}.bd .cmx small{flex:1;min-width:0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bd .cmx em{font-style:normal;color:#9A6200;font-weight:700}.bd .cmx .tl{text-decoration:none}.bd .cmx .b2{border:1.5px solid var(--line);background:#fff;border-radius:7px;padding:2px 9px;font-size:12px;font-weight:700;cursor:pointer}
 .cu .cchip.st-on[aria-pressed=true]{background:#1F7A4D;border-color:#1F7A4D}.cu .cchip.st-hold[aria-pressed=true]{background:#E8A23A;border-color:#E8A23A}.cu .cchip.st-done[aria-pressed=true]{background:#8A96A3;border-color:#8A96A3}
+
+/* 10/26 표가 옆으로 넓어지더라도 내용이 잘리지 않게 (가로 스크롤) — 단지관리·매물관리 */
+.dj .tbw{overflow-x:auto!important}
+.dj table.xt{table-layout:auto!important;width:max-content!important;min-width:100%!important}
+.dj .xt td{overflow:visible;text-overflow:clip;max-width:none}
+.dj .xt td.c-note,.dj .xt td.c-imp,.dj .xt td.c-opt{white-space:normal;min-width:150px;max-width:320px;line-height:1.35;padding-top:6px;padding-bottom:6px}
+.dj .xt td.c-ty b{font-weight:700}.dj .xt th.c-ty{width:60px}.dj .xt th.c-ar{width:58px}
+.bd table.bdt{table-layout:auto!important;width:max-content!important;min-width:100%!important}
+.bdt col{width:auto!important}
+.bdt td{overflow:visible;text-overflow:clip}
+.bdt td.c-memo,.bdt td.c-imp{white-space:normal;min-width:140px;max-width:300px}
+/* 10/26 줄 표시 (노랑·빨강) */
+.dj .xt tbody tr.mk-y td{background:#FFF4C2}.dj .xt tbody tr.mk-r td{color:#C21F1F;font-weight:700}.dj .xt tbody tr.mk-r td .mut{color:#E9A1A1}
+.bdt tr.mk-y td{background:#FFF4C2}.bdt tr.mk-r td,.bdt tr.mk-r td b,.bdt tr.mk-r td small{color:#C21F1F}
+.mkb{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);font-weight:600;margin-right:6px}
+.mkb button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;cursor:pointer}.mkb button.y{background:#FFF4C2;color:#7A5200}.mkb button.r{color:#C21F1F}.mkb button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.dj .hjhist .hx .ed{color:var(--muted);font-weight:500;font-size:11px}.dj .hjhist textarea.hed{width:100%;min-width:260px;font:inherit;font-size:13px;margin-bottom:4px}.dj .hjhist .hx{flex:1}
+/* 10/26 단지관리 왼쪽 단지 목록 (넓은 화면) */
+.djlay{display:block}.djtree{display:none}
+@media (min-width:980px){
+  .djlay.hastree{display:grid;grid-template-columns:232px minmax(0,1fr);gap:14px;align-items:start}
+  .djlay.hastree .djtree{display:block;position:sticky;top:calc(var(--toph,60px) + 8px);max-height:calc(100vh - var(--toph,60px) - 24px);overflow:auto;background:#fff;border-radius:14px;padding:10px 6px 10px;box-shadow:0 1px 0 var(--line)}
+  .djlay.hastree .chips{display:none}
+}
+.djtree .tth{padding:2px 10px 8px;border-bottom:1px solid var(--line);margin-bottom:6px}.djtree .tth b{display:block;font-size:14px}.djtree .tth small{font-size:11px;color:var(--muted)}
+.djtree .tn{display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;text-align:left;padding:6px 10px;border-radius:8px;font:inherit;font-size:14px;color:var(--fg);cursor:pointer}
+.djtree .tn:hover{background:#F3F6F9}.djtree .tn.on{background:#E6F0FC;color:#0B4FA3;font-weight:700}
+.djtree .tn>button{flex:1;display:flex;align-items:center;gap:5px;border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.djtree .tn input{margin:0;width:15px;height:15px;flex:none;accent-color:#1C64C8}
+.djtree .tn .ar{font-size:10px;color:var(--muted);width:10px}
+.djtree .tn .ct{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}.djtree .tn .ct em{font-style:normal;color:#C92A2A}
+.djtree .tn.d{padding-left:34px;font-size:13px}.djtree .tn.d i{width:12px;height:10px;border-radius:2px;background:#F5C44E;flex:none}
+.djtree .tn.all{font-weight:700}.djtree .tn.add{color:#1C64C8;font-weight:700;font-size:13px;margin-top:6px;border-top:1px solid var(--line);border-radius:0;padding-top:10px}
+/* 10/26 매물관리 왼쪽 매물 분류 (넓은 화면 · 지도 닫았을 때) */
+.bdlay{display:block}
+@media (min-width:980px){
+  .bdlay.hastree{display:grid;grid-template-columns:210px minmax(0,1fr);gap:14px;align-items:start}
+  .bdlay.hastree .bdtree{display:block;position:sticky;top:calc(var(--toph,60px) + 8px);max-height:calc(100vh - var(--toph,60px) - 24px);overflow:auto;background:#fff;border-radius:14px;padding:10px 6px;box-shadow:0 1px 0 var(--line)}
+  .bdlay.hastree .bsg.tyg{display:none}
+}
+.bdtree .tn i{width:12px;height:10px;border-radius:2px;background:#F5C44E;flex:none}.bdtree .tn i.g{background:#C5CDD6}
+.bdtree .tn.d i{background:#FBE3A6}
+.bdtree .tsep{border-top:1px solid var(--line);margin:8px 6px}
+.bdtree .tn.s{font-size:13px;color:var(--muted)}.bdtree .tn.s.on{color:#0B4FA3}
+/* 10/26 매물관리 왼쪽 칸(#·유형·주소) 고정 — 옆으로 밀어도 어느 매물인지 보이게 */
+.bdt.fx .c-n,.bdt.fx .c-ty,.bdt.fx .c-addr{position:sticky;z-index:1}
+.bdt.fx .c-n{left:0}.bdt.fx .c-ty{left:var(--l1)}.bdt.fx .c-addr{left:var(--l2);box-shadow:inset -1px 0 0 var(--line)}
+.bdt.fx tbody tr[data-id] td.c-n,.bdt.fx tbody tr[data-id] td.c-ty,.bdt.fx tbody tr[data-id] td.c-addr{background:#fff}
+.bdt.fx tbody tr[data-id]:hover td.c-n,.bdt.fx tbody tr[data-id]:hover td.c-ty,.bdt.fx tbody tr[data-id]:hover td.c-addr{background:#EAF2FD}
+.bdt.fx tbody tr.mk-y td.c-n,.bdt.fx tbody tr.mk-y td.c-ty,.bdt.fx tbody tr.mk-y td.c-addr{background:#FFF4C2}
+.bdt.fx tbody tr.on td.c-n,.bdt.fx tbody tr.on td.c-ty,.bdt.fx tbody tr.on td.c-addr{background:#D6E6FA}
+.bdt.fx th.c-n,.bdt.fx th.c-ty,.bdt.fx th.c-addr{z-index:2}
+/* 10/26 표 머리 ▾ 칸별 거르기 */
+th .cfb{border:0;background:none;color:#9AA6B2;font-size:11px;padding:0 3px;margin-left:2px;cursor:pointer;border-radius:4px;vertical-align:middle}
+th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gold);color:var(--navy)}
+.cfpop{position:fixed;z-index:9000;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(16,32,48,.18);padding:8px;width:220px;font-size:14px}
+.cfpop .cfa{display:flex;gap:6px;margin-bottom:6px}.cfpop .cfa button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer}
+.cfpop .cfl{max-height:260px;overflow:auto}
+.cfpop label{display:flex;align-items:center;gap:6px;padding:4px 4px;border-radius:6px;cursor:pointer}.cfpop label:hover{background:#F3F6F9}
+.cfpop label span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cfpop label small{color:var(--muted);font-size:12px}
+.cfpop .cfb{margin-top:8px;text-align:right}.cfpop .ok{border:0;background:var(--navy);color:#fff;border-radius:8px;padding:6px 16px;font-weight:700;cursor:pointer}
+/* 10/26 보기: 기본 ↔ 촘촘하게 (한 화면에 더 많은 줄 · 기존 매물장처럼) */
+.vw{display:inline-flex;border:1px solid rgba(255,255,255,.25);border-radius:8px;overflow:hidden;margin-right:6px}
+.vw button{border:0;background:transparent;color:#C9D2DB;font-size:13px;font-weight:700;padding:0 10px;height:32px;cursor:pointer}.vw button[aria-pressed=true]{background:var(--gold);color:var(--navy)}
+@media (max-width:900px){.vw{display:none}}
+@media (min-width:901px){
+  body.dense .dj table.xt{font-size:13px}
+  body.dense .dj .xt th{padding:5px 6px;font-size:12px}
+  body.dense .dj .xt td{height:28px;padding:0 6px}
+  body.dense .dj .xt td.c-note,body.dense .dj .xt td.c-imp,body.dense .dj .xt td.c-opt{padding-top:3px;padding-bottom:3px}
+  body.dense .dj .xt .p{font-size:11px;padding:0 5px;line-height:1.45}
+  body.dense .dj .xt small.gap{display:inline;margin-left:5px}
+  body.dense .dj .xt .hbtn,body.dense .dj .xt .pbtn{padding:1px 7px;font-size:12px}
+  body.dense .dj .kpis{margin-top:6px}body.dense .dj .kpis div{padding:3px 4px}body.dense .dj .kpis b{font-size:16px}
+  body.dense .dj .card{padding:10px 12px}
+  body.dense .dj .xt tbody tr:nth-child(even):not(.sel):not(.mk-y) td{background:#FAFBFC}
+  body.dense .bd table.bdt{font-size:13px}
+  body.dense .bdt th{padding:5px 6px;font-size:12px}
+  body.dense .bdt td{padding:3px 6px}
+  body.dense .bdt td small{display:inline;margin-left:5px;font-size:11px}
+  body.dense .bdt td em{font-size:11px}
+  body.dense .bdt .no{width:20px;height:20px;font-size:11px}
+  body.dense .bdt .kd,body.dense .bdt .ty{font-size:11px;padding:0 5px}
+  body.dense .bdt tbody tr[data-id]:nth-child(even):not(.on):not(.mk-y){background:#FAFBFC}
+  body.dense .bdt .det,body.dense .bdt .pbtn{padding:1px 7px;font-size:12px}
+}
 </style>
 </head>
 <body>
@@ -814,6 +900,7 @@ body.cumode .side{display:none!important}body.djmode .legend,body.cumode .legend
   <h1>리얼맵 중개장부 <span class="pro">PRO</span></h1>
   <span class="mtog" role="group" aria-label="보기 방식"><button type="button" data-mode="list">매물<span class="lg">관리</span></button><button type="button" data-mode="danji">단지<span class="lg">관리</span></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button></span>
   <span class="sp"></span>
+  <span class="vw" role="group" aria-label="표 보기"><button type="button" data-vw="basic">기본</button><button type="button" data-vw="dense">촘촘하게</button></span>
   <span class="fz" role="group" aria-label="글씨 크기"><button type="button" id="fzDn" aria-label="글씨 작게">가−</button><button type="button" id="fzUp" aria-label="글씨 크게">가+</button></span>
   <span class="who" id="who"></span>
 </div>
