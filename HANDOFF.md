@@ -479,3 +479,9 @@
   (지금 유료 기간이 남아 있으면 그 끝에서 mon개월 이어 붙임 · 요금제는 새로 고른 것) / 'payno'(이유). 회원은 알림(📢 note, alarm.js 0번)으로 받음. 영수증 발행은 선배가 홈택스에서.
 - 10/27 문의하기: 설정 → 문의하기(종류·내용·사진 1장 선택, 하루 10건) → realmap:qna → 운영자 문자 → brokers.html [문의] 카드에서 답변(op 'reply') → 회원 설정 화면·알림.
   설정 화면은 글을 쓰는 중(포커스가 설정 안)이면 다른 화면 갱신 때 다시 그리지 않음 · 쓰던 신청서·문의 글은 pf/qf에 보관.
+- 10/27 매물장 저장 구조 변경 1단계(api/_ls.js): realmap:ls:<uid> 덩어리 → realmap:lsh:<uid> 해시(필드=매물 id, 값=LEDGER_KEY로 AES-GCM 암호문 'v1:'),
+  realmap:lsv:<uid>='2'(옮김 표시), 처음 읽을 때 자동으로 옮기고 예전 덩어리는 realmap:lsbak:<uid>에 백업. 저장은 바뀐 매물만 HSET · 지운 매물만 HDEL
+  (다른 매물을 동시에 고쳐도 덮어쓰지 않음). 읽을 때 at(등록일) 새것부터 정렬. lsLoad/lsSave/lsMutate/lsDrop — auth.js가 다시 내보내 members.js도 씀.
+  1단계 동안 DUAL=true로 예전 덩어리(realmap:ls)도 같이 저장 → 문제가 생기면 auth.js·members.js를 예전 것으로 되돌리기만 하면 됨.
+  ※ 되돌렸다가 다시 새 코드로 올릴 때는 그 사이 고친 내용이 해시에 없으므로 realmap:lsv:* 를 지워 다시 옮기게 해야 함.
+  2단계(1~2주 문제없으면): _ls.js DUAL=false → 예전 덩어리 저장 끔. 3단계: realmap:ls:* · realmap:lsbak:* 정리(선배 확인 후).
