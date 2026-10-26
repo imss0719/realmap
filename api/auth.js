@@ -28,11 +28,13 @@ export async function dropPhotos(urls) { if (!urls.length) return; try { const {
 // 무료(계속) · 2주 무료 체험 · Basic · Premium · VIP. 저장: realmap:plan:<회원id> { plan, until, trialUsed, at }
 // 시작하지 않은 회원은 매물장을 쓸 수 없고 소개 페이지(/pro.html)로 갑니다. 예전 realmap:pro 목록 회원은 Basic으로 봅니다.
 export const PLANS = {
-  free: { name: '무료', ls: 10, ad: 3, cx: 3, cu: 10, adv: false },
-  trial: { name: '2주 무료 체험', ls: 1000, ad: 300, cx: 10, cu: 300, adv: true },
-  basic: { name: 'Basic', ls: 1000, ad: 300, cx: 10, cu: 300, adv: true },
-  premium: { name: 'Premium', ls: 10000, ad: 1000, cx: 30, cu: 3000, adv: true },
-  vip: { name: 'VIP', ls: 1e9, ad: 1e9, cx: 100, cu: 1e9, adv: true },
+  // 10/26 요금표: 무료 0원 · Basic 9,900원 · Premium 19,900원 · VIP 29,900원 (부가세 포함) · 담당자 추가 1명당 2,900원(준비 중)
+  //   VIP '무제한'은 공정 사용 한도 매물 30,000건
+  free: { name: '무료', ls: 10, ad: 10, cx: 3, cu: 10, adv: false },
+  trial: { name: '2주 무료 체험', ls: 1000, ad: 300, cx: 20, cu: 1000, adv: true },
+  basic: { name: 'Basic', ls: 1000, ad: 300, cx: 20, cu: 1000, adv: true },
+  premium: { name: 'Premium', ls: 5000, ad: 1000, cx: 50, cu: 5000, adv: true },
+  vip: { name: 'VIP', ls: 30000, ad: 3000, cx: 100, cu: 1e9, adv: true },
 };
 const TRIAL_DAYS = 14;
 export async function planOf(id) {
@@ -63,7 +65,7 @@ export async function startTrial(uid) {
 }
 // 단지 장부 한도: 등록한 순서대로 앞의 P.cx곳만 입력 가능, 넘는 단지는 보기만 (요금제를 내렸을 때)
 const cxOpen = (items, P) => new Set([...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, P.cx || 0).map(x => x.id));
-const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 10곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
+const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 20곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
 export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {

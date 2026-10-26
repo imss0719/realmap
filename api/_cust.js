@@ -51,7 +51,7 @@ export async function cust({ redis, uid, P, send, fail, req, res, body = {} }) {
     if (id && !prev) return fail(res, 404, 'none', '고객을 찾지 못했습니다.');
     if (!prev) {
       const n = Number(await redis(['HLEN', H])) || 0;
-      if (n >= P.cu) return fail(res, 400, 'limit', P.plan === 'free' ? `무료 이용은 고객 ${P.cu}명까지입니다. Basic(월 9,900원)이면 300명까지 관리할 수 있습니다.` : `${P.name} 요금제는 고객 ${P.cu.toLocaleString()}명까지입니다.`);
+      if (n >= P.cu) return fail(res, 400, 'limit', P.plan === 'free' ? `무료 이용은 고객 ${P.cu}명까지입니다. Basic(월 9,900원)이면 1,000명까지 관리할 수 있습니다.` : `${P.name} 요금제는 고객 ${P.cu.toLocaleString()}명까지입니다.`);
     }
     const c = clean(body.item, prev);
     if (!c.name && !c.phone) return fail(res, 400, 'need', '이름이나 연락처 중 하나는 넣어 주세요.');
