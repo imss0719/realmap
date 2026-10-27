@@ -11,6 +11,7 @@ import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
 import { ledger, dropLedger, dropLedgers, normD, impDay } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
 import { lsLoad, lsSave, lsMutate, lsDrop } from './_ls.js';
+import { officeOf, permOf, can, teamN, members, dropTeam, leave, staffApi, seatsOf, SEAT, ROLE } from './_staff.js';
 export { lsLoad, lsSave, lsMutate };
 
 const REST = (process.env.KAKAO_REST_KEY || '').trim();
@@ -48,7 +49,7 @@ export async function planOf(id) {
   const now = new Date().toISOString();
   if (rec) {
     const live = !rec.until || rec.until > now;
-    if (PLANS[rec.plan] && rec.plan !== 'free' && live) return out(rec.plan, { until: rec.until || null, trialUsed: !!rec.trialUsed, gift: rec.by === 'op' });   // gift: 운영자 혜택 (10/27)
+    if (PLANS[rec.plan] && rec.plan !== 'free' && live) return out(rec.plan, { until: rec.until || null, trialUsed: !!rec.trialUsed, gift: rec.by === 'op', seats: Number(rec.seats) || 0 });   // gift: 운영자 혜택 (10/27)
     return out('free', { ended: rec.plan !== 'free' ? rec.plan : '', endedAt: rec.until || null, trialUsed: !!rec.trialUsed });
   }
   try { if (await redis(['SISMEMBER', 'realmap:pro', String(id)])) return out('basic', { legacy: true }); } catch { /* 없음 */ }
@@ -68,7 +69,7 @@ export async function startTrial(uid) {
 // 단지 장부 한도: 등록한 순서대로 앞의 P.cx곳만 입력 가능, 넘는 단지는 보기만 (요금제를 내렸을 때)
 const cxOpen = (items, P) => new Set([...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, P.cx || 0).map(x => x.id));
 const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 20곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
-export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op, gift: !!P.gift });
+export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op, gift: !!P.gift, seats: seatsOf(P) });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {
   b = b || {};
@@ -372,6 +373,23 @@ export function readSession(req) {
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try { const s = JSON.parse(Buffer.from(body, 'base64url').toString()); return s.exp > Date.now() / 1000 ? s : null; } catch { return null; }
 }
+// 직원(10/28): 승인된 직원이면 s.id = 대표 id (대표 장부를 씀), s.me = 본인 id, s.staff/role/sname. 대표·혼자 쓰는 회원은 그대로
+async function office(req) {
+  const s = readSession(req); if (!s || !R_URL || !R_TOKEN) return s;
+  const so = await officeOf(redis, s);
+  if (so.staff) {   // 대표 요금제의 직원 자리보다 많으면 먼저 승인된 순서대로 자리만큼만 (체험 끝나 무료가 되면 직원은 쉬어감)
+    const n = seatsOf(await planOf(so.id)), on = (await members(redis, so.id)).filter(m => m.st === 'on').sort((a, b) => String(a.okAt).localeCompare(String(b.okAt)));
+    if (on.findIndex(m => m.uid === so.me) >= n) so.blocked = n ? `대표님 요금제의 직원 자리(${n}명)가 모자라 지금은 장부를 열 수 없습니다. 대표님께 직원 자리 추가를 부탁해 주세요.` : '대표님 사무소가 무료 이용 중이라 직원은 장부를 열 수 없습니다. 대표님께 알려 주세요.';
+  }
+  if (so.wait) so.blocked = '대표님의 승인을 기다리는 중입니다. 승인되면 대표님 사무소의 중개장부가 열립니다.';
+  return so;
+}
+// 직원이 있는 사무소면 기록에 남길 이름 (혼자 쓰면 null → 예전과 똑같이 저장)
+async function whoOf(s) { if (!s || !R_URL) return null; if (s.staff) return { id: s.me, n: s.sname }; if (!(await teamN(redis, s.id))) return null; const b = await loadBk(s.id); return { id: String(s.id), n: (b && b.ceo) || '대표' }; }
+// 직원 참여 신청 알림은 아직 승인 대기인 사람만 (승인·거절하면 알림에서 빠짐)
+async function liveNotes(ns, o) { const W = new Set((await members(redis, o)).filter(m => m.st === 'wait').map(m => m.uid)); return ns.filter(n => n.k !== 'staff' || W.has(String(n.uid))); }
+const noStaff = (res, s, what) => fail(res, 403, 'staffno', `${what} 대표만 할 수 있습니다.`);
+const noPerm = (res, what) => fail(res, 403, 'perm', `${what} 권한이 없습니다. 대표님께 [설정 → 직원 관리]에서 권한을 받아 주세요.`);
 function cookie(name, val, maxAge) {
   return `${name}=${val}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
@@ -395,11 +413,11 @@ export default async function (req, res) {
   const action = String(req.query.action || '');
   try {
     if (action === 'me') {
-      const s = readSession(req);
+      const s = await office(req);
       const P = s ? await planOf(s.id) : null;
       let pend = null; // 가입 신청 후 확인 대기 중이면 화면에 안내
       if (s && P && !P.started) { const b = await loadBk(s.id); if (b && b.pend) pend = { office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile, at: b.pend }; }
-      return send(res, 200, { ok: true, sms: smsOn(), ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && s.id === ADMIN_ID), pend });
+      return send(res, 200, { ok: true, sms: smsOn(), ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && (s.me || s.id) === ADMIN_ID), pend, ...(s && s.staff ? { staff: { role: s.role, name: s.sname, office: ((await loadBk(s.id)) || {}).office || '', blocked: s.blocked || '' } } : {}), ...(s && s.wait ? { swait: true } : {}) });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
@@ -534,8 +552,9 @@ export default async function (req, res) {
     //   POST /api/auth?action=cx  { op:'add', name, place } | { op:'addplace', id, place } | { op:'delplace', id, pnu } | { op:'rename', id, name } | { op:'del', id } | { op:'memo', id, key, text }
     if (action === 'cx') {
       res.setHeader('Cache-Control', 'no-store');
-      const s = readSession(req);
+      const s = await office(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.blocked) return fail(res, 403, 'seats', s.blocked);
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const P = await planOf(s.id);
       if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
@@ -568,6 +587,7 @@ export default async function (req, res) {
       } else if (body.op === 'rename') {
         it.name = str(body.name, 40) || it.name;
       } else if (body.op === 'del') {
+        if (s.staff && !can(s, await permOf(redis, s.id), 'del')) return noPerm(res, '단지 삭제');
         d.items = d.items.filter(x => x.id !== id);
         for (const k of Object.keys(d.memos)) if (k.startsWith(id + '|')) delete d.memos[k];
         await dropLedger(redis, s.id, id);
@@ -601,8 +621,9 @@ export default async function (req, res) {
     // 고객관리 — 매수·임차 고객 (확인된 중개사무소만, 암호화 저장) → api/_cust.js
     if (action === 'cu') {
       res.setHeader('Cache-Control', 'no-store');
-      const s = readSession(req);
+      const s = await office(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.blocked) return fail(res, 403, 'seats', s.blocked);
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const P = await planOf(s.id);
       if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
@@ -610,13 +631,15 @@ export default async function (req, res) {
       if (g) return fail(res, 403, 'bk', '고객관리는 고객 연락처를 다루므로 중개사무소 확인이 끝난 회원만 쓸 수 있습니다. ' + (g.msg || ''));
       let body = {};
       if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
-      return cust({ redis, uid: s.id, P, send, fail, req, res, body });
+      if (body.op === 'del' && s.staff && !can(s, await permOf(redis, s.id), 'del')) return noPerm(res, '고객 삭제');
+      return cust({ redis, uid: s.id, P, send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null });
     }
 
     if (action === 'hj') {
       res.setHeader('Cache-Control', 'no-store');
-      const s = readSession(req);
+      const s = await office(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.blocked) return fail(res, 403, 'seats', s.blocked);
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const P = await planOf(s.id);
       if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
@@ -628,7 +651,8 @@ export default async function (req, res) {
       let body = {};
       if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
       if (req.method === 'POST') { const cid = String(req.query.id || body.id || ''); if (d.items.some(x => x.id === cid) && !cxOpen(d.items, P).has(cid)) return fail(res, 403, 'cxlock', `이 단지는 보기만 됩니다. ${cxFull(P)}`, { plan: planView(P) }); }
-      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body });
+      if (body.op === 'wipe' && s.staff && !can(s, await permOf(redis, s.id), 'del')) return noPerm(res, '호 장부 지우기');
+      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null });
     }
 
     // 지도에 게시된 매물 (누구나 볼 수 있음) — 1분 캐시
@@ -685,25 +709,41 @@ export default async function (req, res) {
 
     if (action === 'help') {
       res.setHeader('Cache-Control', 'no-store');
-      const s = readSession(req);
+      const s = await office(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.blocked) return fail(res, 403, 'seats', s.blocked);
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const J = v => { try { return JSON.parse(v); } catch { return null; } };
       const mine = async key => { const raw = (await redis(['HGETALL', key])) || []; const arr = Array.isArray(raw) ? raw : Object.entries(raw).flat(); const out = []; for (let i = 1; i < arr.length; i += 2) { const v = J(arr[i]); if (v && v.uid === s.id) out.push(v); } return out.sort((a, b) => String(b.at).localeCompare(String(a.at))); };
-      if (req.method !== 'POST') { const [pays, qnas, pn] = await Promise.all([mine('realmap:pays'), mine('realmap:qna'), redis(['LRANGE', `realmap:pnote:${s.id}`, '0', '9']).catch(() => [])]); return send(res, 200, { ok: true, pays: pays.slice(0, 30), qnas: qnas.slice(0, 50), notes: (pn || []).map(J).filter(Boolean) }); }
+      if (req.method !== 'POST') { const [pays, qnas, pn] = await Promise.all([mine('realmap:pays'), mine('realmap:qna'), redis(['LRANGE', `realmap:pnote:${s.id}`, '0', '9']).catch(() => [])]); return send(res, 200, { ok: true, pays: s.staff ? [] : pays.slice(0, 30), qnas: qnas.slice(0, 50), notes: s.staff ? [] : await liveNotes((pn || []).map(J).filter(Boolean), s.id) }); }   // 직원: 결제·운영자 알림은 대표에게만
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const t = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
       const bk = await loadBk(s.id), who = (bk && bk.office) || s.n || '회원';
       const nid = () => Date.now().toString(36) + crypto.randomBytes(3).toString('hex');
+      if (['pay', 'paycancel', 'seat'].includes(body.op) && s.staff) return noStaff(res, s, '요금 결제는');
+      if (body.op === 'seat') {
+        // 직원 자리 추가 (쓰는 중인 유료 요금제의 남은 기간만큼): n명 × 2,900원 × 남은 개월(30일 단위 올림)
+        const P = await planOf(s.id), n = Math.round(Number(body.n) || 0);
+        if (!PRICE[P.plan] || !P.until) return fail(res, 400, 'plan', 'Basic 이상 유료 요금제를 쓰는 중에만 직원 자리를 따로 추가할 수 있습니다. 요금제를 신청하실 때 직원 수를 같이 골라 주세요.');
+        if (n < 1 || n > 30) return fail(res, 400, 'n', '추가할 직원 수를 골라 주세요.');
+        if ((await mine('realmap:pays')).filter(x => x.st === 'wait').length >= 3) return fail(res, 400, 'many', '입금 확인을 기다리는 신청이 이미 있습니다. 확인이 끝난 뒤 다시 신청해 주세요.');
+        const mon = Math.max(1, Math.ceil((Date.parse(P.until) - Date.now()) / (30 * 864e5)));
+        const rc = body.rcpt && ['cash', 'tax'].includes(body.rcpt.t) ? { t: body.rcpt.t, no: t(body.rcpt.no, 30).replace(/[^\d-]/g, '') } : null;
+        const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), kind: 'seat', plan: P.plan, seats: n, mon, amt: SEAT * n * mon, payer: t(body.payer, 30) || who, office: who, rcpt: rc, st: 'wait' };
+        await redis(['HSET', 'realmap:pays', rec.id, JSON.stringify(rec)]);
+        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · 직원 자리 ${n}명 × ${mon}개월 ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`);
+        return send(res, 200, { ok: true, pay: rec });
+      }
       if (body.op === 'pay') {
-        const plan = String(body.plan || ''), mon = Number(body.mon);
+        const plan = String(body.plan || ''), mon = Number(body.mon), seats = Math.max(0, Math.min(30, Math.round(Number(body.seats) || 0)));
         if (!PRICE[plan] || !PAY_MON.includes(mon)) return fail(res, 400, 'bad', '요금제와 기간을 골라 주세요.');
         if ((await mine('realmap:pays')).filter(x => x.st === 'wait').length >= 3) return fail(res, 400, 'many', '입금 확인을 기다리는 신청이 이미 있습니다. 확인이 끝난 뒤 다시 신청해 주세요.');
         const rc = body.rcpt && ['cash', 'tax'].includes(body.rcpt.t) ? { t: body.rcpt.t, no: t(body.rcpt.no, 30).replace(/[^\d-]/g, '') } : null;
         if (rc && !rc.no) return fail(res, 400, 'rcpt', rc.t === 'tax' ? '세금계산서를 받을 사업자번호를 넣어 주세요.' : '현금영수증을 받을 휴대폰 번호를 넣어 주세요.');
-        const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), plan, mon, amt: payAmt(plan, mon), payer: t(body.payer, 30) || who, office: who, rcpt: rc, st: 'wait' };
+        // 직원 자리는 요금제와 같은 기간으로 같이 냄 (12개월은 요금제처럼 10개월 값)
+        const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), plan, mon, seats, amt: payAmt(plan, mon) + SEAT * seats * (mon === 12 ? 10 : mon), payer: t(body.payer, 30) || who, office: who, rcpt: rc, st: 'wait' };
         await redis(['HSET', 'realmap:pays', rec.id, JSON.stringify(rec)]);
-        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · ${PLANS[plan].name} ${mon}개월 ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`);
+        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · ${PLANS[plan].name} ${mon}개월${seats ? ` + 직원 ${seats}명` : ''} ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`);
         return send(res, 200, { ok: true, pay: rec });
       }
       if (body.op === 'paycancel') {
@@ -733,8 +773,9 @@ export default async function (req, res) {
     //   POST { op:'im', e:{file,to,n,ib,made,newCx,names} } · { op:'imdone', id }
     if (action === 'xlog') {
       res.setHeader('Cache-Control', 'no-store');
-      const s = readSession(req);
+      const s = await office(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.blocked) return fail(res, 403, 'seats', s.blocked);
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const IK = `realmap:xim:${s.id}`, J = a => (a || []).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean);
       if (req.method !== 'POST') {
@@ -743,6 +784,7 @@ export default async function (req, res) {
       }
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const t = (v, n) => String(v ?? '').replace(/[<>]/g, '').slice(0, n);
+      if (s.staff) return noStaff(res, s, '엑셀 불러오기는');
       if (body.op === 'im') {
         const e = body.e || {};
         const rec = { id: Date.now().toString(36) + crypto.randomBytes(2).toString('hex'), at: new Date().toISOString(), file: t(e.file, 80), to: e.to === 'hj' ? 'hj' : 'ls', n: Math.max(0, Math.round(Number(e.n) || 0)),
@@ -797,6 +839,7 @@ export default async function (req, res) {
         }
         await pipe([['DEL', ck], ['SET', `realmap:smsok:${s.id}`, phone, 'EX', 1800]]);
         // 엑셀 내려받기 인증(10/26): 인증 한 번 = 내려받기 한 번 · 기록을 남김 (무엇을·몇 건·어느 번호로)
+        if (body.xl && typeof body.xl === 'object' && (await officeOf(redis, s)).staff) return noStaff(res, s, '엑셀 내려받기는');
         if (body.xl && typeof body.xl === 'object') {
           const e = { at: new Date().toISOString(), what: String(body.xl.what || '').replace(/[<>]/g, '').slice(0, 60), n: Math.max(0, Math.min(1e6, Math.round(Number(body.xl.n) || 0))), ph: phone.replace(/^(\d{3})\d{3,4}(\d{4})$/, '$1-****-$2') };
           await pipe([['LPUSH', `realmap:xdl:${s.id}`, JSON.stringify(e)], ['LTRIM', `realmap:xdl:${s.id}`, 0, 99]]);
@@ -819,6 +862,7 @@ export default async function (req, res) {
       if (!bk) return fail(res, 400, 'need', err);
       let P = await planOf(s.id);
       if (P.started) return send(res, 200, { ok: true, plan: planView(P), bk: await loadBk(s.id) });
+      if (await redis(['GET', `realmap:staffof:${s.id}`])) return fail(res, 400, 'staff', '이 카카오 계정은 다른 사무소의 직원으로 등록되어 있습니다. 내 사무소를 따로 시작하시려면 [설정 → 내 소속]에서 먼저 나가 주세요.');
       if (!(await mobileOk(s.id, bk, null))) return fail(res, 400, 'sms', SMS_NEED);
       // 국가 자료로 확인된 중개사무소만 시작. 브이월드 점검 등으로 확인이 안 되면 '확인 대기'로 받아 두고 운영자가 승인
       const v = await verifyBk(s.id, bk);
@@ -853,12 +897,14 @@ export default async function (req, res) {
     // 중개사무소 정보 (매물 광고에 표시)
     if (action === 'bk') {
       res.setHeader('Cache-Control', 'no-store');
-      const s = readSession(req);
+      const s = await office(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.blocked) return fail(res, 403, 'seats', s.blocked);
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const P = await planOf(s.id);
       if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
       if (req.method !== 'POST') return send(res, 200, { ok: true, bk: await loadBk(s.id), canPub: canPub(s.id) });
+      if (s.staff) return noStaff(res, s, '중개사무소 정보 수정은');
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
@@ -885,8 +931,9 @@ export default async function (req, res) {
 
     // 매물장 (PRO 전용) — 회원별 최대 1,000건, 한 덩어리로 저장
     if (action === 'listings' || action === 'listing') {
-      const s = readSession(req);
+      const s = await office(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.blocked) return fail(res, 403, 'seats', s.blocked);
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const P = await planOf(s.id);
       if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
@@ -914,7 +961,10 @@ export default async function (req, res) {
         [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
         await save();
       }
-      if (action === 'listings') { await brokerStat(s.id, items); return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id), plan: planView(P) }); }
+      // 직원이 있으면: 화면 위에 '누구로 쓰는 중인지' · 권한 · 60초마다 새 내용 확인 (team)
+      const tm = s.staff ? { role: s.role, name: s.sname, perm: await permOf(redis, s.id) } : (await teamN(redis, s.id)) ? { role: 'ceo' } : null;
+      if (action === 'listings' && s.staff) await redis(['SET', `realmap:sseen:${s.me}`, new Date().toISOString(), 'EX', 90 * 86400]).catch(() => 0);   // 직원 최근 접속 (대표 화면)
+      if (action === 'listings') { await brokerStat(s.id, items); return send(res, 200, { ok: true, items, bk: await loadBk(s.id), canPub: canPub(s.id) && can(s, tm && tm.perm || {}, 'pub'), plan: planView(P), ...(tm ? { team: tm } : {}) }); }
       if (req.query.op === 'photodel') { // 저장하지 않고 닫은 사진 정리 (저장된 매물에 쓰인 사진은 지우지 않음)
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
         const used = new Set(items.flatMap(x => (x.photos || []).map(p => p.url)));
@@ -924,6 +974,12 @@ export default async function (req, res) {
       }
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      if (s.staff) {   // 직원 권한: 엑셀 불러오기·되돌리기는 대표만 · 지도 광고는 소속공인중개사(대표 허용 시) · 삭제는 대표가 정한 대로
+        if (['import', 'unimport'].includes(body.op)) return noStaff(res, s, '엑셀 불러오기는');
+        if (['pub', 'renew', 'unpub'].includes(body.op) && !can(s, tm.perm, 'pub')) return s.role === 'ast' ? fail(res, 403, 'perm', '중개보조원은 매물 광고를 할 수 없습니다 (공인중개사법 제18조의2). 대표님이나 소속공인중개사님께 부탁해 주세요.') : noPerm(res, '지도 광고');
+        if (body.op === 'del' && !can(s, tm.perm, 'del')) return noPerm(res, '매물 삭제');
+      }
+      const who = tm ? await whoOf(s) : null;
       const str = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
       const numv = v => { const x = Number(String(v ?? '').replace(/[^\d.]/g, '')); return Number.isFinite(x) && x > 0 ? Math.round(x * 100) / 100 : null; };
       const id = str(body.id, 20).replace(/[^\w-]/g, '');
@@ -971,6 +1027,7 @@ export default async function (req, res) {
           mk: ['y', 'r'].includes(it.mk) ? it.mk : '',  // 줄 표시 노랑·빨강 (10/26)
           exp: /^\d{4}-\d{2}-\d{2}$/.test(String(it.exp || '')) ? String(it.exp) : '',   // 만기일 (지금 임차 계약 · 10/26) — 알림용
           ad: cleanAd(it.ad), ...(prev && prev.pub ? { pub: prev.pub } : {}),
+          ...(who ? { by: who.id, byn: who.n } : prev && prev.by ? { by: prev.by, byn: prev.byn } : {}),   // 마지막으로 고친 사람 (직원이 있을 때)
           ...(imp ? { ib: imp.ib } : prev && prev.ib ? { ib: prev.ib } : {}),   // 엑셀 불러오기 묶음 번호 (10/26 · 되돌리기용)
         };
         if (imp && imp.at) rec.at = imp.at;   // 엑셀의 등록일
@@ -981,6 +1038,8 @@ export default async function (req, res) {
         if (!prev && items.length >= P.ls) return fail(res, 400, 'limit', P.plan === 'free'
           ? `무료 이용은 매물 ${P.ls}건까지입니다. Basic(월 9,900원)으로 올리시면 1,000건까지 등록하실 수 있습니다.`
           : `${P.name} 요금제는 매물 ${P.ls.toLocaleString()}건까지입니다. 거래완료된 매물을 정리하시거나 요금제를 올려 주세요.`, { plan: planView(P) });
+        // 같이 고치기 (10/28): 내가 연 뒤에 다른 사람이 먼저 저장했으면 덮어쓰지 않고 새 내용을 돌려줌
+        if (prev && who && body.item && body.item.up && prev.up && body.item.up !== prev.up && prev.by && prev.by !== who.id) return fail(res, 409, 'conflict', `${prev.byn || '다른 직원'}님이 먼저 이 매물을 고쳤습니다. 새 내용을 불러왔으니 확인하고 다시 고쳐 주세요.`, { items, item: prev });
         const r = build(body.item || {}, prev, null);
         if (r.err) return fail(res, 400, r.err[0], r.err[1]);
         const rec = r.rec, photos = r.photos;
@@ -1046,7 +1105,15 @@ export default async function (req, res) {
       }
       await save();
       try { await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); await save(); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
-      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id), warn, plan: planView(P), ...(cxDirty ? { cxDirty: true } : {}), ...(body.imported ? { imported: body.imported } : {}), ...(body.unimported != null ? { unimported: body.unimported } : {}) });
+      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id) && can(s, tm && tm.perm || {}, 'pub'), warn, plan: planView(P), ...(tm ? { team: tm } : {}), ...(cxDirty ? { cxDirty: true } : {}), ...(body.imported ? { imported: body.imported } : {}), ...(body.unimported != null ? { unimported: body.unimported } : {}) });
+    }
+
+    // 직원 관리 · 초대 참여 (10/28) → api/_staff.js
+    if (action === 'staff') {
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
+      const note = async (o, n) => { await pipe([['LPUSH', `realmap:pnote:${o}`, JSON.stringify({ id: Date.now().toString(36), at: new Date().toISOString(), ...n })], ['LTRIM', `realmap:pnote:${o}`, '0', '9']]); };
+      const smsTo = async (o, text) => { const b = await loadBk(o), to = String((b && (b.mobileOk || b.mobile)) || '').replace(/\D/g, ''); if (smsOn() && /^01\d{8,9}$/.test(to)) try { await sendSms(to, text); } catch { /* 무시 */ } };
+      return staffApi({ redis, s: readSession(req), req, res, send, fail, planOf, loadBk, note, smsTo });
     }
 
     if (action === 'login') {
@@ -1098,6 +1165,8 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
       if (ADMIN_ID && s.id === ADMIN_ID) return fail(res, 400, 'op', '운영자 계정은 해지할 수 없습니다.');
+      if ((await officeOf(redis, s)).staff) return fail(res, 400, 'staff', '직원은 해지 대신 [설정 → 내 소속]에서 나가기를 눌러 주세요.');
+      await dropTeam(redis, s.id);   // 직원 연결도 모두 끊음 (직원 자료는 대표 장부에 있었으므로 따로 지울 것 없음)
       await dropBroker(s.id);
       await redis(['SADD', 'realmap:trialused', String(s.id)]);
       return send(res, 200, { ok: true });
@@ -1107,6 +1176,7 @@ export default async function (req, res) {
       const s = readSession(req);
       if (!s) return fail(res, 401, 'auth', '로그인 상태가 아닙니다.');
       try { await redis(['DEL', `realmap:user:${s.id}`]); await redis(['DEL', `realmap:fav:${s.id}`]); await redis(['DEL', `realmap:zfav:${s.id}`]); await redis(['DEL', `realmap:cx:${s.id}`]); await redis(['SREM', 'realmap:zwatch', String(s.id)]);
+        await leave(redis, s.id); await dropTeam(redis, s.id);
         await dropBroker(s.id); await redis(['SREM', 'realmap:trialused', String(s.id)]); await redis(['SREM', 'realmap:users', s.id]); } catch { /* 저장소 없음 */ }
       res.setHeader('Set-Cookie', [cookie('rm_s', '', 0)]);
       return send(res, 200, { ok: true });

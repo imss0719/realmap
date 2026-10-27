@@ -142,11 +142,13 @@ async function brokers(req, res) {
             const prev = JSON.parse((await redis(['GET', `realmap:plan:${rec.uid}`])) || 'null');
             const base = new Date(prev && ['basic', 'premium', 'vip'].includes(prev.plan) && prev.until && prev.until > now ? prev.until : now);
             const until = new Date(base); until.setMonth(until.getMonth() + rec.mon);
-            const nrec = { plan: rec.plan, until: until.toISOString(), trialUsed: true, at: now, by: 'pay', pay: rec.id, mon: rec.mon, prev: prev && prev.plan };
+            // 직원 자리(10/28): 요금제와 같이 낸 자리 수 · 기간 중 추가(kind 'seat')는 지금 요금제·기간 그대로 자리만 늘림
+            const nrec = rec.kind === 'seat' && prev ? { ...prev, seats: (Number(prev.seats) || 0) + (Number(rec.seats) || 0), at: now, pay: rec.id }
+              : { plan: rec.plan, until: until.toISOString(), trialUsed: true, at: now, by: 'pay', pay: rec.id, mon: rec.mon, prev: prev && prev.plan, seats: Number(rec.seats) || 0 };
             await redis(['SET', `realmap:plan:${rec.uid}`, JSON.stringify(nrec)]);
-            await planLog(rec.uid, prev, nrec, 'pay', `${rec.mon}개월 ${rec.amt.toLocaleString()}원`, true);
+            await planLog(rec.uid, prev, nrec, 'pay', `${rec.kind === 'seat' ? `직원 자리 +${rec.seats}명 · ` : ''}${rec.mon}개월${rec.seats && rec.kind !== 'seat' ? ` · 직원 ${rec.seats}명` : ''} ${rec.amt.toLocaleString()}원`, true);
             await redis(['SADD', 'realmap:brokers', rec.uid]);
-            rec.st = 'ok'; rec.done = now; rec.until = until.toISOString();
+            rec.st = 'ok'; rec.done = now; rec.until = nrec.until || null;
             try { const uid = rec.uid, P = await planOf(uid), bk = await loadBk(uid); const items = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, items); } catch { /* 다음 저장 때 */ }
           }
         }
@@ -171,7 +173,8 @@ async function brokers(req, res) {
         }
         const WHY = ['지인', '프로모션', '보상', '결제', '기타'], why = WHY.includes(body.why) ? body.why : '기타';
         const memo = String(body.memo || '').replace(/[<>]/g, '').trim().slice(0, 100);
-        const rec = { plan: body.plan, until: until ? until.toISOString() : null, trialUsed: true, at: nowD.toISOString(), by: 'op', why, memo, prev: prev && prev.plan };
+        const seats = body.seats == null ? (prev && Number(prev.seats)) || 0 : Math.max(0, Math.min(99, Math.round(Number(body.seats) || 0)));   // 직원 자리 (10/28)
+        const rec = { plan: body.plan, until: until ? until.toISOString() : null, trialUsed: true, at: nowD.toISOString(), by: 'op', why, memo, prev: prev && prev.plan, ...(seats ? { seats } : {}) };
         await redis(['SET', `realmap:plan:${uid}`, JSON.stringify(rec)]);
         await redis(['SADD', 'realmap:brokers', uid]);
         await planLog(uid, prev, rec, 'op');
@@ -208,12 +211,13 @@ async function brokers(req, res) {
     for (let i = 0; i < ids.length; i += 100) {
       const ch = ids.slice(i, i + 100);
       const [us, bks, sts, pls, oms] = await Promise.all(['user', 'bk', 'bstat', 'plan', 'opmemo'].map(k => redis(['MGET', ...ch.map(id => `realmap:${k}:${id}`)]).catch(() => [])));
+      const sns = await Promise.all(ch.map(id => redis(['HLEN', `realmap:staff:${id}`]).catch(() => 0)));   // 직원 수 (승인 대기 포함)
       for (let k = 0; k < ch.length; k++) {
         const j = v => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
         const u = j(us && us[k]) || {}, P = await planOf(ch[k]);
         const pr = j(pls && pls[k]) || {};
         rows.push({ id: ch[k], nickname: u.nickname || '', email: u.email || '', joined: u.joined || '', last: u.last || '', bk: j(bks && bks[k]), plan: planView(P), stat: j(sts && sts[k]),
-          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '' });
+          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '', staff: Number(sns && sns[k]) || 0 });
       }
     }
     rows.sort((a, b) => String((b.stat && b.stat.up) || b.last).localeCompare(String((a.stat && a.stat.up) || a.last)));

@@ -116,7 +116,8 @@ function legacyMemo(t, up) {
 
 // ---------- 요청 처리 ----------
 // ctx: { redis, uid, cx (단지 장부 JSON), saveCx(), send, fail, req, res }
-export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, body = {} }) {
+// who (10/28): 직원이 있는 사무소면 { id, n } — 기록마다 누가 했는지(w) 남기고, 다른 사람이 먼저 고친 호는 덮어쓰지 않음
+export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, body = {}, who = null }) {
   if (!KEY) return fail(res, 503, 'nokey', '단지 장부 암호화 설정(LEDGER_KEY)이 아직 안 되어 있습니다. 운영자에게 알려 주세요.');
   const id = str(req.query.id || body.id, 20).replace(/[^\w-]/g, '');
   if (!cx.items.some(x => x.id === id)) return fail(res, 404, 'nocx', '단지를 찾지 못했습니다.');
@@ -157,7 +158,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   }
   const push = (e, x, withSnap) => {
     rec.hist.forEach(h => { delete h.s; });                 // 되돌리기 정보는 가장 최근 기록에만
-    rec.hist.unshift({ t: now, e, x, ...(withSnap ? { s: withSnap } : {}) });
+    rec.hist.unshift({ t: now, e, x, ...(withSnap ? { s: withSnap } : {}), ...(who ? { w: who.n, wi: who.id } : {}) });
     if (rec.hist.length > 300) rec.hist.length = 300;
   };
   const op = String(body.op || '');
@@ -168,6 +169,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     return send(res, 200, { ok: true, rec: null, wiped: true, ...(movedMemo ? { memos: cx.memos } : {}) });
   }
   if (op === 'save') {
+    if (who && 'up' in body && (rec.up || '') !== (body.up || '') && rec.by && rec.by !== who.id) return fail(res, 409, 'conflict', `${rec.byn || '다른 직원'}님이 먼저 이 호를 고쳤습니다. 새 내용을 불러왔으니 확인하고 다시 고쳐 주세요.`, { rec });
     const nx = clean(body.rec);
     const before = snap(rec);
     const x = diff(rec, nx);
@@ -223,6 +225,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
 
   rec.up = now;
+  if (who) { rec.by = who.id; rec.byn = who.n; }
   const empty = !rec.hist.length && !rec.st.src && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn;
   if (empty) await redis(['HDEL', H, key]);
   else { await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, id]); }

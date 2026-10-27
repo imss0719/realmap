@@ -31,7 +31,7 @@ function clean(b, prev) {
   };
 }
 
-export async function cust({ redis, uid, P, send, fail, req, res, body = {} }) {
+export async function cust({ redis, uid, P, send, fail, req, res, body = {}, who = null }) {
   if (!ledgerReady()) return fail(res, 503, 'nokey', '고객관리 암호화 설정(LEDGER_KEY)이 아직 안 되어 있습니다. 운영자에게 알려 주세요.');
   const H = `realmap:cu:${uid}`;
   const all = async () => {
@@ -53,7 +53,9 @@ export async function cust({ redis, uid, P, send, fail, req, res, body = {} }) {
       const n = Number(await redis(['HLEN', H])) || 0;
       if (n >= P.cu) return fail(res, 400, 'limit', P.plan === 'free' ? `무료 이용은 고객 ${P.cu}명까지입니다. Basic(월 9,900원)이면 1,000명까지 관리할 수 있습니다.` : `${P.name} 요금제는 고객 ${P.cu.toLocaleString()}명까지입니다.`);
     }
+    if (prev && who && body.item && body.item.up && prev.up && body.item.up !== prev.up && prev.by && prev.by !== who.id) return fail(res, 409, 'conflict', `${prev.byn || '다른 직원'}님이 먼저 이 고객을 고쳤습니다. 새 내용을 불러왔으니 확인하고 다시 고쳐 주세요.`, { item: prev, items: await all(), limit });
     const c = clean(body.item, prev);
+    if (who) { c.by = who.id; c.byn = who.n; }
     if (!c.name && !c.phone) return fail(res, 400, 'need', '이름이나 연락처 중 하나는 넣어 주세요.');
     if (!prev) { c.id = Date.now().toString(36) + crypto.randomBytes(3).toString('hex'); if (body.item && body.item.memo) c.memo = `[${memoNow()}] ${str(body.item.memo, 300)}`; c.last = body.item && body.item.memo ? new Date().toISOString() : ''; }
     await put(c);
@@ -62,12 +64,13 @@ export async function cust({ redis, uid, P, send, fail, req, res, body = {} }) {
   const c = await get();
   if (!c) return fail(res, 404, 'none', '고객을 찾지 못했습니다.');
   if (op === 'status') { if (!ST.includes(body.status)) return fail(res, 400, 'status', '상태가 올바르지 않습니다.'); c.status = body.status; }
-  else if (op === 'memo') { const t = str(body.text, 300); if (!t) return fail(res, 400, 'memo', '메모를 입력해 주세요.'); c.memo = `[${memoNow()}] ${t}${c.memo ? '\n' + c.memo : ''}`.slice(0, 5000); c.last = new Date().toISOString(); }
+  else if (op === 'memo') { const t = str(body.text, 300); if (!t) return fail(res, 400, 'memo', '메모를 입력해 주세요.'); c.memo = `[${memoNow()}] ${t}${who ? ` · ${who.n}` : ''}${c.memo ? '\n' + c.memo : ''}`.slice(0, 5000); c.last = new Date().toISOString(); }
   else if (op === 'mdel') { const L = String(c.memo || '').split(/\n(?=\[\d{2}\.\d{2}\.\d{2} \d{2}:\d{2}\] )/); L.splice(Number(body.i) || 0, 1); c.memo = L.join('\n'); }
   else if (op === 'called') c.last = new Date().toISOString();
   else if (op === 'del') { await redis(['HDEL', H, c.id]); return send(res, 200, { ok: true, items: await all(), limit }); }
   else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
   c.up = new Date().toISOString();
+  if (who) { c.by = who.id; c.byn = who.n; }
   await put(c);
   return send(res, 200, { ok: true, item: c, items: await all(), limit });
 }
