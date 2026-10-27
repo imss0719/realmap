@@ -491,3 +491,6 @@
 - 10/27 문의 메일 contact@realmap.online (ImprovMX 무료 전달 → 선배 Gmail, 가비아 DNS에 MX 2개 + SPF TXT 'v=spf1 include:spf.improvmx.com include:_spf.google.com ~all' 추가.
   보내기는 Gmail '다른 주소에서 보내기'(smtp.gmail.com·앱 비밀번호)). 사이트의 realwalkers@naver.com 을 모두 바꿈 — seoul/ 정비사업 페이지는 scripts/seoul-pages.mjs만 바꿨고
   다음 seoul-zones 작업(분기 1회 또는 수동 실행) 때 새로 만들어지며 바뀜. 개인정보처리방침 위탁 표에 ImprovMX·Google(Gmail) 추가.
+- 10/27 설정 화면 촘촘하게(선배 결정: 메뉴 누르면 그 부분만 = B안): 왼쪽 메뉴 168px(엑셀 → 우리 사무소 → 요금제 → 문의하기 → 계정·화면, 처음엔 엑셀),
+  안은 판(.sp, 제목 줄) + 줄(.sr: 이름 112px | 값 | 버튼) + 13px 표, PC는 두 칸(.sg2). 조각 함수 pn/rw/tb/B. 스타일은 모두 '.st-w ' 아래로 묶음(다른 화면 .seg·.tg 등과 안 겹치게, 세그먼트는 .sseg).
+  문의 답변을 아직 안 봤으면 메뉴 [문의하기]에 빨간 숫자(rm.qseen에 본 답변 시각 기억).
