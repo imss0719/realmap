@@ -214,11 +214,14 @@ window.Cust = (() => {
         <td><span class="mc${M.length ? '' : ' z'}">${M.length}</span></td>
         <td>${lastTx(c)}</td><td class="c-mm"><span class="mm">${esc(memo0 ? memo0.x : c.note || '')}</span></td>
         <td><button type="button" class="det${op ? ' on' : ''}" data-cdet="${c.id}">상세 ${op ? '▴' : '▾'}</button></td></tr>
-        ${op ? `<tr class="bd-dt" data-cdt="${c.id}"><td colspan="11">${detailHtml(c, M)}</td></tr>` : ''}`;
+        ${op ? `<tr class="bd-dt" data-cdt="${c.id}"><td colspan="11"><div class="dt">${detailHtml(c, M)}</div></td></tr>` : ''}`;
     }).join('');
     $('cuT').innerHTML = `<div class="bd-scroll"><table class="bdt cut"><colgroup><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:8%"><col style="width:12%"><col style="width:6%"><col style="width:80px"><col style="width:70px"><col style="width:8%"><col style="width:16%"><col style="width:76px"></colgroup>
       <thead><tr><th>이름 · 연락처</th><th>찾는 것</th><th>예산</th><th>면적</th><th>지역 · 단지</th><th>입주</th><th>상태</th><th>맞는 매물</th><th>마지막 연락</th><th>메모</th><th></th></tr></thead>
       <tbody>${body || `<tr><td colspan="11" class="none">${C.items.length ? '조건에 맞는 고객이 없습니다.' : '<b>아직 등록한 고객이 없습니다</b>위 칸에 한 줄로 쓰고 Enter를 눌러 보세요.'}</td></tr>`}</tbody></table></div>`;
+    // 10/27 상세 폭 = 표 상자 보이는 폭 (매물장과 같은 방식) — 없으면 맞는 매물 표가 한 줄로 길어져 표 전체가 옆으로 아주 넓어짐
+    const sc = $('cuT').querySelector('.bd-scroll'), tb = sc && sc.firstElementChild;
+    if (tb) { const bw = () => tb.style.setProperty('--bdw', Math.max(320, sc.clientWidth - 24) + 'px'); bw(); if (window.ResizeObserver) { if (C.ro) C.ro.disconnect(); C.ro = new ResizeObserver(bw); C.ro.observe(sc); } }
     wire();
   }
   function draw() {
@@ -275,7 +278,7 @@ window.Cust = (() => {
       r.querySelectorAll('[data-cst2]').forEach(b => b.onclick = () => { if (b.dataset.cst2 !== c.status) op({ op: 'status', id, status: b.dataset.cst2 }, `'${STN[b.dataset.cst2]}'(으)로 바꿨습니다`); });
       r.querySelectorAll('[data-ck2]').forEach(b => b.onclick = () => { const k = b.dataset.ck2; save({ k: c.k.includes(k) ? c.k.filter(z => z !== k) : [...c.k, k] }); });
       r.querySelectorAll('[data-cpt]').forEach(b => b.onclick = () => { const t = b.dataset.cpt; save({ pt: c.pt.includes(t) ? c.pt.filter(z => z !== t) : [...c.pt, t] }); });
-      const mi = r.querySelector('[data-cmemo]'); if (mi) mi.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); const v = mi.value.trim(); if (v) op({ op: 'memo', id, text: v }, '상담 기록을 남겼습니다'); } };
+      const mi = r.querySelector('[data-cmemo]'); if (mi) mi.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); const v = mi.value.trim(); if (v) op({ op: 'memo', id, text: v }, '상담 기록을 남겼습니다').then(j => { const n = j && $('cuW') && $('cuW').querySelector(`[data-cmemo="${CSS.escape(id)}"]`); if (n) n.value = ''; }); } };   // 10/27 남긴 뒤 칸 비우기 (다시 그릴 때 입력 중 값이 남아 두 번 남기는 일 방지)
       r.querySelectorAll('[data-cmdel]').forEach(b => b.onclick = () => { if (confirm('이 기록을 지울까요?')) op({ op: 'mdel', id, i: +b.dataset.cmdel }); });
       const cd = r.querySelector('[data-called]'); if (cd) cd.onclick = () => op({ op: 'called', id }, '오늘 연락한 것으로 표시했습니다');
       const call = r.querySelector('[data-call]'); if (call) call.addEventListener('click', () => op({ op: 'called', id }));
