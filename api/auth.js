@@ -48,7 +48,7 @@ export async function planOf(id) {
   const now = new Date().toISOString();
   if (rec) {
     const live = !rec.until || rec.until > now;
-    if (PLANS[rec.plan] && rec.plan !== 'free' && live) return out(rec.plan, { until: rec.until || null, trialUsed: !!rec.trialUsed });
+    if (PLANS[rec.plan] && rec.plan !== 'free' && live) return out(rec.plan, { until: rec.until || null, trialUsed: !!rec.trialUsed, gift: rec.by === 'op' });   // gift: 운영자 혜택 (10/27)
     return out('free', { ended: rec.plan !== 'free' ? rec.plan : '', endedAt: rec.until || null, trialUsed: !!rec.trialUsed });
   }
   try { if (await redis(['SISMEMBER', 'realmap:pro', String(id)])) return out('basic', { legacy: true }); } catch { /* 없음 */ }
@@ -68,7 +68,7 @@ export async function startTrial(uid) {
 // 단지 장부 한도: 등록한 순서대로 앞의 P.cx곳만 입력 가능, 넘는 단지는 보기만 (요금제를 내렸을 때)
 const cxOpen = (items, P) => new Set([...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, P.cx || 0).map(x => x.id));
 const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 20곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
-export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op });
+export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op, gift: !!P.gift });
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {
   b = b || {};
@@ -348,7 +348,7 @@ async function dropBroker(uid) {
   try { const b = await loadBk(uid), d = b && digitsOf(b.regno); if (d && await redis(['HGET', 'realmap:regno', d]) === String(uid)) await redis(['HDEL', 'realmap:regno', d]); } catch { /* 무시 */ }
   try { const ls = await lsDrop(redis, uid); await dropPhotos(ls.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid))); } catch { /* 무시 */ }
   try { const f = ((await redis(['HKEYS', PUB_KEY])) || []).filter(k => String(k).startsWith(`${uid}:`)); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }   // 지도 광고는 공개 목록에서 이 회원 것 모두
-  await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['DEL', `realmap:xdl:${uid}`], ['DEL', `realmap:xim:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
+  await pipe([['DEL', `realmap:ls:${uid}`], ['DEL', `realmap:bk:${uid}`], ['DEL', `realmap:plan:${uid}`], ['DEL', `realmap:cx:${uid}`], ['DEL', `realmap:bstat:${uid}`], ['DEL', `realmap:xdl:${uid}`], ['DEL', `realmap:xim:${uid}`], ['DEL', `realmap:pnote:${uid}`], ['DEL', `realmap:opmemo:${uid}`], ['SREM', 'realmap:brokers', String(uid)]]);
 }
 export async function loadBk(uid) { try { const v = await redis(['GET', `realmap:bk:${uid}`]); return v ? JSON.parse(v) : null; } catch { return null; } }
 
@@ -659,6 +659,30 @@ export default async function (req, res) {
     // 계좌이체 요금제 신청 · 문의하기 (10/27) — 운영자는 중개사 관리(brokers.html)에서 입금 확인·답변
     //   GET → { pays:[내 신청], qnas:[내 문의] }
     //   POST { op:'pay', plan, mon, payer, rcpt:{t:'cash'|'tax', no} } · { op:'paycancel', id } · { op:'ask', cat, text, img }
+    // 방문 설명 신청 (10/27) — 로그인 없이 소개 페이지에서. 운영자에게 문자, 중개사 관리 화면 [방문 신청]에 쌓임
+    //   POST { office, name, phone, area, when:[], memo, agree, hp(빈칸이어야 함) }
+    if (action === 'visit') {
+      res.setHeader('Cache-Control', 'no-store');
+      if (req.method !== 'POST') return fail(res, 405, 'method', 'POST로 보내 주세요.');
+      if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '저장소가 연결되지 않았습니다.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const t = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
+      if (body.hp) return send(res, 200, { ok: true });   // 자동 입력 로봇
+      const phone = String(body.phone || '').replace(/\D/g, '');
+      if (!body.agree) return fail(res, 400, 'agree', '개인정보 수집·이용에 동의해 주세요.');
+      if (t(body.name, 20).length < 1) return fail(res, 400, 'name', '성함을 적어 주세요.');
+      if (!/^0\d{8,10}$/.test(phone)) return fail(res, 400, 'phone', '연락받으실 전화번호를 확인해 주세요.');
+      const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x', day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+      const a = await redis(['INCR', `realmap:vrl:${ip}`]); if (a === 1) await redis(['EXPIRE', `realmap:vrl:${ip}`, 3600]);
+      const b = await redis(['INCR', `realmap:vrld:${day}`]); if (b === 1) await redis(['EXPIRE', `realmap:vrld:${day}`, 90000]);
+      if (a > 3 || b > 60) return fail(res, 429, 'many', '신청이 많아 잠시 받을 수 없습니다. 02-393-7676으로 전화 주세요.');
+      const W = ['평일 오전', '평일 오후', '평일 저녁', '주말'], when = (Array.isArray(body.when) ? body.when : []).filter(x => W.includes(x));
+      const rec = { id: Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), at: new Date().toISOString(), office: t(body.office, 40), name: t(body.name, 20), phone: phone.replace(/^(0\d{1,2})(\d{3,4})(\d{4})$/, '$1-$2-$3'), area: t(body.area, 40), when, memo: t(body.memo, 500), st: 'new', note: '' };
+      await redis(['HSET', 'realmap:visit', rec.id, JSON.stringify(rec)]);
+      await opSms(`[리얼맵] 방문 설명 신청 · ${(rec.office || rec.name).slice(0, 16)} · ${rec.phone} · ${rec.area.slice(0, 12)}`);
+      return send(res, 200, { ok: true });
+    }
+
     if (action === 'help') {
       res.setHeader('Cache-Control', 'no-store');
       const s = readSession(req);
@@ -666,7 +690,7 @@ export default async function (req, res) {
       if (!R_URL || !R_TOKEN) return fail(res, 500, 'no_storage', '회원 저장소가 연결되지 않았습니다.');
       const J = v => { try { return JSON.parse(v); } catch { return null; } };
       const mine = async key => { const raw = (await redis(['HGETALL', key])) || []; const arr = Array.isArray(raw) ? raw : Object.entries(raw).flat(); const out = []; for (let i = 1; i < arr.length; i += 2) { const v = J(arr[i]); if (v && v.uid === s.id) out.push(v); } return out.sort((a, b) => String(b.at).localeCompare(String(a.at))); };
-      if (req.method !== 'POST') { const [pays, qnas] = await Promise.all([mine('realmap:pays'), mine('realmap:qna')]); return send(res, 200, { ok: true, pays: pays.slice(0, 30), qnas: qnas.slice(0, 50) }); }
+      if (req.method !== 'POST') { const [pays, qnas, pn] = await Promise.all([mine('realmap:pays'), mine('realmap:qna'), redis(['LRANGE', `realmap:pnote:${s.id}`, '0', '9']).catch(() => [])]); return send(res, 200, { ok: true, pays: pays.slice(0, 30), qnas: qnas.slice(0, 50), notes: (pn || []).map(J).filter(Boolean) }); }
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const t = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
       const bk = await loadBk(s.id), who = (bk && bk.office) || s.n || '회원';
