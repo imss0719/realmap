@@ -708,7 +708,7 @@ window.Danji = (() => {
       default: return r[c.f] ? esc(r[c.f]) : '<span class="mut">-</span>';
     }
   }
-  const tipOf = (x, c) => { const r = x.r || {}; return c.id === 'note' || c.id === 'opt' || c.id === 'imp' ? r[c.f] || '' : c.id === 'own' || c.id === 'ten' ? (r.tels || []).filter(t => isTen(t) === (c.id === 'ten')).map(t => `${t.l} ${t.n}`).join(' / ') : c.id === 'h' && r.hist && r.hist[0] ? `${fmtT(r.hist[0].t)} ${r.hist[0].x}` : ''; };   // 잘린 글은 마우스를 올리면 전체
+  const tipOf = (x, c) => { const r = x.r || {}; return c.id === 'note' || c.id === 'opt' || c.id === 'imp' ? r[c.f] || '' : c.id === 'own' || c.id === 'ten' ? (r.tels || []).filter(t => isTen(t) === (c.id === 'ten')).map(t => `${t.l} ${t.n}`).join(' / ') : c.id === 'h' && r.hist && r.hist[0] ? `${fmtT(r.hist[0].t)} ${r.hist[0].x}${r.hist[0].w ? ' · ' + r.hist[0].w : ''}` : ''; };   // 잘린 글은 마우스를 올리면 전체
   const rowHtml = (x, i) => `<tr data-i="${i}" data-key="${esc(x.key)}" class="${x.st.src || x.st.done ? 'on' : ''}${x.fs ? ' fs' : ''}${S.selKey === x.key ? ' sel' : ''}${x.r && x.r.mk ? ' mk-' + x.r.mk : ''}">${VC().map(c => { const tp = tipOf(x, c); return `<td class="c-${c.id}${c.ed ? ' ed' : ''}" data-c="${c.id}"${tp ? ` title="${esc(tp)}"` : ''}>${cellHtml(x, c)}</td>`; }).join('')}</tr>`;
   function drawTable(cx) {
     const ALL = !!cx.all, C = ALL ? { view: 'all' } : S.C[cx.id], box = $('dj_tbl'); if (!box || !C) return;
@@ -900,10 +900,10 @@ window.Danji = (() => {
       if (!D.st.src && x.st.fromLs) D.st = { src: 'mine', k: [...x.st.k], hold: x.st.hold, office: '' };
       mutate(D);
       try {
-        const j = await hjPost({ id: cx.id, key: x.key, op: 'save', rec: D });
+        const j = await hjPost({ id: cx.id, key: x.key, op: 'save', rec: D, up: (cur && cur.up) || '' });   // up: 다른 직원이 먼저 고쳤는지 확인용 (10/28)
         if (j.memos) S.cx.memos = j.memos;
         putSum(cx, x.key, { ...EMPTY_REC(), ...j.rec });
-      } catch (e) { toast(e.message, 4000); }
+      } catch (e) { if (e.code === 'conflict' && e.data && e.data.rec) putSum(cx, x.key, { ...EMPTY_REC(), ...e.data.rec }); toast(e.message, e.code === 'conflict' ? 6000 : 4000); }
       redrawRow(cx, x.key); refreshDongs(cx);
     });
   }
@@ -1198,7 +1198,7 @@ window.Danji = (() => {
     const ro = !!(S.L[x.cx.id] && S.L[x.cx.id].err);
     return `<div class="hbox">
       ${ro ? '' : `<div class="hjmemo"><input class="hjin sm" id="hr_in" placeholder="기록 남기기 (예: 집주인 통화 — 3월에 결정) · Enter" maxlength="500"><button type="button" class="btn dark sm" id="hr_add">추가</button></div>`}
-      ${!R ? '<div class="loading">기록을 불러오는 중…</div>' : R.hist.length ? `<ul class="hjhist">${R.hist.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx" data-hi="${i}">${esc(h.x)}${h.ed ? ` <small class="ed">(수정됨 ${fmtT(h.ed)})</small>` : ''}</span>${i === 0 && canUndo && !ro ? '<button type="button" class="un" data-undo>되돌리기</button>' : ''}${h.e === 'memo' && !ro ? `<button type="button" class="un" data-medit="${i}">고치기</button><button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : '<p class="note">아직 기록이 없습니다.</p>'}
+      ${!R ? '<div class="loading">기록을 불러오는 중…</div>' : R.hist.length ? `<ul class="hjhist">${R.hist.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx" data-hi="${i}">${esc(h.x)}${h.w ? ` <small class="ed">· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small class="ed">(수정됨 ${fmtT(h.ed)})</small>` : ''}</span>${i === 0 && canUndo && !ro ? '<button type="button" class="un" data-undo>되돌리기</button>' : ''}${h.e === 'memo' && !ro ? `<button type="button" class="un" data-medit="${i}">고치기</button><button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : '<p class="note">아직 기록이 없습니다.</p>'}
       ${oldMemo ? `<p class="note">예전 메모 (이 호를 처음 저장할 때 기록으로 옮겨집니다)</p>${memoListHtml(oldMemo.t, String(oldMemo.up).slice(2, 10).replace(/-/g, '.'), '')}` : ''}
       ${R && R.deal ? `<p class="note">최근 계약: ${KN[R.deal.k]} ${R.deal.k === 'wolse' ? `${wonFull(R.deal.a)}/${R.deal.r}` : wonFull(R.deal.a)} · ${esc(String(R.deal.d).slice(2).replace(/-/g, '.'))}${R.deal.by === 'other' ? ' · 타사' : ' · 내 계약'}</p>` : ''}
     </div>`;

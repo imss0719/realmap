@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>직원으로 참여 · 리얼맵 중개장부</title>
+<meta name="robots" content="noindex">
+<meta property="og:title" content="리얼맵 중개장부 · 직원 초대">
+<meta property="og:description" content="대표님이 중개장부에 초대했습니다. 링크를 열고 카카오로 로그인해 참여해 주세요.">
+<meta property="og:image" content="https://realmap.online/og.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 직원 초대 링크로 들어오는 화면 (10/28): /j/코드 → 카카오 로그인 → 이름·구분·휴대폰 인증 → 참여 신청 → 대표 승인 기다림 */
+:root{--navy:#14212E;--gold:#F2B705;--bg:#EEF1F5;--fg:#14212E;--muted:#5E6A77;--line:#D9DFE6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;letter-spacing:-.02em;-webkit-font-smoothing:antialiased;word-break:keep-all}
+.top{background:var(--navy);color:#fff;padding:14px 18px;font-weight:800;font-size:17px}
+.top a{color:#fff;text-decoration:none}
+.card{max-width:440px;margin:24px auto;background:#fff;border-radius:18px;padding:26px 22px;box-shadow:0 8px 30px rgba(20,33,46,.08)}
+h1{font-size:22px;margin:0 0 8px;line-height:1.35}
+p.lead{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.6}
+label.l{display:block;font-weight:700;font-size:14px;margin:16px 0 6px}
+input{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--fg)}
+input:focus{outline:2px solid var(--gold);border-color:var(--gold)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{font:inherit;font-size:15px;font-weight:700;padding:12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--fg);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
+.row{display:flex;gap:8px}.row input{flex:1;min-width:0}
+.sbtn{font:inherit;font-size:14px;font-weight:700;padding:0 14px;border-radius:10px;border:1px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;white-space:nowrap}
+.sbtn:disabled{opacity:.45;cursor:default}
+.main{display:block;width:100%;margin-top:22px;font:inherit;font-size:17px;font-weight:800;padding:15px;border:0;border-radius:12px;background:var(--gold);color:var(--navy);cursor:pointer;text-align:center;text-decoration:none}
+.main:disabled{opacity:.5;cursor:default}
+.kakao{background:#FEE500;color:#191919}
+.ok{color:#1F7A4D;font-weight:700;font-size:14px;margin-top:6px}
+.err{color:#C92A2A;font-size:14px;margin-top:10px;min-height:1em}
+.note{font-size:13px;color:var(--muted);line-height:1.6;margin-top:14px}
+.note a{color:var(--muted)}
+.hint{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+.st{font-size:46px;text-align:center;margin:6px 0 4px}
+.box{background:#F6F7F9;border-radius:12px;padding:14px 16px;font-size:15px;line-height:1.7;margin:14px 0}
+.ghost{display:block;width:100%;margin-top:10px;font:inherit;font-size:14px;padding:11px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="top"><a href="/pro.html">리얼맵 중개장부</a></div>
+<div class="card" id="card"><p class="lead">불러오는 중…</p></div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id), card = $('card');
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const RN = { agt: '소속공인중개사', ast: '중개보조원' };
+  const qs = new URLSearchParams(location.search);
+  const code = (qs.get('c') || (location.pathname.match(/^\/j\/([A-Za-z0-9]+)/) || [])[1] || '').toUpperCase();
+  const F = { name: '', role: 'agt', phone: '', sent: false, ok: false };
+  async function api(url, body) {
+    const r = await fetch(url, { credentials: 'same-origin', ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다. 다시 시도해 주세요.'); e.code = j.error; throw e; }
+    return j;
+  }
+  const login = () => `/auth/login?r=${encodeURIComponent(code ? '/j/' + code : '/join.html')}`;
+
+  async function start() {
+    if (qs.get('login')) history.replaceState(null, '', code ? '/j/' + code : '/join.html');
+    let info = null, me = null;
+    try { me = await api('/api/auth?action=me'); } catch { me = { member: false }; }
+    if (code) { try { info = await api('/api/auth?action=staff&code=' + encodeURIComponent(code)); } catch (e) { return msg('⚠️', '잠시 연결이 원활하지 않습니다', e.message); } }
+    // 이미 직원으로 들어가 있음
+    if (me.staff && !me.staff.blocked) return done(me.staff);
+    let mine = null;
+    if (me.member) { try { mine = (await api('/api/auth?action=staff')).mine || null; } catch { mine = null; } }
+    if (mine && (!info || !info.valid || mine.office === info.office)) return status(mine, me);
+    if (!code) return msg('🔗', '초대 링크로 들어와 주세요', '대표님께 받은 초대 링크(realmap.online/j/…)를 열어 주세요.', '<a class="main" href="/pro.html">리얼맵 중개장부 알아보기</a>');
+    if (!info.valid) return msg('⏰', '초대 링크가 만료되었습니다', '초대 링크는 7일 동안만 쓸 수 있고, 대표님이 새 링크를 만들면 이전 링크는 막힙니다. 대표님께 새 링크를 받아 주세요.');
+    if (!me.member) {
+      card.innerHTML = `<h1>${esc(info.office || '중개사무소')} 직원으로 참여</h1><p class="lead">${esc(info.ceo || '대표')} 대표님이 리얼맵 중개장부에 초대했습니다. 카카오로 로그인한 뒤 이름과 휴대폰 인증을 해 주세요. 대표님이 승인하면 같은 장부를 함께 씁니다.</p>
+        <a class="main kakao" href="${login()}">카카오로 로그인하고 계속</a>
+        <p class="note">본인 카카오 계정으로 로그인해 주세요. 사무소 자료는 사무소에 남고, 개인 카카오 계정에는 저장되지 않습니다.</p>`;
+      return;
+    }
+    if (me.plan && me.plan.started && !me.staff) return msg('ℹ️', '이 카카오 계정은 이미 중개장부를 쓰고 있습니다', '내 사무소로 중개장부를 쓰고 있는 계정은 다른 사무소의 직원으로 참여할 수 없습니다. 직원용으로는 다른 카카오 계정으로 로그인해 주세요.', `<a class="main" href="/listings.html">내 중개장부 열기</a><a class="ghost" href="/api/auth?action=logout&r=${encodeURIComponent(code ? '/j/' + code : '/join.html')}" style="text-align:center;text-decoration:none">로그아웃하고 다른 계정으로</a>`);
+    form(info, me);
+  }
+  function msg(ic, t, body, extra = '') { card.innerHTML = `<div class="st">${ic}</div><h1 style="text-align:center">${esc(t)}</h1><p class="lead" style="text-align:center">${esc(body)}</p>${extra}`; }
+  function done(st) { msg('✅', '참여가 끝났습니다', `${st.office || '사무소'} ${RN[st.role] || '직원'}으로 중개장부를 쓰실 수 있습니다.`, '<a class="main" href="/listings.html">중개장부 열기</a>'); }
+  function status(m, me) {
+    if (m.st === 'on' && me.staff && !me.staff.blocked) return done(m);
+    if (m.st === 'on') return msg('⏸️', '지금은 장부를 열 수 없습니다', (me.staff && me.staff.blocked) || '대표님께 확인해 주세요.', leaveBtn('사무소에서 나가기'));
+    card.innerHTML = `<div class="st">⏳</div><h1 style="text-align:center">대표님 승인을 기다리는 중입니다</h1>
+      <div class="box"><b>${esc(m.office)}</b> · 대표 ${esc(m.ceo)}<br>${esc(m.name)} · ${RN[m.role] || ''}</div>
+      <p class="lead">대표님께 신청 알림과 문자가 갔습니다. 승인되면 이 화면이 저절로 중개장부로 넘어갑니다.</p>${leaveBtn('신청 취소')}`;
+    wireLeave();
+    clearInterval(status.t); status.t = setInterval(async () => { try { const x = await api('/api/auth?action=me'); if (x.staff && !x.staff.blocked) location.replace('/listings.html'); } catch { /* 다음에 */ } }, 15000);
+  }
+  const leaveBtn = t => `<button type="button" class="ghost" id="leave">${t}</button>`;
+  function wireLeave() { const b = $('leave'); if (b) b.onclick = async () => { if (!confirm('정말 취소할까요?')) return; try { await api('/api/auth?action=staff', { op: 'leave' }); location.reload(); } catch (e) { alert(e.message); } }; }
+
+  function form(info, me) {
+    if (!F.name) F.name = '';
+    card.innerHTML = `<h1>${esc(info.office || '중개사무소')} 직원으로 참여</h1>
+      <p class="lead">${esc(info.ceo || '대표')} 대표님이 중개장부에 초대했습니다. 아래를 넣어 주세요. 대표님이 승인하면 같은 장부를 함께 씁니다.</p>
+      <label class="l" for="jn">이름</label><input id="jn" maxlength="20" autocomplete="name" placeholder="○○○" value="${esc(F.name)}">
+      <label class="l">구분</label><div class="seg"><button type="button" data-r="agt" aria-pressed="${F.role === 'agt'}">소속공인중개사</button><button type="button" data-r="ast" aria-pressed="${F.role === 'ast'}">중개보조원</button></div>
+      <p class="hint">공인중개사 자격이 있으면 소속공인중개사, 없으면 중개보조원입니다. 대표님이 나중에 바꿀 수 있습니다.</p>
+      <label class="l" for="jp">휴대폰 인증</label>
+      <div class="row"><input id="jp" inputmode="numeric" maxlength="13" placeholder="010-0000-0000" value="${esc(F.phone)}" ${F.ok ? 'disabled' : ''}><button type="button" class="sbtn" id="js" ${F.ok ? 'disabled' : ''}>${F.sent ? '다시 받기' : '인증번호 받기'}</button></div>
+      ${F.sent && !F.ok ? '<div class="row" style="margin-top:8px"><input id="jc" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리"><button type="button" class="sbtn" id="jk">확인</button></div>' : ''}
+      ${F.ok ? '<div class="ok">✓ 휴대폰 인증이 끝났습니다</div>' : ''}
+      <div class="err" id="je"></div>
+      <button type="button" class="main" id="jgo" ${F.ok ? '' : 'disabled'}>참여 신청</button>
+      <p class="note">이름·휴대폰 번호는 대표님의 직원 관리 화면에만 보이고, 직원 확인과 연락에만 씁니다. <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>`;
+    const err = t => { $('je').textContent = t || ''; };
+    $('jn').oninput = e => { F.name = e.target.value; };
+    $('jp').oninput = e => { F.phone = e.target.value; };
+    card.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { F.role = b.dataset.r; form(info, me); });
+    $('js').onclick = async () => {
+      const p = F.phone.replace(/\D/g, ''); if (!/^01\d{8,9}$/.test(p)) return err('휴대폰 번호를 확인해 주세요.');
+      $('js').disabled = true;
+      try { await api('/api/auth?action=sms', { op: 'send', phone: p }); F.sent = true; form(info, me); setTimeout(() => $('jc') && $('jc').focus(), 50); }
+      catch (e) { $('js').disabled = false; err(e.message); }
+    };
+    if ($('jk')) $('jk').onclick = async () => {
+      try { await api('/api/auth?action=sms', { op: 'check', phone: F.phone.replace(/\D/g, ''), code: $('jc').value }); F.ok = true; form(info, me); }
+      catch (e) { err(e.message); }
+    };
+    if ($('jc')) $('jc').onkeydown = e => { if (e.key === 'Enter') $('jk').click(); };
+    $('jgo').onclick = async () => {
+      if (!F.name.trim()) { err('이름을 적어 주세요.'); return $('jn').focus(); }
+      $('jgo').disabled = true;
+      try { const j = await api('/api/auth?action=staff', { op: 'join', code, name: F.name.trim(), role: F.role, phone: F.phone.replace(/\D/g, '') }); status(j.mine, me); }
+      catch (e) { $('jgo').disabled = false; err(e.message); if (e.code === 'sms') { F.ok = false; F.sent = false; form(info, me); err(e.message); } }
+    };
+  }
+  start();
+})();
+</script>
+</body>
+</html>

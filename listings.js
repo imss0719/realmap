@@ -66,6 +66,7 @@
   async function init() {
     try { S.me = await api('/api/auth?action=me'); } catch { S.me = { member: false }; }
     // 처음 오는 분(로그인 전 · 중개사 서비스 시작 전)은 소개 페이지로
+    if (S.me.swait || (S.me.staff && S.me.staff.blocked)) return location.replace('/join.html');   // 직원: 승인 대기 · 자리 부족 → 참여 화면에서 안내
     if (!S.me.member || !S.me.plan || !S.me.plan.started) return location.replace('/pro.html' + (S.me.member ? '?go=1' : ''));
     S.plan = S.me.plan;
     // 운영자 미리보기: ?as=new(처음 온 회원) · free(무료) · trial(체험) — 화면만 그렇게 보이고 실제 저장 한도는 그대로
@@ -74,19 +75,20 @@
     if (AS === 'free' || AS === 'trial') S.asPlan = AS === 'free' ? { plan: 'free', name: '무료', ls: 10, ad: 3, adv: false, started: true, ended: 'trial' } : { plan: 'trial', name: '2주 무료 체험', ls: 1000, ad: 300, adv: true, started: true, until: new Date(Date.now() + 14 * 86400e3).toISOString() };
     if (S.asPlan) { S.plan = S.asPlan; const b = document.createElement('div'); b.className = 'asbar'; b.innerHTML = `운영자 미리보기 · <b>${S.asPlan.name}</b> 회원 화면입니다 (실제 저장 한도는 적용되지 않음) <a href="/listings.html">미리보기 끄기</a>`; document.body.prepend(b); }
     $('who').textContent = `${S.me.nickname || '회원'}님`;
+    if (S.me.staff) { const h = document.querySelector('.top h1'), t = document.createElement('span'); t.className = 'stb'; t.title = `${S.me.staff.office} 직원으로 쓰는 중`; t.textContent = `${S.me.staff.name} · ${ROLE[S.me.staff.role] || '직원'}`; if (h) h.appendChild(t); $('who').textContent = `${S.me.staff.name}님 · ${S.me.staff.office}`; }
     { const pb = document.querySelector('.top .pro'), P = S.plan || {}; if (pb) { if (P.plan === 'free') pb.hidden = true; else pb.textContent = P.plan === 'trial' ? '체험' : P.op ? 'PRO' : (P.name || 'PRO').toUpperCase(); } }
     layout();
     const th = () => document.documentElement.style.setProperty('--toph', document.querySelector('.top').offsetHeight + 'px');
     th(); addEventListener('resize', th);
     if (window.ResizeObserver) new ResizeObserver(th).observe(document.querySelector('.top'));   // 고객관리에서는 종류 줄이 숨어 높이가 바뀜
     loadMap();
-    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; if (j.plan) S.plan = S.asPlan || j.plan; if (!S.vwSet) { setVw(S.items.length ? 'basic' : 'dense', true); S.vwSet = true; } } catch (e) {
+    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; S.team = j.team || null; if (j.plan) S.plan = S.asPlan || j.plan; if (!S.vwSet) { setVw(S.items.length ? 'basic' : 'dense', true); S.vwSet = true; } } catch (e) {
       if (e.code === 'start') return location.replace('/pro.html?go=1');
       // 중개사무소 확인이 안 된 계정: 정보를 등록증과 같게 고치면 바로 열림
       if (e.code === 'verify') { S.bk = (e.data && e.data.bk) || null; draw(); return openBk(() => location.reload(), e.message); }
       toast(e.message, 4000);
     }
-    draw();
+    draw(); poll();
     // 고객관리: 화면을 열지 않아도 매물 상세의 '맞는 고객'·알림에 쓰도록 미리 불러 둠
     if (window.Cust) Cust.init(custHost()).then(() => { if (S.mode === 'list') draw(); }).catch(() => {});
     // 알림 (거래 의심 · 만기 · 리얼맵 게시 기간 · 고객)
@@ -137,7 +139,7 @@
       try { await api('/api/auth?action=quit', post({})); alert('중개사 서비스를 해지했습니다. 이용해 주셔서 감사합니다.'); location.href = '/'; } catch (e) { toast(e.message, 4000); }
   }
   // 설정 화면 (10/26 · settings.js)
-  const setHost = () => ({ api, post, toast, took, me: () => S.me, bk: () => S.bk, plan: () => S.plan || {}, items: () => S.items || [], canPub: () => !!S.canPub,
+  const setHost = () => ({ api, post, toast, took, me: () => S.me, team: () => S.team, bk: () => S.bk, plan: () => S.plan || {}, items: () => S.items || [], canPub: () => !!S.canPub,
     openBk: () => openBk(), importXl: () => openImport(), quit: () => quit(), xlGate: (info, fn) => xlGate(info, fn), exportLs: () => exportCsvNow(),
     fz: d => { const b = $(d < 0 ? 'fzDn' : 'fzUp'); if (b && !b.disabled) b.click(); }, djReload: () => { if (window.Sett) Sett.stale(); if (window.Danji && Danji.reloadCx) Danji.reloadCx(true); } });
   function upsell(msg) { if (confirm(`${msg}\n\n요금제 안내를 열어 볼까요?`)) window.open('/pro.html#price', '_blank'); }
@@ -184,11 +186,11 @@
     document.addEventListener('mousedown', e => { if (!e.target.closest('#gsBox')) hide(); });
   }
   // 고객관리(cust.js)에 넘기는 것들
-  const custHost = () => ({ items: () => S.items, plan: () => S.plan || {}, toast, upsell, X: bdHost().X, goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
+  const custHost = () => ({ items: () => S.items, plan: () => S.plan || {}, canDel: () => canDel(), toast, upsell, X: bdHost().X, goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
   const goCust = id => { setMode('cust'); setTimeout(() => window.Cust && Cust.reveal(id), 120); };
   // 지도+리스트 표(board.js)에 넘기는 것들 (아래쪽에 정의된 도우미를 쓰므로 붙일 때 만듦)
   const bdHost = () => ({
-    items: () => S.items, adv, upsell, toast, api, post, took, kakao: () => S.kakao, canPub: () => !!S.canPub, onCat: () => syncTabs(),
+    items: () => S.items, adv, upsell, toast, api, post, took, kakao: () => S.kakao, canPub: () => !!S.canPub, canDel: () => canDel(), onCat: () => syncTabs(),
     redraw: () => draw(), drawBk: () => drawBk(),
     openForm: id => { const x = id && S.items.find(i => i.id === id); openForm(x || null); },
     pub: id => pubFlow(S.items.find(i => i.id === id)), pubOp: (id, op) => pubOp(id, op),
@@ -270,7 +272,28 @@
   // 매물장 저장 결과 받기 (게시 중 매물이 필수 항목 부족으로 내려가면 알려 드림)
   // 요금제 한도를 넘은 매물(오래된 쪽)은 보기 전용 — 서버 readOnlyIds와 같은 규칙
   function roIds() { const P = S.plan; if (!P || P.ls == null || !(S.items.length > P.ls)) return new Set(); return new Set([...S.items].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(P.ls).map(x => x.id)); }
-  function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); if (j.cxDirty && window.Danji && Danji.reloadCx) Danji.reloadCx(); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
+  // ---------- 직원이 있는 사무소 (10/28): 60초마다 다른 사람이 고친 게 있는지 보고, 있으면 위에 [새로 보기] 띠 ----------
+  const ROLE = { ceo: '대표', agt: '소속공인중개사', ast: '중개보조원' };
+  const sig = L => L.map(x => x.id + x.up).join('|');
+  const canDel = () => !S.team || !S.team.perm || (S.team.role === 'agt' ? S.team.perm.agtDel !== false : S.team.role === 'ast' ? S.team.perm.astDel === true : true);
+  function poll() {
+    clearInterval(S.pollT); if (!S.team) return;
+    S.seen = sig(S.items);
+    S.pollT = setInterval(async () => {
+      if (document.hidden || !S.team) return;
+      try {
+        const j = await api('/api/auth?action=listings'); if (sig(j.items || []) === S.seen) return;
+        const n = (j.items || []).filter(x => { const o = S.items.find(y => y.id === x.id); return !o || o.up !== x.up; }).length;
+        const who = [...new Set((j.items || []).filter(x => x.byn && !S.items.some(y => y.id === x.id && y.up === x.up)).map(x => x.byn))].slice(0, 2).join('·');
+        let b = $('newBar'); if (!b) { b = document.createElement('div'); b.id = 'newBar'; b.className = 'newbar'; document.body.appendChild(b); }
+        b.innerHTML = `<span>${who ? esc(who) + '님이 ' : ''}매물 ${n || ''}건을 새로 쓰거나 고쳤습니다</span><button type="button">새로 보기</button><button type="button" class="x" aria-label="닫기">×</button>`;
+        b.hidden = false; S.seen = sig(j.items || []);
+        b.querySelector('button').onclick = () => { b.hidden = true; if (S.form) return toast('쓰던 창을 닫은 뒤 다시 눌러 주세요'); took(j); draw(); };
+        b.querySelector('.x').onclick = () => { b.hidden = true; };
+      } catch { /* 다음에 */ }
+    }, 60e3);
+  }
+  function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); if (j.cxDirty && window.Danji && Danji.reloadCx) Danji.reloadCx(); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if ('team' in j) S.team = j.team || null; if (j.items) S.seen = sig(j.items); if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // ---------- 지도 ----------
   async function loadMap() {
@@ -661,7 +684,7 @@
   const memoParse = s => { s = String(s || '').trim(); if (!s) return []; return s.split(/\n(?=\[(?:\d{2}\.\d{2}\.\d{2} \d{2}:\d{2}|예전 메모)\] )/).map(p => { const m = p.match(MEMO_HEAD); return m ? { t: m[1] === '예전 메모' ? '' : m[1], x: p.slice(m[0].length).trim() } : { t: '', x: p.trim() }; }).filter(e => e.x); };
   const memoJoin = a => a.map(e => e.t ? `[${e.t}] ${e.x}` : a.length > 1 ? `[예전 메모] ${e.x}` : e.x).join('\n'); // 날짜 없는 예전 메모도 경계를 표시해 섞이지 않게
   const memoNow = () => { const d = new Date(Date.now() + 9 * 3600e3), p = n => String(n).padStart(2, '0'); return `${String(d.getUTCFullYear()).slice(2)}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
-  const memoAdd = (s, text) => memoJoin([{ t: memoNow(), x: String(text).trim() }, ...memoParse(s)]);
+  const memoAdd = (s, text) => memoJoin([{ t: memoNow(), x: String(text).trim() + (S.team ? ` · ${S.me.staff ? S.me.staff.name : (S.bk && S.bk.ceo) || '대표'}` : '') }, ...memoParse(s)]);   // 직원이 있으면 쓴 사람 이름 (10/28)
   const memoListHtml = (s, old, delAttr) => { const a = memoParse(s); return a.length ? `<ul class="mlog">${a.map((e, i) => `<li><span class="mt">${e.t ? esc(e.t) : `예전 메모${old ? ' · ' + esc(old) : ''}`}</span><span class="mx">${esc(e.x)}</span>${delAttr ? `<button type="button" ${delAttr}="${i}" aria-label="이 메모 지우기">×</button>` : ''}</li>`).join('')}</ul>` : ''; };
   // ---------- 사진 ----------
   // 휴대폰 원본(3~5MB)을 긴 변 1,600px JPEG(약 0.3MB)로 줄여서 올립니다
@@ -752,7 +775,7 @@
         <div class="mnew"><textarea class="in" id="f_memo" rows="2" maxlength="500" placeholder="새 메모를 적고 [추가]를 누르세요">${esc(S.form.memoDraft || '')}</textarea><button type="button" class="btn sub" id="f_memoAdd">추가</button></div>
         ${memoListHtml(it.memo, it.up ? String(it.up).slice(2, 10).replace(/-/g, '.') : '', 'data-mdel')}</div>
       <div class="fld"><span class="lb">상태</span><div class="seg" id="fStat">${Object.entries(STAT).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="${it.status === k}">${v}</button>`).join('')}</div></div>
-      <div class="saveRow">${F.edit ? '<button class="btn danger" id="fDel" type="button">삭제</button>' : ''}<button class="btn main" id="fSave" type="button">저장하기</button></div>` : ''}`;
+      <div class="saveRow">${F.edit && canDel() ? '<button class="btn danger" id="fDel" type="button">삭제</button>' : ''}<button class="btn main" id="fSave" type="button">저장하기</button></div>` : ''}`;
     // ---- 이벤트 ----
     const on = (sel, fn) => document.querySelectorAll(sel).forEach(fn);
     if ($('fq')) {
@@ -847,7 +870,9 @@
       if (!wasEdit) { S.tab = it.status; S.kind = 'all'; }
       draw(); if (!wasEdit) focusItem(S.items[0].id, true);
       toast(wasEdit ? '수정했습니다' : '매물장에 등록했습니다');
-    } catch (e) { if (e.code === 'limit' || e.code === 'readonly') { $('fSave').disabled = false; $('fSave').textContent = '저장하기'; return upsell(e.message); } toast(e.message, 4000); $('fSave').disabled = false; $('fSave').textContent = '저장하기'; }
+    } catch (e) {
+      if (e.code === 'conflict') { const id = it.id; took(e.data); closeForm(); draw(); toast(e.message, 6000); const y = S.items.find(i => i.id === id); if (y) openForm(y); return; }   // 다른 사람이 먼저 고침 → 새 내용으로 다시 열기
+      if (e.code === 'limit' || e.code === 'readonly') { $('fSave').disabled = false; $('fSave').textContent = '저장하기'; return upsell(e.message); } toast(e.message, 4000); $('fSave').disabled = false; $('fSave').textContent = '저장하기'; }
   }
   async function del() {
     if (!confirm('이 매물을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return;
@@ -1229,6 +1254,7 @@
   // ---------- 엑셀(CSV) 저장 ----------
   // ---------- 엑셀 불러오기 (10/26 · ximport.js) ----------
   function openImport() {
+    if (S.me && S.me.staff) return toast('엑셀 불러오기는 대표만 할 수 있습니다', 3500);
     if (!window.XImport) return toast('엑셀 불러오기를 준비하는 중입니다. 잠시 뒤 다시 눌러 주세요');
     XImport.open({ api, post, took, toast, items: () => S.items, plan: () => S.plan || {}, X: bdHost().X, done: () => { if (window.Sett) Sett.stale(); draw(); },
       office: () => (S.bk && S.bk.office) || '', djReload: () => { if (window.Sett) Sett.stale(); if (window.Danji && Danji.reloadCx) Danji.reloadCx(true); },   // 아파트 장부 파일 → 단지 장부
@@ -1238,6 +1264,7 @@
   //   중개사무소 정보에 등록한 휴대폰으로 인증번호 → 맞으면 30분 동안 다시 묻지 않음 · 문자 인증이 꺼져 있으면 그냥 받음
   function xlGate(info, fn) {   // 10/26: 인증 한 번 = 내려받기 한 번 · 서버가 인증할 때 내려받기 기록을 남김 (info = { what, n })
     if (typeof info === 'function') { fn = info; info = { what: '매물장', n: 0 }; }
+    if (S.me && S.me.staff) return toast('엑셀 내려받기는 대표만 할 수 있습니다 (고객 연락처 보호)', 3500);
     if (!S.me || !S.me.sms) return fn();
     const d = String((S.bk && (S.bk.mobileOk || S.bk.mobile)) || '').replace(/\D/g, '');
     if (!/^01\d{8,9}$/.test(d)) return toast('엑셀 내려받기는 휴대폰 인증이 필요합니다. 중개사무소 정보에 휴대폰 번호를 먼저 넣어 주세요', 4000);

@@ -95,7 +95,9 @@ window.Board = (() => {
         else if (now) { const M = H.items(), k = M.findIndex(x => x.id === id); if (k >= 0) M[k] = now.it; }
         H.redraw(); if (msg) H.toast(msg);
       } catch (e) {
-        PEND.delete(id); const M = H.items(), k = M.findIndex(x => x.id === id); if (k >= 0) M[k] = cur.orig;
+        PEND.delete(id);
+        if (e.code === 'conflict' && e.data) { H.took(e.data); H.redraw(); H.toast(e.message, 6000); return; }   // 다른 직원이 먼저 고침 → 서버의 새 내용으로 (10/28)
+        const M = H.items(), k = M.findIndex(x => x.id === id); if (k >= 0) M[k] = cur.orig;
         H.redraw();
         if (e.code === 'readonly' || e.code === 'limit') H.upsell(e.message); else H.toast(e.message || '저장하지 못했습니다', 4000);
       }
@@ -718,7 +720,7 @@ window.Board = (() => {
         <a class="b" href="/?pnu=${esc(x.pnu || places(x)[0].pnu)}" target="_blank" rel="noopener">필지 정보 ↗</a>
         <span class="sp"></span><small class="meta">No. ${esc(x.no || '')} · 등록 ${X.ymd(x.at)}</small>
         <button type="button" class="b" data-a="card">매물카드 전체 수정</button>
-        <button type="button" class="b del" data-a="del">삭제</button></div></div>`;
+        ${H.canDel && !H.canDel() ? "" : '<button type="button" class="b del" data-a="del">삭제</button>'}</div></div>`;
   }
   // 정보 칸 (바로 수정) — 회색 = 건축물대장 자동 · 노란색 = 리얼맵 필수인데 빔 · 점선 = 직접 입력
   const AUTOK = ['use', 'tfl', 'appr', 'park', 'zone'];

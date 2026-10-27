@@ -187,7 +187,7 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
       ${R.map(r => { const b = r.bk || {}, P = r.plan, st = r.stat || {}, L = left(P.until), [kc, kt] = kind(r);
         const row = `<tr class="cl${open === r.id ? ' sel' : ''}" data-row="${r.id}"><td>${b.photo ? `<img class="bav" src="${esc(b.photo)}" alt="">` : ''}<b>${esc(b.office || '(사무소 정보 없음)')}</b>${b.verified ? '<span class="vf">확인</span>' : b.pend ? '<span class="vf wait">승인 대기</span>' : b.vst && b.vst !== 'error' ? '<span class="vf no">확인 안 됨</span>' : ''} <small>${esc(String(b.addr || '').split(' ').slice(1, 2).join(''))}</small></td>
           <td>${esc(b.ceo || '-')}</td><td>${esc(b.regno || '-')}</td><td>${esc(b.mobile || b.tel || '-')}</td>
-          <td><span class="pl ${P.op ? 'op' : P.plan}">${P.op ? '운영자' : esc(PN[P.plan] || P.name || P.plan)}</span></td><td><span class="src ${kc}">${esc(kt)}</span></td>
+          <td><span class="pl ${P.op ? 'op' : P.plan}">${P.op ? '운영자' : esc(PN[P.plan] || P.name || P.plan)}</span>${r.staff || P.seats ? ` <small title="직원 (승인 대기 포함) / 직원 자리">직원 ${r.staff || 0}/${P.seats || 0}</small>` : ''}</td><td><span class="src ${kc}">${esc(kt)}</span></td>
           <td>${P.op || P.plan === 'free' || P.plan === 'none' ? '-' : P.until ? `<span class="${L <= 7 ? 'dd r' : ''}">${d8(P.until)}</span> <small>${L >= 0 ? 'D-' + L : '지남'}</small>` : '기한 없음'}</td>
           <td>${st.n ?? '-'} · ${st.pub ?? 0}${P.ls && st.n > P.ls ? ` <small>(보기 전용 ${st.n - P.ls})</small>` : ''}</td><td>${d8(r.joined)}</td><td>${ago(st.up || r.last)}</td><td>${r.opmemo ? `<span class="tag" title="${esc(r.opmemo)}">${esc(r.opmemo)}</span>` : ''}</td></tr>`;
         return row + (open === r.id ? `<tr class="det"><td colspan="${COLS}">${detail(r)}</td></tr>` : ''); }).join('') || `<tr><td colspan="${COLS}" class="empty">해당하는 중개사가 없습니다.</td></tr>`}
@@ -208,15 +208,16 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
   }
   function detail(r) {
     const b = r.bk || {}, P = r.plan, st = r.stat || {}, [kc, kt] = kind(r);
-    if (!ps) ps = { plan: PAID.includes(P.plan) || P.plan === 'trial' ? P.plan : 'basic', n: 1, unit: 'm', forever: false, until: '', why: '지인', memo: '' };
+    if (!ps) ps = { plan: PAID.includes(P.plan) || P.plan === 'trial' ? P.plan : 'basic', n: 1, unit: 'm', forever: false, until: '', why: '지인', memo: '', seats: P.plan === 'trial' ? 0 : P.seats || 0 };
     const U = previewUntil(r), ch = (attr, v, cur, t) => `<button type="button" class="ch" ${attr}="${v}" aria-pressed="${cur}">${t}</button>`;
     const logs = (B.plog || []).filter(x => x.uid === r.id);
     const plan = P.op ? '<p class="note">운영자 계정은 언제나 VIP입니다.</p>' : `
       <div class="rw"><label>지금</label><span class="pl ${P.plan}">${esc(PN[P.plan] || P.plan)}</span> ${P.plan === 'free' || P.plan === 'none' ? '' : P.until ? d8(P.until) + '까지' : '기한 없음'} · <span class="src ${kc}">${esc(kt)}</span></div>
       <div class="rw"><label>요금제</label>${['free', 'trial', 'basic', 'premium', 'vip'].map(k => ch('data-pp', k, ps.plan === k, PN[k])).join('')}</div>
       ${ps.plan === 'free' ? '' : `<div class="rw"><label>기간</label>${[[7, 'd', '+7일'], [14, 'd', '+14일'], [1, 'm', '+1개월'], [3, 'm', '+3개월'], [12, 'm', '+12개월']].map(([n, u, t]) => ch('data-pn', n + u, !ps.forever && !ps.until && ps.n === n && ps.unit === u, t)).join('')}${ch('data-pf', '1', ps.forever, '무기한')}<input type="date" id="pDate" value="${esc(ps.until)}" title="끝나는 날짜 직접 고르기"></div>`}
+      ${ps.plan === 'free' || ps.plan === 'trial' ? '' : `<div class="rw"><label>직원 자리</label>${[0, 1, 2, 3, 5, 10].map(n => ch('data-ps', n, ps.seats === n, n + '명')).join('')}<input type="number" id="pSeats" min="0" max="99" value="${ps.seats}" style="width:64px" title="직접 입력"> <small>지금 직원 ${r.staff || 0}명 (승인 대기 포함)</small></div>`}
       <div class="rw"><label>사유</label>${['지인', '프로모션', '보상', '기타'].map(k => ch('data-pw', k, ps.why === k, k)).join('')}<input id="pMemo" value="${esc(ps.memo)}" maxlength="100" placeholder="메모 (예: 11월 오픈 이벤트)" style="flex:1;min-width:140px"></div>
-      <div class="pv">→ ${esc(PN[ps.plan])}${ps.plan === 'free' ? '' : U ? ` · ${d8(U)}까지` : ' · 기한 없음'} <small style="font-weight:600;color:#7A5A00">· 회원 화면에 '운영자 혜택'으로 표시 · 알림이 갑니다</small></div>
+      <div class="pv">→ ${esc(PN[ps.plan])}${ps.plan === 'free' ? '' : U ? ` · ${d8(U)}까지` : ' · 기한 없음'}${ps.plan !== 'free' && ps.plan !== 'trial' && ps.seats ? ` · 직원 ${ps.seats}명` : ''} <small style="font-weight:600;color:#7A5A00">· 회원 화면에 '운영자 혜택'으로 표시 · 알림이 갑니다</small></div>
       <div class="rw"><button class="btn k" type="button" id="pGo">적용</button><span class="note">+기간은 지금 남은 기간 뒤에 더합니다. 결제 확인은 [입금 확인]에서 하세요.</span></div>`;
     return `<div class="det-g"><div><h4>${esc(b.office || r.nickname || '회원')} <small>${esc(b.ceo || '')} · ${esc(b.regno || '')}</small></h4>${plan}</div>
       <div><h4>요금 변경 이력 <small>${logs.length}건</small></h4><div class="log">${logs.map(x => `<div><em>${d8(x.at)}</em>${esc(PN[x.to.plan] || x.to.plan)} ${x.to.until ? d8(x.to.until) + '까지' : x.to.plan === 'free' ? '' : '기한 없음'} · ${x.by === 'pay' ? '결제' : '운영자'}${x.why ? '(' + esc(x.why) + ')' : ''}${x.memo ? ' · ' + esc(x.memo) : ''}</div>`).join('') || '<div><em></em>아직 기록이 없습니다</div>'}</div>
@@ -232,13 +233,15 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
     m.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => { keep(); const v = b.dataset.pn; ps.n = parseInt(v); ps.unit = v.slice(-1); ps.forever = false; ps.until = ''; drawB(); });
     m.querySelectorAll('[data-pf]').forEach(b => b.onclick = () => { keep(); ps.forever = true; ps.until = ''; drawB(); });
     m.querySelectorAll('[data-pw]').forEach(b => b.onclick = () => { keep(); ps.why = b.dataset.pw; drawB(); });
+    m.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => { keep(); ps.seats = +b.dataset.ps; drawB(); });
+    const pse = document.getElementById('pSeats'); if (pse) pse.onchange = () => { keep(); ps.seats = Math.max(0, Math.min(99, Math.round(+pse.value || 0))); drawB(); };
     const pd = document.getElementById('pDate'); if (pd) pd.onchange = () => { keep(); ps.until = pd.value; ps.forever = false; drawB(); };
     const go = document.getElementById('pGo');
     if (go) go.onclick = async () => {
       keep(); const U = previewUntil(r);
       if (!confirm(`${(r.bk && r.bk.office) || r.nickname}\n${PN[r.plan.plan] || r.plan.plan} → ${PN[ps.plan]}${ps.plan === 'free' ? '' : U ? ' · ' + d8(U) + '까지' : ' · 기한 없음'}\n사유: ${ps.why}${ps.memo ? ' · ' + ps.memo : ''}\n\n적용할까요?`)) return;
       go.disabled = true;
-      const body = { uid: r.id, op: 'plan', plan: ps.plan, why: ps.why, memo: ps.memo };
+      const body = { uid: r.id, op: 'plan', plan: ps.plan, why: ps.why, memo: ps.memo, seats: ps.plan === 'trial' ? 0 : ps.seats || 0 };
       if (ps.plan !== 'free') { if (ps.forever) body.forever = true; else if (ps.until) body.until = ps.until; else { body.n = ps.n; body.unit = ps.unit; } }
       if (await act(body)) ps = null;
     };
@@ -253,9 +256,9 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
     const ST = { ok: '켜 줌', no: '취소(운영자)', cancel: '취소(회원)' };
     const rc = p => p.rcpt ? `${p.rcpt.t === 'tax' ? '세금계산서' : '현금영수증'} ${esc(p.rcpt.no)}` : '-';
     m.innerHTML = `<div class="pn"><h3>입금 확인 대기 <small>${wait.length}건 · 통장에서 입금을 확인한 뒤 [입금 확인 · 켜기]</small></h3><div class="tw"><table><thead><tr><th>신청</th><th>사무소</th><th>입금자명</th><th>요금제</th><th>금액</th><th>영수증</th><th></th></tr></thead><tbody>
-      ${wait.map(p => `<tr><td>${dt(p.at)}</td><td><b>${esc(p.office)}</b></td><td>${esc(p.payer)}</td><td>${esc(p.pname)} ${p.mon}개월</td><td><b>${p.amt.toLocaleString()}원</b></td><td>${rc(p)}</td><td><button class="btn k" type="button" data-payok="${esc(p.id)}">입금 확인 · 켜기</button> <button class="btn" type="button" data-payno="${esc(p.id)}">취소</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">기다리는 신청이 없습니다.</td></tr>'}</tbody></table></div></div>
+      ${wait.map(p => `<tr><td>${dt(p.at)}</td><td><b>${esc(p.office)}</b></td><td>${esc(p.payer)}</td><td>${p.kind === 'seat' ? `직원 자리 +${p.seats}명 · 남은 ${p.mon}개월` : `${esc(p.pname)} ${p.mon}개월${p.seats ? ` + 직원 ${p.seats}명` : ''}`}</td><td><b>${p.amt.toLocaleString()}원</b></td><td>${rc(p)}</td><td><button class="btn k" type="button" data-payok="${esc(p.id)}">입금 확인 · 켜기</button> <button class="btn" type="button" data-payno="${esc(p.id)}">취소</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">기다리는 신청이 없습니다.</td></tr>'}</tbody></table></div></div>
       <div class="pn"><h3>입금 기록 <small>최근 ${done.length}건</small></h3><div class="tw"><table><thead><tr><th>신청</th><th>사무소 · 입금자</th><th>요금제</th><th>금액</th><th>영수증</th><th>처리</th></tr></thead><tbody>
-      ${done.map(p => `<tr><td>${d8(p.at)}</td><td>${esc(p.office)} <small>${esc(p.payer)}</small></td><td>${esc(p.pname)} ${p.mon}개월</td><td>${p.amt.toLocaleString()}원</td><td>${rc(p)}</td><td>${ST[p.st] || p.st} <small>${d8(p.done)}${p.until ? ' · ' + d8(p.until) + '까지' : ''}${p.why ? ' · ' + esc(p.why) : ''}</small></td></tr>`).join('') || '<tr><td colspan="6" class="empty">아직 기록이 없습니다.</td></tr>'}</tbody></table></div></div>`;
+      ${done.map(p => `<tr><td>${d8(p.at)}</td><td>${esc(p.office)} <small>${esc(p.payer)}</small></td><td>${p.kind === 'seat' ? `직원 자리 +${p.seats}명 · 남은 ${p.mon}개월` : `${esc(p.pname)} ${p.mon}개월${p.seats ? ` + 직원 ${p.seats}명` : ''}`}</td><td>${p.amt.toLocaleString()}원</td><td>${rc(p)}</td><td>${ST[p.st] || p.st} <small>${d8(p.done)}${p.until ? ' · ' + d8(p.until) + '까지' : ''}${p.why ? ' · ' + esc(p.why) : ''}</small></td></tr>`).join('') || '<tr><td colspan="6" class="empty">아직 기록이 없습니다.</td></tr>'}</tbody></table></div></div>`;
     m.querySelectorAll('[data-payok]').forEach(b => b.onclick = () => { const p = P.find(x => x.id === b.dataset.payok); if (confirm(`${p.office} · ${p.pname} ${p.mon}개월 ${p.amt.toLocaleString()}원\n입금자 ${p.payer}\n\n통장에서 입금을 확인하셨나요? 요금제를 켭니다 (남은 기간 뒤에 이어 붙임).`)) act({ op: 'payok', id: p.id }); });
     m.querySelectorAll('[data-payno]').forEach(b => b.onclick = () => { const why = prompt('신청을 취소할까요? 이유를 적어 주세요 (회원에게 보입니다)', '입금이 확인되지 않았습니다'); if (why !== null) act({ op: 'payno', id: b.dataset.payno, why }); });
   }

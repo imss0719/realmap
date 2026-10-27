@@ -1,13 +1,16 @@
 // 리얼맵 중개장부 · 설정 (10/26 · 10/27 촘촘한 화면: 왼쪽 메뉴 → 그 부분만, 안은 '이름 | 값 | 버튼' 한 줄씩 · 두 칸 배치 · 13px 표)
-// [매물] [고객관리] [설정] — 가끔 쓰는 기능을 한곳에: 우리 사무소 · 엑셀(불러오기·양식·기록·내려받기) · 요금제 · 계정·화면 · 직원 관리(준비 중)
+// [매물] [고객관리] [설정] — 가끔 쓰는 기능을 한곳에: 우리 사무소 · 엑셀(불러오기·양식·기록·내려받기) · 요금제 · 계정·화면 · 직원 관리(10/28)
+// 직원으로 들어온 사람: 엑셀·결제·사무소 고치기·해지는 없고 [내 소속](나가기)이 보임
 // 엑셀 내려받기는 대표 휴대폰 인증 한 번에 한 번 (서버가 인증할 때 기록을 남김: /api/auth?action=xlog)
 // host = { api, post, toast, me(), bk(), plan(), items(), canPub(), openBk(), importXl(), quit(), xlGate(info, fn), exportLs(), fz(d) }
 window.Sett = (() => {
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const MENU = [['excel', '엑셀', '불러오기·받기'], ['office', '우리 사무소', ''], ['plan', '요금제', ''], ['help', '문의하기', ''], ['acct', '계정·화면', '']];
-  let H = null, el = null, sec = 'excel', log = null, cxs = null, cus = null, hp = null; const off = new Set();   // off: 내려받기에서 체크를 푼 단지 · hp: 내 입금 신청·문의
-  const pf = { plan: '', mon: 12, payer: '', rc: '', rcno: '' }, qf = { cat: '사용법', text: '', img: '' };   // 쓰던 신청서·문의 글 (화면을 다시 그려도 남게)
+  const MENU_ST = [['office', '우리 사무소', ''], ['plan', '요금제', ''], ['help', '문의하기', ''], ['acct', '계정·화면', '']];   // 직원 화면
+  const isStaff = () => !!(H && H.me() && H.me().staff);
+  let H = null, el = null, sec = 'excel', log = null, cxs = null, cus = null, hp = null, sf = null; const off = new Set();   // sf: 직원 관리 자료   // off: 내려받기에서 체크를 푼 단지 · hp: 내 입금 신청·문의
+  const pf = { plan: '', mon: 12, payer: '', rc: '', rcno: '', seats: null, add: 1 }, qf = { cat: '사용법', text: '', img: '' };   // 쓰던 신청서·문의 글 (화면을 다시 그려도 남게)
   const BANK = { name: '신한은행', no: '140-012-485569', who: '(주)드림인베스트' }, PRICE = { basic: 9900, premium: 19900, vip: 29900 }, PN = { basic: 'Basic', premium: 'Premium', vip: 'VIP' };
   const PDESC = { basic: '매물 1,000건 · 지도 광고 300건', premium: '매물 5,000건 · 지도 광고 1,000건', vip: '매물 3만 건 · 지도 광고 3,000건' };
   const ymdhm = t => { const d = new Date(new Date(t).getTime() + 9 * 3600e3).toISOString(); return `${d.slice(2, 4)}.${d.slice(5, 7)}.${d.slice(8, 10)} ${d.slice(11, 16)}`; };
@@ -26,16 +29,20 @@ window.Sett = (() => {
   const seen = () => { try { return localStorage.getItem('rm.qseen') || ''; } catch { return ''; } };
   const newRep = () => ((hp && hp.qnas) || []).filter(q => q.reply && q.rat > seen()).length;   // 아직 안 본 답변 수 (메뉴 빨간 숫자)
 
-  function mount(box, host) { H = host; el = box; try { sec = localStorage.getItem('rm.set') || 'excel'; } catch { /* 무시 */ } if (!MENU.some(m => m[0] === sec)) sec = 'excel'; draw(); if (!hp) loadHp().then(() => draw()); }
+  const menu = () => isStaff() ? [...MENU_ST, ['mine', '내 소속', '']] : [...MENU, ['staff', '직원 관리', '']];
+  function mount(box, host) { H = host; el = box; try { sec = localStorage.getItem('rm.set') || 'excel'; } catch { /* 무시 */ } if (!menu().some(m => m[0] === sec)) sec = menu()[0][0]; draw(); if (!hp) loadHp().then(() => draw()); }
   function refresh() { if (el && !el.contains(document.activeElement)) draw(); }   // 글을 쓰는 중이면 다시 그리지 않음
   function stale() { log = null; cxs = null; cus = null; if (el && !el.hidden) draw(); }   // 엑셀 불러오기 뒤 기록·숫자 새로
-  function go(s, fresh) { if (fresh) hp = null; sec = s; try { localStorage.setItem('rm.set', s); } catch { /* 무시 */ } draw(); }
+  function go(s, fresh) { if (fresh) { hp = null; sf = null; } if (!menu().some(m => m[0] === s)) s = menu()[0][0]; sec = s; try { localStorage.setItem('rm.set', s); } catch { /* 무시 */ } draw(); }
   function draw() {
-    const b = H.bk() || {}, sub = { office: b.verified ? '확인됨' : b.office ? '확인 전' : '', plan: (H.plan() || {}).name || '' }, nr = newRep();
-    el.innerHTML = `<div class="st-w"><nav class="st-n">${MENU.map(([k, t, d]) => `<button type="button" data-s="${k}" aria-pressed="${sec === k}"><b>${t}</b>${k === 'help' && nr ? `<em>${nr}</em>` : `<small>${esc(sub[k] || d)}</small>`}</button>`).join('')}
-      <hr><button type="button" class="off" disabled><b>직원 관리</b><small>준비 중</small></button></nav><div class="st-m" id="stM"></div></div>`;
+    const b = H.bk() || {}, nr = newRep(), wn = sf && sf.list ? sf.list.filter(m => m.st === 'wait').length : 0;
+    const sub = { office: b.verified ? '확인됨' : b.office ? '확인 전' : '', plan: (H.plan() || {}).name || '', staff: sf && sf.list ? `${sf.used}명` : '', mine: ((H.me() || {}).staff || {}).name || '' };
+    if (!menu().some(m => m[0] === sec)) sec = menu()[0][0];
+    el.innerHTML = `<div class="st-w"><nav class="st-n">${menu().map(([k, t, d]) => `${k === 'staff' || k === 'mine' ? '<hr>' : ''}<button type="button" data-s="${k}" aria-pressed="${sec === k}"><b>${t}</b>${(k === 'help' && nr) || (k === 'staff' && wn) ? `<em>${k === 'help' ? nr : wn}</em>` : `<small>${esc(sub[k] || d)}</small>`}</button>`).join('')}
+      </nav><div class="st-m" id="stM"></div></div>`;
     el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => go(b.dataset.s));
-    ({ office, excel, plan, help, acct })[sec]($('stM'));
+    ({ office, excel, plan, help, acct, staff, mine })[sec]($('stM'));
+    if (!isStaff() && !sf) loadSf().then(() => draw());
   }
 
   // ---------- 우리 사무소 ----------
@@ -45,10 +52,10 @@ window.Sett = (() => {
     const live = H.items().filter(x => x.pub && x.pub.on && x.status === 'on' && x.pub.exp > new Date().toISOString()).length;
     m.innerHTML = `<div class="sg2">${pn('중개사무소 정보', b.verified ? '<span class="tg g">등록 확인됨 ✓</span>' : b.office ? '<span class="tg r">확인 전</span>' : '',
       rw('상호', v(b.office)) + rw('대표자', v(b.ceo)) + rw('등록번호', v(b.regno)) + rw('주소', v(b.addr)) + rw('사무실 전화', v(b.tel)) + rw('대표 휴대폰', v(b.mobile) + (b.mobile ? ` <span class="tg ${mobOk ? 'g' : 'r'}">${mobOk ? '인증됨' : '인증 필요'}</span>` : '')),
-      '', B('stBk', '고치기 · 사진 · 휴대폰 인증', 'y'))}
+      '', isStaff() ? '<small>고치기는 대표만</small>' : B('stBk', '고치기 · 사진 · 휴대폰 인증', 'y'))}
       ${H.canPub() ? pn('리얼맵 지도 광고 표시', '공인중개사법 표시·광고 항목',
         rw('광고에 나가는 글', `<b>${esc(b.office || '')}</b> · 대표 ${esc(b.ceo || '')} · 등록번호 ${esc(b.regno || '')}<br>${esc(b.addr || '')}${b.tel ? ` · ☎ ${esc(b.tel)}` : ''}`) + rw('지금 게시 중', `${live}건`) + rw('고치기', '<small>왼쪽 [고치기]에서 바꾸면 광고에도 바로 반영됩니다</small>')) : ''}</div>`;
-    $('stBk').onclick = () => H.openBk();
+    if ($('stBk')) $('stBk').onclick = () => H.openBk();
   }
 
   // ---------- 엑셀 ----------
@@ -134,12 +141,12 @@ window.Sett = (() => {
     const pub = items.filter(x => x.pub && x.pub.on && x.status === 'on' && x.pub.exp > now).length;
     const left = P.until ? Math.max(0, Math.ceil((new Date(P.until) - Date.now()) / 86400e3)) : null;
     const bar = (t, v, max, u) => `<div class="su"><b>${t}</b><div class="st-bar"><i style="width:${max && v != null ? Math.min(100, Math.round(v / max * 100)) : 0}%" class="${max && v / max >= .9 ? 'hi' : ''}"></i></div><small>${v == null ? '…' : v.toLocaleString()} / ${max ? max.toLocaleString() + u : '제한 없음'}</small></div>`;
-    const notes = (hp && hp.notes) || [];   // 운영자 혜택 기록 (10/27)
+    const notes = ((hp && hp.notes) || []).filter(n => !n.k);   // 운영자 혜택 기록 (10/27) · k: 직원 신청 같은 다른 알림
     m.innerHTML = pn('요금제 · 쓰는 양', `<span class="tg gr">${esc(P.name || '')}${P.until ? ` · ${ymd(P.until)}까지${left != null ? ` (${left}일)` : ''}` : P.plan !== 'free' ? ' · 기한 없음' : ''}</span>${P.gift ? ' <span class="tg y">운영자 혜택</span>' : ''}`,
       `<div class="sus">${bar('매물', items.length, P.ls, '건')}${bar('지도 광고', pub, P.ad, '건')}${bar('아파트 단지', cxs ? cxs.length : null, P.cx, '곳')}${bar('고객', Array.isArray(cus) ? cus.length : null, P.cu, '명')}</div>`,
       '', '<a class="sb" href="/pro.html#price" target="_blank" rel="noopener">요금제 자세히</a>') +
-      (notes.length ? pn('운영자 혜택 기록', '리얼맵 운영자가 올려 드린 요금제', tb(['적용일', '요금제', '쓰는 기간'], notes.map(n => `<tr><td>${ymdhm(n.at)}</td><td>${esc(n.name)}</td><td>${n.until ? ymd(n.until) + '까지' : '기한 없음'}</td></tr>`))) : '') + payForm();
-    wirePay(m);
+      (isStaff() ? '' : seatPanel()) + (notes.length ? pn('운영자 혜택 기록', '리얼맵 운영자가 올려 드린 요금제', tb(['적용일', '요금제', '쓰는 기간'], notes.filter(n => !n.k).map(n => `<tr><td>${ymdhm(n.at)}</td><td>${esc(n.name)}</td><td>${n.until ? ymd(n.until) + '까지' : '기한 없음'}</td></tr>`))) : '') + (isStaff() ? pn('요금 결제', '', '<p class="sp-e">요금제 신청·결제는 대표님 계정에서 합니다.</p>', 'mt') : payForm());
+    if (!isStaff()) wirePay(m);
     if (!cxs) loadCx().then(() => sec === 'plan' && draw());
     if (!cus) loadCu().then(() => sec === 'plan' && draw());
     if (!hp) loadHp().then(() => sec === 'plan' && draw());
@@ -149,32 +156,43 @@ window.Sett = (() => {
     const P = H.plan() || {};
     if (!pf.plan) pf.plan = PRICE[P.plan] ? P.plan : 'basic';
     if (!pf.payer) pf.payer = (H.bk() && H.bk().office) || '';
-    const amt = PRICE[pf.plan] * (pf.mon === 12 ? 10 : pf.mon), now = new Date().toISOString();
+    if (pf.seats == null) pf.seats = Number(P.plan === 'trial' ? 0 : P.seats) || 0;
+    const bm = pf.mon === 12 ? 10 : pf.mon, amt = PRICE[pf.plan] * bm + SEAT * pf.seats * bm, now = new Date().toISOString();
     const pays = (hp && hp.pays) || [], wait = pays.filter(x => x.st === 'wait');
     const ST = { wait: '<span class="tg y">입금 확인 중</span>', ok: '<span class="tg g">켜짐</span>', no: '<span class="tg gr">취소됨</span>', cancel: '<span class="tg gr">신청 취소</span>' };
     const seg = (items, cur, attr) => `<span class="sseg">${items.map(([k, t]) => `<button type="button" ${attr}="${k}" aria-pressed="${String(cur) === String(k)}">${t}</button>`).join('')}</span>`;
     return pn('요금제 신청 · 계좌이체', PRICE[P.plan] && P.until > now ? '입금하면 남은 기간 뒤에 이어서 늘어남' : '입금 확인일부터 시작',
       rw('요금제', seg(Object.keys(PRICE).map(k => [k, `${PN[k]} ${PRICE[k].toLocaleString()}`]), pf.plan, 'data-pp') + ` <small>${PDESC[pf.plan]}</small>`) +
-      rw('기간', seg([[1, '1개월'], [6, '6개월'], [12, '12개월 <em>2개월 무료</em>']], pf.mon, 'data-pm'), `<b class="amt">${amt.toLocaleString()}원</b>`) +
+      rw('기간', seg([[1, '1개월'], [6, '6개월'], [12, '12개월 <em>2개월 무료</em>']], pf.mon, 'data-pm')) +
+      rw('직원 자리', `<span class="sstep">${B('', '−', '', 'data-sn="-1"')}<b>${pf.seats}명</b>${B('', '+', '', 'data-sn="1"')}</span> <small>대표 말고 같이 쓸 직원 수 · 1명당 월 ${SEAT.toLocaleString()}원</small>`, `<b class="amt">${amt.toLocaleString()}원</b>`) +
       rw('입금 계좌', `${BANK.name} <b>${BANK.no}</b> ${BANK.who}`, B('stCp', '계좌 복사')) +
       rw('입금자명', `<input id="stPayer" class="si" value="${esc(pf.payer)}" maxlength="30" placeholder="사무소명"> <small>통장에 찍히는 이름과 같게</small>`) +
       rw('영수증', `<label><input type="radio" name="strc" value="" ${pf.rc ? '' : 'checked'}> 필요 없음</label> <label><input type="radio" name="strc" value="cash" ${pf.rc === 'cash' ? 'checked' : ''}> 현금영수증</label> <label><input type="radio" name="strc" value="tax" ${pf.rc === 'tax' ? 'checked' : ''}> 세금계산서</label>${pf.rc ? ` <input id="stRcNo" class="si" value="${esc(pf.rcno)}" maxlength="20" placeholder="${pf.rc === 'tax' ? '사업자번호' : '휴대폰 번호'}">` : ''}`, B('stPay', '입금했어요 · 신청', 'y', wait.length >= 3 ? 'disabled' : '')) +
       `<p class="sp-n">입금이 확인되면 보통 하루 안에 켜 드리고 알림(🔔)으로 알려 드립니다. 신청하시면 <a href="/terms.html" target="_blank" rel="noopener">이용약관</a>과 환불 규정(입금 확인 7일 안 전액, 그 뒤 남은 기간만큼)에 동의한 것으로 봅니다.</p>` +
-      (pays.length ? `<div class="sp-t">${tb(['신청', '요금제', '금액', '상태', ''], pays.slice(0, 10).map(x => `<tr><td>${ymdhm(x.at)}</td><td>${PN[x.plan] || x.plan} ${x.mon}개월</td><td>${x.amt.toLocaleString()}원</td><td>${ST[x.st] || ''}${x.st === 'ok' && x.until ? ` <small>${ymd(x.until)}까지</small>` : ''}${x.st === 'no' && x.why ? ` <small>${esc(x.why)}</small>` : ''}</td><td>${x.st === 'wait' ? B('', '신청 취소', 'r', `data-pc="${esc(x.id)}"`) : ''}</td></tr>`), '')}</div>` : ''), 'mt');
+      (pays.length ? `<div class="sp-t">${tb(['신청', '요금제', '금액', '상태', ''], pays.slice(0, 10).map(x => `<tr><td>${ymdhm(x.at)}</td><td>${x.kind === 'seat' ? `직원 자리 +${x.seats}명 · ${x.mon}개월` : `${PN[x.plan] || x.plan} ${x.mon}개월${x.seats ? ` + 직원 ${x.seats}명` : ''}`}</td><td>${x.amt.toLocaleString()}원</td><td>${ST[x.st] || ''}${x.st === 'ok' && x.until ? ` <small>${ymd(x.until)}까지</small>` : ''}${x.st === 'no' && x.why ? ` <small>${esc(x.why)}</small>` : ''}</td><td>${x.st === 'wait' ? B('', '신청 취소', 'r', `data-pc="${esc(x.id)}"`) : ''}</td></tr>`), '')}</div>` : ''), 'mt');
   }
   function wirePay(m) {
     m.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { pf.plan = b.dataset.pp; draw(); });
     m.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { pf.mon = +b.dataset.pm; draw(); });
+    m.querySelectorAll('[data-sn]').forEach(b => b.onclick = () => { pf.seats = Math.max(0, Math.min(30, pf.seats + +b.dataset.sn)); draw(); });
+    m.querySelectorAll('[data-an]').forEach(b => b.onclick = () => { pf.add = Math.max(1, Math.min(30, pf.add + +b.dataset.an)); draw(); });
+    if ($('stSeat')) $('stSeat').onclick = async () => {
+      const P = H.plan() || {}, mon = Math.max(1, Math.ceil((new Date(P.until) - Date.now()) / (30 * 864e5))), amt = SEAT * pf.add * mon;
+      if (!pf.payer.trim()) return H.toast('아래 신청서의 입금자명을 먼저 적어 주세요');
+      if (!confirm(`직원 자리 ${pf.add}명 추가 · ${mon}개월(${ymd(P.until)}까지) ${amt.toLocaleString()}원\n${BANK.name} ${BANK.no} ${BANK.who}\n입금자명: ${pf.payer}\n\n입금하셨나요? 신청을 보냅니다.`)) return;
+      try { await H.api('/api/auth?action=help', H.post({ op: 'seat', n: pf.add, payer: pf.payer, rcpt: pf.rc ? { t: pf.rc, no: pf.rcno } : null })); H.toast('신청했습니다. 입금이 확인되면 직원 자리가 늘어납니다', 4500); hp = null; draw(); }
+      catch (e) { H.toast(e.message, 4000); }
+    };
     m.querySelectorAll('[name="strc"]').forEach(r => r.onchange = () => { pf.rc = r.value; draw(); });
     $('stPayer').oninput = e => { pf.payer = e.target.value; };
     if ($('stRcNo')) $('stRcNo').oninput = e => { pf.rcno = e.target.value; };
     $('stCp').onclick = async () => { try { await navigator.clipboard.writeText(BANK.no.replace(/-/g, '')); H.toast('계좌번호를 복사했습니다'); } catch { prompt('계좌번호를 복사해 주세요', BANK.no); } };
     $('stPay').onclick = async () => {
-      const amt = PRICE[pf.plan] * (pf.mon === 12 ? 10 : pf.mon);
+      const bm = pf.mon === 12 ? 10 : pf.mon, amt = PRICE[pf.plan] * bm + SEAT * pf.seats * bm;
       if (!pf.payer.trim()) return H.toast('입금자명을 적어 주세요');
       if (pf.rc && !pf.rcno.trim()) return H.toast(pf.rc === 'tax' ? '사업자번호를 적어 주세요' : '현금영수증 받을 휴대폰 번호를 적어 주세요');
-      if (!confirm(`${PN[pf.plan]} ${pf.mon}개월 ${amt.toLocaleString()}원\n${BANK.name} ${BANK.no} ${BANK.who}\n입금자명: ${pf.payer}\n\n입금하셨나요? 신청을 보냅니다.`)) return;
-      try { await H.api('/api/auth?action=help', H.post({ op: 'pay', plan: pf.plan, mon: pf.mon, payer: pf.payer, rcpt: pf.rc ? { t: pf.rc, no: pf.rcno } : null })); H.toast('신청했습니다. 입금이 확인되면 알림으로 알려 드립니다', 4500); hp = null; draw(); }
+      if (!confirm(`${PN[pf.plan]} ${pf.mon}개월${pf.seats ? ` + 직원 ${pf.seats}명` : ''} ${amt.toLocaleString()}원\n${BANK.name} ${BANK.no} ${BANK.who}\n입금자명: ${pf.payer}\n\n입금하셨나요? 신청을 보냅니다.`)) return;
+      try { await H.api('/api/auth?action=help', H.post({ op: 'pay', plan: pf.plan, mon: pf.mon, seats: pf.seats, payer: pf.payer, rcpt: pf.rc ? { t: pf.rc, no: pf.rcno } : null })); H.toast('신청했습니다. 입금이 확인되면 알림으로 알려 드립니다', 4500); hp = null; draw(); }
       catch (e) { H.toast(e.message, 4000); }
     };
     m.querySelectorAll('[data-pc]').forEach(b => b.onclick = async () => { if (!confirm('이 신청을 취소할까요?')) return; try { await H.api('/api/auth?action=help', H.post({ op: 'paycancel', id: b.dataset.pc })); hp = null; draw(); } catch (e) { H.toast(e.message, 4000); } });
@@ -216,9 +234,75 @@ window.Sett = (() => {
       rw('글씨 크기', '<small>위쪽 [가−][가+]와 같습니다</small>', B('', '가− 작게', '', 'data-fz="-1"') + B('', '가+ 크게', '', 'data-fz="1"')) +
       rw('안내', '<a href="/pro-guide.html" target="_blank" rel="noopener">설명서</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener"><b>개인정보처리방침</b></a>'))}
       ${pn('운영 회사', '', rw('상호', '주식회사 드림인베스트 · 대표 임승재') + rw('사업자등록번호', '643-87-01035 <small>· 통신판매업 신고 진행 중</small>') + rw('주소', '경기도 파주시 고봉로 755-27 가동 2층 201-116호') + rw('연락처', '02-393-7676 · contact@realmap.online'))}
-      ${me.op ? '' : pn('중개사 서비스 해지', '되돌릴 수 없음', rw('해지', '<small>매물장·사진·지도 광고·단지 장부·고객·사무소 정보가 모두 지워집니다. 먼저 [엑셀]에서 받아 두세요.</small>', B('stQuit', '해지하기', 'r')), 'q')}</div>`;
+      ${me.op || me.staff ? '' : pn('중개사 서비스 해지', '되돌릴 수 없음', rw('해지', '<small>매물장·사진·지도 광고·단지 장부·고객·사무소 정보가 모두 지워집니다. 먼저 [엑셀]에서 받아 두세요.</small>', B('stQuit', '해지하기', 'r')), 'q')}</div>`;
     m.querySelectorAll('[data-fz]').forEach(b => b.onclick = () => H.fz(+b.dataset.fz));
     if ($('stQuit')) $('stQuit').onclick = () => H.quit();
+  }
+  // ---------- 직원 자리 추가 (유료 요금제 쓰는 중) ----------
+  function seatPanel() {
+    const P = H.plan() || {}, now = new Date().toISOString();
+    if (!PRICE[P.plan] || !(P.until > now)) return '';
+    const mon = Math.max(1, Math.ceil((new Date(P.until) - Date.now()) / (30 * 864e5)));
+    return pn('직원 자리', `지금 ${P.seats || 0}명 · 직원 관리에서 승인할 수 있는 수`,
+      rw('기간 중 추가', `<span class="sstep">${B('', '−', '', 'data-an="-1"')}<b>${pf.add}명</b>${B('', '+', '', 'data-an="1"')}</span> <small>× ${SEAT.toLocaleString()}원 × 남은 ${mon}개월 (${ymd(P.until)}까지)</small>`, `<b class="amt">${(SEAT * pf.add * mon).toLocaleString()}원</b> ${B('stSeat', '입금했어요 · 신청', 'y')}`) +
+      '<p class="sp-n">요금제를 새로 신청(연장)할 때는 아래 신청서의 [직원 자리]에서 같이 고르시면 됩니다.</p>', 'mt');
+  }
+
+  // ---------- 직원 관리 (10/28) — 대표만 ----------
+  //   초대 링크(7일) → 직원이 카카오 로그인·휴대폰 인증 후 신청 → 대표 승인 → 대표의 장부를 같이 씀 (대표 자료는 옮기지 않음)
+  //   중개보조원 ≤ (대표 + 소속공인중개사) × 5 (공인중개사법 제15조 3항) · 직원 자리 = 요금제에서 산 수
+  const SEAT = 2900, RN = { ceo: '대표', agt: '소속공인중개사', ast: '중개보조원' };
+  async function loadSf() { try { sf = await H.api('/api/auth?action=staff'); } catch (e) { sf = { err: e.message, list: [] }; } }
+  const ago = t => { if (!t) return '-'; const m = (Date.now() - new Date(t)) / 60e3; return m < 10 ? '방금' : m < 60 ? `${Math.round(m)}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`; };
+  const okc = v => v ? '<span class="ok">✓</span>' : '<span class="no">–</span>';
+  function staff(m) {
+    if (!sf) { m.innerHTML = '<p class="sp-e">불러오는 중…</p>'; return; }
+    if (sf.err) { m.innerHTML = `<p class="sp-e">${esc(sf.err)}</p>`; return; }
+    const b = H.bk() || {}, pm = sf.perm || {}, L = sf.list || [], on = L.filter(x => x.st === 'on'), wait = L.filter(x => x.st === 'wait');
+    const agt = on.filter(x => x.role === 'agt').length, link = sf.inv ? `${location.origin}/j/${sf.inv.code}` : '';
+    const can = r => r === 'agt' ? { pub: pm.agtPub !== false, del: pm.agtDel !== false } : { pub: false, del: pm.astDel === true };
+    const kp = (t, v, c = '') => `<div class="sk ${c}"><small>${t}</small><b>${v}</b></div>`;
+    const tag = r => `<span class="tg ${r === 'ceo' ? 'n' : r === 'agt' ? 'bl' : 'y'}">${RN[r]}</span>`;
+    const row = x => { const c = can(x.role); return `<tr><td><b>${esc(x.name)}</b>${x.nick && x.nick !== x.name ? ` <small>카카오 ${esc(x.nick)}</small>` : ''}</td><td>${tag(x.role)}</td><td>${esc(x.phone)}</td><td>${okc(1)}</td><td>${okc(c.pub)}</td><td>${okc(c.del)}</td><td>${okc(0)}</td><td>${ago(x.seen)}</td>
+      <td class="act">${B('', x.role === 'agt' ? '보조원으로' : '소속공인중개사로', '', `data-role="${esc(x.uid)}" data-r="${x.role === 'agt' ? 'ast' : 'agt'}"`)}${B('', '내보내기', 'r', `data-out="${esc(x.uid)}"`)}</td></tr>`; };
+    m.innerHTML = pn('직원 현황', `중개보조원은 (대표 + 소속공인중개사) × 5명까지 · 공인중개사법 제15조`,
+      `<div class="sks">${kp('대표(개업공인중개사)', 1)}${kp('소속공인중개사', agt)}${kp('중개보조원', `${sf.astN} / ${sf.astMax}`, sf.astN > sf.astMax ? 'r' : '')}${kp('승인 대기', wait.length, wait.length ? 'y' : '')}${kp('직원 자리', `${sf.used} / ${sf.seats >= 99 ? '∞' : sf.seats}명`, sf.used >= sf.seats && sf.seats < 99 ? 'y' : '')}</div>` +
+      (sf.astN > sf.astMax ? `<p class="sp-n warn">중개보조원이 법정 한도(${sf.astMax}명)를 넘었습니다. 소속공인중개사를 더 두거나 보조원 수를 줄여 주세요.</p>` : '') +
+      `<table class="st-tb sft"><tr><th>이름</th><th>구분</th><th>휴대폰</th><th>등록·수정</th><th>지도 광고</th><th>삭제</th><th>엑셀 받기</th><th>최근 접속</th><th></th></tr>
+       <tr><td><b>${esc(b.ceo || '대표')}</b></td><td>${tag('ceo')}</td><td>${esc(b.mobile || '')}</td><td>${okc(1)}</td><td>${okc(1)}</td><td>${okc(1)}</td><td>${okc(1)}</td><td>지금</td><td></td></tr>
+       ${on.map(row).join('')}
+       ${wait.map(x => `<tr class="wt"><td><b>${esc(x.name)}</b> <small>${ymdhm(x.at)} 신청 · 휴대폰 인증됨</small></td><td><span class="tg y">승인 대기 · ${RN[x.role]}</span></td><td>${esc(x.phone)}</td><td colspan="5"><small>승인하면 우리 사무소 장부를 같이 씁니다</small></td><td class="act">${B('', '승인', 'n', `data-ok="${esc(x.uid)}"`)}${B('', '거절', '', `data-no="${esc(x.uid)}"`)}</td></tr>`).join('')}</table>` +
+      (L.length ? '' : '<p class="sp-e">아직 직원이 없습니다. 아래 초대 링크를 직원에게 보내 주세요.</p>'), '', '') +
+      pn('초대 링크', '7일 동안 · 들어온 사람은 대표 승인 뒤에 장부가 열림',
+        link ? rw('링크', `<code class="lk">${esc(link)}</code> <small>${ymd(sf.inv.exp)}까지</small>`, B('stLc', '복사') + B('stLs', '카톡·문자로 보내기', 'y') + B('stLn', '새 링크') + B('stLx', '링크 끄기', 'r'))
+          : rw('링크', '<small>지금 열린 초대 링크가 없습니다</small>', B('stLn', '초대 링크 만들기', 'y')), 'mt') +
+      pn('권한', '구분별로 한꺼번에 · 바꾸면 바로 적용',
+        rw('소속공인중개사', `<label><input type="checkbox" data-pm="agtDel" ${pm.agtDel !== false ? 'checked' : ''}> 매물·고객 삭제</label> <label><input type="checkbox" data-pm="agtPub" ${pm.agtPub !== false ? 'checked' : ''}> 리얼맵 지도 광고</label>`) +
+        rw('중개보조원', `<label><input type="checkbox" data-pm="astDel" ${pm.astDel ? 'checked' : ''}> 매물·고객 삭제</label> <small>지도 광고는 법으로 안 됨 (제18조의2)</small>`) +
+        rw('대표만', '<small>엑셀 받기·불러오기 · 요금 결제 · 사무소 정보 고치기 · 직원 관리 · 해지</small>'), 'mt') +
+      pn('알아 두실 점', '', `<p class="sp-n">· 직원이 고친 매물·장부·고객 기록에는 고친 사람 이름이 남습니다. 두 사람이 같은 매물을 동시에 고치면 나중 사람에게 새 내용을 먼저 보여 드립니다.<br>· 내보낸 직원은 바로 장부를 볼 수 없게 됩니다. 직원 개인 카카오 계정에는 자료가 남지 않습니다.<br>· 소속공인중개사·중개보조원을 두거나 내보내면 <b>10일 안에 시·군·구청에 고용·종료 신고</b>를 해야 합니다 (공인중개사법 제15조 1항).</p>`, 'mt');
+    const act = async (body, msg) => { try { sf = await H.api('/api/auth?action=staff', H.post(body)); if (msg) H.toast(msg); draw(); } catch (e) { H.toast(e.message, 5000); } };
+    m.querySelectorAll('[data-ok]').forEach(x => x.onclick = () => act({ op: 'ok', uid: x.dataset.ok }, '승인했습니다. 이제 같은 장부를 씁니다'));
+    m.querySelectorAll('[data-no]').forEach(x => x.onclick = () => confirm('이 신청을 거절할까요?') && act({ op: 'no', uid: x.dataset.no }, '거절했습니다'));
+    m.querySelectorAll('[data-role]').forEach(x => x.onclick = () => act({ op: 'role', uid: x.dataset.role, role: x.dataset.r }, '구분을 바꿨습니다'));
+    m.querySelectorAll('[data-out]').forEach(x => x.onclick = () => { const s = L.find(y => y.uid === x.dataset.out); if (confirm(`${s ? s.name : ''}님을 내보낼까요?\n바로 우리 사무소 장부를 볼 수 없게 됩니다. (고친 기록은 그대로 남습니다)`)) act({ op: 'out', uid: x.dataset.out }, '내보냈습니다. 10일 안에 고용 종료 신고를 해 주세요'); });
+    m.querySelectorAll('[data-pm]').forEach(x => x.onchange = () => { const p = { ...pm }; m.querySelectorAll('[data-pm]').forEach(y => { p[y.dataset.pm] = y.checked; }); act({ op: 'perm', ...p }, '권한을 바꿨습니다'); });
+    $('stLn').onclick = () => (!link || confirm('새 링크를 만들면 지금 링크는 더 이상 쓸 수 없습니다. 만들까요?')) && act({ op: 'inv' }, '초대 링크를 만들었습니다');
+    if ($('stLx')) $('stLx').onclick = () => confirm('초대 링크를 끌까요? 이미 신청한 사람은 그대로 남습니다.') && act({ op: 'invoff' }, '링크를 껐습니다');
+    if ($('stLc')) $('stLc').onclick = async () => { try { await navigator.clipboard.writeText(link); H.toast('링크를 복사했습니다. 카톡에 붙여 넣어 보내 주세요'); } catch { prompt('링크를 복사해 주세요', link); } };
+    const msg = `[리얼맵 중개장부] ${b.office || ''} 직원으로 초대합니다.\n아래 링크를 열고 카카오로 로그인한 뒤 이름·휴대폰 인증을 해 주세요. 대표 승인 뒤에 같은 장부를 씁니다.\n${link}`;
+    if ($('stLs')) $('stLs').onclick = async () => { if (navigator.share) { try { await navigator.share({ text: msg }); } catch { /* 닫음 */ } } else { try { await navigator.clipboard.writeText(msg); H.toast('초대 글을 복사했습니다. 카톡·문자에 붙여 넣어 보내 주세요', 4000); } catch { prompt('복사해 주세요', msg); } } };
+  }
+  // ---------- 내 소속 (직원 화면) ----------
+  function mine(m) {
+    const me = (H.me() || {}).staff || {}, b = H.bk() || {}, pm = (H.team && H.team() && H.team().perm) || {};
+    const c = me.role === 'agt' ? { pub: pm.agtPub !== false, del: pm.agtDel !== false } : { pub: false, del: pm.astDel === true };
+    m.innerHTML = `<div class="sg2">${pn('내 소속', '',
+      rw('사무소', `<b>${esc(me.office || b.office || '')}</b> · 대표 ${esc(b.ceo || '')}`) + rw('나', `${esc(me.name || '')} <span class="tg ${me.role === 'agt' ? 'bl' : 'y'}">${RN[me.role] || ''}</span>`) +
+      rw('할 수 있는 일', `매물·장부·고객 등록·수정 ${okc(1)} · 지도 광고 ${okc(c.pub)} · 삭제 ${okc(c.del)} · 엑셀 받기 ${okc(0)}`) +
+      rw('권한 바꾸기', '<small>대표님이 [설정 → 직원 관리]에서 정합니다</small>'))}
+      ${pn('사무소에서 나가기', '', rw('나가기', '<small>나가면 이 사무소 장부를 더 볼 수 없습니다. 내 카카오 계정에는 자료가 남지 않습니다.</small>', B('stLeave', '나가기', 'r')), 'q')}</div>`;
+    $('stLeave').onclick = async () => { if (!confirm(`${me.office || '이 사무소'}에서 나갈까요?`)) return; try { await H.api('/api/auth?action=staff', H.post({ op: 'leave' })); location.replace('/pro.html'); } catch (e) { H.toast(e.message, 4000); } };
   }
   return { mount, refresh, stale, go };
 })();

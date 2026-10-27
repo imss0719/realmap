@@ -23,7 +23,7 @@ window.Cust = (() => {
   async function api(url, body) {
     const r = await fetch(url, { credentials: 'same-origin', ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다.'); e.code = j.error; throw e; }
+    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다.'); e.code = j.error; e.data = j; throw e; }
     return j;
   }
 
@@ -183,7 +183,7 @@ window.Cust = (() => {
   }
   async function op(body, msg) {
     try { const j = await api('/api/auth?action=cu', body); C.items = j.items; draw(); if (window.Alarm && Alarm.soft) Alarm.soft(); if (msg) H.toast(msg); return j; }
-    catch (e) { H.toast(e.message, 4000); draw(); }
+    catch (e) { if (e.code === 'conflict' && e.data && e.data.items) C.items = e.data.items; H.toast(e.message, e.code === 'conflict' ? 6000 : 4000); draw(); }   // conflict: 다른 직원이 먼저 고침 → 새 내용 (10/28)
   }
   const rows = () => C.items.filter(c => (C.st === 'all' || c.status === C.st) && (C.k === 'all' || c.k.includes(C.k)) && (!C.q || [c.name, c.phone, c.where.join(' '), c.note, c.memo, c.pt.join(' ')].join(' ').toLowerCase().includes(C.q.toLowerCase())));
   function drawBar() {
@@ -254,7 +254,7 @@ window.Cust = (() => {
         <div class="dt-h" style="margin-top:12px"><b>상담 기록</b>${c.phone ? `<a class="b2" href="tel:${esc(c.phone.replace(/\D/g, ''))}" data-call="${c.id}">☎ 전화</a>` : ''}<button type="button" class="b2" data-called="${c.id}">연락함 표시</button></div>
         <input class="in1" data-fk="cm:${c.id}" data-cmemo="${c.id}" placeholder="상담 내용 (Enter로 기록 · 마지막 연락일도 오늘로)">
         ${L.length ? `<ul class="ml">${L.slice(0, 6).map((e, i) => `<li><span>${esc(e.t ? e.t.slice(3) : '예전')}</span>${esc(e.x)} <button type="button" class="x" data-cmdel="${i}" aria-label="지우기">×</button></li>`).join('')}</ul>` : ''}
-        <div class="dt-acts"><span class="sp"></span><small class="meta">등록 ${(d => `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`)(new Date(c.at))}</small><button type="button" class="b del" data-cdel="${c.id}">고객 삭제</button></div></div></div>`;
+        <div class="dt-acts"><span class="sp"></span><small class="meta">등록 ${(d => `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`)(new Date(c.at))}</small>${H.canDel && !H.canDel() ? '' : `<button type="button" class="b del" data-cdel="${c.id}">고객 삭제</button>`}</div></div></div>`;
   }
   function wire() {
     const T = $('cuT');

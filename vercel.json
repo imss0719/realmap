@@ -19,6 +19,10 @@
     {
       "source": "/auth/logout",
       "destination": "/api/auth?action=logout"
+    },
+    {
+      "source": "/j/:code",
+      "destination": "/join.html?c=:code"
     }
   ]
 }

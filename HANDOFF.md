@@ -503,3 +503,21 @@
   - 운영 메모 realmap:opmemo:<uid> (op:'memo', 회원에게 안 보임) · 해지/탈퇴 때 pnote·opmemo 지움
 - 방문 설명 신청: pro.html '결정하기 어려우시다고요?' 옆 [방문 설명 신청] → POST /api/auth?action=visit (로그인 없음 · IP당 1시간 3건 · 하루 60건 · 빈칸 함정 hp) → realmap:visit 해시 + 운영자 문자(ADMIN_PHONE)
   - 운영자 화면 [방문 신청]: 상태(새 신청·연락함·방문 완료·취소) + 메모 (members.js op:'visit') · 처리 후 1년 지나면 목록 열 때 자동 삭제 · 개인정보처리방침 10/28 시행으로 항목 추가
+
+## 10/28 — 직원(소속공인중개사·중개보조원) 함께 쓰기
+- 방식: 직원은 자기 카카오로 로그인, 서버가 '대표의 장부'를 열어 줌 (대표 자료를 옮기거나 복사하지 않음 → 기존 회원 자료 그대로). api/_staff.js
+  - realmap:staff:<대표id> 해시 직원id → {uid,name,role:'agt'|'ast',phone,st:'wait'|'on',at,okAt,nick} · realmap:staffof:<직원id> {o,st} (카카오 하나 = 사무소 하나)
+  - realmap:inv:<코드> = 대표id (7일) · realmap:invc:<대표id> {code,exp} (새 링크 = 이전 링크 막힘) · realmap:sperm:<대표id> {agtDel,agtPub,astDel} · realmap:sseen:<직원id> 최근 접속(90일)
+- auth.js office(req): 승인된 직원이면 s.id=대표id, s.me=본인id, s.staff/role/sname. cx·cu·hj·help·xlog·bk·listings·me 가 이걸 씀. favs·sms·start·quit·withdraw 는 본인 id 그대로.
+  - 승인 대기 · 직원 자리 부족(먼저 승인된 순서대로 자리 수만큼) · 대표가 무료가 됨 → s.blocked → 403 'seats' → 화면은 /join.html 로 보내 안내
+- 권한: 대표만 = 엑셀 받기(sms xl)·불러오기(import/unimport/xlog POST)·요금 결제(help pay/paycancel/seat)·사무소 정보(bk POST)·직원 관리·해지.
+  삭제(listing del·cx del·cu del·hj wipe) = 소속 agtDel(기본 켬) · 보조원 astDel(기본 끔). 지도 광고(pub/renew/unpub) = 소속 agtPub(기본 켬) · 보조원은 법으로 안 됨(제18조의2).
+- 보조원 수 ≤ 5 × (1 + 소속공인중개사) — 승인·구분 바꾸기 때 막음. 소속을 내보내 넘치면 막지 않고 직원 관리 화면에 빨간 경고.
+- 같이 고치기: listings 응답에 team({role,name,perm}) → 화면 위 이름 표시 · 60초마다 새 내용 확인 → [새로 보기] 띠(listings.js poll).
+  매물(listing save)·장부(hj save, body.up)·고객(cu save, item.up): 내가 연 뒤 다른 사람이 먼저 저장했으면(up 다름 + by≠나) 409 'conflict' + 새 내용 → 화면이 새 내용으로 바꾸고 안내.
+  기록 이름: 매물 메모 '… · 이름'(클라이언트 memoAdd) · 장부 hist w/wi · 고객 메모 '… · 이름' · 매물 by/byn. 직원이 없는 사무소는 예전과 똑같이 저장(이름·by 없음).
+- 직원 자리: realmap:plan seats. 체험 5명 · 무료 0 · 운영자 99. 요금제 신청 때 같이(help pay {seats} = 요금 + 2,900 × 자리 × 개월(12개월은 10)),
+  기간 중 추가(help seat {n} = 2,900 × n × 남은 개월(30일 올림), kind 'seat') → payok 이 자리만 더함. 운영자 화면 요금제 칸에 '직원 자리' 버튼 (members op plan seats).
+- 초대 화면 /j/<코드> → join.html (vercel.json rewrite). 카카오 로그인 → 이름·구분·휴대폰 인증(sms) → 신청 → 대표에게 알림(pnote k:'staff', 승인·거절하면 사라짐) + 문자(대표 휴대폰).
+  대기 화면은 15초마다 확인해 승인되면 중개장부로. 직원 설정: [내 소속](나가기) · 엑셀 메뉴 없음 · 결제·해지 없음.
+- 대표 해지/탈퇴 → dropTeam(직원 연결 모두 끊음) · 직원 탈퇴 → leave. 직원은 quit 대신 '나가기'.

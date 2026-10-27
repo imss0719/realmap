@@ -94,7 +94,8 @@ window.Alarm = (() => {
     if (H.help && !lite) try {
       const j = await H.help();
       for (const x of j.pays || []) if (x.st === 'ok' || x.st === 'no') push({ id: `pay:${x.id}:${x.st}`, t: 'note', title: x.st === 'ok' ? '요금제가 켜졌습니다' : '요금제 신청이 취소되었습니다', body: x.st === 'ok' ? `${x.mon}개월 · ${String(x.until || '').slice(0, 10).replace(/-/g, '.')}까지. 화면을 새로 고치면 늘어난 한도가 바로 보입니다.` : (x.why || '입금이 확인되지 않았습니다') + ' · 궁금하시면 [설정 → 문의하기]로 알려 주세요.', go: { set: 'plan' }, goTx: '보기' });
-      for (const n of j.notes || []) push({ id: `pn:${n.id}`, t: 'note', title: `운영자 혜택 · ${n.name} 요금제가 적용되었습니다`, body: `${n.until ? String(n.until).slice(0, 10).replace(/-/g, '.') + '까지' : '기한 없이'} 쓰실 수 있습니다. 화면을 새로 고치면 늘어난 한도가 바로 보입니다.`, go: { set: 'plan' }, goTx: '보기' });   // 운영자가 올려 준 요금제 (10/27)
+      for (const n of (j.notes || []).filter(n => n.k === 'staff')) push({ id: `pn:${n.id}`, t: 'note', title: `직원 참여 신청 · ${n.name}님 (${n.role === 'agt' ? '소속공인중개사' : '중개보조원'})`, body: '승인하시면 우리 사무소 장부를 같이 씁니다.', go: { set: 'staff' }, goTx: '직원 관리' });   // 10/28
+      for (const n of (j.notes || []).filter(n => !n.k)) push({ id: `pn:${n.id}`, t: 'note', title: `운영자 혜택 · ${n.name} 요금제가 적용되었습니다`, body: `${n.until ? String(n.until).slice(0, 10).replace(/-/g, '.') + '까지' : '기한 없이'} 쓰실 수 있습니다. 화면을 새로 고치면 늘어난 한도가 바로 보입니다.`, go: { set: 'plan' }, goTx: '보기' });   // 운영자가 올려 준 요금제 (10/27)
       for (const q of j.qnas || []) if (q.reply) push({ id: `qna:${q.id}:${q.rat}`, t: 'note', title: '문의에 답변이 왔습니다', body: q.text.slice(0, 50), go: { set: 'help' }, goTx: '답변 보기' });
     } catch { /* 다음에 */ }
     // 1-1) 꼭 챙길 것 (매물관리)
