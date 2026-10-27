@@ -485,3 +485,9 @@
   1단계 동안 DUAL=true로 예전 덩어리(realmap:ls)도 같이 저장 → 문제가 생기면 auth.js·members.js를 예전 것으로 되돌리기만 하면 됨.
   ※ 되돌렸다가 다시 새 코드로 올릴 때는 그 사이 고친 내용이 해시에 없으므로 realmap:lsv:* 를 지워 다시 옮기게 해야 함.
   2단계(1~2주 문제없으면): _ls.js DUAL=false → 예전 덩어리 저장 끔. 3단계: realmap:ls:* · realmap:lsbak:* 정리(선배 확인 후).
+- 10/27 이용약관(terms.html, 시행 10/27): 계좌이체 요금·환불(입금 확인 7일 안 전액, 그 뒤 남은 기간 = 낸 금액 − 쓴 개월 × 1개월 정가, 3영업일 안 환불)·허위매물·해지 등.
+  사업자 정보(대표 임승재 · 643-87-01035 · 통신판매업 신고 진행 중 · 파주시 고봉로 755-27 가동 2층 201-116호)를 terms·privacy·pro·pro-guide 바닥글·설정 화면에 표시.
+  통신판매업 신고번호가 나오면 이 다섯 곳의 '신고 진행 중'을 번호로 바꿀 것. 개인정보처리방침에 입금 신청·문의·내려받기 기록 항목과 전자상거래법 보관 기간 추가.
+- 10/27 문의 메일 contact@realmap.online (ImprovMX 무료 전달 → 선배 Gmail, 가비아 DNS에 MX 2개 + SPF TXT 'v=spf1 include:spf.improvmx.com include:_spf.google.com ~all' 추가.
+  보내기는 Gmail '다른 주소에서 보내기'(smtp.gmail.com·앱 비밀번호)). 사이트의 realwalkers@naver.com 을 모두 바꿈 — seoul/ 정비사업 페이지는 scripts/seoul-pages.mjs만 바꿨고
+  다음 seoul-zones 작업(분기 1회 또는 수동 실행) 때 새로 만들어지며 바뀜. 개인정보처리방침 위탁 표에 ImprovMX·Google(Gmail) 추가.

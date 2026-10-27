@@ -500,7 +500,7 @@
       <span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>
     ${mobile() && lsN ? `<div class="mtabs" role="tablist"><button type="button" role="tab" data-mt="info" aria-selected="${!mLst}">필지 정보</button><button type="button" role="tab" data-mt="lst" aria-selected="${!!mLst}">매물 <em>${lsN}</em></button></div>` : ''}
     ${mLst ? `<div class="body mlst">${lsListHtml(lsHere(), false)}</div>` : `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || 'land') === k}">${l}</button>`).join('')}</div>
-    <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`}`;
+    <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`}`;
     $('panel').scrollTop = keepScroll;
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => goSec(b.dataset.t));
@@ -2777,7 +2777,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       <dl class="lfacts">${f.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}<dt>소재지</dt><dd>${esc(x.addr)}</dd></dl>
       <div class="lbk">${lsAv(x.bk, 'lav lg')}<div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
         <div class="lbtn">${btns}</div></div>
-      <div class="lft">등록 ${lsYmd(x.at)} · 거래 가능 확인 ${lsYmd(x.chk)}${x.no ? ' · No. ' + esc(x.no) : ''} · <a href="mailto:realwalkers@naver.com?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>`;
+      <div class="lft">등록 ${lsYmd(x.at)} · 거래 가능 확인 ${lsYmd(x.chk)}${x.no ? ' · No. ' + esc(x.no) : ''} · <a href="mailto:contact@realmap.online?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>`;
   }
   // 중개사 대표 사진(동그라미). 없으면 사무소 이름 첫 글자
   const lsAv = (bk, cls) => `<span class="${cls}">${bk.photo ? `<img src="${esc(bk.photo)}" alt="" loading="lazy">` : `<b>${esc(String(bk.office || '').trim().charAt(0))}</b>`}</span>`;

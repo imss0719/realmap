@@ -154,7 +154,7 @@ window.Sett = (() => {
       <div class="st-rc"><label><input type="radio" name="strc" value="" ${pf.rc ? '' : 'checked'}> 영수증 필요 없음</label><label><input type="radio" name="strc" value="cash" ${pf.rc === 'cash' ? 'checked' : ''}> 현금영수증</label><label><input type="radio" name="strc" value="tax" ${pf.rc === 'tax' ? 'checked' : ''}> 세금계산서</label>
         ${pf.rc ? `<input id="stRcNo" value="${esc(pf.rcno)}" maxlength="20" placeholder="${pf.rc === 'tax' ? '사업자번호 (000-00-00000)' : '휴대폰 번호'}">` : ''}</div>
       <div class="st-r"><button type="button" class="st-b y" id="stPay" ${wait.length >= 3 ? 'disabled' : ''}>입금했어요 · 신청하기</button></div>
-      <p class="st-d">입금이 확인되면 보통 하루 안에 켜 드리고 알림(🔔)으로 알려 드립니다.</p>
+      <p class="st-d">입금이 확인되면 보통 하루 안에 켜 드리고 알림(🔔)으로 알려 드립니다. 신청하시면 <a href="/terms.html" target="_blank" rel="noopener">이용약관</a>과 환불 규정(입금 확인 7일 안 전액 환불, 그 뒤는 남은 기간만큼)에 동의한 것으로 봅니다.</p>
       ${pays.length ? `<h3>내 신청</h3><table class="st-tb"><tr><th>신청</th><th>요금제</th><th>금액</th><th>상태</th><th></th></tr>${pays.slice(0, 10).map(x => `<tr><td>${ymdhm(x.at)}</td><td>${PN[x.plan] || x.plan} ${x.mon}개월</td><td>${x.amt.toLocaleString()}원</td><td>${ST[x.st] || ''}${x.st === 'ok' && x.until ? ` <small>${ymd(x.until)}까지</small>` : ''}${x.st === 'no' && x.why ? ` <small>${esc(x.why)}</small>` : ''}</td><td>${x.st === 'wait' ? `<button type="button" class="st-x" data-pc="${esc(x.id)}">신청 취소</button>` : ''}</td></tr>`).join('')}</table>` : ''}</section>`;
   }
   function wirePay(m) {
@@ -206,7 +206,7 @@ window.Sett = (() => {
   function acct(m) {
     const me = H.me() || {};
     m.innerHTML = `<section class="st-c"><h2>계정</h2><div class="st-f"><span>로그인</span><div>카카오 · ${esc(me.nickname || '')}님</div></div>
-      <div class="st-r" style="justify-content:flex-start"><a class="st-b" href="/api/auth?action=logout&r=/">로그아웃</a><a class="st-b" href="/pro-guide.html" target="_blank" rel="noopener">설명서 보기</a></div></section>
+      <div class="st-r" style="justify-content:flex-start"><a class="st-b" href="/api/auth?action=logout&r=/">로그아웃</a><a class="st-b" href="/pro-guide.html" target="_blank" rel="noopener">설명서 보기</a><a class="st-b" href="/terms.html" target="_blank" rel="noopener">이용약관</a><a class="st-b" href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></div><p class="st-d" style="margin-top:12px">주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · 02-393-7676 · contact@realmap.online</p></section>
       <section class="st-c"><h2>화면</h2><div class="st-f"><span>글씨 크기</span><div class="st-fz"><button type="button" class="st-b" data-fz="-1">가− 작게</button><button type="button" class="st-b" data-fz="1">가+ 크게</button><small>위쪽 [가−][가+]와 같습니다</small></div></div></section>
       ${me.op ? '' : `<section class="st-c st-q"><h2>중개사 서비스 해지</h2><p class="st-d">매물장·사진·지도 광고·단지 장부·고객·중개사무소 정보가 모두 지워지며 되돌릴 수 없습니다. 해지 전에 [엑셀]에서 내려받아 두시길 권합니다.</p><button type="button" class="st-x" id="stQuit">해지하기</button></section>`}`;
     m.querySelectorAll('[data-fz]').forEach(b => b.onclick = () => H.fz(+b.dataset.fz));
