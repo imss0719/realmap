@@ -124,7 +124,7 @@ ${body}
 ${faq.length ? `<section class="faq"><h2>자주 묻는 질문</h2>${faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</section>` : ''}
 <p class="src">자료: 서울 열린데이터광장 「도시계획사업(서울플랜+) 정비사업 현황」(${esc(updK)} 받음), 국토교통부 정비구역 연속주제도. 리얼맵이 분기마다 자동으로 갱신합니다. 계획 수치와 추진 단계는 진행 중에 바뀔 수 있으니 계약 등 중요한 결정 전에는 구청이나 조합, <a href="https://cleanup.seoul.go.kr" target="_blank" rel="noopener">정비사업 정보몽땅</a>에서 꼭 확인해 주세요.</p>
 </main>
-<footer>리얼맵 · 운영 주식회사 드림인베스트 · 문의 realwalkers@naver.com · <a href="/guide.html">이용 안내</a> · <a href="/privacy.html">개인정보처리방침</a></footer>
+<footer>리얼맵 · 운영 주식회사 드림인베스트 · 문의 contact@realmap.online · <a href="/guide.html">이용 안내</a> · <a href="/privacy.html">개인정보처리방침</a></footer>
 </body></html>
 `;
 }
