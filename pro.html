@@ -335,6 +335,13 @@ footer a{color:rgba(255,255,255,.8)}
 .gcta .btn{margin-top:8px}
 .btn.navy{background:var(--navy);color:#fff;box-shadow:0 8px 24px rgba(20,33,46,.25)}
 .btn.line2{background:transparent;color:inherit;border:2px solid currentColor}
+.vsec{padding-top:56px;padding-bottom:20px}.vhd{text-align:center;margin-bottom:22px}.vhd h2{margin-top:8px}
+.yt{position:relative;display:block;width:100%;max-width:960px;margin:0 auto;aspect-ratio:16/9;border:0;padding:0;border-radius:18px;overflow:hidden;background:#101B26;cursor:pointer;box-shadow:0 24px 60px rgba(16,27,38,.25)}
+.yt img,.yt iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
+.ytp{position:absolute;left:50%;top:50%;width:88px;height:62px;margin:-31px 0 0 -44px;border-radius:16px;background:#F2B705;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.ytp:after{content:"";position:absolute;left:35px;top:18px;border-left:24px solid #14212E;border-top:13px solid transparent;border-bottom:13px solid transparent}
+.yt:hover .ytp{transform:scale(1.06)}
+.vmore{text-align:center;margin-top:18px;font-size:17px;font-weight:700}.vmore a{color:inherit;text-decoration:underline;text-underline-offset:4px}
 </style>
 </head>
 <body>
@@ -369,6 +376,11 @@ footer a{color:rgba(255,255,255,.8)}
   </div>
   <div class="scrollhint"><i></i>아래로</div>
 </section>
+<section class="sec vsec" id="video"><div class="wrap">
+  <div class="vhd"><span class="eyebrow">90초 기능 소개</span><h2>어떤 기능이 있는지 먼저 보세요</h2></div>
+  <button class="yt" type="button" data-yt="dGGEbAmCZ0c" aria-label="리얼맵 중개장부 90초 소개 영상 재생"><img src="/pro-video.jpg" alt="" loading="lazy" width="1280" height="720"><span class="ytp"></span></button>
+  <p class="vmore"><a href="/pro-guide.html#video">자세한 사용법은 10분 영상 설명서로 →</a></p>
+</div></section>
 
 <section class="sec" id="features"><div class="wrap feat">
   <div class="txt">
@@ -627,5 +639,6 @@ footer a{color:rgba(255,255,255,.8)}
   };
 })();
 </script>
+<script>document.querySelectorAll('[data-yt]').forEach(b=>b.addEventListener('click',()=>{const f=document.createElement('iframe');f.src='https://www.youtube-nocookie.com/embed/'+b.dataset.yt+'?autoplay=1&rel=0';f.title='리얼맵 중개장부 소개 영상';f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;b.replaceChildren(f);b.style.cursor='default';},{once:true}));</script>
 </body>
 </html>

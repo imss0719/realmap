@@ -89,6 +89,15 @@ table.pl th,table.pl td{border-bottom:1px solid var(--line);padding:10px 8px;tex
 table.pl th{background:var(--soft);font-weight:700}
 table.pl td:first-child,table.pl th:first-child{text-align:left}
 .wrapx{overflow-x:auto}
+.vid{max-width:960px;margin:0 auto 28px;padding:0 16px}
+.vid .vh{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:12px}.vid .vh b{font-size:22px}.vid .vh small{color:var(--muted);font-size:15px}
+.yt{position:relative;display:block;width:100%;aspect-ratio:16/9;border:0;padding:0;border-radius:16px;overflow:hidden;background:#101B26;cursor:pointer;box-shadow:0 18px 44px rgba(16,27,38,.22)}
+.yt img,.yt iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
+.ytp{position:absolute;left:50%;top:50%;width:88px;height:62px;margin:-31px 0 0 -44px;border-radius:16px;background:var(--y);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.ytp:after{content:"";position:absolute;left:35px;top:18px;border-left:24px solid #14212E;border-top:13px solid transparent;border-bottom:13px solid transparent}
+.ytc{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ytc button{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font:inherit;font-size:15px;font-weight:700;color:var(--fg);cursor:pointer}
+.ytc button span{color:var(--accent);font-variant-numeric:tabular-nums}.ytc button:hover{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -99,6 +108,11 @@ table.pl td:first-child,table.pl th:first-child{text-align:left}
   <h1>주소 한 줄이면 등록 끝,<br><em>표에서 바로 고치는 매물장</em></h1>
   <p>리얼맵 중개장부를 처음 쓰시는 분을 위해 실제 화면으로 하나씩 안내해 드립니다. 그림 속 매물과 연락처는 모두 예시입니다.</p>
 </div>
+<section class="vid" id="video">
+  <div class="vh"><b>10분 영상 설명서</b><small>실제 화면으로 처음부터 끝까지 · 보고 싶은 부분을 누르면 거기서부터 재생됩니다</small></div>
+  <button class="yt" type="button" data-yt="swcnNNkyfSc" aria-label="중개장부 10분 사용 설명 영상 재생"><img src="/guide-video.jpg" alt="" loading="lazy" width="1280" height="720"><span class="ytp"></span></button>
+  <div class="ytc"><button type="button" data-ytt="0"><span>0:00</span>시작 · 화면 둘러보기</button><button type="button" data-ytt="47"><span>0:47</span>1 시작하기</button><button type="button" data-ytt="98"><span>1:38</span>2 매물 등록하기</button><button type="button" data-ytt="185"><span>3:05</span>3 표에서 고치기 · 기록</button><button type="button" data-ytt="240"><span>4:00</span>4 종류별 탭 · 찾기 · 지도</button><button type="button" data-ytt="290"><span>4:50</span>5 재개발·재건축 · 분양권</button><button type="button" data-ytt="352"><span>5:52</span>6 아파트 단지 장부</button><button type="button" data-ytt="409"><span>6:49</span>7 고객관리</button><button type="button" data-ytt="447"><span>7:27</span>8 지도 광고 · 알림</button><button type="button" data-ytt="496"><span>8:16</span>9 설정 · 엑셀</button></div>
+</section>
 <nav class="toc" aria-label="목차">
   <a href="#start"><b>1</b>시작하기</a>
   <a href="#screen"><b>2</b>화면 둘러보기</a>
@@ -298,13 +312,13 @@ table.pl td:first-child,table.pl th:first-child{text-align:left}
     <tr><td>손님 조건 · 여러 건 선택 · 브리핑</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
     <tr><td>담당자 추가 (같은 사무소)</td><td>—</td><td colspan="3">1명당 월 2,900원 · 준비 중</td></tr>
   </tbody></table></div>
-  <p style="font-size:14px;color:var(--muted)">* 공정 사용 한도: 매물 30,000건. 연간 결제는 2개월 무료입니다. 결제는 곧 열리며, 그 전에는 2주 체험과 무료 이용으로 쓰실 수 있습니다.</p>
+  <p style="font-size:14px;color:var(--muted)">* 공정 사용 한도: 매물 30,000건. 연간 결제는 2개월 무료입니다. 결제는 중개장부 [설정 → 요금제]에서 계좌이체로 신청하시면 입금 확인 후 바로 적용됩니다.</p>
 </section>
 
 <section id="faq">
   <h2><span class="n">?</span>자주 묻는 질문</h2>
   <details><summary>제 장부를 다른 사람이 볼 수 있나요?</summary><p>아니요. 매물·단지 장부·고객관리는 로그인한 본인만 볼 수 있습니다. 연락처가 담긴 단지 장부와 고객관리는 암호화해서 보관합니다. 지도 광고는 [리얼맵 등록]을 누른 매물만 공개되고, 호수·연락처·메모는 공개되지 않습니다.</p></details>
-  <details><summary>엑셀로 정리해 둔 매물도 옮길 수 있나요?</summary><p>엑셀 파일을 올려 한 번에 옮기는 기능을 준비하고 있습니다. 그 전에는 주소 한 줄씩 넣으시면 면적·층·용도가 자동으로 채워져서 생각보다 빠릅니다.</p></details>
+  <details><summary>엑셀로 정리해 둔 매물도 옮길 수 있나요?</summary><p>네. 중개장부 [설정 → 엑셀 → 파일 고르기]로 쓰던 엑셀을 올리면 칸 이름을 알아서 맞춰 한 번에 옮깁니다. 아파트 동·호 장부도 주소 칸이 있으면 단지 장부로 들어가고, 잘못 넣었으면 [불러온 기록]에서 한 번에 되돌릴 수 있습니다.</p></details>
   <details><summary>휴대폰에서도 쓸 수 있나요?</summary><p>쓸 수는 있지만 표가 넓어 PC 화면에 맞춰 만들었습니다. 사무실에서는 PC로, 밖에서는 확인용으로 쓰시길 권합니다.</p></details>
   <details><summary>글씨가 작아요.</summary><p>맨 위 [가+]를 누르면 화면 전체 글씨가 커집니다. 이 브라우저에 기억됩니다.</p></details>
   <details><summary>문의는 어디로 하나요?</summary><p>중개장부 <b>[설정 → 문의하기]</b>에 남기시면 답변이 화면과 알림(🔔)으로 옵니다. 메일은 contact@realmap.online 으로 보내 주세요.</p></details>
@@ -319,5 +333,7 @@ table.pl td:first-child,table.pl th:first-child{text-align:left}
 </main>
 <script>document.querySelectorAll('.fig img').forEach(function(i){i.style.cursor='zoom-in';i.title='누르면 크게 볼 수 있습니다';i.addEventListener('click',function(){window.open(i.src,'_blank')})});</script>
 <footer>리얼맵 · <a href="/guide.html">리얼맵 지도 이용 가이드</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html"><b>개인정보처리방침</b></a><br>주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · 02-393-7676 · contact@realmap.online</footer>
+<script>(()=>{const b=document.querySelector('[data-yt]');if(!b)return;const play=t=>{let f=b.querySelector('iframe');const src='https://www.youtube-nocookie.com/embed/'+b.dataset.yt+'?autoplay=1&rel=0&start='+(t||0);if(!f){f=document.createElement('iframe');f.title='중개장부 사용 설명 영상';f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;b.replaceChildren(f);b.style.cursor='default';}f.src=src;};
+b.addEventListener('click',()=>{if(!b.querySelector('iframe'))play(0);});document.querySelectorAll('[data-ytt]').forEach(c=>c.addEventListener('click',()=>{play(+c.dataset.ytt);b.scrollIntoView({behavior:'smooth',block:'center'});}));})();</script>
 </body>
 </html>
