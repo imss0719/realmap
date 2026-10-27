@@ -47,7 +47,7 @@
   // 매물장의 '브리핑' 버튼으로 왔으면 매물 사진(최대 4장)을 미리 넣어 둠
   (() => { const k = 'rm.bphotos:' + D.pnu, urls = store.get(k, []); try { localStorage.removeItem(k); } catch { /* 무시 */ }
     const got = []; (Array.isArray(urls) ? urls : []).slice(0, 4).forEach((u, i) => { if (!/^https:\/\//.test(u)) return; const im = new Image(); im.onload = () => { got[i] = { src: u, w: im.naturalWidth, h: im.naturalHeight }; st.photos = got.filter(Boolean); if (typeof drawPhotos === 'function' && $('photos')) { drawPhotos(); draw(); } }; im.src = u; }); })();
-  st.agent = Object.assign({ name: '리얼워커스 공인중개사사무소', ceo: '', reg: '', tel: '', addr: '', logo: '' }, store.get('rm.agent', {}));
+  st.agent = Object.assign({ name: '', ceo: '', reg: '', tel: '', addr: '', logo: '' }, store.get('rm.agent', {}));
   st.loc = null; st.mapSrc = '';
   const saveDraft = () => { const { photos, agent, loc, mapSrc, ...d } = st; store.set(DRAFT, d); };
   const saveAgent = () => { if (!store.set('rm.agent', st.agent)) { const { logo, ...a } = st.agent; store.set('rm.agent', a); } };
@@ -92,10 +92,10 @@
       </div>
       <div class="grp"><h3>표시할 항목</h3><div class="checks">${SHOW.map(([k, l]) => `<label><input type="checkbox" data-show="${k}">${l}</label>`).join('')}</div></div>
       <div class="grp"><h3>중개사무소 정보 <small style="font-weight:400;color:var(--ui-muted)">한 번 넣으면 기억합니다</small></h3>
-        <label class="f"><span>상호</span><input type="text" data-a="name" maxlength="40"></label>
-        <div class="row2"><label class="f"><span>대표</span><input type="text" data-a="ceo" maxlength="20"></label><label class="f"><span>연락처</span><input type="text" data-a="tel" maxlength="40"></label></div>
+        <label class="f"><span>상호</span><input type="text" data-a="name" maxlength="40" placeholder="○○○공인중개사사무소"></label>
+        <div class="row2"><label class="f"><span>대표</span><input type="text" data-a="ceo" maxlength="20" placeholder="○○○"></label><label class="f"><span>연락처</span><input type="text" data-a="tel" maxlength="40"></label></div>
         <label class="f"><span>등록번호</span><input type="text" data-a="reg" maxlength="40"></label>
-        <label class="f"><span>주소</span><input type="text" data-a="addr" maxlength="80"></label>
+        <label class="f"><span>주소</span><input type="text" data-a="addr" maxlength="80" placeholder="서울 ○○구 ○○로 00"></label>
         <div class="logo-row"><label class="btn"><input type="file" id="logoIn" accept="image/*" hidden>로고 넣기</label><span id="logoPrev"></span></div>
       </div>
       <div class="grp"><button class="btn primary full" type="button" id="printBtn">인쇄 · PDF 저장</button>

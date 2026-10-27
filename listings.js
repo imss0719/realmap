@@ -1192,7 +1192,7 @@
     $('form').innerHTML = `${note ? `<div style="background:#FFF4E5;border:1px solid #F5C987;color:#8A5300;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px;font-weight:600;line-height:1.5">${esc(note)}</div>` : ''}<div class="meta" style="margin-bottom:12px">리얼맵 지도에 올린 매물마다 아래 정보가 함께 표시됩니다. (공인중개사법상 인터넷 광고 필수 표시 항목)<br>등록번호와 대표 공인중개사 성명은 국가 자료(브이월드)로 확인합니다.</div>
       <div class="fld bkph"><span class="lb">대표 사진 <small>선택 · 얼굴, 로고 등 자유롭게</small></span>
         <div class="bkph-row"><span class="bkav" id="bkAv"></span><span class="bkph-b"><label class="bkph-pick" for="bkPhF">사진 고르기</label><input type="file" id="bkPhF" accept="image/*" hidden><button type="button" class="bkph-del" id="bkPhDel">지우기</button><small>리얼맵 지도의 매물 카드에 동그랗게 표시됩니다.</small></span></div></div>
-      ${f('office', '중개사무소 명칭', '리얼워커스공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 마포구 신촌로34길 39')}
+      ${f('office', '중개사무소 명칭', '○○○공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 ○○구 ○○로 00')}
       <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
       <div class="two">${f('tel', '사무소 전화', '02-000-0000', 'tel')}${f('mobile', '휴대폰 (문자 받을 번호)', '010-0000-0000', 'tel')}</div>
       <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>`;

@@ -1469,7 +1469,7 @@
     const tags = [z.type, z.stage, z.stageDate && `단계일 ${z.stageDate}`, z.households && `${z.households}세대`, z.builder && `시공 ${z.builder}`].filter(Boolean);
     return `<div class="zc-h"><b style="color:${c}">${esc(z.name)}</b></div>
       <div class="zc-tags">${tags.map(t => `<span>${esc(t)}</span>`).join('')}${z.area ? `<span>구역 ${ar(z.area, 0)[0]}</span>` : ''}</div>
-      ${z.note ? `<div class="zc-note"><b>리얼워커스 의견</b>${esc(z.note)}</div>` : ''}
+      ${z.note ? `<div class="zc-note"><b>리얼맵 의견</b>${esc(z.note)}</div>` : ''}
       ${z.source ? `<div class="zc-meta">출처 · <a href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a></div>` : ''}
       <div class="zc-meta">업데이트 ${esc((z.updated || '').slice(0, 10))} · 계획은 변경될 수 있습니다.</div>`;
   }
@@ -1667,7 +1667,7 @@
       <div class="chips" style="margin:0"><span class="chip">${esc(z.k)}</span>${z.d ? `<span class="chip">고시 ${esc(z.d)}</span>` : ''}</div></div>`).join('')}
       <p class="note">이 필지는 정비구역 안에 있습니다. 추진 단계와 권리 관계는 해당 구청이나 조합에서 확인해 주세요.</p></section>` : '';
     if (!zs.length) return jh;
-    return jh + `<section><h2>리얼워커스 개발정보<span>참고 자료</span></h2>${zs.map(z => `<div class="zonebox"><div class="zt"><i style="background:${zcolor(z)}"></i>${esc(z.name)}</div>
+    return jh + `<section><h2>리얼맵 개발정보<span>참고 자료</span></h2>${zs.map(z => `<div class="zonebox"><div class="zt"><i style="background:${zcolor(z)}"></i>${esc(z.name)}</div>
       <div class="chips" style="margin:0">${[z.type, z.stage, z.stageDate].filter(Boolean).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
       ${z.note ? `<p>${esc(z.note)}</p>` : ''}${z.source ? `<a class="src" href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a>` : ''}</div>`).join('')}
       <p class="note">계획 단계의 정보는 변경될 수 있습니다.</p></section>`;
