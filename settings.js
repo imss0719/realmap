@@ -134,9 +134,11 @@ window.Sett = (() => {
     const pub = items.filter(x => x.pub && x.pub.on && x.status === 'on' && x.pub.exp > now).length;
     const left = P.until ? Math.max(0, Math.ceil((new Date(P.until) - Date.now()) / 86400e3)) : null;
     const bar = (t, v, max, u) => `<div class="su"><b>${t}</b><div class="st-bar"><i style="width:${max && v != null ? Math.min(100, Math.round(v / max * 100)) : 0}%" class="${max && v / max >= .9 ? 'hi' : ''}"></i></div><small>${v == null ? '…' : v.toLocaleString()} / ${max ? max.toLocaleString() + u : '제한 없음'}</small></div>`;
-    m.innerHTML = pn('요금제 · 쓰는 양', `<span class="tg gr">${esc(P.name || '')}${P.until ? ` · ${ymd(P.until)}까지${left != null ? ` (${left}일)` : ''}` : ''}</span>`,
+    const notes = (hp && hp.notes) || [];   // 운영자 혜택 기록 (10/27)
+    m.innerHTML = pn('요금제 · 쓰는 양', `<span class="tg gr">${esc(P.name || '')}${P.until ? ` · ${ymd(P.until)}까지${left != null ? ` (${left}일)` : ''}` : P.plan !== 'free' ? ' · 기한 없음' : ''}</span>${P.gift ? ' <span class="tg y">운영자 혜택</span>' : ''}`,
       `<div class="sus">${bar('매물', items.length, P.ls, '건')}${bar('지도 광고', pub, P.ad, '건')}${bar('아파트 단지', cxs ? cxs.length : null, P.cx, '곳')}${bar('고객', Array.isArray(cus) ? cus.length : null, P.cu, '명')}</div>`,
-      '', '<a class="sb" href="/pro.html#price" target="_blank" rel="noopener">요금제 자세히</a>') + payForm();
+      '', '<a class="sb" href="/pro.html#price" target="_blank" rel="noopener">요금제 자세히</a>') +
+      (notes.length ? pn('운영자 혜택 기록', '리얼맵 운영자가 올려 드린 요금제', tb(['적용일', '요금제', '쓰는 기간'], notes.map(n => `<tr><td>${ymdhm(n.at)}</td><td>${esc(n.name)}</td><td>${n.until ? ymd(n.until) + '까지' : '기한 없음'}</td></tr>`))) : '') + payForm();
     wirePay(m);
     if (!cxs) loadCx().then(() => sec === 'plan' && draw());
     if (!cus) loadCu().then(() => sec === 'plan' && draw());

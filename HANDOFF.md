@@ -494,3 +494,12 @@
 - 10/27 설정 화면 촘촘하게(선배 결정: 메뉴 누르면 그 부분만 = B안): 왼쪽 메뉴 168px(엑셀 → 우리 사무소 → 요금제 → 문의하기 → 계정·화면, 처음엔 엑셀),
   안은 판(.sp, 제목 줄) + 줄(.sr: 이름 112px | 값 | 버튼) + 13px 표, PC는 두 칸(.sg2). 조각 함수 pn/rw/tb/B. 스타일은 모두 '.st-w ' 아래로 묶음(다른 화면 .seg·.tg 등과 안 겹치게, 세그먼트는 .sseg).
   문의 답변을 아직 안 봤으면 메뉴 [문의하기]에 빨간 숫자(rm.qseen에 본 답변 시각 기억).
+
+## 10/27 밤 — 운영자 화면 통합 · 운영자 혜택 · 방문 설명 신청
+- brokers.html = 운영자 화면 하나 (위 탭: 중개사 · 방문·가입 · 일반 회원 · 정비사업 알림). members.html은 brokers.html#visit 으로 넘기기만 함.
+- 중개사 줄을 누르면 관리 칸: 요금제 + 기간(+7일/+14일/+1·3·12개월은 남은 기간 뒤에 더함 · 무기한 · 날짜 지정) + 사유(지인·프로모션·보상·기타)·메모 → members.js op:'plan' {plan, n, unit:'d'|'m' | until | forever, why, memo}
+  - 저장: realmap:plan:<uid> { by:'op', why, memo } · 이력 realmap:planlog (전체 300건, 결제 확인 payok도 by:'pay'로 남김) · 회원 알림 realmap:pnote:<uid> (최근 10건)
+  - 회원 화면: planOf → gift(by==='op') → 설정 › 요금제에 '운영자 혜택' 표시 + '운영자 혜택 기록' 표 · 알림 '운영자 혜택 · ○○ 요금제가 적용되었습니다' (help GET notes)
+  - 운영 메모 realmap:opmemo:<uid> (op:'memo', 회원에게 안 보임) · 해지/탈퇴 때 pnote·opmemo 지움
+- 방문 설명 신청: pro.html '결정하기 어려우시다고요?' 옆 [방문 설명 신청] → POST /api/auth?action=visit (로그인 없음 · IP당 1시간 3건 · 하루 60건 · 빈칸 함정 hp) → realmap:visit 해시 + 운영자 문자(ADMIN_PHONE)
+  - 운영자 화면 [방문 신청]: 상태(새 신청·연락함·방문 완료·취소) + 메모 (members.js op:'visit') · 처리 후 1년 지나면 목록 열 때 자동 삭제 · 개인정보처리방침 10/28 시행으로 항목 추가

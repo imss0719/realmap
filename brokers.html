@@ -4,185 +4,381 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>중개사 관리 · 리얼맵</title>
+<title>리얼맵 운영</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
-:root{--bg:#EEF1F4;--surface:#fff;--fg:#16202A;--muted:#5E6A77;--line:#DCE2E8;--soft:#F5F7F9;--gold:#F2B705;--ok:#1F7A3A;--warn:#B4231A}
+/* 10/27 운영자 화면 하나로: 중개사 관리 + 회원 관리(방문·가입 · 일반 회원 · 정비사업 알림) · 촘촘하게 */
+:root{--bg:#EEF1F4;--surface:#fff;--fg:#14212E;--muted:#5E6A77;--line:#DCE2E8;--soft:#F5F7F9;--gold:#F2B705;--ok:#1F7A3A;--warn:#C92A2A;--navy:#14212E}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all}
-main{max-width:1240px;margin:0 auto;padding:24px 16px 60px}
-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
-header h1{font-size:21px;margin:0}
-header nav{margin-left:auto;display:flex;gap:14px;font-size:14px}
-header nav a{color:var(--muted)}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
-.card h2{margin:0 0 10px;font-size:17px;display:flex;align-items:center;gap:10px}
-.card h2 small{font-weight:600;color:var(--muted);font-size:13px}
-.card p{margin:0 0 12px;color:var(--muted);line-height:1.6;font-size:14px}
-input,select{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}
-.btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:9px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;background:#14212E;color:#fff;text-decoration:none;white-space:nowrap}
-.btn.kakao{background:#FEE500;color:#191919}
-.btn.ghost{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
-.btn.sm{padding:6px 11px;font-size:12px}
-.btn.red{background:#fff;color:var(--warn);border:1px solid #F1C0BB}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.err{color:var(--warn);font-size:14px;margin-top:10px}
-.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.stat span{display:block;font-size:12px;color:var(--muted);font-weight:600}
-.stat b{display:block;font-size:26px;margin-top:4px}
-.stat.hl{background:#FFF8DD;border-color:#F2D77A}
-.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.tools .sp{flex:1}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:13px;letter-spacing:-.01em;word-break:keep-all}
+a{color:inherit}
+.top{position:sticky;top:0;z-index:20;height:46px;background:var(--navy);color:#fff;display:flex;align-items:center;gap:4px;padding:0 14px}
+.top .brand{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;margin-right:12px}
+.top .brand img{width:24px;height:24px;border-radius:6px}
+.top .tab{border:0;background:none;color:rgba(255,255,255,.72);font:inherit;font-weight:700;padding:6px 12px;border-radius:7px;cursor:pointer}
+.top .tab[aria-pressed=true]{background:#fff;color:var(--navy)}
+.top .r{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:12px;color:rgba(255,255,255,.6)}
+.top .r a,.top .r button{color:rgba(255,255,255,.8);background:none;border:0;font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.kpi{display:flex;flex-wrap:wrap;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.kpi div{flex:1 1 110px;background:#fff;padding:7px 12px;display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.kpi small{color:var(--muted);font-weight:700;font-size:12px}.kpi b{font-size:18px}
+.kpi .w{background:#FFF6D6}.kpi .rd b{color:var(--warn)}
+.wrap{padding:10px}
+.lay{display:flex;gap:10px;align-items:flex-start}
+.nav{width:156px;flex:none;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px;position:sticky;top:56px}
+.nav button{width:100%;display:flex;justify-content:space-between;align-items:center;border:0;background:none;font:inherit;font-weight:700;padding:7px 9px;border-radius:6px;cursor:pointer;color:var(--fg);text-align:left}
+.nav button[aria-pressed=true]{background:var(--navy);color:#fff}
+.nav i{font-style:normal;background:var(--warn);color:#fff;border-radius:9px;padding:0 6px;font-size:11px}
+.nav span{color:var(--muted);font-weight:600;font-size:12px}.nav button[aria-pressed=true] span{color:rgba(255,255,255,.7)}
+.nav hr{border:0;border-top:1px solid #EEF1F4;margin:5px 0}.nav .g{color:var(--muted);font-size:11px;padding:4px 9px 2px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.pn{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.pn>h3{margin:0;padding:8px 12px;font-size:14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #EEF1F4;flex-wrap:wrap}
+.pn>h3 small{color:var(--muted);font-weight:600;font-size:12px}
+.pn>h3 .r{margin-left:auto;display:flex;gap:6px}
+.pn>.pd{padding:10px 12px}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 8px;border-bottom:1px solid #EEF1F4}
+.seg{display:inline-flex;background:var(--bg);border-radius:6px;padding:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;font:inherit;font-weight:700;color:var(--muted);padding:4px 9px;border-radius:5px;cursor:pointer}
+.seg button[aria-pressed=true]{background:#fff;color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+input,select,textarea{border:1px solid var(--line);background:#fff;color:var(--fg);border-radius:6px;padding:5px 8px;font:inherit;font-size:13px}
+input[type=search]{width:240px}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;background:#fff;color:var(--fg);text-decoration:none;white-space:nowrap}
+.btn.k{background:var(--navy);color:#fff;border-color:var(--navy)}.btn.y{background:var(--gold);border-color:var(--gold)}.btn.red{color:var(--warn);border-color:#F1C0BB}
+.btn.kakao{background:#FEE500;border-color:#FEE500;color:#191919}
+.btn:disabled{opacity:.5;cursor:default}
+.ml{margin-left:auto}
 .tw{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:13.5px}
-th{text-align:left;color:var(--muted);font-weight:700;font-size:12px;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:10px 8px;border-bottom:1px solid #EEF1F4;vertical-align:top}
-td b{font-size:14px}
-td small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
-.pl{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;white-space:nowrap}
-.pl.trial{background:#FFF1BF;color:#7A5A00}.pl.free{background:#F1F3F5;color:#5E6A77}.pl.basic{background:#E3EDFF;color:#1C4FA8}.pl.premium,.pl.vip{background:#EDE4FF;color:#5B34B0}
-.bav{width:34px;height:34px;border-radius:50%;object-fit:cover;float:left;margin:2px 8px 0 0;border:1px solid var(--line)}
-.vf{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;margin-left:4px;background:#E2F4E9;color:var(--ok)}.vf.wait{background:#FFF4E5;color:#B26A00}.vf.no{background:#FDECEC;color:#C92A2A}
-.soon{color:var(--warn);font-weight:800}
-.acts{display:flex;gap:6px;flex-wrap:wrap}
-.empty{color:var(--muted);text-align:center;padding:30px 0}
-dialog{border:0;border-radius:16px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.3)}
-dialog h3{margin:0 0 6px}
-dialog p{color:var(--muted);font-size:14px;margin:0 0 14px}
-dialog .row{margin-top:10px}
-@media (max-width:800px){.stats{grid-template-columns:repeat(3,1fr)}}
+table{width:100%;border-collapse:collapse}
+th{background:var(--soft);color:var(--muted);font-size:11.5px;font-weight:700;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:5px 8px;border-bottom:1px solid #EEF1F4;white-space:nowrap;vertical-align:middle}
+td small{color:var(--muted);font-size:11.5px}
+td.wrap{white-space:normal;max-width:360px}
+tr.cl{cursor:pointer}tr.cl:hover td{background:#F4F8FF}tr.sel td{background:#E8F0FB}
+.empty{color:var(--muted);text-align:center;padding:18px 0}
+.pl{display:inline-block;font-size:11px;font-weight:800;border-radius:4px;padding:1px 6px}
+.pl.basic{background:#E6EEFB;color:#1C4FA0}.pl.premium,.pl.vip{background:#F1EAFB;color:#6741B8}.pl.trial{background:#E5F4EA;color:#1F7A4D}.pl.free,.pl.none{background:#EEF1F4;color:#5E6A77}.pl.op{background:#14212E;color:#fff}
+.src{font-size:11px;font-weight:700;border-radius:4px;padding:1px 5px;border:1px solid var(--line);color:var(--muted)}
+.src.pay{color:#1F7A4D;border-color:#BFE3CC}.src.op{color:#B45309;border-color:#F3D19E;background:#FFF8EC}
+.vf{font-size:10.5px;font-weight:800;border-radius:4px;padding:0 5px;margin-left:4px;background:#E2F4E9;color:var(--ok)}.vf.wait{background:#FFF4E5;color:#B26A00}.vf.no{background:#FDECEC;color:var(--warn)}
+.dd{font-weight:800}.dd.r{color:var(--warn)}
+.tag{font-size:11px;background:#FFF6D6;color:#7A5A00;border-radius:4px;padding:1px 5px;font-weight:700;display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.bav{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid var(--line)}
+/* 펼친 관리 칸 */
+tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
+.det-g{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;padding:10px 12px;border:2px solid var(--navy);border-radius:8px;margin:6px}
+.det-g h4{margin:0 0 6px;font-size:13px;display:flex;gap:6px;align-items:center}.det-g h4 small{color:var(--muted);font-weight:500}
+.rw{display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap}.rw>label{width:52px;color:var(--muted);font-weight:700;flex:none}
+.ch{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 9px;font:inherit;font-weight:700;font-size:12px;cursor:pointer}
+.ch[aria-pressed=true]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.pv{background:#FFF6D6;border-radius:6px;padding:6px 8px;font-weight:700;margin:4px 0 6px}
+.note{font-size:11.5px;color:var(--muted);line-height:1.55}
+.log{max-height:170px;overflow:auto}.log div{display:flex;gap:8px;padding:4px 0;border-bottom:1px dashed #EEF1F4;font-size:12px}.log em{font-style:normal;color:var(--muted);width:70px;flex:none}
+.kv{display:grid;grid-template-columns:62px 1fr;gap:3px 8px;font-size:12px}.kv b{color:var(--muted);font-weight:700}
+/* 통계 */
+.sts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.sts div{background:#fff;padding:8px 12px}.sts small{display:block;color:var(--muted);font-weight:700;font-size:11.5px}.sts b{font-size:18px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:64px;padding:8px 12px 0}
+.bars div{flex:1;background:var(--gold);border-radius:2px 2px 0 0;min-height:2px}.bars div.today{background:var(--navy)}.bars.dk div{background:#5E6A77}.bars.dk div.today{background:var(--navy)}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:3px 12px 8px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px;max-width:560px;margin:30px auto}
+.card h2{margin:0 0 6px;font-size:16px}.card p{color:var(--muted);margin:0 0 10px;line-height:1.6}
+.code{font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:700;background:var(--soft);border:1px dashed var(--line);border-radius:6px;padding:8px 12px;display:inline-block;margin:4px 0 10px;user-select:all}
+.err{color:var(--warn);margin-top:8px}
+@media (max-width:1000px){.lay{flex-direction:column}.nav{width:100%;position:static;display:flex;flex-wrap:wrap}.nav button{width:auto}.nav hr,.nav .g{display:none}.det-g{grid-template-columns:1fr}.g2{grid-template-columns:1fr}.sts{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
-<main>
-<header><h1>중개사 관리</h1><nav><a href="/members.html">회원 관리</a><a href="/pro.html" target="_blank">소개 페이지</a><a href="/">리얼맵</a></nav></header>
+<div class="top"><span class="brand"><img src="/favicon.svg" alt="">리얼맵 운영</span>
+  <button class="tab" type="button" data-tab="br" aria-pressed="true">중개사</button><button class="tab" type="button" data-tab="visit">방문·가입</button><button class="tab" type="button" data-tab="mem">일반 회원</button><button class="tab" type="button" data-tab="zone">정비사업 알림</button>
+  <span class="r"><span id="upd"></span><button type="button" id="reload">새로 고침</button><a href="/pro.html" target="_blank">소개 페이지</a><a href="/">리얼맵</a></span></div>
 <div id="app"><div class="card"><p>확인하는 중입니다…</p></div></div>
-</main>
-<dialog id="dlg"><h3 id="dTitle">요금제 변경</h3><p id="dSub"></p>
-  <div class="row"><select id="dPlan"><option value="basic">Basic</option><option value="trial">2주 무료 체험</option><option value="free">무료</option><option value="premium">Premium</option><option value="vip">VIP</option></select>
-  <select id="dDays"><option value="31">1개월</option><option value="92">3개월</option><option value="183">6개월</option><option value="366">12개월 (연간)</option><option value="14">14일</option><option value="0">기한 없음</option></select></div>
-  <p style="margin-top:12px;font-size:12px">입금을 확인한 뒤 바꿔 주세요. 기간은 오늘부터 계산합니다.</p>
-  <div class="row" style="justify-content:flex-end"><button class="btn ghost" type="button" id="dNo">취소</button><button class="btn" type="button" id="dOk">적용</button></div></dialog>
 <script>
 (function () {
   const app = document.getElementById('app');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const d8 = s => s ? new Date(s).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\s/g, '').replace(/\.$/, '') : '-';
+  const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
   const left = s => s ? Math.ceil((new Date(s) - Date.now()) / 864e5) : null;
+  const ago = s => { if (!s) return '-'; const d = Math.floor((Date.now() - new Date(s)) / 864e5); return d <= 0 ? '오늘' : d === 1 ? '어제' : d < 30 ? d + '일 전' : d8(s); };
   const man = v => !v ? '' : v >= 10000 ? (v / 10000).toFixed(v % 10000 ? 1 : 0).replace(/\.0$/, '') + '억' : v.toLocaleString() + '만';
+  const PN = { free: '무료', trial: '2주 체험', basic: 'Basic', premium: 'Premium', vip: 'VIP', none: '시작 전' };
+  const PAID = ['basic', 'premium', 'vip'];
   let pw = ''; try { pw = sessionStorage.getItem('rm.adm') || ''; } catch (e) { /* 무시 */ }
-  let data = null, q = '', fp = '';
+  let tab = (location.hash.slice(1) || 'br'); if (!['br', 'visit', 'mem', 'zone'].includes(tab)) tab = 'br';
+  let B = null, M = null, ZN = null;           // B: 중개사 자료 · M: 회원·통계 자료
+  let sec = 'list', f = 'all', q = '', open = null, ps = null, onlyMk = false;
 
-  fetch('/api/auth?action=me').then(r => r.json()).then(me => { if (!me.member) return login(); pw ? load() : askPw(); })
+  document.querySelectorAll('.top .tab').forEach(b => b.onclick = () => { tab = b.dataset.tab; history.replaceState(null, '', '#' + tab); go(); });
+  document.getElementById('reload').onclick = () => { if (tab === 'br') loadB(); else loadM(); };
+  fetch('/api/auth?action=me').then(r => r.json()).then(me => { if (!me.member) return login(); pw ? go() : askPw(); })
     .catch(() => { app.innerHTML = '<div class="card"><p>상태를 확인하지 못했습니다. 잠시 후 새로고침해 주세요.</p></div>'; });
+  function go() {
+    document.querySelectorAll('.top .tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
+    if (tab === 'br') B ? drawB() : loadB(); else M ? drawM() : loadM();
+  }
   function login() { app.innerHTML = `<div class="card"><h2>운영자 로그인</h2><p>운영자 카카오 계정으로 로그인해 주세요.</p><a class="btn kakao" href="/auth/login?r=${encodeURIComponent('/brokers.html')}">카카오로 로그인</a></div>`; }
   function askPw(msg) {
-    app.innerHTML = `<div class="card"><h2>관리자 비밀번호</h2><p>회원 관리와 같은 비밀번호입니다.</p><form class="row" id="f"><input type="password" id="pw" autocomplete="current-password" placeholder="관리자 비밀번호" required><button class="btn" type="submit">확인</button></form>${msg ? `<p class="err">${esc(msg)}</p>` : ''}</div>`;
-    document.getElementById('f').onsubmit = e => { e.preventDefault(); pw = document.getElementById('pw').value; try { sessionStorage.setItem('rm.adm', pw); } catch (x) { /* 무시 */ } load(); };
+    app.innerHTML = `<div class="card"><h2>관리자 비밀번호</h2><p>Vercel에 넣어 둔 ADMIN_PASSWORD입니다. 이 창을 닫으면 다시 물어봅니다.</p><form id="f" style="display:flex;gap:6px"><input type="password" id="pw" autocomplete="current-password" placeholder="관리자 비밀번호" required style="flex:1"><button class="btn k" type="submit">확인</button></form>${msg ? `<p class="err">${esc(msg)}</p>` : ''}</div>`;
+    document.getElementById('f').onsubmit = e => { e.preventDefault(); pw = document.getElementById('pw').value; try { sessionStorage.setItem('rm.adm', pw); } catch (x) { /* 무시 */ } go(); };
     document.getElementById('pw').focus();
   }
-  async function call(body) {
-    const r = await fetch('/api/members?part=brokers', { method: body ? 'POST' : 'GET', headers: { 'x-admin-key': pw, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-    const j = await r.json().catch(() => ({ ok: false, message: '서버 응답을 읽지 못했습니다. api 폴더의 members.js·auth.js가 최신인지 확인해 주세요.' }));
-    return j;
+  function bad(j) {   // 공통 오류 처리 → 화면을 바꿨으면 true
+    if (j.error === 'login') { login(); return true; }
+    if (j.error === 'password') { try { sessionStorage.removeItem('rm.adm'); } catch (e) { /* 무시 */ } askPw('비밀번호가 맞지 않습니다.'); return true; }
+    if (j.error === 'setup') { app.innerHTML = `<div class="card"><h2>처음 한 번만 설정해 주세요</h2><p>지금 로그인한 카카오 계정의 회원번호입니다. 운영자(선배) 계정이 맞다면 Vercel 환경변수 <b>ADMIN_KAKAO_ID</b>에 넣고 Redeploy 해 주세요.</p><div class="code">${esc(j.myId)}</div></div>`; return true; }
+    return false;
   }
-  async function load(body) {
-    if (body && ['payok', 'payno', 'reply'].includes(body.op)) { const r = await call(body); if (!r.ok) return alert(r.message || '처리하지 못했습니다.'); return load(); }   // 입금 확인·답변 뒤 목록 다시
-    if (!data) app.innerHTML = '<div class="card"><p>중개사 목록을 불러오는 중입니다…</p></div>';
-    const j = await call(body);
-    if (j.error === 'login') return login();
-    if (j.error === 'password') { try { sessionStorage.removeItem('rm.adm'); } catch (e) { /* 무시 */ } return askPw('비밀번호가 맞지 않습니다.'); }
-    if (!j.ok) { if (body) return alert(j.message || '처리하지 못했습니다.'); app.innerHTML = `<div class="card"><h2>열 수 없습니다</h2><p>${esc(j.message || '오류가 발생했습니다.')}</p></div>`; return; }
-    data = j; draw();
+  async function call(url, body) {
+    const r = await fetch(url, { method: body ? 'POST' : 'GET', headers: { 'x-admin-key': pw, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    return r.json().catch(() => ({ ok: false, message: '서버 응답을 읽지 못했습니다. api 폴더의 members.js·auth.js가 최신인지 확인해 주세요.' }));
   }
-  function draw() {
-    const R = data.rows, cnt = p => R.filter(r => r.plan.plan === p).length;
-    const week = Date.now() - 7 * 864e5;
-    const soon = R.filter(r => r.plan.plan === 'trial' && left(r.plan.until) <= 3);
-    const rows = R.filter(r => (!fp || r.plan.plan === fp || (fp === 'paid' && ['basic', 'premium', 'vip'].includes(r.plan.plan) && !r.plan.op))
-      && (!q || JSON.stringify([r.nickname, r.bk]).toLowerCase().includes(q.toLowerCase())));
-    app.innerHTML = `
-    <div class="stats">
-      <div class="stat"><span>중개사 회원</span><b>${R.filter(r => !r.plan.op).length}</b></div>
-      <div class="stat"><span>체험 중</span><b>${cnt('trial')}</b></div>
-      <div class="stat hl"><span>유료 (Basic 이상)</span><b>${R.filter(r => ['basic', 'premium', 'vip'].includes(r.plan.plan) && !r.plan.op).length}</b></div>
-      <div class="stat"><span>무료</span><b>${cnt('free')}</b></div>
-      <div class="stat"><span>체험 3일 안에 끝남</span><b class="${soon.length ? 'soon' : ''}">${soon.length}</b></div>
-      <div class="stat"><span>지도 광고 게시 중</span><b>${data.pubs.length}</b></div>
-    </div>
-    ${payQna()}
-    <div class="card"><h2>중개사 회원 <small>${rows.length}명 · 최근 활동 순</small></h2>
-      <div class="tools"><input type="search" id="q" placeholder="사무소명·대표·등록번호·전화로 찾기" value="${esc(q)}" style="width:260px">
-        <select id="fp"><option value="">전체 요금제</option><option value="trial">체험 중</option><option value="free">무료</option><option value="paid">유료</option></select>
-        <span class="sp"></span><button class="btn ghost" type="button" id="csv">엑셀로 저장</button><button class="btn ghost" type="button" id="re">새로 고침</button></div>
-      <div class="tw"><table><thead><tr><th>중개사무소</th><th>등록번호</th><th>연락처</th><th>요금제</th><th>매물 · 광고</th><th>가입 · 최근</th><th></th></tr></thead><tbody>
-      ${rows.map(r => { const b = r.bk || {}, P = r.plan, st = r.stat || {}, L = left(P.until);
-        return `<tr><td>${b.photo ? `<a href="${esc(b.photo)}" target="_blank" rel="noopener"><img class="bav" src="${esc(b.photo)}" alt="대표 사진"></a>` : ''}<b>${esc(b.office || '(사무소 정보 없음)')}</b>${b.verified ? `<span class="vf">확인됨${b.vby === 'auto' ? ' · 자동' : ''}</span>` : b.pend ? '<span class="vf wait">승인 대기</span>' : b.vst && b.vst !== 'error' ? '<span class="vf no">확인 안 됨</span>' : ''}<small>대표 ${esc(b.ceo || '-')} · 카카오 ${esc(r.nickname || '-')}</small><small>${esc(b.addr || '')}</small>${b.vmsg && !b.verified ? `<small class="soon">${esc(b.vmsg)}</small>` : ''}</td>
-          <td>${esc(b.regno || '-')}</td>
-          <td>${esc(b.tel || '-')}<small>${esc(b.mobile || '')}</small></td>
-          <td><span class="pl ${P.plan}">${P.op ? '운영자' : esc(P.name || P.plan)}</span>${P.until ? `<small class="${P.plan === 'trial' && L <= 3 ? 'soon' : ''}">${d8(P.until)}까지${L != null ? ` (${L >= 0 ? 'D-' + L : '지남'})` : ''}</small>` : ''}${P.ended ? `<small>${P.ended === 'trial' ? '체험 끝남' : esc(P.ended) + ' 끝남'}</small>` : ''}</td>
-          <td>매물 ${st.n ?? '-'}<small>진행 ${st.on ?? '-'} · 광고 ${st.pub ?? 0}</small></td>
-          <td>${d8(r.joined)}<small>${d8(st.up || r.last)}</small></td>
-          <td><div class="acts">${P.op ? '' : `<button class="btn sm" data-plan="${r.id}">요금제</button>`}${b.office ? `<button class="btn sm ghost" data-vf="${r.id}" data-on="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : b.pend ? '승인' : '등록번호 확인'}</button>` : ''}${b.photo ? `<button class="btn sm ghost" data-noph="${r.id}">사진 지우기</button>` : ''}${st.pub ? `<button class="btn sm red" data-off="${r.id}">광고 전체 내리기</button>` : ''}</div></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">아직 중개사 회원이 없습니다.</td></tr>'}
-      </tbody></table></div>
-      <p style="margin-top:12px;font-size:12.5px">가입할 때 국가 자료(브이월드)로 등록번호·대표 공인중개사·영업 상태를 자동 확인합니다(확인됨 · 자동). 브이월드 점검 등으로 확인하지 못한 신청은 '승인 대기'로 남으니, 국가공간정보포털(부동산중개업 조회)에서 확인하신 뒤 [승인]을 눌러 주세요. 승인하면 그때 체험이 시작됩니다.</p></div>
-    ${(data.dups || []).length ? `<div class="card"><h2>등록번호 중복 가입 시도 <small>이미 다른 계정이 쓰는 등록번호로 가입하려 한 기록 · 최근 ${data.dups.length}건</small></h2>
-      <div class="tw"><table><thead><tr><th>시도한 정보</th><th>등록번호</th><th>시도한 계정 → 기존 계정</th><th>시각</th></tr></thead><tbody>
-      ${data.dups.map(x => `<tr><td><b>${esc(x.office || '')}</b><small>대표 ${esc(x.ceo || '-')}</small></td><td>${esc(x.regno || '')}</td><td>${esc(x.uid)}<small>→ ${esc(x.owner)}</small></td><td>${d8(x.at)}</td></tr>`).join('')}
-      </tbody></table></div></div>` : ''}
-    <div class="card"><h2>지도에 게시 중인 광고 <small>${data.pubs.length}건 · 허위매물 신고가 들어오면 여기서 내립니다</small></h2>
-      <div class="tw"><table><thead><tr><th>매물</th><th>가격</th><th>중개사무소</th><th>게시 · 확인 · 만료</th><th></th></tr></thead><tbody>
-      ${data.pubs.map(p => `<tr><td><b>${esc(p.bname || '')}</b> ${esc(p.ptype || '')}<small>${esc(p.addr || '')}</small></td>
-        <td>${p.kind === 'wolse' ? `${man(p.deposit) || 0}/${p.rent || ''}` : esc(man(p.kind === 'jeonse' ? p.deposit : p.kind === 'presale' ? (p.price || 0) + (p.pr || 0) : p.price))}<small>${({ sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' })[p.kind] || ''}</small></td>
-        <td>${esc(p.office || '')}<small>${esc(p.k)}</small></td>
-        <td>${d8(p.at)}<small>확인 ${d8(p.chk)} · 만료 ${d8(p.exp)}</small></td>
-        <td><div class="acts"><a class="btn sm ghost" href="/?pnu=${esc(p.pnu)}&lst=1" target="_blank">지도</a><button class="btn sm red" data-unpub="${esc(p.k)}">내리기</button></div></td></tr>`).join('') || '<tr><td colspan="5" class="empty">게시 중인 광고가 없습니다.</td></tr>'}
-      </tbody></table></div></div>`;
-    const qi = document.getElementById('q'); qi.oninput = () => { q = qi.value; const pos = qi.selectionStart; draw(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos, pos); };
-    document.getElementById('fp').value = fp; document.getElementById('fp').onchange = e => { fp = e.target.value; draw(); };
-    document.getElementById('re').onclick = () => load();
-    document.getElementById('csv').onclick = () => csv(rows);
-    app.querySelectorAll('[data-payok]').forEach(b => b.onclick = () => { const p = data.pays.find(x => x.id === b.dataset.payok); if (confirm(`${p.office} · ${p.pname} ${p.mon}개월 ${p.amt.toLocaleString()}원\n입금자 ${p.payer}\n\n통장에서 입금을 확인하셨나요? 요금제를 켭니다 (남은 기간 뒤에 이어 붙임).`)) load({ op: 'payok', id: p.id }); });
-    app.querySelectorAll('[data-payno]').forEach(b => b.onclick = () => { const why = prompt('신청을 취소할까요? 이유를 적어 주세요 (회원에게 보입니다)', '입금이 확인되지 않았습니다'); if (why !== null) load({ op: 'payno', id: b.dataset.payno, why }); });
-    app.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => { const t = document.getElementById('rp_' + b.dataset.rep); if (!t.value.trim()) return t.focus(); load({ op: 'reply', id: b.dataset.rep, text: t.value }); });
-    app.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => planDlg(R.find(r => r.id === b.dataset.plan)));
-    app.querySelectorAll('[data-vf]').forEach(b => b.onclick = () => { if (confirm(b.dataset.on ? '이 사무소의 등록번호·대표·영업 상태를 확인하셨나요?\n확인 표시를 하고, 승인 대기였다면 체험을 시작합니다.' : '확인 표시를 취소할까요? (이 회원은 매물장을 쓸 수 없게 됩니다)')) load({ uid: b.dataset.vf, op: 'verify', on: !!b.dataset.on }); });
-    app.querySelectorAll('[data-noph]').forEach(b => b.onclick = () => { if (confirm('이 사무소의 대표 사진을 지울까요? (부적절한 사진일 때)')) load({ uid: b.dataset.noph, op: 'nophoto' }); });
-    app.querySelectorAll('[data-off]').forEach(b => b.onclick = () => { if (confirm('이 중개사의 지도 광고를 모두 내릴까요? (매물장 자료는 그대로)')) load({ uid: b.dataset.off, op: 'unpubAll' }); });
-    app.querySelectorAll('[data-unpub]').forEach(b => b.onclick = () => { if (confirm('이 광고를 지도에서 내릴까요?')) load({ k: b.dataset.unpub, op: 'unpub' }); });
+  const stamp = () => { document.getElementById('upd').textContent = '새로 고침 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }); };
+  async function loadB() {
+    if (!B) app.innerHTML = '<div class="card"><p>중개사 자료를 불러오는 중입니다…</p></div>';
+    const j = await call('/api/members?part=brokers'); if (bad(j)) return;
+    if (!j.ok) { app.innerHTML = `<div class="card"><h2>열 수 없습니다</h2><p>${esc(j.message || '오류가 발생했습니다.')}</p></div>`; return; }
+    B = j; stamp(); if (tab === 'br') drawB();
   }
-  // 계좌이체 입금 확인 · 문의 (10/27)
-  function payQna() {
-    const P = data.pays || [], Q = data.qnas || [], wait = P.filter(p => p.st === 'wait'), done = P.filter(p => p.st !== 'wait').slice(0, 30);
+  async function act(body, msg) {   // 처리 → 목록 다시
+    const j = await call('/api/members?part=brokers', body);
+    if (bad(j)) return null; if (!j.ok) { alert(j.message || '처리하지 못했습니다.'); return null; }
+    if (msg !== false) await loadB(); return j;
+  }
+
+  // ===================== 중개사 =====================
+  function kind(r) {   // 받은 방법
+    const P = r.plan, s = r.src || {};
+    if (P.op) return ['op', '운영자 계정'];
+    if (P.plan === 'free' || P.plan === 'none') return ['', P.ended ? (P.ended === 'trial' ? '체험 끝' : '기간 끝') : P.plan === 'none' ? '시작 전' : '무료'];
+    if (s.by === 'pay') return ['pay', `결제${s.mon ? ' ' + s.mon + '개월' : ''}`];
+    if (s.by === 'op') return ['op', `운영자 혜택${s.why ? ' · ' + s.why : ''}`];
+    if (P.plan === 'trial') return ['', '체험'];
+    return ['', P.legacy ? '예전 회원' : '-'];
+  }
+  const isGift = r => !r.plan.op && (r.src || {}).by === 'op' && r.plan.plan !== 'free';
+  const isPaid = r => !r.plan.op && PAID.includes(r.plan.plan) && (r.src || {}).by !== 'op';
+  const isSoon = r => !r.plan.op && r.plan.plan !== 'free' && r.plan.until && left(r.plan.until) <= 7;
+  const FIL = { all: ['전체', r => !r.plan.op], trial: ['체험', r => r.plan.plan === 'trial' && !isGift(r)], paid: ['유료', isPaid], gift: ['운영자 혜택', isGift], free: ['무료', r => r.plan.plan === 'free'], soon: ['곧 끝남', isSoon], wait: ['승인 대기', r => r.bk && r.bk.pend] };
+  function drawB() {
+    const R = B.rows, P = B.pays || [], Q = B.qnas || [], V = B.visits || [];
+    const ym = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7);
+    const income = P.filter(p => p.st === 'ok' && p.done && new Date(new Date(p.done).getTime() + 9 * 3600e3).toISOString().slice(0, 7) === ym).reduce((a, p) => a + (p.amt || 0), 0);
+    const n = k => R.filter(FIL[k][1]).length, waitP = P.filter(p => p.st === 'wait').length, openQ = Q.filter(x => !x.reply).length, newV = V.filter(v => v.st === 'new').length;
+    const NAV = [['list', '중개사 회원', n('all')], ['pay', '입금 확인', waitP, 1], ['qna', '문의', openQ, 1], ['vreq', '방문 신청', newV, 1], ['pub', '지도 광고', B.pubs.length], '-', ['log', '요금 변경 이력', (B.plog || []).length], ['dup', '중복 가입 의심', (B.dups || []).length]];
+    app.innerHTML = `<div class="kpi"><div><small>중개사</small><b>${n('all')}</b></div><div><small>체험 중</small><b>${n('trial')}</b></div><div><small>유료(결제)</small><b>${n('paid')}</b></div>
+      <div class="${n('gift') ? 'w' : ''}"><small>운영자 혜택</small><b>${n('gift')}</b></div><div><small>무료</small><b>${n('free')}</b></div><div class="${n('soon') ? 'rd' : ''}"><small>7일 안에 끝남</small><b>${n('soon')}</b></div>
+      <div class="${n('wait') ? 'rd' : ''}"><small>승인 대기</small><b>${n('wait')}</b></div><div class="${waitP ? 'w' : ''}"><small>입금 대기</small><b>${waitP}</b></div><div class="${openQ ? 'rd' : ''}"><small>답변 전 문의</small><b>${openQ}</b></div>
+      <div class="${newV ? 'w' : ''}"><small>새 방문 신청</small><b>${newV}</b></div><div><small>지도 광고</small><b>${B.pubs.length}</b></div><div><small>이번 달 입금</small><b>${income.toLocaleString()}원</b></div></div>
+      <div class="wrap"><div class="lay"><div class="nav">${NAV.map(x => x === '-' ? '<hr><div class="g">기록</div>' : `<button type="button" data-sec="${x[0]}" aria-pressed="${sec === x[0]}">${x[1]} ${x[3] ? (x[2] ? `<i>${x[2]}</i>` : '') : `<span>${x[2]}</span>`}</button>`).join('')}</div>
+      <div class="main" id="main"></div></div></div>`;
+    app.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { sec = b.dataset.sec; drawB(); });
+    const m = document.getElementById('main');
+    ({ list: secList, pay: secPay, qna: secQna, vreq: secVisit, pub: secPub, log: secLog, dup: secDup })[sec](m);
+  }
+  function secList(m) {
+    const R = B.rows.filter(FIL[f][1]).filter(r => !q || JSON.stringify([r.nickname, r.bk, r.opmemo]).toLowerCase().includes(q.toLowerCase()));
+    const COLS = 11;
+    m.innerHTML = `<div class="pn"><div class="bar"><span class="seg">${Object.entries(FIL).map(([k, [t, fn]]) => `<button type="button" data-f="${k}" aria-pressed="${f === k}">${t} ${B.rows.filter(fn).length}</button>`).join('')}</span>
+      <input type="search" id="q" placeholder="사무소·대표·등록번호·전화·메모 찾기" value="${esc(q)}"><button class="btn ml" type="button" id="csv">엑셀로 저장</button></div>
+      <div class="tw"><table><thead><tr><th>중개사무소</th><th>대표</th><th>등록번호</th><th>휴대폰</th><th>요금제</th><th>받은 방법</th><th>종료일</th><th>매물 · 광고</th><th>가입</th><th>최근</th><th>운영 메모</th></tr></thead><tbody>
+      ${R.map(r => { const b = r.bk || {}, P = r.plan, st = r.stat || {}, L = left(P.until), [kc, kt] = kind(r);
+        const row = `<tr class="cl${open === r.id ? ' sel' : ''}" data-row="${r.id}"><td>${b.photo ? `<img class="bav" src="${esc(b.photo)}" alt="">` : ''}<b>${esc(b.office || '(사무소 정보 없음)')}</b>${b.verified ? '<span class="vf">확인</span>' : b.pend ? '<span class="vf wait">승인 대기</span>' : b.vst && b.vst !== 'error' ? '<span class="vf no">확인 안 됨</span>' : ''} <small>${esc(String(b.addr || '').split(' ').slice(1, 2).join(''))}</small></td>
+          <td>${esc(b.ceo || '-')}</td><td>${esc(b.regno || '-')}</td><td>${esc(b.mobile || b.tel || '-')}</td>
+          <td><span class="pl ${P.op ? 'op' : P.plan}">${P.op ? '운영자' : esc(PN[P.plan] || P.name || P.plan)}</span></td><td><span class="src ${kc}">${esc(kt)}</span></td>
+          <td>${P.op || P.plan === 'free' || P.plan === 'none' ? '-' : P.until ? `<span class="${L <= 7 ? 'dd r' : ''}">${d8(P.until)}</span> <small>${L >= 0 ? 'D-' + L : '지남'}</small>` : '기한 없음'}</td>
+          <td>${st.n ?? '-'} · ${st.pub ?? 0}${P.ls && st.n > P.ls ? ` <small>(보기 전용 ${st.n - P.ls})</small>` : ''}</td><td>${d8(r.joined)}</td><td>${ago(st.up || r.last)}</td><td>${r.opmemo ? `<span class="tag" title="${esc(r.opmemo)}">${esc(r.opmemo)}</span>` : ''}</td></tr>`;
+        return row + (open === r.id ? `<tr class="det"><td colspan="${COLS}">${detail(r)}</td></tr>` : ''); }).join('') || `<tr><td colspan="${COLS}" class="empty">해당하는 중개사가 없습니다.</td></tr>`}
+      </tbody></table></div></div>
+      <p class="note">· 줄을 누르면 요금제 바꾸기 · 운영 메모 · 이력이 열립니다. 가입할 때 국가 자료(브이월드)로 등록번호·대표·영업 상태를 자동 확인하고, 확인하지 못한 신청은 '승인 대기'로 남습니다 (국가공간정보포털 부동산중개업 조회로 확인 뒤 [승인] → 그때 체험 시작).</p>`;
+    m.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { f = b.dataset.f; drawB(); });
+    const qi = document.getElementById('q'); qi.oninput = () => { q = qi.value; const pos = qi.selectionStart; drawB(); const nq = document.getElementById('q'); nq.focus(); nq.setSelectionRange(pos, pos); };
+    document.getElementById('csv').onclick = () => csvB(R);
+    m.querySelectorAll('[data-row]').forEach(tr => tr.onclick = e => { if (e.target.closest('a')) return; const id = tr.dataset.row; open = open === id ? null : id; ps = null; drawB(); });
+    if (open) wireDetail(m, B.rows.find(r => r.id === open));
+  }
+  // ---- 펼친 관리 칸 ----
+  function previewUntil(r) {
+    if (ps.plan === 'free' || ps.forever) return null;
+    if (ps.until) return new Date(ps.until + 'T23:59:59+09:00');
+    const P = r.plan, live = P.plan !== 'free' && P.plan !== 'none' && !P.op && P.until && new Date(P.until) > new Date();
+    const d = new Date(live ? P.until : Date.now()); if (ps.unit === 'm') d.setMonth(d.getMonth() + ps.n); else d.setDate(d.getDate() + ps.n); return d;
+  }
+  function detail(r) {
+    const b = r.bk || {}, P = r.plan, st = r.stat || {}, [kc, kt] = kind(r);
+    if (!ps) ps = { plan: PAID.includes(P.plan) || P.plan === 'trial' ? P.plan : 'basic', n: 1, unit: 'm', forever: false, until: '', why: '지인', memo: '' };
+    const U = previewUntil(r), ch = (attr, v, cur, t) => `<button type="button" class="ch" ${attr}="${v}" aria-pressed="${cur}">${t}</button>`;
+    const logs = (B.plog || []).filter(x => x.uid === r.id);
+    const plan = P.op ? '<p class="note">운영자 계정은 언제나 VIP입니다.</p>' : `
+      <div class="rw"><label>지금</label><span class="pl ${P.plan}">${esc(PN[P.plan] || P.plan)}</span> ${P.plan === 'free' || P.plan === 'none' ? '' : P.until ? d8(P.until) + '까지' : '기한 없음'} · <span class="src ${kc}">${esc(kt)}</span></div>
+      <div class="rw"><label>요금제</label>${['free', 'trial', 'basic', 'premium', 'vip'].map(k => ch('data-pp', k, ps.plan === k, PN[k])).join('')}</div>
+      ${ps.plan === 'free' ? '' : `<div class="rw"><label>기간</label>${[[7, 'd', '+7일'], [14, 'd', '+14일'], [1, 'm', '+1개월'], [3, 'm', '+3개월'], [12, 'm', '+12개월']].map(([n, u, t]) => ch('data-pn', n + u, !ps.forever && !ps.until && ps.n === n && ps.unit === u, t)).join('')}${ch('data-pf', '1', ps.forever, '무기한')}<input type="date" id="pDate" value="${esc(ps.until)}" title="끝나는 날짜 직접 고르기"></div>`}
+      <div class="rw"><label>사유</label>${['지인', '프로모션', '보상', '기타'].map(k => ch('data-pw', k, ps.why === k, k)).join('')}<input id="pMemo" value="${esc(ps.memo)}" maxlength="100" placeholder="메모 (예: 11월 오픈 이벤트)" style="flex:1;min-width:140px"></div>
+      <div class="pv">→ ${esc(PN[ps.plan])}${ps.plan === 'free' ? '' : U ? ` · ${d8(U)}까지` : ' · 기한 없음'} <small style="font-weight:600;color:#7A5A00">· 회원 화면에 '운영자 혜택'으로 표시 · 알림이 갑니다</small></div>
+      <div class="rw"><button class="btn k" type="button" id="pGo">적용</button><span class="note">+기간은 지금 남은 기간 뒤에 더합니다. 결제 확인은 [입금 확인]에서 하세요.</span></div>`;
+    return `<div class="det-g"><div><h4>${esc(b.office || r.nickname || '회원')} <small>${esc(b.ceo || '')} · ${esc(b.regno || '')}</small></h4>${plan}</div>
+      <div><h4>요금 변경 이력 <small>${logs.length}건</small></h4><div class="log">${logs.map(x => `<div><em>${d8(x.at)}</em>${esc(PN[x.to.plan] || x.to.plan)} ${x.to.until ? d8(x.to.until) + '까지' : x.to.plan === 'free' ? '' : '기한 없음'} · ${x.by === 'pay' ? '결제' : '운영자'}${x.why ? '(' + esc(x.why) + ')' : ''}${x.memo ? ' · ' + esc(x.memo) : ''}</div>`).join('') || '<div><em></em>아직 기록이 없습니다</div>'}</div>
+        <h4 style="margin-top:10px">운영 메모 <small>회원에게는 안 보임 · 고치고 나가면 저장</small></h4><input id="oMemo" value="${esc(r.opmemo || '')}" maxlength="200" placeholder="예) 친한 부동산 · 피드백 자주 줌" style="width:100%"></div>
+      <div><h4>회원 정보</h4><div class="kv"><b>사무실</b><span>${esc(b.tel || '-')} · 휴대폰 ${esc(b.mobile || '-')}</span><b>주소</b><span>${esc(b.addr || '-')}</span><b>카카오</b><span>${esc(r.nickname || '-')} · ${esc(r.email || '')} · 번호 ${esc(r.id)}</span>
+        <b>쓰는 양</b><span>매물 ${st.n ?? '-'} (진행 ${st.on ?? '-'}) · 광고 ${st.pub ?? 0}</span><b>가입</b><span>${dt(r.joined)} · 최근 ${ago(st.up || r.last)}</span>${b.vmsg && !b.verified ? `<b>확인</b><span style="color:var(--warn)">${esc(b.vmsg)}</span>` : ''}</div>
+        <div class="rw" style="margin-top:8px">${b.office ? `<button class="btn" type="button" data-vf="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : b.pend ? '승인' : '등록번호 확인'}</button>` : ''}${b.photo ? `<a class="btn" href="${esc(b.photo)}" target="_blank" rel="noopener">사진 보기</a><button class="btn" type="button" data-noph>사진 지우기</button>` : ''}${st.pub ? '<button class="btn red" type="button" data-off>광고 모두 내리기</button>' : ''}</div></div></div>`;
+  }
+  function wireDetail(m, r) {
+    if (!r) return;
+    const keep = () => { const mi = document.getElementById('pMemo'); if (mi) ps.memo = mi.value; };
+    m.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { keep(); ps.plan = b.dataset.pp; if (ps.plan === 'trial') { ps.n = 14; ps.unit = 'd'; ps.forever = false; } drawB(); });
+    m.querySelectorAll('[data-pn]').forEach(b => b.onclick = () => { keep(); const v = b.dataset.pn; ps.n = parseInt(v); ps.unit = v.slice(-1); ps.forever = false; ps.until = ''; drawB(); });
+    m.querySelectorAll('[data-pf]').forEach(b => b.onclick = () => { keep(); ps.forever = true; ps.until = ''; drawB(); });
+    m.querySelectorAll('[data-pw]').forEach(b => b.onclick = () => { keep(); ps.why = b.dataset.pw; drawB(); });
+    const pd = document.getElementById('pDate'); if (pd) pd.onchange = () => { keep(); ps.until = pd.value; ps.forever = false; drawB(); };
+    const go = document.getElementById('pGo');
+    if (go) go.onclick = async () => {
+      keep(); const U = previewUntil(r);
+      if (!confirm(`${(r.bk && r.bk.office) || r.nickname}\n${PN[r.plan.plan] || r.plan.plan} → ${PN[ps.plan]}${ps.plan === 'free' ? '' : U ? ' · ' + d8(U) + '까지' : ' · 기한 없음'}\n사유: ${ps.why}${ps.memo ? ' · ' + ps.memo : ''}\n\n적용할까요?`)) return;
+      go.disabled = true;
+      const body = { uid: r.id, op: 'plan', plan: ps.plan, why: ps.why, memo: ps.memo };
+      if (ps.plan !== 'free') { if (ps.forever) body.forever = true; else if (ps.until) body.until = ps.until; else { body.n = ps.n; body.unit = ps.unit; } }
+      if (await act(body)) ps = null;
+    };
+    const om = document.getElementById('oMemo');
+    if (om) om.onchange = async () => { const j = await act({ uid: r.id, op: 'memo', memo: om.value }, false); if (j) { r.opmemo = j.memo; drawB(); } };
+    m.querySelectorAll('[data-vf]').forEach(b => b.onclick = () => { if (confirm(b.dataset.vf ? '이 사무소의 등록번호·대표·영업 상태를 확인하셨나요?\n확인 표시를 하고, 승인 대기였다면 체험을 시작합니다.' : '확인 표시를 취소할까요? (이 회원은 매물장을 쓸 수 없게 됩니다)')) act({ uid: r.id, op: 'verify', on: !!b.dataset.vf }); });
+    m.querySelectorAll('[data-noph]').forEach(b => b.onclick = () => { if (confirm('이 사무소의 대표 사진을 지울까요? (부적절한 사진일 때)')) act({ uid: r.id, op: 'nophoto' }); });
+    m.querySelectorAll('[data-off]').forEach(b => b.onclick = () => { if (confirm('이 중개사의 지도 광고를 모두 내릴까요? (매물장 자료는 그대로)')) act({ uid: r.id, op: 'unpubAll' }); });
+  }
+  function secPay(m) {
+    const P = B.pays || [], wait = P.filter(p => p.st === 'wait'), done = P.filter(p => p.st !== 'wait').sort((a, b) => String(b.done || b.at).localeCompare(String(a.done || a.at))).slice(0, 50);
     const ST = { ok: '켜 줌', no: '취소(운영자)', cancel: '취소(회원)' };
     const rc = p => p.rcpt ? `${p.rcpt.t === 'tax' ? '세금계산서' : '현금영수증'} ${esc(p.rcpt.no)}` : '-';
-    const open = Q.filter(q => !q.reply), ans = Q.filter(q => q.reply).slice(0, 20);
-    const qrow = q => `<tr><td>${d8(q.at)}<small>${esc(q.cat)}</small></td><td><b>${esc(q.office)}</b></td><td style="white-space:pre-wrap;max-width:420px">${esc(q.text)}${q.img ? `<br><a href="${esc(q.img)}" target="_blank" rel="noopener">사진 보기</a>` : ''}</td>
-      <td>${q.reply ? `<div style="white-space:pre-wrap;max-width:360px">${esc(q.reply)}</div><small>${d8(q.rat)} 답변</small>` : `<textarea id="rp_${esc(q.id)}" rows="3" style="width:320px;font:inherit;padding:6px;border:1px solid #CBD5E1;border-radius:8px" placeholder="답변 (회원 설정 화면·알림으로 보입니다)"></textarea><div><button class="btn sm" type="button" data-rep="${esc(q.id)}">답변 보내기</button></div>`}</td></tr>`;
-    return `<div class="card"><h2>입금 확인 대기 <small>${wait.length}건 · 계좌이체 신청 · 통장 확인 뒤 [입금 확인 · 켜기]</small></h2>
-      ${wait.length ? `<div class="tw"><table><thead><tr><th>신청</th><th>사무소 · 입금자명</th><th>요금제</th><th>금액</th><th>영수증</th><th></th></tr></thead><tbody>${wait.map(p => `<tr><td>${d8(p.at)}<small>${new Date(p.at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })}</small></td><td><b>${esc(p.office)}</b><small>입금자 ${esc(p.payer)}</small></td><td>${esc(p.pname)} ${p.mon}개월</td><td><b>${p.amt.toLocaleString()}원</b></td><td>${rc(p)}</td><td><div class="acts"><button class="btn sm" type="button" data-payok="${esc(p.id)}">입금 확인 · 켜기</button><button class="btn sm ghost" type="button" data-payno="${esc(p.id)}">취소</button></div></td></tr>`).join('')}</tbody></table></div>` : '<p>기다리는 신청이 없습니다.</p>'}
-      ${done.length ? `<details style="margin-top:10px"><summary>입금 기록 ${done.length}건</summary><div class="tw"><table><thead><tr><th>신청</th><th>사무소 · 입금자명</th><th>요금제</th><th>금액</th><th>영수증</th><th>처리</th></tr></thead><tbody>${done.map(p => `<tr><td>${d8(p.at)}</td><td>${esc(p.office)}<small>${esc(p.payer)}</small></td><td>${esc(p.pname)} ${p.mon}개월</td><td>${p.amt.toLocaleString()}원</td><td>${rc(p)}</td><td>${ST[p.st] || p.st}<small>${d8(p.done)}${p.until ? ` · ${d8(p.until)}까지` : ''}${p.why ? ` · ${esc(p.why)}` : ''}</small></td></tr>`).join('')}</tbody></table></div></details>` : ''}</div>
-    <div class="card"><h2>문의 <small>답변 전 ${open.length}건</small></h2>
-      ${open.length ? `<div class="tw"><table><thead><tr><th>날짜</th><th>사무소</th><th>내용</th><th>답변</th></tr></thead><tbody>${open.map(qrow).join('')}</tbody></table></div>` : '<p>답변을 기다리는 문의가 없습니다.</p>'}
-      ${ans.length ? `<details style="margin-top:10px"><summary>답변한 문의 ${ans.length}건</summary><div class="tw"><table><tbody>${ans.map(qrow).join('')}</tbody></table></div></details>` : ''}</div>`;
+    m.innerHTML = `<div class="pn"><h3>입금 확인 대기 <small>${wait.length}건 · 통장에서 입금을 확인한 뒤 [입금 확인 · 켜기]</small></h3><div class="tw"><table><thead><tr><th>신청</th><th>사무소</th><th>입금자명</th><th>요금제</th><th>금액</th><th>영수증</th><th></th></tr></thead><tbody>
+      ${wait.map(p => `<tr><td>${dt(p.at)}</td><td><b>${esc(p.office)}</b></td><td>${esc(p.payer)}</td><td>${esc(p.pname)} ${p.mon}개월</td><td><b>${p.amt.toLocaleString()}원</b></td><td>${rc(p)}</td><td><button class="btn k" type="button" data-payok="${esc(p.id)}">입금 확인 · 켜기</button> <button class="btn" type="button" data-payno="${esc(p.id)}">취소</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">기다리는 신청이 없습니다.</td></tr>'}</tbody></table></div></div>
+      <div class="pn"><h3>입금 기록 <small>최근 ${done.length}건</small></h3><div class="tw"><table><thead><tr><th>신청</th><th>사무소 · 입금자</th><th>요금제</th><th>금액</th><th>영수증</th><th>처리</th></tr></thead><tbody>
+      ${done.map(p => `<tr><td>${d8(p.at)}</td><td>${esc(p.office)} <small>${esc(p.payer)}</small></td><td>${esc(p.pname)} ${p.mon}개월</td><td>${p.amt.toLocaleString()}원</td><td>${rc(p)}</td><td>${ST[p.st] || p.st} <small>${d8(p.done)}${p.until ? ' · ' + d8(p.until) + '까지' : ''}${p.why ? ' · ' + esc(p.why) : ''}</small></td></tr>`).join('') || '<tr><td colspan="6" class="empty">아직 기록이 없습니다.</td></tr>'}</tbody></table></div></div>`;
+    m.querySelectorAll('[data-payok]').forEach(b => b.onclick = () => { const p = P.find(x => x.id === b.dataset.payok); if (confirm(`${p.office} · ${p.pname} ${p.mon}개월 ${p.amt.toLocaleString()}원\n입금자 ${p.payer}\n\n통장에서 입금을 확인하셨나요? 요금제를 켭니다 (남은 기간 뒤에 이어 붙임).`)) act({ op: 'payok', id: p.id }); });
+    m.querySelectorAll('[data-payno]').forEach(b => b.onclick = () => { const why = prompt('신청을 취소할까요? 이유를 적어 주세요 (회원에게 보입니다)', '입금이 확인되지 않았습니다'); if (why !== null) act({ op: 'payno', id: b.dataset.payno, why }); });
   }
-  function planDlg(r) {
-    const dlg = document.getElementById('dlg');
-    document.getElementById('dSub').textContent = `${(r.bk && r.bk.office) || r.nickname} · 지금 ${r.plan.name || r.plan.plan}`;
-    document.getElementById('dPlan').value = ['basic', 'premium', 'vip', 'free', 'trial'].includes(r.plan.plan) && r.plan.plan !== 'free' ? r.plan.plan : 'basic';
-    document.getElementById('dNo').onclick = () => dlg.close();
-    document.getElementById('dPlan').onchange = e => { document.getElementById('dDays').value = e.target.value === 'free' ? '0' : e.target.value === 'trial' ? '14' : '31'; };
-    document.getElementById('dOk').onclick = async () => { const plan = document.getElementById('dPlan').value, days = +document.getElementById('dDays').value; dlg.close(); await load({ uid: r.id, op: 'plan', plan, days }); };
-    dlg.showModal();
+  function secQna(m) {
+    const Q = (B.qnas || []).sort((a, b) => String(b.at).localeCompare(String(a.at))), open_ = Q.filter(x => !x.reply), ans = Q.filter(x => x.reply).slice(0, 40);
+    const row = x => `<tr><td>${dt(x.at)}<br><small>${esc(x.cat)}</small></td><td><b>${esc(x.office)}</b></td><td class="wrap" style="white-space:pre-wrap">${esc(x.text)}${x.img ? `<br><a href="${esc(x.img)}" target="_blank" rel="noopener">사진 보기</a>` : ''}</td>
+      <td class="wrap">${x.reply ? `<div style="white-space:pre-wrap">${esc(x.reply)}</div><small>${d8(x.rat)} 답변</small>` : `<textarea id="rp_${esc(x.id)}" rows="3" style="width:100%;min-width:260px" placeholder="답변 (회원 설정 화면·알림으로 보입니다)"></textarea><button class="btn k" type="button" data-rep="${esc(x.id)}">답변 보내기</button>`}</td></tr>`;
+    m.innerHTML = `<div class="pn"><h3>답변 전 문의 <small>${open_.length}건</small></h3><div class="tw"><table><thead><tr><th>날짜</th><th>사무소</th><th>내용</th><th>답변</th></tr></thead><tbody>${open_.map(row).join('') || '<tr><td colspan="4" class="empty">답변을 기다리는 문의가 없습니다.</td></tr>'}</tbody></table></div></div>
+      <div class="pn"><h3>답변한 문의 <small>최근 ${ans.length}건</small></h3><div class="tw"><table><tbody>${ans.map(row).join('') || '<tr><td class="empty">아직 없습니다.</td></tr>'}</tbody></table></div></div>`;
+    m.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => { const t = document.getElementById('rp_' + b.dataset.rep); if (!t.value.trim()) return t.focus(); act({ op: 'reply', id: b.dataset.rep, text: t.value }); });
   }
-  function csv(rows) {
+  function secVisit(m) {
+    const V = B.visits || [], ST = [['new', '새 신청'], ['call', '연락함'], ['done', '방문 완료'], ['no', '취소']];
+    m.innerHTML = `<div class="pn"><h3>방문 설명 신청 <small>소개 페이지의 [방문 설명 신청] · 처리 뒤 1년 지나면 자동으로 지워짐</small></h3><div class="tw"><table><thead><tr><th>신청</th><th>사무소 · 성함</th><th>연락처</th><th>지역</th><th>편한 시간</th><th>궁금한 점</th><th>상태</th><th>메모</th></tr></thead><tbody>
+      ${V.map(v => `<tr><td>${dt(v.at)}</td><td><b>${esc(v.office || '-')}</b><br><small>${esc(v.name)}</small></td><td><a href="tel:${esc(String(v.phone).replace(/\D/g, ''))}">${esc(v.phone)}</a></td><td>${esc(v.area || '-')}</td><td>${esc((v.when || []).join(', ') || '-')}</td><td class="wrap">${esc(v.memo || '')}</td>
+        <td><span class="seg">${ST.map(([k, t]) => `<button type="button" data-vst="${esc(v.id)}" data-v="${k}" aria-pressed="${v.st === k}">${t}</button>`).join('')}</span></td>
+        <td><input data-vnote="${esc(v.id)}" value="${esc(v.note || '')}" maxlength="300" placeholder="예) 11/3 오후 2시 방문" style="width:180px"></td></tr>`).join('') || '<tr><td colspan="8" class="empty">아직 신청이 없습니다.</td></tr>'}</tbody></table></div></div>`;
+    m.querySelectorAll('[data-vst]').forEach(b => b.onclick = () => act({ op: 'visit', id: b.dataset.vst, st: b.dataset.v }));
+    m.querySelectorAll('[data-vnote]').forEach(i => i.onchange = async () => { const j = await act({ op: 'visit', id: i.dataset.vnote, note: i.value }, false); if (j) { const v = B.visits.find(x => x.id === i.dataset.vnote); if (v) v.note = j.rec.note; } });
+  }
+  function secPub(m) {
+    m.innerHTML = `<div class="pn"><h3>지도에 게시 중인 광고 <small>${B.pubs.length}건 · 허위매물 신고가 들어오면 여기서 내립니다</small></h3><div class="tw"><table><thead><tr><th>매물</th><th>주소</th><th>가격</th><th>중개사무소</th><th>게시</th><th>확인</th><th>만료</th><th></th></tr></thead><tbody>
+      ${B.pubs.map(p => `<tr><td><b>${esc(p.bname || '')}</b> <small>${esc(p.ptype || '')}</small></td><td>${esc(p.addr || '')}</td>
+        <td>${p.kind === 'wolse' ? `${man(p.deposit) || 0}/${p.rent || ''}` : esc(man(p.kind === 'jeonse' ? p.deposit : p.kind === 'presale' ? (p.price || 0) + (p.pr || 0) : p.price))} <small>${({ sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' })[p.kind] || ''}</small></td>
+        <td>${esc(p.office || '')}</td><td>${d8(p.at)}</td><td>${d8(p.chk)}</td><td>${d8(p.exp)}</td>
+        <td><a class="btn" href="/?pnu=${esc(p.pnu)}&lst=1" target="_blank">지도</a> <button class="btn red" type="button" data-unpub="${esc(p.k)}">내리기</button></td></tr>`).join('') || '<tr><td colspan="8" class="empty">게시 중인 광고가 없습니다.</td></tr>'}</tbody></table></div></div>`;
+    m.querySelectorAll('[data-unpub]').forEach(b => b.onclick = () => { if (confirm('이 광고를 지도에서 내릴까요?')) act({ k: b.dataset.unpub, op: 'unpub' }); });
+  }
+  function secLog(m) {
+    const L = B.plog || [];
+    m.innerHTML = `<div class="pn"><h3>요금 변경 이력 <small>최근 ${L.length}건 · 결제 확인과 운영자 변경이 모두 남습니다</small></h3><div class="tw"><table><thead><tr><th>날짜</th><th>중개사무소</th><th>전</th><th>후</th><th>방법</th><th>사유 · 메모</th></tr></thead><tbody>
+      ${L.map(x => `<tr class="cl" data-go="${esc(x.uid)}"><td>${dt(x.at)}</td><td><b>${esc(x.office || x.uid)}</b></td><td>${x.from ? `${esc(PN[x.from.plan] || x.from.plan)} <small>${x.from.until ? d8(x.from.until) : ''}</small>` : '-'}</td>
+        <td><span class="pl ${esc(x.to.plan)}">${esc(PN[x.to.plan] || x.to.plan)}</span> <small>${x.to.until ? d8(x.to.until) + '까지' : x.to.plan === 'free' ? '' : '기한 없음'}</small></td>
+        <td><span class="src ${x.by === 'pay' ? 'pay' : 'op'}">${x.by === 'pay' ? '결제' : '운영자'}</span></td><td>${esc(x.why || '')}${x.memo ? ' · ' + esc(x.memo) : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">아직 기록이 없습니다.</td></tr>'}</tbody></table></div></div>`;
+    m.querySelectorAll('[data-go]').forEach(tr => tr.onclick = () => { sec = 'list'; f = 'all'; q = ''; open = tr.dataset.go; ps = null; drawB(); });
+  }
+  function secDup(m) {
+    const D = B.dups || [];
+    m.innerHTML = `<div class="pn"><h3>등록번호 중복 가입 시도 <small>이미 다른 계정이 쓰는 등록번호로 가입하려 한 기록</small></h3><div class="tw"><table><thead><tr><th>시각</th><th>시도한 사무소</th><th>대표</th><th>등록번호</th><th>시도한 계정 → 기존 계정</th></tr></thead><tbody>
+      ${D.map(x => `<tr><td>${dt(x.at)}</td><td><b>${esc(x.office || '')}</b></td><td>${esc(x.ceo || '-')}</td><td>${esc(x.regno || '')}</td><td>${esc(x.uid)} → ${esc(x.owner)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">기록이 없습니다.</td></tr>'}</tbody></table></div></div>`;
+  }
+  function csvB(rows) {
     const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const head = ['중개사무소', '대표', '등록번호', '확인', '사무소 전화', '휴대폰', '소재지', '요금제', '기한', '매물', '광고', '가입일', '최근 활동', '카카오 닉네임'];
-    const body = rows.map(r => { const b = r.bk || {}, st = r.stat || {}; return [b.office, b.ceo, b.regno, b.verified ? 'O' : '', b.tel, b.mobile, b.addr, r.plan.op ? '운영자' : r.plan.name, r.plan.until ? d8(r.plan.until) : '', st.n ?? '', st.pub ?? '', d8(r.joined), d8(st.up || r.last), r.nickname].map(qq).join(','); });
-    const blob = new Blob(['﻿' + [head.map(qq).join(','), ...body].join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `리얼맵_중개사회원_${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); a.remove();
+    const head = ['중개사무소', '대표', '등록번호', '확인', '사무소 전화', '휴대폰', '소재지', '요금제', '받은 방법', '종료일', '매물', '광고', '가입일', '최근 활동', '운영 메모', '카카오 닉네임'];
+    const body = rows.map(r => { const b = r.bk || {}, st = r.stat || {}; return [b.office, b.ceo, b.regno, b.verified ? 'O' : '', b.tel, b.mobile, b.addr, r.plan.op ? '운영자' : PN[r.plan.plan] || r.plan.plan, kind(r)[1], r.plan.until ? d8(r.plan.until) : '', st.n ?? '', st.pub ?? '', d8(r.joined), d8(st.up || r.last), r.opmemo, r.nickname].map(qq).join(','); });
+    dl(`리얼맵_중개사회원_${new Date().toISOString().slice(0, 10)}.csv`, [head.map(qq).join(','), ...body]);
+  }
+  function dl(name, lines) {
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ===================== 방문·가입 · 일반 회원 · 정비사업 알림 =====================
+  async function loadM() {
+    if (!M) app.innerHTML = '<div class="card"><p>회원·통계를 불러오는 중입니다…</p></div>';
+    const j = await call('/api/members'); if (bad(j)) return;
+    if (!j.ok) { app.innerHTML = `<div class="card"><h2>열 수 없습니다</h2><p>${esc(j.message || '오류가 발생했습니다.')}</p></div>`; return; }
+    M = j; stamp(); if (tab !== 'br') drawM();
+    if (!ZN) fetch('/data/seoul-zones.json').then(r => r.json()).then(z => { ZN = {}; (z.rows || []).forEach(x => { ZN[x.id] = x; }); if (tab !== 'br') drawM(); }).catch(() => {});
+  }
+  const kday = s => s ? new Date(new Date(s).getTime() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '') : '';
+  const md = d => `${d.slice(4, 6)}.${d.slice(6)}`;
+  const bars = (vals, cls) => { const mx = Math.max(1, ...vals.map(x => x.v)); return `<div class="bars ${cls || ''}">${vals.map((x, i) => `<div class="${i === vals.length - 1 ? 'today' : ''}" style="height:${Math.max(2, x.v / mx * 100)}%" title="${x.t} · ${x.v}"></div>`).join('')}</div>`; };
+  const sts = a => `<div class="sts">${a.map(([t, v, c]) => `<div><small>${t}</small><b${c ? ` style="color:${c}"` : ''}>${v}</b></div>`).join('')}</div>`;
+  const sumOf = (st, n, key) => { const m = {}; st.days.slice(0, n).forEach(x => Object.entries(x[key] || {}).forEach(([k, v]) => { m[k] = (m[k] || 0) + v; })); return m; };
+  const GUN = { jongno: '종로구', jung: '중구', yongsan: '용산구', seongdong: '성동구', gwangjin: '광진구', dongdaemun: '동대문구', jungnang: '중랑구', seongbuk: '성북구', gangbuk: '강북구', dobong: '도봉구', nowon: '노원구', eunpyeong: '은평구', seodaemun: '서대문구', mapo: '마포구', yangcheon: '양천구', gangseo: '강서구', guro: '구로구', geumcheon: '금천구', yeongdeungpo: '영등포구', dongjak: '동작구', gwanak: '관악구', seocho: '서초구', gangnam: '강남구', songpa: '송파구', gangdong: '강동구' };
+  const pgName = k => { if (k === 'idx') return '서울 전체 현황판'; const [g, id] = k.split('/'); if (!id) return `${GUN[g] || g} 목록`; const z = ZN && ZN[id]; return z ? `${esc(z.n)} <small>${esc(z.gu)} · ${esc(z.st || '')}</small>` : `${GUN[g] || g} 구역 ${esc(id)}`; };
+  const GU = { '11110': '종로구', '11140': '중구', '11170': '용산구', '11200': '성동구', '11215': '광진구', '11230': '동대문구', '11260': '중랑구', '11290': '성북구', '11305': '강북구', '11320': '도봉구', '11350': '노원구', '11380': '은평구', '11410': '서대문구', '11440': '마포구', '11470': '양천구', '11500': '강서구', '11530': '구로구', '11545': '금천구', '11560': '영등포구', '11590': '동작구', '11620': '관악구', '11650': '서초구', '11680': '강남구', '11710': '송파구', '11740': '강동구', '41570': '김포시', '41281': '고양 덕양구', '41285': '고양 일산동구', '41287': '고양 일산서구', '28245': '인천 계양구', '28237': '인천 부평구' };
+  const SRC = { blog: '네이버 블로그', nsearch: '네이버 검색', naver: '네이버 (기타·앱)', insta: '인스타그램', kakao: '카카오톡', youtube: '유튜브', google: '구글', daum: '다음', seoul: '정비사업 페이지에서', direct: '직접 입력 · 즐겨찾기', etc: '기타 사이트' };
+  function drawM() {
+    const box = '<div class="wrap"><div class="main" id="main"></div></div>';
+    app.innerHTML = box; const m = document.getElementById('main');
+    if (tab === 'visit') tVisit(m); else if (tab === 'mem') tMem(m); else tZone(m);
+  }
+  function tVisit(m) {
+    const st = M.stats; if (!st) { m.innerHTML = '<div class="pn"><div class="pd">방문 통계를 읽지 못했습니다.</div></div>'; return; }
+    const D = [...st.days].reverse(), T = st.days[0];
+    const join = {}; M.rows.forEach(r => { const d = kday(r.joined); if (d) join[d] = (join[d] || 0) + 1; });
+    const j30 = st.days.reduce((a, x) => a + (join[x.d] || 0), 0), j7 = st.days.slice(0, 7).reduce((a, x) => a + (join[x.d] || 0), 0);
+    const s1 = sumOf(st, 1, 'src'), s7 = sumOf(st, 7, 'src'), s30 = sumOf(st, 30, 'src'), sk = Object.keys(SRC).filter(k => s30[k]).sort((a, b) => s30[b] - s30[a]), stot = sk.reduce((a, k) => a + s30[k], 0) || 1;
+    const g1 = sumOf(st, 1, 'gu'), g7 = sumOf(st, 7, 'gu'), g30 = sumOf(st, 30, 'gu'), gk = Object.keys(g30).sort((a, b) => g30[b] - g30[a]).slice(0, 15), gtot = gk.reduce((a, k) => a + g30[k], 0) || 1, WARM = ['11440', '11410', '11380'];
+    const pct = st.maxKeys ? Math.round(st.keys / st.maxKeys * 100) : 0;
+    const pg30 = sumOf(st, 30, 'spg'), pg7 = sumOf(st, 7, 'spg'), ss30 = sumOf(st, 30, 'ssrc'), top = Object.keys(pg30).sort((a, b) => pg30[b] - pg30[a]).slice(0, 15), ssk = Object.keys(ss30).sort((a, b) => ss30[b] - ss30[a]), sstot = ssk.reduce((a, k) => a + ss30[k], 0) || 1;
+    const spv30 = st.days.reduce((a, x) => a + (x.spv || 0), 0), toMap = st.days.reduce((a, x) => a + ((x.src || {}).seoul || 0), 0);
+    m.innerHTML = `<div class="g2"><div class="pn"><h3>방문 <small>같은 기기는 하루 한 명 · 운영자 방문 제외</small></h3>${sts([['오늘 방문자', T.uv.toLocaleString()], ['7일', st.uv7.toLocaleString()], ['30일', st.uv30.toLocaleString()], ['오늘 필지 조회', T.pcl.toLocaleString()]])}
+        ${bars(D.map(x => ({ v: x.uv, t: md(x.d) })))}<div class="axis"><span>${md(st.days[29].d)}</span><span>일별 방문자</span><span>오늘</span></div></div>
+      <div class="pn"><h3>가입 <small>영상·블로그 올린 날 효과 보기</small></h3>${sts([['오늘 가입', join[T.d] || 0], ['7일', j7], ['30일', j30], ['가입 전환율 (30일)', (st.uv30 ? j30 / st.uv30 * 100 : 0).toFixed(1) + '%']])}
+        ${bars(D.map(x => ({ v: join[x.d] || 0, t: md(x.d) })), 'dk')}<div class="axis"><span>${md(st.days[29].d)}</span><span>일별 가입 · 전환율 = 30일 가입 ÷ 30일 방문자</span><span>오늘</span></div></div></div>
+      <div class="g2"><div class="pn"><h3>날짜별 <small>최근 14일</small></h3><div class="tw"><table><thead><tr><th>날짜</th><th>방문자</th><th>페이지</th><th>필지 조회</th><th>로그인 회원</th><th>가입</th></tr></thead><tbody>
+        ${st.days.slice(0, 14).map(x => `<tr><td>${x.d.slice(0, 4)}.${md(x.d)}</td><td>${x.uv.toLocaleString()}</td><td>${x.pv.toLocaleString()}</td><td>${x.pcl.toLocaleString()}</td><td>${x.mem.toLocaleString()}</td><td>${join[x.d] || 0}</td></tr>`).join('')}</tbody></table></div></div>
+      <div class="pn"><h3>유입 경로 <small>방문 1회당 한 번</small></h3><div class="tw"><table><thead><tr><th>경로</th><th>오늘</th><th>7일</th><th>30일</th><th>비중</th></tr></thead><tbody>
+        ${sk.map(k => `<tr><td>${SRC[k]}</td><td>${s1[k] || 0}</td><td>${s7[k] || 0}</td><td>${s30[k]}</td><td>${Math.round(s30[k] / stot * 100)}%</td></tr>`).join('') || '<tr><td colspan="5" class="empty">아직 집계된 유입이 없습니다.</td></tr>'}</tbody></table></div>
+        <div class="pd note">· 주소를 올릴 때 <b>realmap.online/?from=blog</b> (?from=insta · kakao · youtube)처럼 붙이면 더 정확하게 구분됩니다.</div></div></div>
+      <div class="g2"><div class="pn"><h3>지역별 필지 조회 <small>미리 불러오기 지역 참고</small></h3><div class="tw"><table><thead><tr><th>지역</th><th>오늘</th><th>7일</th><th>30일</th><th>비중</th></tr></thead><tbody>
+        ${gk.map(k => `<tr><td>${esc(GU[k] || (st.guNames && st.guNames[k]) || '지역 코드 ' + k)}${WARM.includes(k) ? ' <small style="color:#1F7A3A;font-weight:700">미리 불러오는 중</small>' : ''}</td><td>${g1[k] || 0}</td><td>${g7[k] || 0}</td><td>${g30[k]}</td><td>${Math.round(g30[k] / gtot * 100)}%</td></tr>`).join('') || '<tr><td colspan="5" class="empty">아직 집계된 조회가 없습니다.</td></tr>'}</tbody></table></div></div>
+      <div class="pn"><h3>정비사업 페이지 <small>realmap.online/seoul/ · 검색 노출 효과</small></h3>${sts([['오늘 방문자', (T.suv || 0).toLocaleString()], ['7일', (st.suv7 || 0).toLocaleString()], ['30일 열람', spv30.toLocaleString()], ['30일 지도로 넘어옴', toMap.toLocaleString()]])}
+        ${bars(D.map(x => ({ v: x.suv || 0, t: md(x.d) })))}<div class="axis"><span>${md(st.days[29].d)}</span><span>일별 방문자</span><span>오늘</span></div>
+        <div class="tw"><table><thead><tr><th>많이 본 페이지</th><th>7일</th><th>30일</th></tr></thead><tbody>${top.map(k => `<tr><td>${pgName(k)}</td><td>${pg7[k] || 0}</td><td>${pg30[k]}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">아직 기록이 없습니다.</td></tr>'}</tbody></table></div>
+        <div class="tw"><table><thead><tr><th>들어온 경로 (30일)</th><th>횟수</th><th>비중</th></tr></thead><tbody>${ssk.map(k => `<tr><td>${SRC[k] || k}</td><td>${ss30[k]}</td><td>${Math.round(ss30[k] / sstot * 100)}%</td></tr>`).join('') || '<tr><td colspan="3" class="empty">아직 기록이 없습니다.</td></tr>'}</tbody></table></div></div></div>
+      <div class="pn"><h3>창고 사용량 <small>빨리 보여 주려고 저장해 둔 공공데이터 · 70%를 넘으면 알려 주세요</small></h3><div class="pd"><b style="font-size:16px;color:${pct >= 90 ? '#C03A16' : pct >= 70 ? '#9A6200' : 'inherit'}">${pct}%</b> <small>${st.keys.toLocaleString()} / ${st.maxKeys.toLocaleString()}개</small>
+        <div style="height:8px;border-radius:4px;background:#E6EAEE;margin-top:6px;overflow:hidden;max-width:520px"><div style="height:100%;width:${Math.min(100, pct)}%;background:${pct >= 90 ? '#E4572E' : pct >= 70 ? '#F2B705' : '#1F7A3A'}"></div></div></div></div>`;
+  }
+  function tMem(m) {
+    const rows = M.rows.filter(r => !onlyMk || r.marketing), week = Date.now() - 7 * 864e5, recent = M.rows.filter(r => r.joined && new Date(r.joined).getTime() > week).length;
+    m.innerHTML = `<div class="pn">${sts([['전체 회원', M.total], ['소식 수신 동의', M.marketing], ['최근 7일 가입', recent], ['관심 구역 담은 회원', (M.zsum || {}).members || 0]])}
+      <div class="bar"><label><input type="checkbox" id="mk" ${onlyMk ? 'checked' : ''}> 수신 동의 회원만</label><button class="btn ml" type="button" id="csv">엑셀(CSV) 내려받기</button></div>
+      <div class="tw"><table><thead><tr><th>닉네임</th><th>이메일</th><th>가입</th><th>최근 로그인</th><th>소식 수신</th><th>동의 일시</th><th>관심 부동산</th><th>관심 구역</th><th>추진 알림</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td>${esc(r.nickname || '-')}</td><td>${esc(r.email || '-')}</td><td>${dt(r.joined)}</td><td>${dt(r.last)}</td><td style="color:${r.marketing ? '#1F7A3A' : '#5E6A77'};font-weight:700">${r.marketing ? '동의' : '미동의'}</td><td>${r.marketing ? dt(r.marketingAt) : '-'}</td><td>${r.favs || '-'}</td><td>${r.zones || '-'}</td><td>${r.zalerts ? r.zalerts + '곳' : '-'}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">회원이 없습니다</td></tr>'}</tbody></table></div>
+      <div class="pd note">· 이 화면과 내려받은 파일에는 개인정보가 들어 있습니다. 공유하지 마시고 쓰고 난 파일은 지워 주세요.<br>· 소식은 '동의' 회원에게만, 제목에 (광고) 표시와 수신거부 방법을 넣어 보내야 합니다. 동의일로부터 2년마다 다시 확인해야 합니다.</div></div>`;
+    document.getElementById('mk').onchange = e => { onlyMk = e.target.checked; drawM(); };
+    const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    document.getElementById('csv').onclick = () => dl(`리얼맵_회원_${new Date().toISOString().slice(0, 10)}.csv`, [['닉네임', '이메일', '가입일', '최근 로그인', '소식 수신', '동의 일시', '관심 부동산', '관심 구역', '추진 알림'].map(qq).join(',')].concat(rows.map(r => [r.nickname, r.email, dt(r.joined), dt(r.last), r.marketing ? '동의' : '미동의', r.marketing ? dt(r.marketingAt) : '', r.favs || 0, r.zones || 0, r.zalerts || 0].map(qq).join(','))));
+  }
+  function tZone(m) {
+    const z = M.zsum || {}, zr = M.zrank || [], al = M.alerts || [];
+    m.innerHTML = `<div class="g2"><div class="pn"><h3>인기 관심 구역 <small>어느 구역에 관심이 많은지</small></h3>${sts([['담은 회원', z.members || 0], ['알림 신청 회원', z.alertMembers || 0], ['담긴 구역', z.zones || 0], ['알림 신청', al.length]])}
+        <div class="tw"><table><thead><tr><th>구역</th><th>구</th><th>추진 단계</th><th>담은 회원</th><th>알림 신청</th></tr></thead><tbody>
+        ${zr.map(x => { const n = ZN && ZN[x.id]; return `<tr><td>${esc(x.n)}</td><td>${esc(x.gu)}</td><td>${esc((n && n.st) || x.st || '-')}</td><td>${x.cnt}</td><td>${x.alert || '-'}</td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">아직 담긴 구역이 없습니다</td></tr>'}</tbody></table></div></div>
+      <div class="pn"><h3>추진 알림 신청자 <small>${al.length}건</small><span class="r"><button class="btn" type="button" id="alCsv">엑셀(CSV)</button></span></h3><div class="tw"><table><thead><tr><th>닉네임</th><th>알림 이메일</th><th>구역</th><th>구</th><th>신청 당시 단계</th><th>담은 날</th></tr></thead><tbody>
+        ${al.map(x => `<tr><td>${esc(x.nickname || '-')}</td><td>${esc(x.email)}</td><td>${esc(x.zone)}</td><td>${esc(x.gu)}</td><td>${esc(x.st || '-')}</td><td>${dt(x.at)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">아직 신청자가 없습니다</td></tr>'}</tbody></table></div>
+        <div class="pd note">· 알림 이메일은 회원이 직접 확인·동의한 주소입니다. 단계 변경 알림 외의 광고 메일에는 쓰지 마세요.</div></div></div>`;
+    const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    document.getElementById('alCsv').onclick = () => dl(`리얼맵_추진알림신청자_${new Date().toISOString().slice(0, 10)}.csv`, [['닉네임', '알림 이메일', '구역', '구', '신청 당시 단계', '담은 날', '이메일 동의일'].map(qq).join(',')].concat(al.map(x => [x.nickname, x.email, x.zone, x.gu, x.st, dt(x.at), dt(x.emailAt)].map(qq).join(','))));
   }
 })();
 </script>
