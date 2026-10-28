@@ -41,6 +41,23 @@ window.XImport = (() => {
 
   // ---------- 값 읽기 ----------
   const clean = v => String(v ?? '').replace(/_x000D_/g, '').replace(/\r/g, '').trim();
+  // 10/28 메모 속 날짜 기록 나누기: "앞글 [24-10-21 15:01 관리자]: 내용 [22-10-22 12:56 주]내용 …"
+  //   → { head: '앞글', list: [{ t: ISO, x: '내용', w: '관리자' }] (새것부터) } · [YY-MM-DD HH:MM 이름] · [2024.10.21 15:01] 모두 알아봄
+  const STAMP = /\[\s*(\d{2}|\d{4})[-./](\d{1,2})[-./](\d{1,2})\.?\s+(\d{1,2}):(\d{2})(?::\d{2})?\s*([^\]\d][^\]]{0,11})?\]\s*:?\s*/g;
+  function stampSplit(text) {
+    const s0 = String(text || '').replace(/\s+/g, ' ').trim(), ms = [...s0.matchAll(STAMP)];
+    if (!ms.length) return { head: s0, list: [] };
+    const list = [];
+    ms.forEach((m, i) => {
+      const y = m[1].length === 2 ? 2000 + +m[1] : +m[1], p = n => String(n).padStart(2, '0');
+      const d = new Date(`${y}-${p(m[2])}-${p(m[3])}T${p(m[4])}:${m[5]}:00+09:00`);
+      const x = s0.slice(m.index + m[0].length, i + 1 < ms.length ? ms[i + 1].index : s0.length).trim().replace(/^[·,\s]+|[·,\s]+$/g, '');
+      if (!isNaN(d) && d <= new Date() && x) list.push({ t: d.toISOString(), x: x.slice(0, 500), w: String(m[6] || '').trim().slice(0, 10) });
+    });
+    if (!list.length) return { head: s0, list: [] };
+    return { head: s0.slice(0, ms[0].index).trim().replace(/[·,\s]+$/, ''), list: list.sort((a, b) => b.t.localeCompare(a.t)) };
+  }
+  const memoT = iso => { const d = new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString(); return `${d.slice(2, 4)}.${d.slice(5, 7)}.${d.slice(8, 10)} ${d.slice(11, 16)}`; };
   function man(s, wonCol) {   // '3억2천' '68억' '5000' → 만원
     if (typeof s === 'number') return s > 0 ? (wonCol && s >= 1e7 ? Math.round(s / 1e4) : Math.round(s * 100) / 100) : null;
     s = clean(s).replace(/[,\s원]/g, '').replace(/만$/, ''); if (!s || /[#]/.test(s)) return null;
@@ -330,7 +347,8 @@ window.XImport = (() => {
         const L = await locate(it);
         if (L.err) { fail.push({ i: it._row, r: S.data[it._row], err: L.err }); }
         else {
-          const memo = it._memo ? H.X.memoAdd('', `엑셀 불러오기 · ${it._memo}`) : H.X.memoAdd('', '엑셀 불러오기');
+          const sp = stampSplit(it._memo);   // 날짜가 붙은 메모는 그 날짜의 기록으로 따로 (10/28)
+          const memo = [H.X.memoAdd('', `엑셀 불러오기${sp.head ? ' · ' + sp.head : ''}`), ...sp.list.map(e => `[${memoT(e.t)}] ${e.x}${e.w ? ' · ' + e.w : ''}`)].join('\n');
           const send = { ...it, places: [L.P], memo, ...(x.warn.length ? { mk: 'y', imp: `엑셀 확인: ${x.warn.join(' · ')}` } : {}) };
           Object.keys(send).forEach(kk => { if (kk.startsWith('_')) delete send[kk]; });
           send._row = it._row; ready.push(send); done.push(it._row);
@@ -396,10 +414,10 @@ window.XImport = (() => {
     const tel = (nm, ph, lab) => { const name = clean(get(nm)).split('\n')[0]; (clean(get(ph)).match(PHONE) || []).slice(0, 2).forEach(p => rec.tels.length < 4 && rec.tels.push({ l: (lab + (name ? ' ' + name : '')).slice(0, 10), n: fmtPh(p) })); if (name && !clean(get(ph))) notes.push(`${lab} ${name}`); };
     tel('oN', 'oP', '소유'); tel('tN', 'tP', '임차');
     const prog = clean(get('prog')); if (prog) notes.push(prog === '♥' ? '♥ 표시(받은 장부)' : `진행: ${prog}`);
-    const talk = clean(get('note')).replace(/\n+/g, ' '); if (talk) notes.push(talk);
+    const sp = stampSplit(clean(get('note')).replace(/\n+/g, ' ')); if (sp.head) notes.push(sp.head);   // 날짜가 붙은 상담내역은 상담 기록(히스토리)으로 (10/28)
     rec.note = notes.join(' · ').slice(0, 300);
     if (k.length > 0 && !pr.sale && !pr.jeonse && !pr.wd && !pr.wr) warn.push('가격 없음');
-    return { rec, warn };
+    return { rec, warn, hist: sp.list };
   }
   const nmN = s => String(s || '').replace(/\s|아파트|APT/gi, '');
   const addrQ = (r, map) => {   // 줄의 단지 주소 (주소 칸 또는 시·구·동·지번 칸)
@@ -498,7 +516,10 @@ window.XImport = (() => {
       while (k < todo.length && !S.stop) {
         const x = todo[k++];
         const rec = { ...x.rec, ...(x.warn.length ? { mk: 'y', imp: (x.rec.imp ? x.rec.imp + ' · ' : '') + '엑셀 확인: ' + x.warn.join(' · ') } : {}) };
-        try { await H.api('/api/auth?action=hj', H.post({ id: x.G.cx.id, key: x.key, op: 'save', rec })); S.made.push([x.G.cx.id, x.key]); S.cxDirty = true; }
+        try {
+          await H.api('/api/auth?action=hj', H.post({ id: x.G.cx.id, key: x.key, op: 'save', rec })); S.made.push([x.G.cx.id, x.key]); S.cxDirty = true;
+          if (x.hist && x.hist.length) await H.api('/api/auth?action=hj', H.post({ id: x.G.cx.id, key: x.key, op: 'imh', hist: x.hist }));   // 날짜별 상담 기록
+        }
         catch (e) { fail.push({ r: x.r, err: e.message || '저장하지 못함' }); }
         n++; if (n % 5 === 0) draw();
       }
