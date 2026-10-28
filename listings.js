@@ -1082,12 +1082,11 @@
       ${P.filling ? '<div class="ps-fill">건축물대장에서 빈 칸을 채우는 중…</div>' : ''}
       ${needK.length || other.length ? `<div class="ps-need${P.tried ? ' tried' : ''}"><h4>이것만 채워 주세요 <em>${needK.length + other.length}칸</em></h4>
         ${needK.map(k => `<div class="pf"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`).join('')}
-        ${other.length ? `<div class="pmeta">${esc(other.join(', '))}: 매물카드(전체 수정)에서 넣어 주세요</div>` : ''}</div>` : `<div class="ps-ok">필수 항목을 모두 채웠습니다</div>`}
+        ${other.length ? `<div class="pmeta">${esc(other.join(', '))}: 중개장부 입력창에서 넣어 주세요</div>` : ''}</div>` : `<div class="ps-ok">필수 항목을 모두 채웠습니다</div>`}
       <div class="ps-auto"><h4>채워진 항목 <small>틀린 것만 눌러서 고치기</small></h4>
         ${filled.map(k => P.open.has(k) ? `<div class="pf op"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`
           : `<button type="button" class="pa" data-po="${k}"><span>${PS_LB[k]}</span><b>${esc(psVal(x, k)) || '<i>비어 있음 · 선택</i>'}</b>${AUTOK.includes(k) && psVal(x, k) ? '<u>자동</u>' : ''}</button>`).join('')}</div>
       <details class="ps-opt"${a.desc ? ' open' : ''}><summary>광고 소개글 · 선택</summary><textarea class="pin2" data-pk="desc" rows="2" maxlength="300" placeholder="예) 남향 로열층, 올수리, 역 도보 5분">${esc(a.desc || '')}</textarea></details>
-      ${S.mode === 'danji' ? '' : '<div class="ps-opt2"><button type="button" class="lnk2" id="psCard">전체 수정(매물카드)</button></div>'}
       <div class="ps-go"><button type="button" class="btn main" id="psGo">${P.edit ? '저장하기' : isPub(x) ? '다시 게시 (30일)' : '리얼맵 지도에 올리기 (30일)'}</button>
         <p>${esc(S.bk ? S.bk.office : '')} 정보와 함께 표시됩니다${P.edit ? ' · 필수 항목이 비면 지도에서 내려갑니다' : ''}</p></div></div>`;
     const F = $('form');
