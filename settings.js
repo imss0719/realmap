@@ -6,7 +6,7 @@
 window.Sett = (() => {
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const MENU = [['excel', '엑셀', '불러오기·받기'], ['office', '우리 사무소', ''], ['plan', '요금제', ''], ['help', '문의하기', ''], ['acct', '계정·화면', '']];
+  const MENU = [['office', '우리 사무소', ''], ['excel', '엑셀', '불러오기·받기'], ['plan', '요금제', ''], ['help', '문의하기', ''], ['acct', '계정·화면', '']];
   const MENU_ST = [['office', '우리 사무소', ''], ['plan', '요금제', ''], ['help', '문의하기', ''], ['acct', '계정·화면', '']];   // 직원 화면
   const isStaff = () => !!(H && H.me() && H.me().staff);
   let H = null, el = null, sec = 'excel', log = null, cxs = null, cus = null, hp = null, sf = null; const off = new Set();   // sf: 직원 관리 자료   // off: 내려받기에서 체크를 푼 단지 · hp: 내 입금 신청·문의
@@ -30,7 +30,7 @@ window.Sett = (() => {
   const newRep = () => ((hp && hp.qnas) || []).filter(q => q.reply && q.rat > seen()).length;   // 아직 안 본 답변 수 (메뉴 빨간 숫자)
 
   const menu = () => isStaff() ? [...MENU_ST, ['mine', '내 소속', '']] : [...MENU, ['staff', '직원 관리', '']];
-  function mount(box, host) { H = host; el = box; try { sec = localStorage.getItem('rm.set') || 'excel'; } catch { /* 무시 */ } if (!menu().some(m => m[0] === sec)) sec = menu()[0][0]; draw(); if (!hp) loadHp().then(() => draw()); }
+  function mount(box, host) { H = host; el = box; try { sec = 'office'; /* 10/28 설정은 늘 '우리 사무소'부터 */ } catch { /* 무시 */ } if (!menu().some(m => m[0] === sec)) sec = menu()[0][0]; draw(); if (!hp) loadHp().then(() => draw()); }
   function refresh() { if (el && !el.contains(document.activeElement)) draw(); }   // 글을 쓰는 중이면 다시 그리지 않음
   function stale() { log = null; cxs = null; cus = null; if (el && !el.hidden) draw(); }   // 엑셀 불러오기 뒤 기록·숫자 새로
   function go(s, fresh) { if (fresh) { hp = null; sf = null; } if (!menu().some(m => m[0] === s)) s = menu()[0][0]; sec = s; try { localStorage.setItem('rm.set', s); } catch { /* 무시 */ } draw(); }

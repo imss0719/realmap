@@ -10,7 +10,7 @@ window.Danji = (() => {
   async function api(url, opt) {
     const r = await fetch(url, { credentials: 'same-origin', ...opt });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다.'); e.code = j.error; throw e; }
+    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다.'); e.code = j.error; e.data = j; throw e; }   // 10/28 e.data: 다른 직원이 먼저 고친 새 내용
     return j;
   }
   const post = (body) => api('/api/auth?action=cx', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -342,9 +342,10 @@ window.Danji = (() => {
       ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         const ck = allMode || (multiOn() ? S.multi.has(c.id) : !S.adding && c.id === S.cur);   // 10/28: 지금 표에 나오는 단지 = 체크 (모든 단지면 전부 · 하나면 그 단지)
-        return `<div class="tn${op ? ' on' : ''}${ck ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${ck ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
-        ${fo && C && C.dongs ? treeDongs(c, C) : ''}`; }).join('')}
-      <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>
+        return `<div class="tn${op ? ' on' : ''}${ck ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${ck ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button>${S.delMode ? `<button type="button" class="tdel" data-tdel="${c.id}">빼기</button>` : `<span class="ct">${n === '' ? '' : n}</span>`}</div>
+        ${fo && C && C.dongs && !S.delMode ? treeDongs(c, C) : ''}`; }).join('')}
+      <div class="tadr"><button type="button" class="tn add" data-tadd>＋ 단지 추가</button>${S.cx.items.length ? `<button type="button" class="tn add rm${S.delMode ? ' on' : ''}" data-tdm>${S.delMode ? '빼기 끝' : '− 단지 빼기'}</button>` : ''}</div>
+      ${S.delMode ? '<p class="tdn">뺄 단지 옆의 [빼기]를 누르세요</p>' : ''}
       ${(() => { const n = (S.host.items() || []).filter(x => ['아파트', '주상복합', '오피스텔'].includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트·오피 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
@@ -366,8 +367,17 @@ window.Danji = (() => {
     T.querySelectorAll('[data-tgs]').forEach(b => b.onchange = () => pickSub(cur, b.dataset.tgs));
     T.querySelectorAll('[data-tgo]').forEach(b => b.onclick = () => { S.gopen = S.gopen || new Set(); const k = cur.id + '|' + b.dataset.tgo; S.gopen.has(k) ? S.gopen.delete(k) : S.gopen.add(k); drawTree(); });
     T.querySelectorAll('[data-tdong]').forEach(b => b.onclick = () => { const C2 = S.C[S.cur]; if (!C2) return; C2.view = 'dong'; C2.cur = b.dataset.tdong; C2.picked = true; S.hist = null; drawComplex(cur); drawTree(); });
-    T.querySelector('[data-tadd]').onclick = () => { S.adding = true; S.results = null; draw(); };
+    T.querySelector('[data-tadd]').onclick = () => { S.delMode = false; S.adding = true; S.results = null; draw(); };
+    const dm = T.querySelector('[data-tdm]'); if (dm) dm.onclick = () => { S.delMode = !S.delMode; drawTree(); };
+    T.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { const c = S.cx.items.find(z => z.id === b.dataset.tdel); if (c) delCx(c); });
     const orph = T.querySelector('[data-torph]'); if (orph) orph.onclick = () => S.host.goAptList();   // 10/26 매물 화면의 '아파트 매물'로
+  }
+  // 10/28 단지 빼기: 확인창 한 번 (이름 입력 없음) · 왼쪽 목록 [단지 빼기]와 ⋯ 메뉴가 같이 씀
+  async function delCx(cx) {
+    const L = S.L[cx.id], n = L && L.units ? Object.keys(L.units).length : 0;
+    if (!confirm(`'${cx.name}' 단지를 목록에서 뺄까요?\n\n이 단지에 적어 둔 호 기록${n ? ` ${n}개` : ''}(연락처·상담 기록 포함)가 함께 지워지고, 되돌릴 수 없습니다.\n매물 카드로 등록한 매물은 그대로 남습니다.`)) return;
+    try { const j = await post({ op: 'del', id: cx.id }); delete S.L[cx.id]; delete S.C[cx.id]; S.multi.delete(cx.id); saveMulti(); S.cx = { items: j.items, memos: j.memos }; if (S.cur === cx.id) S.cur = S.cx.items.length >= 2 ? '__all' : (S.cx.items[0] || {}).id; S.delMode = false; toast(`'${cx.name}' 단지를 뺐습니다`); draw(); }
+    catch (e) { toast(e.message, 4000); }
   }
   function CI(c) {
     if (S.C[c.id] && S.C[c.id].dongs) return S.C[c.id];
@@ -407,7 +417,7 @@ window.Danji = (() => {
   function drawComplex(cx) {
     const C = S.C[cx.id];
     if (!C) { loadComplex(cx); $('dj_cxBody').innerHTML = '<div class="card loading">단지 정보를 불러오는 중…</div>'; return; }
-    if (S.lastCx !== cx.id) { S.lastCx = cx.id; C.view = 'all'; }   // 10/28 다른 단지로 오면 항상 그 단지의 전체 동부터
+    if (S.lastCx !== cx.id) { S.lastCx = cx.id; C.view = 'all'; TF().cf = null; }   // 10/28 다른 단지로 오면 항상 그 단지의 전체 동부터
     if (S.ed) { S.redraw = true; return; }                  // 입력 중에는 다시 그리지 않음 (끝나면 그림)
     if (!S.L[cx.id]) loadLedger(cx);
     const MM = mineMap(cx);
@@ -447,7 +457,7 @@ window.Danji = (() => {
     $('dj_more').onclick = e => { e.stopPropagation(); const m = $('dj_mmenu'); m.hidden = !m.hidden; if (!m.hidden) setTimeout(() => document.addEventListener('mousedown', function cl(ev) { if (!ev.target.closest('.mmw')) { m.hidden = true; document.removeEventListener('mousedown', cl); } }), 0); };
     $('dj_addPl').onclick = () => { S.adding = 'place'; S.results = null; draw(); };
     $('dj_ren').onclick = async () => { const nm = prompt('단지 이름', cx.name); if (!nm || nm === cx.name) return; try { const j = await post({ op: 'rename', id: cx.id, name: nm }); S.cx = { items: j.items, memos: j.memos }; delete S.C[cx.id]; draw(); } catch (e) { toast(e.message); } };
-    $('dj_delCx').onclick = async () => { const L = S.L[cx.id], n = L && L.units ? Object.keys(L.units).length : 0; const t = prompt(`${cx.name}을(를) 단지 장부에서 빼면 이 단지의 호실 장부${n ? ` ${n}호` : ''}(연락처·히스토리 포함)와 호별 메모가 모두 지워지고 되돌릴 수 없습니다.\n\n정말 빼려면 단지 이름을 그대로 입력해 주세요.`); if (t == null) return; if (t.trim() !== cx.name.trim()) return toast('단지 이름이 달라서 빼지 않았습니다', 3500); delete S.L[cx.id]; try { const j = await post({ op: 'del', id: cx.id }); S.cx = { items: j.items, memos: j.memos }; S.cur = (S.cx.items[0] || {}).id; draw(); } catch (e) { toast(e.message); } };
+    $('dj_delCx').onclick = () => delCx(cx);
     document.querySelectorAll('#dj_cxBody [data-tab]').forEach(b => b.onclick = () => { setTab(b.dataset.tab); if (b.dataset.tab === 'table') C.view = 'all'; S.hist = null; drawComplex(cx); });   // [표] = 단지 전체 동부터 (10/28)
     wireDongChips(cx);
     drawCxMap(cx, MM);
@@ -626,8 +636,8 @@ window.Danji = (() => {
   const hasInfo = x => !!(x.st.src || x.st.done || x.st.info || x.r);
   function sortRows(rows, how) {
     const dh = (a, b) => (a.cx && b.cx && a.cx !== b.cx ? natc(a.cx.name, b.cx.name) : 0) || natc(a.dn, b.dn) || (+a.ho - +b.ho) || natc(a.ho, b.ho);
+    const D0 = TF(), dr = D0.dir || 1;   // 10/28 먼저 정해야 함 (아래 '최근 기록' 정렬에서 씀)
     if (how === 'up') return rows.sort((a, b) => (!(a.r && a.r.up) - !(b.r && b.r.up)) || String((b.r && b.r.up) || '').localeCompare(String((a.r && a.r.up) || '')) * dr || dh(a, b));
-    const D0 = TF(), dr = D0.dir || 1;
     if (how === 'exp') return rows.sort((a, b) => (a.st.dl == null) - (b.st.dl == null) || ((a.st.dl ?? 0) - (b.st.dl ?? 0)) * dr || dh(a, b));
     if (how === 'fl') return rows.sort((a, b) => (Math.floor(+b.ho / 100) - Math.floor(+a.ho / 100)) || (+a.ho - +b.ho));
     // 칸 머리를 눌러 정렬 (10/26): 가격 · 평형 · 꼭 챙길 것 날짜 · 현 보증 — 값이 없는 줄은 항상 아래, dir = 1 오름 / -1 내림
@@ -809,7 +819,7 @@ window.Danji = (() => {
     vc.forEach((c, n) => { if (c.g) { if (!vc[n - 1] || vc[n - 1].g !== c.g) h1 += `<th class="grp" colspan="${vc.filter(z => z.g === c.g).length}">${c.g}</th>`; h2 += leaf(c, n); } else h1 += leaf(c, n, true); });
     const fr = vc.map(c => { const on = F.cf && F.cf[c.id]; return `<th class="fc c-${c.id}">${DCF[c.id] ? `<button type="button" class="cfs${on ? ' on' : ''}" data-cf="${c.id}" title="골라서 보기">${on ? esc(on.join(', ')) : ''}</button>` : ''}</th>`; }).join('');
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr><tr>${h2}</tr><tr class="frow">${fr}</tr></thead>
-      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${ALL ? '조건에 맞는 호가 없습니다. 표 머리 아래 ▾ 거르기를 풀어 보세요.' : C.view === 'all' && !fOn(F) ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '조건에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
+      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물장에 올린 물건이 없습니다. [관리장부]에서 호를 누른 뒤 [매물장으로]를 눌러 주세요.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       <p class="note">${LED() ? '줄을 누르면 오른쪽에 입력창이 열립니다 · 칸을 <b>두 번</b> 누르면 표에서 바로 고치기 · 나온 물건은 [매물장으로] · 바뀐 내용은 날짜·시간과 함께 기록에 남습니다' : '나온 물건(매물·보류)만 보입니다 · 줄을 누르면 오른쪽에 입력창 · 칸을 <b>두 번</b> 누르면 표에서 바로 고치기 · [관리장부로]를 누르면 여기서만 빠지고 관리장부에는 그대로 남습니다'} · ${rows.length}호</p>`;
     colWidths(box, ALL);
     stickHead(box);
@@ -832,6 +842,7 @@ window.Danji = (() => {
       if (!v && !(x.r && x.r.mk)) return toast('이 줄에는 표시가 없습니다');
       saveRow(c2, x, D => { D.mk = v; }); toast(v ? '표시했습니다' : '표시를 지웠습니다');
     });
+    if ($('dj_cfclr')) $('dj_cfclr').onclick = () => { F.cf = null; redo(); };
     if ($('dj_addHo')) $('dj_addHo').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) addHo(cx, e.target.value); };
     wireLedRows(cx, box, ro);   // 10/28 두 장부 모두: 한 번 누르면 오른쪽 입력창 · 두 번 누르면 표에서 바로 고치기
     box.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
@@ -948,7 +959,7 @@ window.Danji = (() => {
     const L = S.L[cx.id];
     if (L && L.units) {
       const cur = L.units[x.key], D = fieldsOfSum(cur);
-      if (!D.st.src && x.st.fromLs) D.st = { src: 'mine', k: [...x.st.k], hold: x.st.hold, office: '' };
+      if (!D.st.src && x.st.fromLs) { D.st = { src: 'mine', k: [...x.st.k], hold: x.st.hold, office: '' }; D.pr = { ...D.pr, ...Object.fromEntries(Object.entries(x.st.lsp || {}).filter(([k, v]) => v && !D.pr[k])) }; }   // 10/28 가격도 함께
       mutate(D);
       L.units[x.key] = { ...EMPTY_REC(), ...(cur || {}), ...D, hist: cur ? cur.hist : [], histN: cur ? cur.histN : 0 };
       redrawRow(cx, x.key); refreshDongs(cx);
@@ -957,7 +968,7 @@ window.Danji = (() => {
       const L = S.L[cx.id], cur = L && L.units ? L.units[x.key] : null;
       const D = fieldsOfSum(cur);
       // 장부에 상태가 없고 매물장 매물로만 보이던 호는, 처음 저장할 때 그 상태를 장부에 옮겨 적음
-      if (!D.st.src && x.st.fromLs) D.st = { src: 'mine', k: [...x.st.k], hold: x.st.hold, office: '' };
+      if (!D.st.src && x.st.fromLs) { D.st = { src: 'mine', k: [...x.st.k], hold: x.st.hold, office: '' }; D.pr = { ...D.pr, ...Object.fromEntries(Object.entries(x.st.lsp || {}).filter(([k, v]) => v && !D.pr[k])) }; }   // 10/28 가격도 함께
       mutate(D);
       try {
         const j = await hjPost({ id: cx.id, key: x.key, op: 'save', rec: D, up: (cur && cur.up) || '' });   // up: 다른 직원이 먼저 고쳤는지 확인용 (10/28)
@@ -965,7 +976,7 @@ window.Danji = (() => {
         if (j.lsDirty && S.host.refreshItems) S.host.refreshItems();   // 같은 호의 매물 카드도 바뀜
         putSum(cx, x.key, { ...EMPTY_REC(), ...j.rec });
         if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...j.rec }; drawPanel(); }
-      } catch (e) { if (e.code === 'conflict' && e.data && e.data.rec) putSum(cx, x.key, { ...EMPTY_REC(), ...e.data.rec }); toast(e.message, e.code === 'conflict' ? 6000 : 4000); }
+      } catch (e) { if (e.code === 'conflict' && e.data && e.data.rec) { putSum(cx, x.key, { ...EMPTY_REC(), ...e.data.rec }); if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...e.data.rec }; setTimeout(() => drawPanel(true), 0); } } toast(e.message, e.code === 'conflict' ? 6000 : 4000); }
       redrawRow(cx, x.key); refreshDongs(cx);
     });
   }
@@ -1596,7 +1607,7 @@ window.Danji = (() => {
       if (r.st && r.st.src) { o.src = r.st.src; o.k = r.st.k || []; o.hold = !!r.st.hold; o.office = r.st.office; o.pr = prShort(o.k[0], r.pr); return o; }
     }
     // 10/28: 관리장부에서 [관리장부로] 내린 호는 매물 카드가 '보류'로 남아 있어도 매물로 보지 않음 (장부에 기록이 있는 호)
-    if (live && !(r && live.status === 'hold')) { o.src = 'mine'; o.k = [KK[live.kind] || 'sale']; o.hold = live.status === 'hold'; o.fromLs = true; o.prn = (live.kind === 'sale' || live.kind === 'presale' ? live.price : live.deposit) || 0; o.pr = live.kind === 'sale' ? shortWon(live.price) : live.kind === 'jeonse' ? shortWon(live.deposit) : live.kind === 'wolse' ? `${shortWon(live.deposit)}/${live.rent || ''}` : shortWon(live.pr); }
+    if (live && !(r && live.status === 'hold')) { o.src = 'mine'; o.k = [KK[live.kind] || 'sale']; o.hold = live.status === 'hold'; o.fromLs = true; o.lsp = { sale: live.kind === 'sale' ? live.price || 0 : 0, jeonse: live.kind === 'jeonse' ? live.deposit || 0 : 0, wd: live.kind === 'wolse' ? live.deposit || 0 : 0, wr: live.kind === 'wolse' ? live.rent || 0 : 0 }; o.prn = (live.kind === 'sale' || live.kind === 'presale' ? live.price : live.deposit) || 0; o.pr = live.kind === 'sale' ? shortWon(live.price) : live.kind === 'jeonse' ? shortWon(live.deposit) : live.kind === 'wolse' ? `${shortWon(live.deposit)}/${live.rent || ''}` : shortWon(live.pr); }
     else if (mine.length && !r) o.done = false;
     return o;
   }

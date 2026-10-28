@@ -95,7 +95,7 @@
     if (window.Alarm) Alarm.mount({ tbase, goCust, help: () => api('/api/auth?action=help'), goSet: s => { setMode('set'); if (window.Sett) Sett.go(s, true); }, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
       goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
-    let mode = qs.get('mode'); if (!mode) { try { mode = localStorage.getItem('rm.lsmode'); } catch { /* 무시 */ } }
+    let mode = qs.get('mode') || 'danji';   // 10/28 들어올 때는 늘 아파트·오피부터 (마지막 화면 기억 안 함 · 설정·고객관리로 열려 당황하는 일 없게)
     setMode(cxadd ? 'danji' : mode);
     // 리얼맵 지도에서 '단지에 담기'로 넘어온 경우: ?cxadd=PNU
     if (cxadd && /^\d{19}$/.test(cxadd)) { history.replaceState(null, '', '/listings.html'); window.Danji && Danji.add(cxadd); }
