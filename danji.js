@@ -118,8 +118,9 @@ window.Danji = (() => {
     // 10/26: 단지 고르기는 왼쪽 목록 + 머리의 드롭메뉴로. 위쪽 단지 버튼 줄은 단지 추가 화면에서만
     const lay = inner => `<div class="djlay${S.cx.items.length ? ' hastree' : ''}"><aside class="djtree" id="dj_tree"></aside><div class="djmain">${S.adding || !S.cx.items.length ? chips : ''}${inner}</div></div>`;
     if (S.adding || !S.cx.items.length) {
-      W.innerHTML = lay(addBox(S.adding === 'place' ? S.cur : null) + (S.cx.items.length ? '' : `<div class="empty"><b>자주 보는 단지를 담아 보세요</b>동별로 층과 라인을 펼쳐 놓고, 내 매물·호별 메모·층별 실거래를 한 장에서 봅니다.</div>`));
-      wireChips(); drawTree(); const q = $('dj_aq'); q.onkeydown = e => { if (e.key === 'Enter') search(q.value.trim()); }; q.focus(); drawAdd(); return;
+      W.innerHTML = lay(addBox(S.adding === 'place' ? S.cur : null) + (S.cx.items.length ? '' : `<div class="empty"><b>자주 보는 단지를 담아 보세요</b>동별로 층과 라인을 펼쳐 놓고, 내 매물·호별 메모·층별 실거래를 한 장에서 봅니다.${otherHint()}</div>`));
+      wireChips(); drawTree(); const q = $('dj_aq'); q.onkeydown = e => { if (e.key === 'Enter') search(q.value.trim()); }; q.focus(); drawAdd();
+      W.querySelectorAll('[data-ocat]').forEach(b => b.onclick = () => S.host.goCat && S.host.goCat(b.dataset.ocat)); return;
     }
     if (S.cur === '__all' && S.cx.items.length >= 2) { W.innerHTML = lay(`<div id="dj_cxBody"></div>`); wireChips(); drawTree(); return drawAll(); }
     const cx = S.cx.items.find(c => c.id === S.cur) || S.cx.items[0]; S.cur = cx.id;
@@ -332,6 +333,12 @@ window.Danji = (() => {
   // 10/26 단지 순서 = 매물(내+타) 많은 순 · 아직 못 불러온 단지는 뒤(등록 순)
   const cxN = c => { const L = S.L[c.id]; if (!L || !L.units) return -1; const K = kpi(rowsAll(c, CI(c), mineMap(c))); return K.m + K.o; };
   const cxSorted = () => S.cx.items.map((c, i) => ({ c, i, n: cxN(c) })).sort((a, b) => b.n - a.n || a.i - b.i).map(z => z.c);
+  // 10/29 단지가 없는데 다른 종류에 매물이 있으면 빈 화면 아래에 그 탭으로 가는 길 (예: 상가 매물만 올린 경우)
+  const otherHint = () => {
+    const H = S.host, n = H && H.counts ? H.counts() : null; if (!n) return '';
+    const L = Object.entries(n).filter(([, v]) => v > 0); if (!L.length) return '';
+    return `<p class="eoth">진행 중인 매물: ${L.map(([k, v]) => `<button type="button" data-ocat="${k}">${esc(H.catName ? H.catName(k) : k)} ${v} ▸</button>`).join(' ')}</p>`;
+  };
   function drawTree() {
     const T = $('dj_tree'); if (!T) return;
     const cnt = c => { if (!S.L[c.id]) { loadLedger(c); return ''; } const n = cxN(c); return n < 0 ? '' : n; };   // 숫자 = 매물(내+타)

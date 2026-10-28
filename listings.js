@@ -128,7 +128,7 @@
   }
   // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
   const DJ_HOST = {
-    items: () => S.items, goAptList: () => setMode('list', 'apt'), xlGate: fn => xlGate(fn),
+    items: () => S.items, goAptList: () => setMode('list', 'apt'), counts: () => (window.Board && S.bdInit ? Board.counts() : null), catName: k => (window.Board ? Board.CATNAME[k] : k), goCat: k => setMode('list', k), xlGate: fn => xlGate(fn),
     openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
     refreshItems: async () => { try { const j = await api('/api/auth?action=listings'); S.items = j.items || S.items; draw(); } catch { /* 다음에 */ } },   // 10/28 관리장부에서 가격을 바꿔 매물 카드가 같이 바뀐 경우
@@ -158,8 +158,8 @@
     document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu || st || ad); document.body.classList.toggle('admode', ad); document.body.classList.toggle('stmode', st);   // 설정은 고객관리처럼 종류 줄 없이
     if (!lv) document.body.classList.remove('lvmap');
     $('dj').hidden = !dj; $('lv').hidden = !lv; $('cu').hidden = !cu; $('st').hidden = !st; $('ad').hidden = !ad; $('map').style.visibility = dj || cu || st || ad || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
+    if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }   // 10/29 먼저 init — 안 그러면 위 탭 숫자(매물 n · 종류별 n)가 처음에 비어 보임
     syncTabs();
-    if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
     if (ad) drawAds();
     else if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
     else if (st && window.Sett) { if (!S.stMounted) { S.stMounted = true; Sett.mount($('st'), setHost()); } else Sett.refresh(); }
@@ -1461,6 +1461,9 @@
     toast('엑셀 파일로 저장했습니다');
   }
 
+  // 10/29 날짜 칸(만기일 등): 누르면 바로 달력이 오늘 날짜로 열리게 · 연도는 1990~2099만 (빈 칸에서 0001년부터 시작하던 것)
+  document.addEventListener('focusin', e => { const t = e.target; if (t && t.matches && t.matches('input[type=date]')) { if (!t.min) t.min = '1990-01-01'; if (!t.max) t.max = '2099-12-31'; } });
+  document.addEventListener('click', e => { const t = e.target; if (t && t.matches && t.matches('input[type=date]:not([disabled])') && t.showPicker) { try { t.showPicker(); } catch { /* 지원 안 하는 브라우저 */ } } });
   init();
 })();
 
