@@ -37,7 +37,7 @@ const okKey = k => /^(\d{19}|\*)\|[^|<>]{1,16}\|[^|<>]{1,12}$/.test(k);
 
 const KS = ['sale', 'jeonse', 'wolse'];
 const KN = { sale: '매매', jeonse: '전세', wolse: '월세' };
-const LV = { owner: '주인 거주', tenant: '임차인 거주', empty: '공실' };
+const LV = { owner: '입주', tenant: '임차', empty: '공실' };
 const str = (v, n) => String(v ?? '').replace(/[<>]/g, '').trim().slice(0, n);
 const man = v => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 && n < 1e8 ? n : 0; };   // 만원
 const day = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
