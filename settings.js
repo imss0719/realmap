@@ -112,7 +112,7 @@ window.Sett = (() => {
     } catch (er) { H.toast(er.message || '되돌리지 못했습니다', 4000); }
   }
   // 아파트 단지 장부: 적어 둔 호만 (동·호·상태·가격·현상태·만기·연락처·메모)
-  const KN = { sale: '매매', jeonse: '전세', wolse: '월세' }, LIVE = { owner: '주인 거주', tenant: '임차인 거주', empty: '공실' };
+  const KN = { sale: '매매', jeonse: '전세', wolse: '월세' }, LIVE = { owner: '입주', tenant: '임차', empty: '공실' };
   async function dlLedger() {
     const ids = [...document.querySelectorAll('#stCx [data-cx]:checked')].map(i => i.dataset.cx); if (!ids.length) return H.toast('받을 단지를 골라 주세요');
     const pick = cxs.filter(c => ids.includes(c.id)), data = [];

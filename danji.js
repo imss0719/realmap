@@ -633,7 +633,7 @@ window.Danji = (() => {
   const VC = () => S.cur === '__all' ? COLS : COLS.filter(c => !c.all);
   const SORTC = { cxn: 'dh', dn: 'dh', ho: 'dh', ar: 'py', ps: 'ps', pj: 'pj', pwd: 'pwd', gap: 'gap', imp: 'imp', cd: 'cur', exp: 'exp', h: 'up' };   // 칸 머리 정렬
   const NAV = ['ar', 'ty', 'dir', 'ps', 'pj', 'pwd', 'pwr', 'imp', 'live', 'cd', 'cr', 'exp', 'own', 'ten', 'opt', 'note'];   // Tab 순서 (부동산명·거래는 눌러서)
-  const LIVE = { owner: '주인', tenant: '임차인', empty: '공실' };
+  const LIVE = { owner: '입주', tenant: '임차', empty: '공실' };   // 10/28 두 글자로 통일
   const stHtml = s => {
     if (s.done) { const d = s.r && s.r.deal; return `<span class="p done">${d ? KN[d.k] + ' ' : ''}계약됨 ✓</span>${d && d.by === 'other' ? '<small>타사</small>' : ''}`; }
     if (!s.src) return '<span class="mut">-</span>';
@@ -670,7 +670,7 @@ window.Danji = (() => {
   const impSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 7 && dl >= -3; };
   // 칸에 쓰는 작은 도우미 (10/26)
   const cw = m => !m ? '' : m >= 10000 ? shortWon(m) : Math.round(m).toLocaleString();   // 1억 이상 '8.3억', 그 아래 '5,000'
-  const liveTxt = x => { const r = x.r || {}; return r.live === 'owner' ? '주인' : r.live === 'empty' ? '공실' : r.live === 'tenant' ? (r.cr ? '월세' : r.cd ? '전세' : '임차인') : ''; };
+  const liveTxt = x => { const r = x.r || {}; return r.live === 'owner' ? '입주' : r.live === 'empty' ? '공실' : r.live === 'tenant' ? (r.cr ? '월세' : r.cd ? '전세' : '임차인') : ''; };
   const ofTxt = s => s.done ? '계약됨' : !s.src ? '' : s.src === 'mine' ? '내 매물' : (s.office || '타부동산');
   const isTen = t => /세입|임차/.test((t && t.l) || '');
   const plainL = l => /^(소유자|소유주|세입자|임차인|연락처)?$/.test(String(l || '').trim());
@@ -976,7 +976,7 @@ window.Danji = (() => {
     if (col.ed === 'tel') return telPop(cx, x, td, c === 'ten');
     const r = x.r || {};
     let el;
-    if (col.ed === 'live') el = `<select class="ce">${[['', '-'], ['owner', '주인 거주'], ['tenant', '임차인'], ['empty', '공실']].map(([v, t]) => `<option value="${v}"${(r.live || '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+    if (col.ed === 'live') el = `<select class="ce">${[['', '-'], ['owner', '입주'], ['tenant', '임차'], ['empty', '공실']].map(([v, t]) => `<option value="${v}"${(r.live || '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
     else if (col.ed === 'dir') el = `<select class="ce"><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select>`;
     else if (col.ed === 'area') el = `<input class="ce" value="${x.r && x.r.ar ? x.r.ar : ''}" placeholder="${x.a ? Math.round(x.a) + '㎡ (자동)' : '전용㎡ (예: 84)'}" title="전용면적을 ㎡로 적어 주세요 (평으로 적으면 전용 평으로 계산)" inputmode="decimal" maxlength="10">`;
     else if (col.ed === 'py' || col.ed === 'ty') { const lt = x.lt || {}, sp = supPy(x); el = col.ed === 'py' ? `<input class="ce" value="${lt.py || ''}" placeholder="${sp ? sp.v + '평' : '예: 34'}" inputmode="numeric" maxlength="3" title="공급평 — 같은 동·라인 모든 호에 들어갑니다">` : `<input class="ce" value="${esc(lt.t || '')}" placeholder="예: 84B" maxlength="8" title="타입 — 같은 동·라인 모든 호에 들어갑니다">`; }

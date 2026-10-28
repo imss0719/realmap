@@ -498,7 +498,7 @@ window.XImport = (() => {
     const C = S.conv = ldConvert(), all = [...C.ok, ...C.warn];
     const kinds = x => x.rec.st.k.map(k => ({ sale: '매매', jeonse: '전세', wolse: '월세' }[k])).join('·') || '-';
     const prs = x => { const p = x.rec.pr; return [p.sale && p.sale.toLocaleString(), p.jeonse && p.jeonse.toLocaleString(), (p.wd || p.wr) && `${p.wd || 0}/${p.wr || 0}`].filter(Boolean).join(' · ') || '-'; };
-    const now = x => { const r = x.rec; return [r.live === 'tenant' ? '임차' : r.live === 'owner' ? '주인' : r.live === 'empty' ? '공실' : '', (r.cd || r.cr) && `${(r.cd || 0).toLocaleString()}${r.cr ? '/' + r.cr : ''}`, r.exp && '만기 ' + r.exp.slice(2).replace(/-/g, '.'), r.moveIn, r.imp].filter(Boolean).join(' · ') || '-'; };
+    const now = x => { const r = x.rec; return [r.live === 'tenant' ? '임차' : r.live === 'owner' ? '입주' : r.live === 'empty' ? '공실' : '', (r.cd || r.cr) && `${(r.cd || 0).toLocaleString()}${r.cr ? '/' + r.cr : ''}`, r.exp && '만기 ' + r.exp.slice(2).replace(/-/g, '.'), r.moveIn, r.imp].filter(Boolean).join(' · ') || '-'; };
     const gl = S.groups.map(G => `<tr><td>${esc(G.q)}</td><td>${esc([...G.names.keys()].join(', ') || '-')}</td><td>${G.rows.length}줄</td><td>${G.err ? `<span class="tg r">${esc(G.err)}</span>` : G.cx ? `<span class="tg g">${esc(G.cx.name)}</span>` : G.add ? `<span class="tg y">새로 담음 · ${esc(G.name)}</span>` : '<span class="tg r">단지 한도 참</span>'}</td></tr>`).join('');
     const el = shell(`<div class="xi-bd"><p class="xi-warn"><b>아파트 장부(동·호별) 파일</b>입니다. 매물장이 아니라 <b>[아파트] 단지 장부</b>의 각 호에 넣습니다.</p>
       <table class="xi-t"><tr><th>엑셀 주소</th><th>물건명</th><th></th><th>넣을 단지</th></tr>${gl}</table>
@@ -506,7 +506,7 @@ window.XImport = (() => {
       <p class="xi-m">건너뜀 = 이미 장부에 적힌 호 ${C.skip.have} · 동·호 없음 ${C.skip.empty} · 주소 빈 줄 ${C.skip.noaddr}${C.skip.noaddr ? ' <b class="xi-r">(주소를 채워서 다시 올리면 들어갑니다)</b>' : ''} · 부동산명이 비었거나 우리 사무소면 <b>내 매물</b>, 다른 이름이면 <b>타부동산</b></p>
       ${all.length ? `<table class="xi-t"><tr><th>엑셀 줄</th><th>동·호</th><th>상태</th><th>거래</th><th>의뢰가격</th><th>현상태</th><th></th></tr>${all.slice(0, 8).map(x => `<tr><td>${x.r._n}</td><td>${esc(x.dn)}-${esc(x.ho)}</td><td>${x.rec.st.src ? DS[x.rec.st.src] + (x.rec.st.office ? `(${esc(x.rec.st.office)})` : '') : '-'}</td><td>${kinds(x)}</td><td>${esc(prs(x))}</td><td>${esc(now(x))}</td><td>${x.warn.length ? `<span class="tg y">${esc(x.warn.join(' · '))}</span>` : '<span class="tg g">OK</span>'}</td></tr>`).join('')}</table>` : ''}
       ${C.fail.length ? `<p class="xi-m">못 넣는 줄: ${C.fail.slice(0, 3).map(f => `${f.r._n}줄 ${esc(f.err)}`).join(' · ')}${C.fail.length > 3 ? ` 외 ${C.fail.length - 3}줄` : ''}</p>` : ''}
-      <p class="xi-m">현상태: 전완·월완 → 임차인 거주(현 보증금·차임) · 12퇴 → 임차인 거주 + 꼭 챙길 것 '12월 퇴거 예정' · 입주 → 입주 가능 · ♥ → 메모 · 물건내역 → 옵션·수리 · 상담내역 → 메모(날짜가 붙은 글은 그 날짜의 상담 기록) · 타입·방향 → 라인 정보</p></div>
+      <p class="xi-m">현상태: 전완·월완 → 임차(현 보증금·차임) · 12퇴 → 임차 + 꼭 챙길 것 '12월 퇴거 예정' · 입주 → 입주 가능 · ♥ → 메모 · 물건내역 → 옵션·수리 · 상담내역 → 메모(날짜가 붙은 글은 그 날짜의 상담 기록) · 타입·방향 → 라인 정보</p></div>
       <div class="xi-f"><span></span><button type="button" class="xi-b" id="xiBack">‹ 다른 파일</button><button type="button" class="xi-b go" id="xiGo" ${all.length ? '' : 'disabled'}>${all.length}호 넣기</button></div>`);
     $('xiBack').onclick = () => { S.file = ''; S.ld = false; step1(); };
     $('xiGo').onclick = () => ldRun(all);
