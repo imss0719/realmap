@@ -70,6 +70,7 @@ export async function startTrial(uid) {
 const cxOpen = (items, P) => new Set([...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, P.cx || 0).map(x => x.id));
 const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 20곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
 export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op, gift: !!P.gift, seats: seatsOf(P) });
+const SPECS = ['아파트', '오피스텔', '빌라·주택', '상가·사무실', '건물', '토지', '공장·창고', '재개발·재건축', '분양권'];
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {
   b = b || {};
@@ -78,6 +79,9 @@ function cleanBk(b) {
   if (!bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel || !bk.mobile) return [null, '여섯 칸을 모두 입력해 주세요.'];
   if (!/^01\d-?\d{3,4}-?\d{4}$/.test(bk.mobile)) return [null, '휴대폰 번호를 확인해 주세요. (문자 문의를 받을 번호)'];
   if (!/\d{4,}/.test(bk.regno)) return [null, '중개사무소 등록번호를 확인해 주세요. (예: 11440-2025-00123)'];
+  // 10/28 중개사 소개 페이지(선택): 한 줄 소개 · 전문 분야(정해진 것 중에서) · 활동 동네
+  bk.intro = str(b.intro, 120); bk.area = str(b.area, 40);
+  bk.spec = (Array.isArray(b.spec) ? b.spec : []).map(v => String(v)).filter(v => SPECS.includes(v)).slice(0, 6);
   return [bk, ''];
 }
 
@@ -718,6 +722,21 @@ export default async function (req, res) {
       // 게시 기간이 끝나고 30일 더 지난 매물은 공개 목록에서 지웁니다 (매물장에서 '연장'하면 다시 올라감)
       if (old.length) try { await redis(['HDEL', PUB_KEY, ...old]); } catch { /* 다음에 */ }
       return send(res, 200, { ok: true, items }, 60);
+    }
+
+    // 10/28 중개사 소개 페이지 (누구나 볼 수 있음) — GET ?action=office&r=등록번호 숫자 · 등록번호가 확인된 사무소만 · 1분 캐시
+    //   광고에 이미 나가는 정보(공인중개사법 표시 항목·대표 사진)와 소개 칸, 지금 지도에 게시 중인 매물만 돌려줌
+    if (action === 'office') {
+      const d = digitsOf(req.query.r);
+      if (d.length < 10 || !R_URL || !R_TOKEN) return fail(res, 404, 'none', '중개사무소를 찾지 못했습니다.');
+      const uid = await redis(['HGET', 'realmap:regno', d]).catch(() => null);
+      const bk = uid ? await loadBk(uid) : null;
+      if (!bk || !bk.verified || digitsOf(bk.regno) !== d) return fail(res, 404, 'none', '중개사무소를 찾지 못했습니다.');
+      const raw = (await redis(['HGETALL', PUB_KEY])) || [], now = new Date().toISOString(), items = [];
+      for (let i = 0; i < raw.length; i += 2) { if (!String(raw[i]).startsWith(`${uid}:`)) continue; try { const v = JSON.parse(raw[i + 1]); if (v.exp > now) items.push(v); } catch { /* 건너뜀 */ } }
+      items.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+      const o = { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', photo: bk.photo || '', intro: bk.intro || '', spec: bk.spec || [], area: bk.area || '' };
+      return send(res, 200, { ok: true, office: o, items }, 60);
     }
 
     // 등록번호로 사무소 명칭·소재지 미리 채우기 (가입 화면) — GET ?action=bkfind&regno=
