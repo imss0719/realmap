@@ -979,7 +979,9 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 @media(min-width:1101px){.dj #dj_wrap.rpon .djmain{margin-right:404px}}
 @media(min-width:1101px){body:has(#dj_rp) .altoasts{right:420px}}   /* 입력창이 열려 있으면 알림 상자는 그 왼쪽에 */
 .dj .rpanel{position:fixed;right:14px;top:calc((var(--toph,60px) + 12px) / var(--fz,1));bottom:12px;width:392px;overflow:auto;z-index:60;background:#fff;border:1px solid #DDE3EA;border-radius:12px;box-shadow:0 12px 32px rgba(16,32,48,.18);font-size:13px}
-.dj .rp-h{position:sticky;top:0;z-index:2;background:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #EEF1F5}.dj .rp-h b{font-size:16px}.dj .rp-h b small{font-size:12px;color:var(--muted);font-weight:700}
+.dj .rp-h{position:sticky;top:0;z-index:2;background:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #EEF1F5}.dj .rp-h b{font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dj .rp-h .rptg{flex:none;white-space:nowrap}.dj .rp-h b small{font-size:12px;color:var(--muted);font-weight:700}
+.dj .rpty{flex:none;border:1px solid #C9D2DC;background:#fff;border-radius:8px;padding:1px 8px;font:inherit;font-size:12px;font-weight:700;color:var(--sale);cursor:pointer;line-height:19px}.dj .rpty:hover{border-color:var(--sale)}
+.dj .rptyl{padding:10px 14px;background:#F7F9FB;border-bottom:1px solid var(--line)}.dj .rptyl small{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.dj .rptyl div{display:flex;flex-wrap:wrap;gap:5px}.dj .rptyl button{border:1px solid #D5DCE3;background:#fff;border-radius:8px;padding:5px 10px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}.dj .rptyl button[aria-pressed=true]{background:var(--navy);color:#fff;border-color:var(--navy)}
 .dj .rptg{font-size:11.5px;font-weight:800;background:#F1F3F5;color:#5E6A77;border-radius:8px;padding:0 7px;line-height:19px}
 .dj .rp-x{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer}
 .dj .rpwarn{margin:8px 12px;background:#FDECEC;color:#C92A2A;border-radius:6px;padding:6px 10px;font-size:12.5px}

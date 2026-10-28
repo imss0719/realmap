@@ -576,7 +576,11 @@ window.Board = (() => {
   }
   function typePop(x, td) {
     const p = showPop(td, `<div class="pl grid">${X.PTYPES.map(t => `<button type="button" data-t="${t}" class="${x.ptype === t ? 'on' : ''}">${t}</button>`).join('')}</div>`);
-    p.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { hidePop(); const t = b.dataset.t; if (t === x.ptype) return; const to = catOf({ ...x, ptype: t }); const b0 = tb(x); saveItem(x.id, it => { it.ptype = t; if (/^재(개발|건축)$/.test(t) && !(it.ad || {}).form) it.ad = { ...(it.ad || {}), form: t === '재건축' ? '아파트' : X.formOf(b0) }; }, to !== B.cat ? `${CATNAME[to]} 탭으로 옮겼습니다` : ''); });
+    p.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { hidePop(); setPType(x, b.dataset.t); });
+  }
+  function setPType(x, t) {
+    if (t === x.ptype) return; const to = catOf({ ...x, ptype: t }); const b0 = tb(x); saveItem(x.id, it => { it.ptype = t; if (/^재(개발|건축)$/.test(t) && !(it.ad || {}).form) it.ad = { ...(it.ad || {}), form: t === '재건축' ? '아파트' : X.formOf(b0) }; }, to !== B.cat ? `${CATNAME[to]} 탭으로 옮겼습니다` : '');
+    if (to !== B.cat) { B.cat = to; B.tr = null; if (H.onCat) H.onCat(B.cat); keep(); refresh(); }   // 10/29 실제로 그 탭으로 옮겨 보여 줌(입력창은 그대로)
   }
   // 재개발·재건축 구분 · 단계 · 물건 형태 · 분양권 중도금 — 골라서 바로 저장 (10/26)
   function choicePop(x, td, c) {
@@ -690,7 +694,8 @@ window.Board = (() => {
     body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="통화 내용 남기기 · Enter" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
     body += L.length ? `<ul class="rph">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `<span>${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button></span>`}</li>`; }).join('')}</ul>` : '';
     const cu = H.custFor && (H.custFor(x) || []).length ? custBox(x) : '';   // 맞는 고객이 있을 때만
-    W.innerHTML = `<aside class="rpanel" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
+    W.innerHTML = `<aside class="rpanel" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
+      ${RO ? '' : `<div class="rptyl" id="bdrp_tyl" hidden><small>바꿀 유형을 고르세요 · 종류가 달라지면 그 탭으로 옮겨집니다</small><div>${X.PTYPES.map(t => `<button type="button" data-rty="${t}" aria-pressed="${x.ptype === t}">${t}</button>`).join('')}</div></div>`}
       ${RO ? '<p class="rpwarn">요금제 한도를 넘은 매물이라 보기만 됩니다</p>' : ''}
       <div class="rpbody">${body}${cu ? `<div class="rps bdcu">${cu}</div>` : ''}</div>
       <div class="rp-f"><button type="button" class="rpb" data-a="brief">브리핑</button><a class="rpb" href="/?pnu=${esc(x.pnu || P0.pnu)}" target="_blank" rel="noopener">필지 정보 ↗</a><span></span>${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpb del" data-a="del">삭제</button>'}<button type="button" class="rpb y" id="bdrp_close">저장</button></div></aside>`;
@@ -698,6 +703,8 @@ window.Board = (() => {
   }
   function wirePanel(W, x, RO) {
     const id = x.id, P = $('bd_rp');
+    if ($('bdrp_ty')) $('bdrp_ty').onclick = e => { e.stopPropagation(); const L = $('bdrp_tyl'); L.hidden = !L.hidden; };   // 10/29 칸 바로 고치기를 없앤 뒤 유형을 바꿀 곳이 없어 입력창 머리에 둠
+    W.querySelectorAll('[data-rty]').forEach(b => b.onclick = () => { $('bdrp_tyl').hidden = true; setPType(x, b.dataset.rty); });
     $('bdrp_x').onclick = closePanel;
     // 10/29 [저장]: 칸은 고칠 때마다 저장되지만, 쓰던 칸을 마저 저장하고 '저장했습니다'를 보여 준 뒤 닫음
     { let done = false; const sv = e => { if (e && e.type === 'pointerdown') e.preventDefault(); if (done) return; done = true; const a = document.activeElement; if (a && P.contains(a) && a.blur) a.blur(); setTimeout(() => { closePanel(); H.toast('저장했습니다'); }, 150); }; $('bdrp_close').onpointerdown = sv; $('bdrp_close').onclick = sv; }

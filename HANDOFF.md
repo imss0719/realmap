@@ -610,3 +610,6 @@
   - 입력창 '맞는 고객' 줄이 오른쪽으로 넘치던 것(.bd .cmx grid minmax(0,1fr)).
   - pro-guide.html 전면 갱신(입력창 방식·내 광고·소개 페이지·동호 고르기 반영, 13장) + 새 그림 guide/pro-list·add·panel·redev·danji·cust·ads·pub·office.webp (예전 pro-detail.webp는 안 씀). 영상은 10월 초 화면이라는 안내 문구 추가.
   - 확인된 빈틈(만들지 않음, 선배 결정 필요): 5단계에서 칸 바로 고치기를 없앤 뒤 등록한 매물의 '유형'(상가→사무실 등)을 바꿀 곳이 없음.
+- 10/29 아침 홍보 페이지 '이용자 추이' (promo.html #grow · api/auth.js action=growth): 최근 26주 주간 방문자(rm:st:<날짜>:uv PFCOUNT 7일씩, 어제까지)를 가장 많은 주=1 비율로만 공개 · rm:growth 6시간 캐시 · up = 4주 이상 + 마지막 주가 첫 주의 1.3배 이상. 화면은 promo.html GROW_ON=false라 지금은 /promo.html?g=1 (운영자 미리보기)에서만 보임 → 선배가 실제 모양 보고 결정하면 GROW_ON=true.
+- 10/29 아침 입력창 머리 [유형 바꾸기 ▾] (board.js #bdrp_ty → #bdrp_tyl 목록 · setPType = 예전 typePop 저장 로직): 종류가 달라지면 그 탭으로 실제로 옮기고 입력창은 그대로 · 기록 '유형 A → B' 자동. 머리 제목은 길면 말줄임.
+- 이용자 추이 그래프(promo.html · auth.js growth)는 선배 보류 — 두 파일 아직 안 올림.
