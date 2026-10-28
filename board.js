@@ -693,12 +693,14 @@ window.Board = (() => {
     W.innerHTML = `<aside class="rpanel" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
       ${RO ? '<p class="rpwarn">요금제 한도를 넘은 매물이라 보기만 됩니다</p>' : ''}
       <div class="rpbody">${body}${cu ? `<div class="rps bdcu">${cu}</div>` : ''}</div>
-      <div class="rp-f"><button type="button" class="rpb" data-a="brief">브리핑</button><a class="rpb" href="/?pnu=${esc(x.pnu || P0.pnu)}" target="_blank" rel="noopener">필지 정보 ↗</a><span></span>${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpb del" data-a="del">삭제</button>'}<button type="button" class="rpb" id="bdrp_close">닫기</button></div></aside>`;
+      <div class="rp-f"><button type="button" class="rpb" data-a="brief">브리핑</button><a class="rpb" href="/?pnu=${esc(x.pnu || P0.pnu)}" target="_blank" rel="noopener">필지 정보 ↗</a><span></span>${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpb del" data-a="del">삭제</button>'}<button type="button" class="rpb y" id="bdrp_close">저장</button></div></aside>`;
     wirePanel(W, x, RO);
   }
   function wirePanel(W, x, RO) {
     const id = x.id, P = $('bd_rp');
-    $('bdrp_x').onclick = closePanel; $('bdrp_close').onclick = closePanel;
+    $('bdrp_x').onclick = closePanel;
+    // 10/29 [저장]: 칸은 고칠 때마다 저장되지만, 쓰던 칸을 마저 저장하고 '저장했습니다'를 보여 준 뒤 닫음
+    { let done = false; const sv = e => { if (e && e.type === 'pointerdown') e.preventDefault(); if (done) return; done = true; const a = document.activeElement; if (a && P.contains(a) && a.blur) a.blur(); setTimeout(() => { closePanel(); H.toast('저장했습니다'); }, 150); }; $('bdrp_close').onpointerdown = sv; $('bdrp_close').onclick = sv; }
     P.onkeydown = e => { if (e.key === 'Escape' && !e.target.closest('.rph textarea')) { e.preventDefault(); closePanel(); } };
     const m = $('bdrp_more'); if (m) m.ontoggle = () => { B.pkMore = m.open; };
     P.querySelectorAll('a[data-call]').forEach(a => a.onclick = () => callLog(a.dataset.call));

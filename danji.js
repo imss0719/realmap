@@ -1367,14 +1367,15 @@ window.Danji = (() => {
       ${row('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 남기기 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
       ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && i === 0 && canUndo && !ro ? '<button type="button" class="un" data-rpundo>되돌리기</button>' : ''}${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : ''}
       </div>
-      <div class="rp-f">${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체에서 보기</button>'}<button type="button" class="rpb" id="rp_close">닫기</button></div>`;
+      <div class="rp-f">${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체에서 보기</button>'}<button type="button" class="rpb y" id="rp_close">저장</button></div>`;
     { const m = $('rp_more'); if (m) m.ontoggle = () => { S.pkMore = m.open; }; }
     if (!LED()) { const mk = P.querySelector('.rpr.mk'), first = P.querySelector('.rpbody .rpr'); if (mk && first && mk !== first) first.parentNode.insertBefore(mk, first); }   // 매물장에서는 '매물' 칸이 맨 위
     wirePanel(x, P, ro);
   }
   function wirePanel(x, P, ro) {
     const cx = x.cx, r = x.r || {};
-    $('rp_x').onclick = closePanel; $('rp_close').onclick = closePanel;
+    $('rp_x').onclick = closePanel;
+    { let done = false; const sv = e => { if (e && e.type === 'pointerdown') e.preventDefault(); if (done) return; done = true; const a = document.activeElement; if (a && P.contains(a) && a.blur) a.blur(); setTimeout(() => { closePanel(); toast('저장했습니다'); }, 150); }; $('rp_close').onpointerdown = sv; $('rp_close').onclick = sv; }   /* 누르는 순간 쓰던 칸이 저장되며 창이 다시 그려져도 닫히게 (pointerdown) */   // 10/29 [닫기] → [저장] (칸은 고칠 때마다 저장됨)
     if ($('rp_toled')) $('rp_toled').onclick = () => { const pk = S.pk; S.book = 'ledger'; S.focusKey = pk.key; S.selKey = pk.key; draw(); S.pk = pk; drawPanel(true); };
     P.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); closePanel(); } };
     P.querySelectorAll('[data-ls]').forEach(b => b.onclick = () => S.host.openEdit(b.dataset.ls));
