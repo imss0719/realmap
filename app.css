@@ -671,3 +671,25 @@ a.favbtn{text-decoration:none}
 .rmt a em{font-style:normal;color:#B07F00}
 .rmt a i{display:inline-block;width:4px;height:4px;border-radius:50%;background:#F2B705;margin:0 9px;vertical-align:2px}
 @media (max-width:979px){.rmt{display:none}}
+/* 10/28 구역 카드: 진행 단계 · 핵심 숫자 · 이 구역 매물 · 마우스 올림 한 줄 */
+.zonecard .zc-steps{display:flex;margin:4px 0 0}
+.zonecard .zc-steps span{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;min-width:0}
+.zonecard .zc-steps span:before{content:"";position:absolute;top:5px;left:-50%;width:100%;height:3px;background:var(--line);z-index:0}
+.zonecard .zc-steps span:first-child:before{display:none}
+.zonecard .zc-steps span.on:before,.zonecard .zc-steps span.cur:before{background:#E8590C}
+.zonecard .zc-steps i{width:12px;height:12px;border-radius:50%;background:var(--line);position:relative;z-index:1;box-sizing:border-box}
+.zonecard .zc-steps span.on i{background:#E8590C}
+.zonecard .zc-steps span.cur i{background:#fff;border:3px solid #E8590C;width:14px;height:14px;margin-top:-1px}
+.zonecard .zc-steps em{font-style:normal;font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap}
+.zonecard .zc-steps span.cur em{color:#E8590C;font-weight:800}
+.zonecard .zc-st{font-size:13px}
+.zonecard .zc-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.zonecard .zc-nums div{background:var(--soft);border-radius:8px;padding:6px 4px;text-align:center}
+.zonecard .zc-nums b{display:block;font-size:14px}.zonecard .zc-nums small{font-size:11px;color:var(--muted)}
+.zonecard .zc-mk{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:var(--muted)}
+.zonecard .zc-mk button{border:0;background:none;padding:0;font:inherit;font-size:14px;color:var(--fg);cursor:pointer}
+.zonecard .zc-mk button b{color:#1E5EDB}
+.zonecard .zc-mk.none a{font-weight:700;white-space:nowrap}
+.zonecard .zc-more{display:block;text-align:center;border-radius:8px;background:#F2A900;color:#1B2430 !important;font-weight:800;font-size:14px;padding:10px 12px;text-decoration:none}
+.jtip{background:var(--surface);border-radius:8px;padding:5px 9px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.2);white-space:nowrap;pointer-events:none;font-family:var(--f-body)}
+.jtip small{margin-left:8px;color:var(--muted);font-size:11px}

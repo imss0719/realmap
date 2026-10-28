@@ -104,7 +104,9 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (pmActive()) return; devHit(la, ln); pick(la, ln); });
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (pmActive()) return; if (devHit(la, ln)) return; pick(la, ln); });   // 10/28 개발지역을 켜고 구역 안을 누르면 구역 카드 (필지 정보는 카드의 버튼으로)
+    K.event.addListener(S.map, 'mousemove', e => devHover(e.latLng.getLat(), e.latLng.getLng()));
+    K.event.addListener(S.map, 'mouseout', () => devHover());
 
     const setType = sky => { S.map.setMapTypeId(sky ? K.MapTypeId.HYBRID : K.MapTypeId.ROADMAP); $('mtRoad').setAttribute('aria-pressed', !sky); $('mtSky').setAttribute('aria-pressed', sky); };
     $('mtRoad').onclick = () => setType(false);
@@ -1448,10 +1450,30 @@
   function zonesAt(lat, lng) { return (D.zones || []).filter(z => z.geometry && inGeo(z.geometry, lng, lat)); }
   // 개발지도가 켜져 있을 때 누른 자리의 구역을 진하게 표시 (구역 정보는 필지 창 맨 위 안내로 보여 줌)
   function devHit(lat, lng) {
-    if (!D.on) return;
+    if (!D.on) return false;
     $('zonecard').hidden = true;
-    markZones(D.want.jb && D.jb ? D.jb.filter(z => D.jbOn[grp(z)] && inGeo(z.g, lng, lat)) : []);
+    const hits = D.want.jb && D.jb ? D.jb.filter(z => D.jbOn[grp(z)] && inGeo(z.g, lng, lat)) : [];
+    markZones(hits);
+    if (!hits.length) return false;
+    const seen = new Set(), uq = hits.filter(z => { const r = szOf(z), k = r ? 'r' + r.id : 'n' + (z.named ? z.n : z.id); if (seen.has(k)) return false; seen.add(k); return true; });   // 같은 사업의 옛·새 경계가 겹친 경우 하나만
+    showZones([], [], uq.slice(0, 3), lat, lng);   // 10/28 구역 카드 · 겹친 구역은 3개까지
+    return true;
   }
+  // 10/28 PC: 개발지역을 켠 채 구역 위에 마우스를 올리면 '구역 이름 · 단계' 한 줄 (창은 안 띄움)
+  let hovT = 0, hovZ = null;
+  const bbOf = z => z.bb || (z.bb = (() => { let a = 180, b = 90, c = -180, d = -90; for (const p of (z.g.type === 'Polygon' ? [z.g.coordinates] : z.g.coordinates)) for (const [x, y] of p[0] || []) { if (x < a) a = x; if (y < b) b = y; if (x > c) c = x; if (y > d) d = y; } return [a, b, c, d]; })());
+  function devHover(lat, lng) {
+    if (mobile()) return;
+    const tip = () => S.devTip || (S.devTip = new kakao.maps.CustomOverlay({ content: Object.assign(document.createElement('div'), { className: 'jtip' }), xAnchor: -0.05, yAnchor: 1.4, zIndex: 20 }));
+    if (lat == null || !D.on || !D.want.jb || !D.jb) { if (S.devTip) S.devTip.setMap(null); hovZ = null; return; }
+    if (Date.now() - hovT < 70) return; hovT = Date.now();
+    const z = D.jb.find(q => { if (!D.jbOn[grp(q)] || !q.g) return false; const b = bbOf(q); return lng >= b[0] && lng <= b[2] && lat >= b[1] && lat <= b[3] && inGeo(q.g, lng, lat); });
+    if (!z) { if (S.devTip) S.devTip.setMap(null); hovZ = null; return; }
+    const o = tip();
+    if (hovZ !== z) { hovZ = z; const r = szOf(z); o.getContent().innerHTML = `<b style="color:${KCOLOR[z.k] || '#868E96'}">${esc(z.named ? z.n : z.gu + ' 정비구역')}</b>${r && r.st ? ' · ' + esc(r.st) : ''}<small>누르면 구역 카드</small>`; }
+    o.setPosition(new kakao.maps.LatLng(lat, lng)); if (!o.getMap()) o.setMap(S.map);
+  }
+  const szOf = z => D.sz && D.sz.byJb ? (D.sz.byJb.get(z.id) || []).slice().sort((a, b) => (b.sd || '').localeCompare(a.sd || ''))[0] || null : null;
   // 고른 구역을 진하게 표시
   function markZones(js) {
     const sel = new Set(js);
@@ -1473,12 +1495,29 @@
       ${z.source ? `<div class="zc-meta">출처 · <a href="${esc(z.source)}" target="_blank" rel="noopener">관련 자료 보기</a></div>` : ''}
       <div class="zc-meta">업데이트 ${esc((z.updated || '').slice(0, 10))} · 계획은 변경될 수 있습니다.</div>`;
   }
+  // 10/28 구역 카드: 진행 단계 막대 · 핵심 숫자 · 이 구역 매물(지도에 올라온 것) · 구역 페이지로
+  const ZSTEPS = ['대상지', '기획', '구역', '추진위', '조합', '사업시행', '관리처분', '착공', '준공'];
+  const stepOf = st => ({ 대상지선정: 0, 기획완료: 1, 정비계획수립: 1, 열람공고: 1, 구역지정: 2, 추진위구성: 3, 조합설립인가: 4, 건축심의: 4, 사업시행인가: 5, 관리처분계획인가: 6, 착공: 7, '준공(일부)': 7, 준공: 8 })[st] ?? -1;
   function jbHtml(z) {
-    const c = KCOLOR[z.k] || '#868E96';
-    return `<div class="zc-h"><b style="color:${c}">${esc(z.named ? z.n : z.gu + ' 정비구역')}</b></div>
-      <div class="zc-tags"><span style="background:${c}22;color:${c}">${esc(z.k)}</span>${z.d ? `<span>고시 ${esc(z.d)}</span>` : z.y ? `<span>${esc(z.y)}년 고시</span>` : ''}<span>${esc(z.gu)}</span></div>
-      ${z.named ? '' : '<div class="zc-meta">국토부 자료에 구역 이름이 등록되어 있지 않습니다.</div>'}
-      <div class="zc-meta">출처 · 국토교통부 정비구역 연속주제도 (${esc(D.jbUpdated || '')} 기준)</div>`;
+    const c = KCOLOR[z.k] || '#868E96', r = szOf(z);
+    let h = `<div class="zc-h"><b style="color:${c}">${esc(z.named ? z.n : z.gu + ' 정비구역')}</b></div>
+      <div class="zc-tags"><span style="background:${c}22;color:${c}">${esc(z.k)}</span>${!r && z.d ? `<span>고시 ${esc(z.d)}</span>` : !r && z.y ? `<span>${esc(z.y)}년 고시</span>` : ''}<span>${esc(z.gu)}</span></div>`;
+    if (r) {
+      const i = stepOf(r.st), top = String(r.fl || '').split('/')[1];
+      h += `<div class="zc-steps">${ZSTEPS.map((t, k) => `<span class="${k < i ? 'on' : k === i ? 'cur' : ''}"><i></i><em>${t}</em></span>`).join('')}</div>
+        <div class="zc-st"><b>${esc(r.st || '단계 미상')}</b>${r.sd ? ` · ${esc(r.sd)}` : ''}</div>
+        <div class="zc-nums">${[[r.hh ? (+r.hh).toLocaleString() : '-', '계획 세대'], [r.far ? Math.round(r.far) + '%' : '-', '용적률'], [top ? top + '층' : '-', '최고층'], [r.ar ? Math.round(r.ar / 3.3058).toLocaleString() + '평' : '-', '구역 면적']].map(([v, t]) => `<div><b>${esc(v)}</b><small>${t}</small></div>`).join('')}</div>`;
+    } else h += `<div class="zc-meta">${String(z.id || '').startsWith('11') ? '서울시 추진 단계 자료에 없는 구역입니다.' : '추진 단계·세대수 자료는 서울만 있습니다.'}</div>`;
+    // 이 구역 매물: 중개사가 리얼맵 지도에 올린 매물 중 구역 안 (없으면 등록 안내)
+    const L = (LS.items || []).filter(x => x.lat && x.lng && inGeo(z.g, +x.lng, +x.lat));
+    const offs = [...new Set(L.map(x => x.bk && x.bk.office).filter(Boolean))];
+    const pro = S.me && S.me.plan && S.me.plan.started;
+    h += L.length ? `<div class="zc-mk"><button type="button" data-zlst="${esc(z.id)}">이 구역 매물 <b>${L.length}건</b> ▸</button><span>${esc(offs.slice(0, 2).join(' · '))}${offs.length > 2 ? ` 외 ${offs.length - 2}곳` : ''}</span></div>`
+      : `<div class="zc-mk none"><span>이 구역에 올라온 매물이 아직 없습니다</span><a href="${pro ? '/listings.html' : '/pro.html'}" target="_blank" rel="noopener">${pro ? '내 물건 등록하기' : '중개사무소 등록하기'} ▸</a></div>`;
+    const pg = zPage(r);
+    if (pg) h += `<a class="zc-more" href="${pg}" target="_blank" rel="noopener">구역 자세히 보기 ▸</a>`;
+    h += `<div class="zc-meta">출처 · ${r ? '서울시 정비사업 현황 · ' : ''}국토교통부 정비구역 (${esc(D.jbUpdated || '')} 기준) · 계획은 바뀔 수 있습니다</div>`;
+    return h;
   }
   function showZones(zs, ls, js = [], lat, lng) {
     const el = $('zonecard');
@@ -1491,6 +1530,14 @@
     if (mobile()) { $('devpanel').hidden = true; $('panel').classList.add('closed'); }
     $('zcClose').onclick = hideZone;
     const go = $('zcGo'); if (go) go.onclick = () => { hideZone(); pick(lat, lng); };
+    el.querySelectorAll('[data-zlst]').forEach(b => b.onclick = () => {   // 이 구역 매물만 지도에 보이게 맞춤
+      const z = js.find(q => q.id === b.dataset.zlst); if (!z) return;
+      const L = LS.items.filter(x => x.lat && x.lng && inGeo(z.g, +x.lng, +x.lat)); if (!L.length) return;
+      if (!LS.on) { LS.on = true; $('mtLst').setAttribute('aria-pressed', true); lsSave(); }
+      const bd = new kakao.maps.LatLngBounds(); L.forEach(x => bd.extend(new kakao.maps.LatLng(+x.lat, +x.lng)));
+      hideZone(); S.map.setBounds(bd, 80, 80, 80, 80); if (S.map.getLevel() < 3) S.map.setLevel(3); drawListings();
+      toast(`${z.named ? z.n : '이 구역'} 매물 ${L.length}건 · 노란 테두리 표시를 누르면 자세히 볼 수 있습니다`);
+    });
   }
   // 서울시 정비사업 현황 (추진 단계 등). GitHub가 분기마다 data/seoul-zones.json 으로 만들어 둠
   let szLoading = null;
