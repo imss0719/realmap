@@ -707,3 +707,5 @@ a.favbtn{text-decoration:none}
   .promo-b span{display:none}.promo-b i{width:26px;height:26px;font-size:14px}
   .promo-pop{left:auto;right:0;width:min(290px,86vw)}
 }
+/* 10/28 로고 이름은 한 줄 */
+.brand>b{white-space:nowrap}

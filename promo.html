@@ -74,16 +74,31 @@ a{color:inherit}
   .steps,.feat{grid-template-columns:1fr 1fr}.pv{grid-template-columns:1fr}
 }
 @media(max-width:560px){.steps,.feat{grid-template-columns:1fr}.hero h1{font-size:29px}.sec{padding:44px 18px}.sec h2{font-size:24px}.nav a.lk{display:none}.cmp{font-size:13.5px}.cmp th,.cmp td{padding:10px 8px}}
+.modal{position:fixed;inset:0;z-index:80;background:rgba(10,18,26,.55);display:grid;place-items:center;padding:16px}.modal[hidden]{display:none}
+.mbox{background:#fff;border-radius:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:26px 24px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.mbox h3{margin:0;font-size:23px;font-weight:900}.mbox .sub{color:var(--muted);margin:8px 0 16px;font-size:15px;line-height:1.6}
+.mbox label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 5px}
+.mbox input[type=text],.mbox input[type=tel]{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;font-size:16px}.mbox input:focus{outline:none;border-color:var(--navy)}
+.mbox .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mbox .agree{display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:600;color:var(--fg);margin-top:16px;line-height:1.5}.mbox .agree input{margin-top:3px;width:18px;height:18px}
+.mbox .hint{font-size:13px;font-weight:600;color:var(--muted);margin-top:6px;line-height:1.5}.mbox .hint.ok{color:#2B8A3E}.mbox .hint.no{color:#C92A2A}
+.mbox .err{color:#C92A2A;font-weight:700;font-size:14px;min-height:20px;margin-top:10px}
+.mbox .row{display:flex;gap:10px;margin-top:10px}.mbox .row .btn{flex:1;padding:15px;font-size:17px}.mbox .x{background:#F1F3F5;color:var(--fg)}
+@media(max-width:560px){.mbox .two{grid-template-columns:1fr}}
+.smsbox{margin-top:6px;font-size:13px}.smsbox .sms-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.smsbox button{border:1.5px solid #1C64C8;background:#fff;color:#1C64C8;border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}.smsbox button:disabled{opacity:.5}
+.smsbox .sms-check{background:#1C64C8;color:#fff}.smsbox .sms-code{width:110px;border:2px solid #DCE2E8;border-radius:8px;padding:6px 8px;font-size:15px;letter-spacing:2px}
+.smsbox .sms-t{color:#E03131;font-weight:700;font-variant-numeric:tabular-nums}.smsbox .sms-msg{color:#5E6A77;margin-top:4px}.smsbox .sms-ok{color:#1F7A4D;font-weight:800}
 </style>
 </head>
 <body>
-<div class="nav"><div class="in"><a class="brand" href="/"><img src="/favicon.svg" alt="">리얼맵 <em>매물 홍보</em></a><span class="sp"></span><a class="lk" href="/">리얼맵 지도</a><a class="lk" href="/pro.html">중개장부</a><a class="btn y sm" href="/pro.html?go=1&to=map" data-go>무료로 매물 올리기</a></div></div>
+<div class="nav"><div class="in"><a class="brand" href="/"><img src="/favicon.svg" alt="">리얼맵 <em>매물 홍보</em></a><span class="sp"></span><a class="lk" href="/">리얼맵 지도</a><a class="lk" href="/pro.html">중개장부</a><a class="btn y sm" href="/promo.html?go=1" data-go>무료로 매물 올리기</a></div></div>
 
 <div class="hero"><div class="in">
   <div>
     <h1>내 매물을 <em>지도 위에</em><br>내 얼굴과 함께 보여 주세요</h1>
     <p>필지를 누르고 가격·사진만 넣으면 끝입니다.<br>면적·층·용도·주차·사용승인일은 건축물대장에서 자동으로 채워집니다.</p>
-    <div class="b"><a class="btn y" href="/pro.html?go=1&to=map" data-go>무료로 매물 올리기</a><a class="btn g" href="#profile">소개 페이지 미리 보기</a></div>
+    <div class="b"><a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a><a class="btn g" href="#profile">소개 페이지 미리 보기</a></div>
     <div class="free">매물 광고 10건까지 무료 · 장부를 안 써도 됩니다 · 등록번호가 확인된 중개사무소만</div>
   </div>
   <div class="mv"><span class="pin" style="left:40px;top:46px"><s></s>21.5억</span><span class="pin w" style="left:170px;top:120px"><s></s>월 320</span><span class="pin j" style="left:70px;top:190px"><s></s>7억</span>
@@ -108,7 +123,7 @@ a{color:inherit}
 <div class="sec" id="profile"><div class="pv">
   <div><h2>나만의 중개사 소개 페이지</h2><p class="lead">매물을 올리면 자동으로 쌓이는, 명함 같은 페이지입니다.</p>
     <ul><li>대표 사진 · 한 줄 소개 · 전문 분야 · 활동 동네</li><li>손님은 전화·문자 한 번에, 사무소 위치는 지도로</li><li>지금 광고 중인 매물이 자동으로 모여 보임</li><li><b>링크 복사 · QR 코드</b>로 명함·블로그·카톡에</li><li>지도의 매물에서도 [중개사 소개 ▸]로 연결</li></ul>
-    <p style="margin-top:22px"><a class="btn y" href="/pro.html?go=1&to=map" data-go>내 소개 페이지 만들기</a></p></div>
+    <p style="margin-top:22px"><a class="btn y" href="/promo.html?go=1" data-go>내 소개 페이지 만들기</a></p></div>
   <div class="prof"><div class="h"><span class="av">○</span><div><b>○○공인중개사사무소</b><span class="ver">등록번호 확인</span><small>대표 공인중개사 ○○○<br>서울 ○○구 ○○로 00</small></div></div>
     <div class="bd"><p>"○○동에서만 10년째입니다. 단지별 특징과 동네 시세를 가장 잘 아는 중개사가 되겠습니다."</p>
       <div class="tags"><span>아파트</span><span>상가·사무실</span><span>재개발·재건축</span><span class="ar">○○동 · ○○동</span></div>
@@ -133,13 +148,75 @@ a{color:inherit}
   <details><summary>소개 페이지는 어디서 고치나요?</summary><p>중개장부 → 설정 → 우리 사무소에서 대표 사진·한 줄 소개·전문 분야·활동 동네를 고치고, 링크를 복사할 수 있습니다.</p></details>
 </div>
 
-<div class="end"><h2>첫 매물, 지금 1분이면 올라갑니다</h2><p>매물 광고 10건까지 무료 · 카드 등록 없이 시작</p><a class="btn y" href="/pro.html?go=1&to=map" data-go>무료로 매물 올리기</a></div>
+<div class="end"><h2>첫 매물, 지금 1분이면 올라갑니다</h2><p>매물 광고 10건까지 무료 · 카드 등록 없이 시작</p><a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a></div>
 <div class="foot">리얼맵 · <a href="/">지도</a><a href="/pro.html">중개장부</a><a href="/terms.html">이용약관</a><a href="/privacy.html">개인정보처리방침</a></div>
+<div class="modal" id="modal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <h3 id="mTitle">매물 홍보 시작</h3>
+  <p class="sub">중개사무소 정보를 한 번만 넣어 주세요. 지도 광고와 중개사 소개 페이지에 함께 표시됩니다.<br>등록번호와 대표 공인중개사 성명은 국가 자료(브이월드)로 바로 확인합니다.</p>
+  <label for="b_regno">등록번호</label><input type="text" id="b_regno" placeholder="11440-2025-00123" maxlength="30">
+  <div class="hint" id="b_hint"></div>
+  <label for="b_office">중개사무소 명칭</label><input type="text" id="b_office" placeholder="○○○공인중개사사무소" maxlength="40">
+  <label for="b_addr">중개사무소 소재지</label><input type="text" id="b_addr" placeholder="서울 ○○구 ○○로 00" maxlength="80">
+  <div class="two"><div><label for="b_ceo">대표 공인중개사 성명</label><input type="text" id="b_ceo" placeholder="○○○" maxlength="20"></div><div><label for="b_tel">사무소 전화</label><input type="tel" id="b_tel" placeholder="02-000-0000" maxlength="20"></div></div>
+  <label for="b_mobile">휴대폰 (문자 받을 번호)</label><input type="tel" id="b_mobile" placeholder="010-0000-0000" maxlength="20">
+  <label class="agree"><input type="checkbox" id="b_ok">중개사무소 개설등록을 한 개업공인중개사이며, 입력한 정보가 사실임을 확인합니다.</label>
+  <div class="err" id="mErr"></div>
+  <div class="row"><button class="btn x" type="button" id="mClose">닫기</button><button class="btn y" type="button" id="mGo">시작하고 지도로 가기</button></div>
+</div></div>
+<script src="/sms.js"></script>
 <script>
-// 이미 중개사로 시작한 분은 버튼을 '지도에서 매물 올리기'로 (바로 지도로)
-fetch('/api/auth?action=me', { credentials: 'same-origin' }).then(r => r.json()).then(me => {
-  if (me && me.member && me.plan && me.plan.started) document.querySelectorAll('[data-go]').forEach(a => { a.href = '/?promo=1'; if (!a.classList.contains('sm')) a.textContent = '지도에서 매물 올리기'; });
-}).catch(() => {});
+// 10/28 시작하기는 이 페이지 안에서 (pro.html로 넘어가지 않음): 로그인 → 중개사무소 확인 → 리얼맵 지도(/?promo=1)에서 필지를 눌러 바로 올리기
+(() => {
+  const $ = id => document.getElementById(id);
+  let me = {};
+  const ready = fetch('/api/auth?action=me', { credentials: 'same-origin' }).then(r => r.json()).then(j => { me = j || {}; }).catch(() => {});
+  const started = () => me.member && me.plan && me.plan.started;
+  async function start(e) {
+    if (e) e.preventDefault();
+    await ready;
+    if (!me.member) return location.href = '/auth/login?r=' + encodeURIComponent('/promo.html?go=1');
+    if (started()) return location.href = '/?promo=1';
+    $('modal').hidden = false; document.body.style.overflow = 'hidden'; setTimeout(() => $('b_regno').focus(), 50);
+    if (me.pend) { ['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].forEach(k => { if (me.pend[k]) $('b_' + k).value = me.pend[k]; }); $('mErr').textContent = '확인 대기 중입니다. 지금 다시 확인하시려면 아래 버튼을 눌러 주세요.'; }
+  }
+  let SMSA = null;
+  ready.then(() => {
+    if (me.sms && window.SmsAuth) SMSA = SmsAuth.attach($('b_mobile'), { onDone: () => { $('mErr').textContent = ''; } });
+    if (started()) document.querySelectorAll('[data-go]').forEach(a => { a.href = '/?promo=1'; if (!a.classList.contains('sm')) a.textContent = '지도에서 매물 올리기'; });
+    if (new URLSearchParams(location.search).get('go') && me.member && !started()) start();
+  });
+  document.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', start));
+  const close = () => { $('modal').hidden = true; document.body.style.overflow = ''; };
+  $('mClose').onclick = close; $('modal').onclick = e => { if (e.target === $('modal')) close(); };
+  $('b_mobile').oninput = $('b_tel').oninput = e => { const d = e.target.value.replace(/\D/g, ''); if (/^01\d{8,9}$/.test(d)) e.target.value = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`; };
+  let lastReg = '';
+  $('b_regno').onchange = $('b_regno').onblur = async () => {   // 등록번호로 사무소 명칭·소재지 채우기
+    const v = $('b_regno').value.trim(), d = v.replace(/\D/g, ''); if (d === lastReg) return; lastReg = d;
+    const h = $('b_hint'); h.className = 'hint'; h.textContent = ''; if (d.length < 10) return;
+    h.textContent = '등록번호 확인 중…';
+    try {
+      const j = await (await fetch('/api/auth?action=bkfind&regno=' + encodeURIComponent(v), { credentials: 'same-origin' })).json();
+      if (j.found) { $('b_office').value = j.office || $('b_office').value; if (!$('b_addr').value.trim() && j.addr) $('b_addr').value = j.addr; h.className = 'hint ok'; h.textContent = `✓ ${j.office}${j.st ? ' · ' + j.st : ''} — 명칭·소재지를 채웠습니다. 대표 공인중개사 성명을 입력해 주세요.`; }
+      else if (j.down) h.textContent = '';
+      else { h.className = 'hint no'; h.textContent = '이 등록번호로 등록된 중개사무소를 찾지 못했습니다. 등록증의 번호를 확인해 주세요.'; }
+    } catch { h.textContent = ''; }
+  };
+  $('mGo').onclick = async () => {
+    const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
+    if (Object.values(bk).some(v => !v)) return ($('mErr').textContent = '여섯 칸을 모두 입력해 주세요.');
+    if (!$('b_ok').checked) return ($('mErr').textContent = '개업공인중개사 확인에 체크해 주세요.');
+    if (SMSA && !SMSA.ok()) return ($('mErr').textContent = '휴대폰 번호 인증을 먼저 해 주세요. (번호 아래 [인증번호 받기])');
+    $('mErr').textContent = ''; $('mGo').disabled = true; $('mGo').textContent = '중개사무소 확인 중…';
+    try {
+      const r = await fetch('/api/auth?action=start', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bk }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) throw new Error(j.message || '잠시 연결이 원활하지 않습니다.');
+      if (j.pend) { $('mTitle').textContent = '확인 대기'; $('mErr').textContent = j.message; $('mGo').disabled = false; $('mGo').textContent = '다시 확인하기'; return; }
+      $('mTitle').textContent = '리얼맵 지도를 열고 있습니다';
+      setTimeout(() => location.href = '/?promo=1', 900);
+    } catch (e) { $('mErr').textContent = e.message; $('mGo').disabled = false; $('mGo').textContent = '시작하고 지도로 가기'; }
+  };
+})();
 </script>
 </body>
 </html>

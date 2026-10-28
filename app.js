@@ -1839,7 +1839,7 @@
     el.innerHTML = `<button type="button" id="promoBtn" class="promo-b" aria-label="${pro ? '매물 올리기' : '중개사 매물 홍보'}"><i aria-hidden="true">${pro ? '＋' : '📣'}</i><span>${pro ? '매물 올리기' : '매물 홍보'}</span></button>
       <div class="promo-pop" id="promoPop" hidden>${pro
         ? '<b>지도에서 필지를 눌러 주세요</b><p>필지 정보 위의 <b>[여기 매물 광고하기]</b>를 누르면 가격·사진만 넣고 바로 올릴 수 있습니다. 면적·층·용도는 건축물대장에서 자동으로 채워집니다.</p><a class="y" href="/listings.html" target="_blank" rel="noopener">중개장부 열기</a><a href="/listings.html?mode=set" target="_blank" rel="noopener">내 소개 페이지 · 사무소 정보</a>'
-        : '<b>중개사이신가요?</b><p>내 매물을 리얼맵 지도에 올리고, 대표 사진·사무소 소개와 함께 손님에게 보여 주세요. <b>10건까지 무료</b>입니다.</p><a class="y" href="/pro.html?go=1&to=map">매물 홍보 시작하기</a><a href="/promo.html" target="_blank" rel="noopener">어떻게 보이는지 먼저 보기</a>'}</div>`;
+        : '<b>중개사이신가요?</b><p>내 매물을 리얼맵 지도에 올리고, 대표 사진·사무소 소개와 함께 손님에게 보여 주세요. <b>10건까지 무료</b>입니다.</p><a class="y" href="/promo.html?go=1">매물 홍보 시작하기</a><a href="/promo.html" target="_blank" rel="noopener">어떻게 보이는지 먼저 보기</a>'}</div>`;
     const P = $('promoPop');
     $('promoBtn').onclick = e => { e.stopPropagation(); P.hidden = !P.hidden; };
     if (!drawPromo.w) { drawPromo.w = true; document.addEventListener('mousedown', e => { const q = $('promoPop'); if (q && !q.hidden && !e.target.closest('#promo')) q.hidden = true; }); }
@@ -1849,7 +1849,7 @@
     drawPromo();
     if (!S.me.ready) { el.innerHTML = ''; return; }
     // 휴대폰에서는 동그라미 버튼(사람 아이콘 / 로그인 후 닉네임 첫 글자)만 보이고, 누르면 메뉴가 열립니다
-    const nick = S.me.nickname || '회원';
+    const nick0 = S.me.nickname || '회원', nick = Array.from(nick0).length > 8 ? Array.from(nick0).slice(0, 8).join('') + '…' : nick0;   // 10/28 긴 이름(사무소명 등)은 줄여서 — 로고가 세로로 밀리지 않게
     const ic = S.me.member ? `<span class="ac-ic on" aria-hidden="true">${esc(Array.from(nick)[0])}</span>`
       : '<span class="ac-ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 17.2c.9-3.2 3.5-4.9 6.5-4.9s5.6 1.7 6.5 4.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>';
     const links = '<a href="/guide.html" target="_blank" rel="noopener">이용 안내</a><a href="/seoul/" target="_blank" rel="noopener">서울 정비사업 현황</a>';
