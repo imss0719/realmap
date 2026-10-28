@@ -171,6 +171,19 @@
     n.all = Object.values(n).reduce((a, v) => a + v, 0);
     document.querySelectorAll('[data-cn]').forEach(e => { const v = n[e.dataset.cn] || 0; e.textContent = v ? ' ' + v : ''; const b = e.closest('.ctab button'); if (b) b.classList.toggle('z', !v && b.getAttribute('aria-pressed') !== 'true' && b.dataset.mode !== 'danji'); });
   }
+  // ---------- 10/28 연락처 칸: 숫자만 쳐도 '-' 자동 (010-1234-5678 · 02-123-4567 · 1588-0000) — 모든 화면의 전화번호 칸 ----------
+  const telFmt = v => {
+    const d = String(v).replace(/\D/g, '').slice(0, 11);
+    if (/^02/.test(d)) return d.length <= 2 ? d : d.length <= 5 ? `${d.slice(0, 2)}-${d.slice(2)}` : d.length <= 9 ? `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}` : `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6, 10)}`;
+    if (/^1[5-9]\d{2}/.test(d) && d.length <= 8) return d.length <= 4 ? d : `${d.slice(0, 4)}-${d.slice(4)}`;
+    return d.length <= 3 ? d : d.length <= 6 ? `${d.slice(0, 3)}-${d.slice(3)}` : d.length <= 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  };
+  document.addEventListener('input', e => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement) || !(el.matches('[data-phone],input[type="tel"],input[placeholder^="010-"],input[placeholder^="02-"]'))) return;
+    if (/^delete/.test(e.inputType || '') || !/^[\d\s-]*$/.test(el.value) || el.selectionStart !== el.value.length) return;   // 숫자 아닌 글자가 있거나 중간을 고치는 중이면 그대로
+    const f = telFmt(el.value); if (f !== el.value) el.value = f;
+  }, true);   // 먼저 고쳐 두면 칸마다 붙은 저장 처리는 고친 값을 씀
   // ---------- 전체 검색 (위 막대) — 모든 종류 매물에서 찾고, 누르면 그 탭의 그 줄로 ----------
   function gsWire() {
     const q = $('gsQ'), box = $('gsRes'); if (!q) return;

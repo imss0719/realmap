@@ -527,8 +527,9 @@ window.Danji = (() => {
 
   // ---------- 단지 고르기 드롭메뉴 (10/26) — 탐색기가 숨는 좁은 화면에서도 ----------
   function cxSelHtml(cur) {
-    const multi = cur === '__all' && multiOn();
-    return `<select id="dj_cxSel" class="cxsel" aria-label="단지 고르기">${multi ? `<option value="__all" selected>${esc(allList().map(c => c.name).join(' + '))}</option>` : ''}${S.cx.items.length >= 2 && !multi ? `<option value="__all"${cur === '__all' ? ' selected' : ''}>모든 단지 (${S.cx.items.length}곳)</option>` : ''}${cxSorted().map(c => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="__add">＋ 단지 추가…</option></select>`;
+    const multi = cur === '__all' && multiOn(), c0 = S.cx.items.find(c => c.id === cur);
+    // 10/28 넓은 화면: 고르기는 왼쪽 단지 목록에서만 → 여기는 이름만 · 좁은 화면(목록이 숨음)에서만 드롭메뉴
+    return `<b class="cxtt">${esc(multi ? allList().map(c => c.name).join(' + ') : cur === '__all' ? '모든 단지' : c0 ? c0.name : '')}</b><select id="dj_cxSel" class="cxsel" aria-label="단지 고르기">${multi ? `<option value="__all" selected>${esc(allList().map(c => c.name).join(' + '))}</option>` : ''}${S.cx.items.length >= 2 && !multi ? `<option value="__all"${cur === '__all' ? ' selected' : ''}>모든 단지 (${S.cx.items.length}곳)</option>` : ''}${cxSorted().map(c => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="__add">＋ 단지 추가…</option></select>`;
   }
   function wireCxSel() {
     const el = $('dj_cxSel'); if (!el) return;
@@ -780,6 +781,7 @@ window.Danji = (() => {
     const ALL = !!cx.all, C = ALL ? { view: 'all' } : S.C[cx.id], box = $('dj_tbl'); if (!box || !C) return;
     if (S.ed) { S.redraw = true; return; }
     const F = TF(), MM = ALL ? null : mineMap(cx);
+    Object.assign(F, { k: [], c: [], t: [], a: [], s: LED() ? [] : ['on', 'hold'] });   // 10/28 체크 거르기 없앰 → 장부마다 고정
     let rows;
     if (ALL) rows = allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))).filter(x => pass(x, F));
     else if (C.view === 'dong') {
@@ -788,10 +790,7 @@ window.Danji = (() => {
       if (!fOn(F)) { /* 동 화면은 빈 줄까지 */ } else rows = rows.filter(x => pass(x, F));
     } else rows = rowsAll(cx, C, MM).filter(x => pass(x, F));
     { const gs = !ALL && gOn(C); if (gs) rows = rows.filter(x => inSub(C, gs, x.pnu, x.dn)); }   // 고른 하위 단지만 (10/26)
-    // 평형 칩: 지금 보이는 범위의 평형
     const base = ALL ? allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
-    const areas = []; base.forEach(x => { if (x.a && !areas.some(a => Math.abs(a - x.a) < 1.5)) areas.push(x.a); }); areas.sort((a, b) => a - b);
-    const types = [...new Set(base.map(x => x.lt && x.lt.t).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
     if (!ALL) needAreas(cx, C, base);
     else allList().forEach(c => { const Cc = CI(c); if (Cc.dongs) { const rs = base.filter(x => x.cx === c); if (rs.length) needAreas(c, Cc, rs); } });
     sortRows(rows, F.sort === 'fl' && C.view !== 'dong' ? 'dh' : F.sort);
@@ -802,25 +801,15 @@ window.Danji = (() => {
     const ro = !ALL && !!(S.L[cx.id] && S.L[cx.id].err);
     // 거르기 줄 (체크 누적) — 동 칩과 같은 줄(#dj_tbf). 없으면 표 상자 위에
     let tbf = $('dj_tbf'); if (!tbf) { box.insertAdjacentHTML('beforebegin', '<div class="tbf" id="dj_tbf"></div>'); tbf = $('dj_tbf'); }
-    const ck = (g, v, t, cls) => `<label class="ck${F[g].includes(v) ? ' on' : ''}${cls ? ' ' + cls : ''}"><input type="checkbox" data-fg="${g}" data-v="${esc(String(v))}" ${F[g].includes(v) ? 'checked' : ''}>${t}</label>`;
-    const tch = (g, v, t) => `<button type="button" data-fg="${g}" data-v="${esc(String(v))}" aria-pressed="${F[g].includes(v)}">${t}</button>`;
-    if (LED()) tbf.innerHTML = `<span class="fg">${ck('s', 'on', '매물 중')}${ck('c', 'exp', '만기 임박')}${ck('c', 'empty', '공실')}${ck('c', 'imp', '꼭 챙길 것')}${ck('c', 'mk', '표시한 줄')}</span>
-      ${types.length ? `<i class="fsep"></i><span class="fg ty">${types.map(t => tch('t', t, esc(t))).join('')}</span>` : areas.length > 1 ? `<i class="fsep"></i><span class="fg ty">${areas.map(a => tch('a', a, `${supPy({ a }).v}평`)).join('')}</span>` : ''}
-      ${fOn(F) ? '<button type="button" class="fclr" id="dj_fclr">모두 풀기</button>' : ''}
-      <span class="fg r">${ro || ALL ? '' : `<input id="dj_addHo" class="hjin sm" placeholder="＋ 호 추가 (102-1503)" autocomplete="off">`}<span class="mkb" title="줄을 누른 뒤 색을 누르면 표시 · 같은 색을 다시 누르거나 [지우기]면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button></span></span>`;
-    else tbf.innerHTML = `<span class="fg">${ck('k', 'sale', '매매', 'k-s')}${ck('k', 'jeonse', '전세', 'k-j')}${ck('k', 'wolse', '월세', 'k-w')}</span><i class="fsep"></i>
-      <span class="fg">${ck('s', 'on', '매물')}${ck('s', 'hold', '보류')}</span><i class="fsep"></i>
-      <span class="fg">${ck('c', 'exp', '만기 임박')}${ck('c', 'imp', '꼭 챙길 것')}${ck('c', 'mk', '표시한 줄')}</span>
-      ${types.length ? `<i class="fsep"></i><span class="fg ty">${types.map(t => tch('t', t, esc(t))).join('')}</span>` : areas.length > 1 ? `<i class="fsep"></i><span class="fg ty">${areas.map(a => tch('a', a, `${supPy({ a }).v}평`)).join('')}</span>` : ''}
-      ${fOn(F) ? '<button type="button" class="fclr" id="dj_fclr">모두 풀기</button>' : ''}
-      <span class="fg r">${ro || ALL ? '' : `<input id="dj_addHo" class="hjin sm" placeholder="＋ 호 추가 (102-1503)" autocomplete="off">`}<span class="mkb" title="줄을 누른 뒤 색을 누르면 표시 · 같은 색을 다시 누르거나 [지우기]면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button></span></span>`;
+    // 10/28 거르기 체크 줄은 없앰 (헷갈림) — 정렬은 표 머리, 골라 보기는 머리 아래 ▾ · 매물장은 늘 나온 물건(매물·보류)만
+    tbf.innerHTML = `<span class="fg r">${ro || ALL ? '' : `<input id="dj_addHo" class="hjin sm" placeholder="＋ 호 추가 (102-1503)" autocomplete="off">`}<span class="mkb" title="줄을 누른 뒤 색을 누르면 표시 · 같은 색을 다시 누르거나 [지우기]면 지움">표시 <button type="button" data-mk="y" class="y">노랑</button><button type="button" data-mk="r" class="r">빨강</button><button type="button" data-mk="">지우기</button></span></span>`;
     // 두 줄 머리: 묶음(의뢰가격·현상태)은 위에 한 칸, 나머지는 두 줄을 차지 + 아래 칸별 거르기 줄
     const vc = VC(); let h1 = '', h2 = '';
     const leaf = (c, n, two) => `<th class="c-${c.id}${SORTC[c.id] ? ' srt' : ''}"${two ? ' rowspan="2"' : ''}${SORTC[c.id] ? ` data-srt="${SORTC[c.id]}" title="눌러서 정렬 (한 번 더 누르면 반대로)"` : ''}>${c.t}${SORTC[c.id] && F.sort === SORTC[c.id] && !(c.id === 'ho' || (c.id === 'dn' && ALL)) ? (F.dir === -1 ? ' ▼' : ' ▲') : ''}${n < vc.length - 1 ? '<i class="rz" title="끌어서 너비 조절 · 더블클릭하면 처음 너비"></i>' : ''}</th>`;
     vc.forEach((c, n) => { if (c.g) { if (!vc[n - 1] || vc[n - 1].g !== c.g) h1 += `<th class="grp" colspan="${vc.filter(z => z.g === c.g).length}">${c.g}</th>`; h2 += leaf(c, n); } else h1 += leaf(c, n, true); });
     const fr = vc.map(c => { const on = F.cf && F.cf[c.id]; return `<th class="fc c-${c.id}">${DCF[c.id] ? `<button type="button" class="cfs${on ? ' on' : ''}" data-cf="${c.id}" title="골라서 보기">${on ? esc(on.join(', ')) : ''}</button>` : ''}</th>`; }).join('');
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr><tr>${h2}</tr><tr class="frow">${fr}</tr></thead>
-      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${ALL ? '조건에 맞는 호가 없습니다. 위에서 거르기를 바꿔 보세요.' : C.view === 'all' && !fOn(F) ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '조건에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
+      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${ALL ? '조건에 맞는 호가 없습니다. 표 머리 아래 ▾ 거르기를 풀어 보세요.' : C.view === 'all' && !fOn(F) ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '조건에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       <p class="note">${LED() ? '줄을 누르면 오른쪽에 입력창이 열립니다 · 칸을 <b>두 번</b> 누르면 표에서 바로 고치기 · 나온 물건은 [매물장으로] · 바뀐 내용은 날짜·시간과 함께 기록에 남습니다' : '나온 물건(매물·보류)만 보입니다 · 줄을 누르면 오른쪽에 입력창 · 칸을 <b>두 번</b> 누르면 표에서 바로 고치기 · [관리장부로]를 누르면 여기서만 빠지고 관리장부에는 그대로 남습니다'} · ${rows.length}호</p>`;
     colWidths(box, ALL);
     stickHead(box);
