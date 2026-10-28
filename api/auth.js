@@ -1171,6 +1171,33 @@ export default async function (req, res) {
       await redis(['SADD', 'realmap:trialused', String(s.id)]);
       return send(res, 200, { ok: true });
     }
+    // 자료 비우기 (10/28): 요금제·사무소 정보·직원은 그대로 두고 고른 자료만 지움 — 대표만, '전체 삭제' 입력해야 함
+    //   POST { ls:true(매물장·사진·지도 광고), hj:true(아파트 장부 호 기록 · 담은 단지 목록은 남김), cu:true(고객관리), confirm:'전체 삭제' }
+    if (action === 'wipe') {
+      if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
+      const s = await office(req);
+      if (!s) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      if (s.staff || s.blocked) return noStaff(res, s, '자료 비우기는');
+      if (!(await planOf(s.id)).started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      if (String(body.confirm || '').replace(/\s/g, '') !== '전체삭제') return fail(res, 400, 'confirm', "'전체 삭제'를 정확히 입력해 주세요.");
+      if (!body.ls && !body.hj && !body.cu) return fail(res, 400, 'none', '지울 자료를 골라 주세요.');
+      const uid = s.id, done = {};
+      if (body.ls) {
+        const gone = await lsDrop(redis, uid);
+        try { const f = ((await redis(['HKEYS', PUB_KEY])) || []).filter(k => String(k).startsWith(`${uid}:`)); if (f.length) await redis(['HDEL', PUB_KEY, ...f]); } catch { /* 무시 */ }
+        await dropPhotos(gone.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, uid)));
+        await brokerStat(uid, []); done.ls = gone.length;
+      }
+      if (body.hj) {
+        await dropLedgers(redis, uid);
+        try { const v = await redis(['GET', `realmap:cx:${uid}`]); if (v) { const d = JSON.parse(v); d.memos = {}; await redis(['SET', `realmap:cx:${uid}`, JSON.stringify(d)]); } } catch { /* 무시 */ }
+        done.hj = true;
+      }
+      if (body.cu) { await dropCust(redis, uid); done.cu = true; }
+      await redis(['DEL', `realmap:xim:${uid}`]).catch(() => 0);   // 엑셀 불러오기 기록(되돌리기)은 지운 자료와 맞지 않으므로 비움
+      return send(res, 200, { ok: true, done });
+    }
     if (action === 'withdraw') {
       if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
       const s = readSession(req);
