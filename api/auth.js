@@ -933,6 +933,7 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
+      if (body.via === 'promo') bk.home = 'ads';   // 10/28 매물 홍보 페이지로 시작 → 중개장부 첫 화면은 '내 광고'
       let P = await planOf(s.id);
       if (P.started) return send(res, 200, { ok: true, plan: planView(P), bk: await loadBk(s.id) });
       if (await redis(['GET', `realmap:staffof:${s.id}`])) return fail(res, 400, 'staff', '이 카카오 계정은 다른 사무소의 직원으로 등록되어 있습니다. 내 사무소를 따로 시작하시려면 [설정 → 내 소속]에서 먼저 나가 주세요.');
@@ -983,6 +984,8 @@ export default async function (req, res) {
       if (!bk) return fail(res, 400, 'need', err);
       // 등록번호·대표자가 그대로면 확인 유지(명칭은 등록된 그대로), 바뀌면 국가 자료로 다시 확인
       const prevBk = await loadBk(s.id);
+      if (prevBk && prevBk.home) bk.home = prevBk.home;   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
+      if (body.bk && ['ads', 'book'].includes(body.bk.home)) bk.home = body.bk.home;
       if (!P.op && !(await mobileOk(s.id, bk, prevBk))) return fail(res, 400, 'sms', SMS_NEED);
       if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
         Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
