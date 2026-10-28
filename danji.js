@@ -51,7 +51,7 @@ window.Danji = (() => {
   async function goto(cxid, key) {
     while (!S.loaded) await new Promise(r => setTimeout(r, 150));
     if (!S.cx.items.some(c => c.id === cxid)) return toast('그 단지를 찾지 못했습니다');
-    S.adding = false; S.cur = cxid; S.hist = null; S.F = F0(); S.focusKey = key;
+    S.adding = false; S.multi.clear(); saveMulti(); S.cur = cxid; S.hist = null; S.F = F0(); S.focusKey = key;
     const C = S.C[cxid]; if (C) C.view = 'all';
     draw();
   }
@@ -122,7 +122,7 @@ window.Danji = (() => {
     drawTree();
   }
   function wireChips() {
-    document.querySelectorAll('[data-cx]').forEach(b => b.onclick = () => { S.cur = b.dataset.cx; S.adding = false; draw(); });
+    document.querySelectorAll('[data-cx]').forEach(b => b.onclick = () => { S.multi.clear(); saveMulti(); S.cur = b.dataset.cx; S.adding = false; draw(); });
     if ($('dj_addBtn')) $('dj_addBtn').onclick = () => { S.adding = S.adding === true ? false : true; S.results = null; draw(); };
   }
 
@@ -315,7 +315,7 @@ window.Danji = (() => {
       <button type="button" class="tn all${S.cur === '__all' && !multiOn() ? ' on' : ''}" data-tall>모든 단지<span class="ct">${S.cx.items.length}곳</span></button>
       ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
-        const ck = S.multi.has(c.id) || allMode;   // 10/28: '모든 단지'를 보는 중이면 모든 단지에 체크 표시
+        const ck = allMode || (multiOn() ? S.multi.has(c.id) : !S.adding && c.id === S.cur);   // 10/28: 지금 표에 나오는 단지 = 체크 (모든 단지면 전부 · 하나면 그 단지)
         return `<div class="tn${op ? ' on' : ''}${ck ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${ck ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
         ${fo && C && C.dongs ? treeDongs(c, C) : ''}`; }).join('')}
       <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>
@@ -324,13 +324,19 @@ window.Danji = (() => {
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
       S.fold = S.fold || new Set(); const id = b.dataset.tcx;
       if (S.cur === id && !S.adding) { S.fold.has(id) ? S.fold.delete(id) : S.fold.add(id); return drawTree(); }   // 지금 단지 → 접기·펼치기만
-      S.fold.delete(id); S.cur = id; S.adding = false; S.hist = null; draw();
+      S.fold.delete(id); S.multi.clear(); saveMulti(); S.cur = id; S.adding = false; S.hist = null; draw();
     });
     T.querySelectorAll('[data-tck]').forEach(b => b.onchange = () => { const id = b.dataset.tck;
-      if (allMode) { S.multi = new Set(S.cx.items.map(c => c.id)); }   // 모두 체크된 상태에서 하나를 빼면 → 나머지 단지만 한 표로
-      if (b.checked) S.multi.add(id); else S.multi.delete(id);
-      if (S.cx.items.length >= 2 && S.cx.items.every(c => S.multi.has(c.id))) { S.multi.clear(); S.cur = '__all'; }   // 다 체크하면 = 모든 단지
-      saveMulti(); if (multiOn()) { S.cur = '__all'; } else if (S.cur === '__all') { S.cur = [...S.multi][0] || S.cur; } S.adding = false; draw(); });
+      // 지금 체크된 단지(화면에 보이는 것)에서 시작해 하나를 더하거나 뺌 → 2곳 이상 = 한 표 · 1곳 = 그 단지 · 전부 = 모든 단지 · 마지막 하나는 못 뺌
+      const ids = S.cx.items.map(c => c.id);
+      const sel = new Set(allMode ? ids : multiOn() ? [...S.multi].filter(x => ids.includes(x)) : S.cur && S.cur !== '__all' && !S.adding ? [S.cur] : []);
+      if (b.checked) sel.add(id); else sel.delete(id);
+      if (!sel.size) { b.checked = true; return toast('보고 있는 단지가 하나는 있어야 합니다. 다른 단지를 체크하거나 [모든 단지]를 눌러 주세요', 3500); }
+      S.multi.clear();
+      if (sel.size >= 2 && sel.size < ids.length) { sel.forEach(x => S.multi.add(x)); S.cur = '__all'; }
+      else if (sel.size === 1) S.cur = [...sel][0];
+      else S.cur = '__all';
+      saveMulti(); S.adding = false; S.hist = null; draw(); });
     T.querySelectorAll('[data-tgs]').forEach(b => b.onchange = () => pickSub(cur, b.dataset.tgs));
     T.querySelectorAll('[data-tgo]').forEach(b => b.onclick = () => { S.gopen = S.gopen || new Set(); const k = cur.id + '|' + b.dataset.tgo; S.gopen.has(k) ? S.gopen.delete(k) : S.gopen.add(k); drawTree(); });
     T.querySelectorAll('[data-tdong]').forEach(b => b.onclick = () => { const C2 = S.C[S.cur]; if (!C2) return; C2.view = 'dong'; C2.cur = b.dataset.tdong; C2.picked = true; S.hist = null; drawComplex(cur); drawTree(); });
@@ -496,7 +502,7 @@ window.Danji = (() => {
   }
   function wireCxSel() {
     const el = $('dj_cxSel'); if (!el) return;
-    el.onchange = () => { const v = el.value; if (v === '__add') { S.adding = true; S.results = null; return draw(); } if (v === '__all') { S.multi.clear(); saveMulti(); } S.cur = v; S.adding = false; S.hist = null; draw(); };
+    el.onchange = () => { const v = el.value; if (v === '__add') { S.adding = true; S.results = null; return draw(); } S.multi.clear(); saveMulti(); S.cur = v; S.adding = false; S.hist = null; draw(); };
   }
   // ---------- 동 칩 (10/26): 매물·만기가 있는 동만 작게 한 줄 + [모든 동 n ▸] ----------
   const chipIn = (d, n) => `${esc(String(d.dong).replace(/동$/, ''))}${n.m + n.o ? `<em>${n.m + n.o}</em>` : ''}${n.e ? '<i class="xd" title="만기 임박"></i>' : ''}`;
@@ -783,7 +789,7 @@ window.Danji = (() => {
     if (!ro) box.querySelectorAll('td.ed').forEach(td => td.onclick = e => { if (td.classList.contains('editing') || e.target.closest('a,button.hbtn,button.tx')) return; startEdit(cx, +td.parentNode.dataset.i, td.dataset.c); });
     box.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
     wireTel(cx, box);
-    box.querySelectorAll('[data-gocx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.cur = b.dataset.gocx; S.hist = null; draw(); });
+    box.querySelectorAll('[data-gocx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.multi.clear(); saveMulti(); S.cur = b.dataset.gocx; S.hist = null; draw(); });
     drawHist(cx);
     // 누른 줄은 진한 파랑으로 남겨 둠 (상세·기록을 보는 동안 어느 호인지 놓치지 않게)
     box.querySelectorAll('tbody tr[data-key]').forEach(tr => tr.addEventListener('pointerdown', () => { S.selKey = tr.dataset.key; box.querySelectorAll('tr.sel').forEach(z => { if (z !== tr) z.classList.remove('sel'); }); tr.classList.add('sel'); }));
