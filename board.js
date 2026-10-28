@@ -11,9 +11,9 @@ window.Board = (() => {
   const PY = 3.3058;
   // 10/26 종류별 탭: 위 탭 하나 = 종류 하나 (아파트는 단지 화면이 따로 있고, 여기 'apt'는 단지에 없는 아파트 매물을 볼 때)
   //   10/26 오후 세분화: 탭 10개 · 탭 안의 세부 유형(ptype) · 분양권은 거래가 '분양권'이면 종류와 상관없이 분양권 탭
-  const CATS = { apt: ['아파트', '주상복합'], shop: ['상가', '사무실'], bld: ['건물'], ofc: ['오피스텔', '지식산업센터'], home: ['빌라', '연립', '다가구', '주택'],
+  const CATS = { apt: ['아파트', '주상복합', '오피스텔'], shop: ['상가', '사무실'], bld: ['건물'], ofc: ['지식산업센터'], home: ['빌라', '연립', '다가구', '주택'],
     redev: ['재개발', '재건축'], pre: [], land: ['토지'], fac: ['공장·창고'], etc: ['숙박', '기타'] };
-  const CATNAME = { apt: '아파트 매물', shop: '상가·사무실', bld: '건물', ofc: '오피·지산', home: '빌라·주택', redev: '재개발·재건축', pre: '분양권', land: '토지', fac: '공장·창고', etc: '숙박·기타' };
+  const CATNAME = { apt: '아파트·오피 매물', shop: '상가·사무실', bld: '건물', ofc: '지식산업센터', home: '빌라·주택', redev: '재개발·재건축', pre: '분양권', land: '토지', fac: '공장·창고', etc: '숙박·기타' };
   const catOf = x => x.kind === 'presale' ? 'pre' : Object.keys(CATS).find(k => CATS[k].includes(x.ptype)) || 'etc';   // 미지정은 숙박·기타 탭
   const tb = x => (X && X.tbase ? X.tbase(x) : x.ptype);   // 세부 유형 → 원래 큰 유형 (listings.js)
   const B = Object.assign({ cat: 'shop', sort: 'at', dir: -1, grp: '', f: {}, map: false, rate: 4.5, fo: false, fk: [], fs: ['on'], fc: [], fx: [] },
@@ -123,10 +123,11 @@ window.Board = (() => {
     kre: [x => x.ptype === '재개발', '재개발', 'rk'], krc: [x => x.ptype === '재건축', '재건축', 'rk'],
     ...Object.fromEntries(STAGES.map((t, i) => ['s' + i, [x => (x.ad || {}).stage === t, t, 'stg']])),
     ...Object.fromEntries(['빌라', '단독', '상가', '아파트', '토지'].map((t, i) => ['m' + i, [x => (x.ad || {}).form === t, t, 'fm']])),
+    ap: [x => x.ptype !== '오피스텔', '아파트', 'ap'], op: [x => x.ptype === '오피스텔', '오피스텔', 'ap'],
     pa: [x => tb(x) === '아파트', '아파트', 'pt'], po: [x => tb(x) !== '아파트', '오피스텔 등', 'pt'],
     rs: [resaleOk, '전매 가능', 'rs'], d6: [dueSoon, '입주 6개월 이내', 'd6'],
   };
-  const CATCHIP = { shop: ['f1', 'fb', 'f2'], bld: ['p30', 'p50', 'p50p'], home: ['r1', 'r2', 'r3'], ofc: ['r1', 'r2', 'r3'],
+  const CATCHIP = { shop: ['f1', 'fb', 'f2'], bld: ['p30', 'p50', 'p50p'], home: ['r1', 'r2', 'r3'], apt: ['ap', 'op', '|', 'r1', 'r2', 'r3'],
     redev: ['kre', 'krc', '|', 's0', 's1', 's2', 's3', 's4', '|', 'm0', 'm1', 'm2', 'm3', 'm4'], pre: ['pa', 'po', '|', 'rs', 'd6'] };
   const CATKIND = { shop: ['sale', 'wolse', 'jeonse'], bld: ['sale', 'wolse'], land: ['sale', 'wolse', 'jeonse'], apt: ['sale', 'jeonse', 'wolse'], ofc: ['sale', 'jeonse', 'wolse'], home: ['sale', 'jeonse', 'wolse'],
     redev: ['sale', 'jeonse', 'wolse'], pre: [], fac: ['sale', 'wolse', 'jeonse'], etc: ['sale', 'wolse', 'jeonse'] };

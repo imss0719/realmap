@@ -19,8 +19,12 @@ window.Danji = (() => {
   const med = a => { if (!a.length) return null; a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
   const digits = s => String(s || '').replace(/\D/g, '');
   // 동 이름 비교: '제101동'·'101동'·'101' 은 같게, 'T402동'과 '402동'은 다르게 (숫자만 비교하면 섞임)
-  const normD = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
-  const normH = s => digits(s) || String(s || '').replace(/\s|호$/g, '');
+  // 10/28 오피스텔: 동 이름이 비었거나('') 건물 이름('○○빌딩')인 경우도 있음 · '주건축물제1동' → '1' · 호 '4층404호' → '404'
+  const normD = s => String(s || '').replace(/\s/g, '').replace(/^주건축물/, '').replace(/^제/, '').replace(/동$/, '').toUpperCase().slice(0, 16);
+  const normH = s => { const t = String(s || '').replace(/\s/g, '').replace(/^(지하)?\d+층(?=\D*\d)/, ''); return digits(t) || t.replace(/호$/, ''); };
+  const DN = dn => !dn ? '' : /\d$|^[A-Z가-힣]$/.test(dn) ? dn + '동' : dn;                 // 화면 표시: '101' → '101동' · 건물 이름은 그대로 · 없으면 ''
+  const UL = x => [DN(x.dn), x.ho + '호'].filter(Boolean).join(' ');                       // '101동 1203호' · '1203호'
+  const US = x => x.dn && /\d$|^[A-Z가-힣]$/.test(x.dn) ? `${x.dn}-${x.ho}` : x.ho + '호';   // 짧게: '101-1203' · '1203호'
   const normName = s => String(s || '').replace(/\s|\(.*?\)|아파트|APT/gi, '');
   const baseName = s => normName(s).replace(/\d+단지$/, '');                       // '마포래미안푸르지오4단지' → '마포래미안푸르지오'
   const nat = (a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true });
@@ -95,9 +99,9 @@ window.Danji = (() => {
   }
   function addBox(toId) {
     return `<div class="card" id="dj_addCard"><h2>${toId ? '이 단지에 필지 추가' : '단지 추가'}<small>단지 이름이나 주소로 찾기</small></h2>
-      <input class="find" id="dj_aq" type="search" placeholder="예: 마포래미안푸르지오, 아현동 777" autocomplete="off">
+      <input class="find" id="dj_aq" type="search" placeholder="예: ○○래미안, ○○오피스텔, ○○동 777" autocomplete="off">
       <div class="res" id="dj_ares"></div>
-      <p class="note">리얼맵 지도에서 아파트를 누른 뒤 '단지 장부에 추가'를 눌러도 됩니다. 1단지·2단지처럼 지번이 여러 개인 단지는 담은 뒤 '필지 추가'로 나머지 지번을 넣어 주세요.</p></div>`;
+      <p class="note">오피스텔·주상복합도 같은 방법으로 담습니다. 리얼맵 지도에서 건물을 누른 뒤 '단지에 담기'를 눌러도 됩니다. 1단지·2단지처럼 지번이 여러 개인 단지는 담은 뒤 '필지 추가'로 나머지 지번을 넣어 주세요.</p></div>`;
   }
   function drawAdd() {
     const el = $('dj_ares'); if (!el) return;
@@ -109,7 +113,7 @@ window.Danji = (() => {
   function draw() {
     const W = $('dj_wrap'); if (!W) return;
     if (S.pk && (S.adding || (S.cur !== '__all' && S.pk.cx !== S.cur))) closePanel();   // 다른 단지·매물장으로 가면 입력창 닫기
-    const chips = `<div class="djcap"><b>아파트</b><span>단지별 동·호 장부</span></div><div class="chips">${S.cx.items.length >= 2 ? `<button type="button" data-cx="__all" class="allcx" aria-pressed="${S.cur === '__all' && !S.adding}">모든 단지</button>` : ''}${S.cx.items.map(c => `<button type="button" data-cx="${c.id}" aria-pressed="${c.id === S.cur && !S.adding}">${esc(c.name)}</button>`).join('')}<button type="button" class="add" id="dj_addBtn" aria-pressed="${S.adding === true}">＋ 단지 추가</button></div>`;
+    const chips = `<div class="djcap"><b>아파트·오피스텔</b><span>단지·건물별 동·호 장부</span></div><div class="chips">${S.cx.items.length >= 2 ? `<button type="button" data-cx="__all" class="allcx" aria-pressed="${S.cur === '__all' && !S.adding}">모든 단지</button>` : ''}${S.cx.items.map(c => `<button type="button" data-cx="${c.id}" aria-pressed="${c.id === S.cur && !S.adding}">${esc(c.name)}</button>`).join('')}<button type="button" class="add" id="dj_addBtn" aria-pressed="${S.adding === true}">＋ 단지 추가</button></div>`;
     // 넓은 화면: 왼쪽 단지 목록(폴더) + 오른쪽 내용 · 좁은 화면: 위쪽 단지 버튼 (10/26)
     // 10/26: 단지 고르기는 왼쪽 목록 + 머리의 드롭메뉴로. 위쪽 단지 버튼 줄은 단지 추가 화면에서만
     const lay = inner => `<div class="djlay${S.cx.items.length ? ' hastree' : ''}"><aside class="djtree" id="dj_tree"></aside><div class="djmain">${S.adding || !S.cx.items.length ? chips : ''}${inner}</div></div>`;
@@ -133,8 +137,11 @@ window.Danji = (() => {
   async function dongsOf(pnu) {
     try {
       const b = await api(`/api/building?pnu=${pnu}`);
-      return ((b.titles && b.titles.data) || []).filter(t => t.mainAtch !== '부속건축물' && t.dong && /\d/.test(t.dong) && !/상가|관리|경로|어린이|커뮤니티|주민|근린/.test(t.dong + (t.use || '')))
-        .map(t => ({ pnu, dong: String(t.dong).trim(), grnd: t.grnd, ho: t.ho, hhld: t.hhld, use: t.use, apr: t.useApr }));
+      const main = ((b.titles && b.titles.data) || []).filter(t => t.mainAtch !== '부속건축물');
+      let L = main.filter(t => t.dong && /\d/.test(t.dong) && !/상가|관리|경로|어린이|커뮤니티|주민|근린/.test(t.dong + (t.use || '')));
+      // 10/28 오피스텔·주상복합: 동 번호가 없는 건물(동 이름이 비었거나 'A동'·'○○빌딩') → 호가 있는 주건축물을 그대로
+      if (!L.length) L = main.filter(t => (+t.ho || +t.hhld) > 0 && !/관리|경로|어린이|커뮤니티|주민/.test(String(t.dong || '')));
+      return L.map(t => ({ pnu, dong: String(t.dong || '').trim(), grnd: t.grnd, ho: t.ho, hhld: t.hhld, use: t.use, apr: t.useApr }));
     } catch { return []; }
   }
   // 같은 이름 계열 단지(1단지·2단지…)의 지번을 실거래에서 찾아 자동으로 붙입니다
@@ -308,7 +315,7 @@ window.Danji = (() => {
   const gOn = C => { if (!C || !Array.isArray(C.gsel) || !C.gsel.length) return null; const md = subMode(C); if (!md) return null; const ok = C.gsel.filter(k => (md === 'h') === k.startsWith('h')); return ok.length ? ok : null; };
   const inSub = (C, gs, pnu, dong) => { const md = subMode(C); if (md === 'h' && !headOf(dong)) return true; return gs.includes(gkOf(md, pnu, dong)); };   // 'A동'처럼 번호가 아닌 동은 어느 하위 단지를 골라도 보임
   function treeDongs(c, C) {
-    const M = mineMap(c), dongBtn = d => { const m = dongCounts(c, d, M), k = d.pnu + '|' + d.dong; return { m, html: `<button type="button" class="tn d${C.view === 'dong' && C.cur === k ? ' on' : ''}" data-tdong="${esc(k)}"><i></i>${esc(d.dong)}<span class="ct">${m.m + m.o || ''}${m.e ? ` <em>만기 ${m.e}</em>` : ''}</span></button>` }; };
+    const M = mineMap(c), dongBtn = d => { const m = dongCounts(c, d, M), k = d.pnu + '|' + d.dong; return { m, html: `<button type="button" class="tn d${C.view === 'dong' && C.cur === k ? ' on' : ''}" data-tdong="${esc(k)}"><i></i>${esc(d.dong || '건물')}<span class="ct">${m.m + m.o || ''}${m.e ? ` <em>만기 ${m.e}</em>` : ''}</span></button>` }; };
     const sorted = ds => ds.map(dongBtn).sort((p, q) => (q.m.m + q.m.o) - (p.m.m + p.m.o) || q.m.e - p.m.e).map(z => z.html).join('');
     const G = subOf(c, C); if (!G) return sorted(C.dongs);
     S.gopen = S.gopen || new Set(); const sel = gOn(C) || [];
@@ -338,7 +345,7 @@ window.Danji = (() => {
         return `<div class="tn${op ? ' on' : ''}${ck ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${ck ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
         ${fo && C && C.dongs ? treeDongs(c, C) : ''}`; }).join('')}
       <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>
-      ${(() => { const n = (S.host.items() || []).filter(x => (x.ptype === '아파트' || x.ptype === '주상복합') && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
+      ${(() => { const n = (S.host.items() || []).filter(x => ['아파트', '주상복합', '오피스텔'].includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트·오피 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
       S.fold = S.fold || new Set(); const id = b.dataset.tcx;
@@ -489,7 +496,7 @@ window.Danji = (() => {
       }
       const el = document.createElement('button'); el.type = 'button';
       el.className = `djml${n.m || n.o ? ' has' : ''}${sel ? ' sel' : ''}${hit ? '' : ' dim'}`;
-      el.innerHTML = `${esc(d.dong)}${n.m + n.o ? `<em title="매물 (내 매물 ${n.m} · 타부동산 ${n.o})">${n.m + n.o}</em>` : ''}${n.e ? `<i title="만기 임박">만기 ${n.e}</i>` : ''}`;
+      el.innerHTML = `${esc(d.dong || '건물')}${n.m + n.o ? `<em title="매물 (내 매물 ${n.m} · 타부동산 ${n.o})">${n.m + n.o}</em>` : ''}${n.e ? `<i title="만기 임박">만기 ${n.e}</i>` : ''}`;
       el.onclick = e => { e.stopPropagation(); pickDong(cx, k); };
       const ov = new K.CustomOverlay({ position: new K.LatLng(pos.lat, pos.lng), content: el, yAnchor: .5, zIndex: sel ? 10 : hit ? 5 : 1, clickable: true });
       ov.setMap(M.map); M.ovs.push(ov); bounds.extend(new K.LatLng(pos.lat, pos.lng)); any++;
@@ -511,7 +518,7 @@ window.Danji = (() => {
       + (rows.length ? rows.map(x => {
         const r = x.r || {};
         const sub = [supPy(x) ? `${supPy(x).v}평${x.lt && x.lt.t ? ' ' + x.lt.t : ''}` : '', x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', r.live ? LIVE[r.live] : '', r.exp ? `만기 ${r.exp.slice(2, 7).replace('-', '.')}` : '', x.st.src === 'other' ? (x.st.office || '타부동산') : ''].filter(Boolean).join(' · ') + (r.imp ? ` · ⚑ ${r.imp}` : '');
-        return `<button type="button" class="sd-it${x.st.hold ? ' hold' : ''}" data-go="${esc(x.key)}"><span class="sd-t"><b>${esc(x.dn)}-${esc(x.ho)}</b>${pills(x.st)}</span><span class="sd-p">${prHtml(x)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
+        return `<button type="button" class="sd-it${x.st.hold ? ' hold' : ''}" data-go="${esc(x.key)}"><span class="sd-t"><b>${esc(US(x))}</b>${pills(x.st)}</span><span class="sd-p">${prHtml(x)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
       }).join('') : `<p class="sd-e">${dongV ? '이 동에는' : '이 단지에는'} 아직 매물이 없습니다.</p>`)
       + (rows.length ? '<p class="sd-n">누르면 표에서 그 호로 이동</p>' : '');
     els.forEach(el => { el.innerHTML = html; el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { S.focusKey = b.dataset.go; S.selKey = b.dataset.go; S.hist = null; setTab('table'); drawComplex(cx); }); });
@@ -528,7 +535,7 @@ window.Danji = (() => {
     el.onchange = () => { const v = el.value; if (v === '__add') { S.adding = true; S.results = null; return draw(); } S.multi.clear(); saveMulti(); S.cur = v; S.adding = false; S.hist = null; draw(); };
   }
   // ---------- 동 칩 (10/26): 매물·만기가 있는 동만 작게 한 줄 + [모든 동 n ▸] ----------
-  const chipIn = (d, n) => `${esc(String(d.dong).replace(/동$/, ''))}${n.m + n.o ? `<em>${n.m + n.o}</em>` : ''}${n.e ? '<i class="xd" title="만기 임박"></i>' : ''}`;
+  const chipIn = (d, n) => `${esc(String(d.dong).replace(/동$/, '') || '건물')}${n.m + n.o ? `<em>${n.m + n.o}</em>` : ''}${n.e ? '<i class="xd" title="만기 임박"></i>' : ''}`;
   function dongChips(cx, C, MM) {
     const ds = C.dongs || []; if (!ds.length) return `<div class="dongs sm" id="dj_dongs">${C.dongs ? '<span class="muted">동 정보가 없습니다.</span>' : ''}</div>`;
     const sel = C.view === 'dong' ? C.cur : null;
@@ -602,7 +609,7 @@ window.Danji = (() => {
   const aKey = a => a ? Math.round(a) : 0;
   // 표 머리 ▾ 로 거를 수 있는 칸 (값 꺼내는 법) — 10/26
   const DCF = {
-    cxn: x => x.cx.name, dn: x => x.dn + '동', ar: x => { const p = supPy(x); return p ? p.v + '평' : ''; },
+    cxn: x => x.cx.name, dn: x => DN(x.dn), ar: x => { const p = supPy(x); return p ? p.v + '평' : ''; },
     ty: x => (x.lt && x.lt.t) || '', dir: x => x.dir || '', live: x => liveTxt(x), of: x => ofTxt(x.st),
   };
   function pass(x, F) {
@@ -727,7 +734,7 @@ window.Danji = (() => {
     const r = x.r || {}, s = x.st;
     switch (c.id) {
       case 'cxn': return `<button type="button" class="cxn" data-gocx="${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
-      case 'dn': return `<b>${esc(x.dn)}</b>`;
+      case 'dn': return `<b>${esc(DN(x.dn).replace(/동$/, ''))}</b>`;
       case 'ho': return `<b>${esc(x.ho)}</b>`;
       case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : ''}>${p.v}평</b>` : '<span class="mut">입력</span>'; }
       case 'ty': return x.lt && x.lt.t ? `<b>${esc(x.lt.t)}</b>${x.a ? ` <small>${esc(String(Math.round(x.a * 100) / 100))}</small>` : ''}` : x.a ? `<span class="mut">입력</span> <small>${esc(String(Math.round(x.a * 100) / 100))}</small>` : '<span class="mut">입력</span>';
@@ -911,7 +918,7 @@ window.Danji = (() => {
       ...(r.tels && r.tels.length ? { contacts: r.tels.map(t => ({ role: t.l || '소유자', name: '', phone: t.n })) } : {}) };
     if (!S.host.pubNew) { S.host.openAdd(x.pnu, x.dn, x.ho, pre); return; }
     const dir = x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', mi = r.moveIn ? (/^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.replace(/-/g, '.') : String(r.moveIn)) : '';
-    S.host.pubNew({ pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, ptype: '아파트', pre });
+    S.host.pubNew({ pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, ptype: cxType(x.cx), pre });
   }
   // 연락처 펼치기 · 번호를 누르면 전화 (통화 기록이 남음)
   function wireTel(cx, root) {
@@ -1100,7 +1107,7 @@ window.Danji = (() => {
   function ltAsk(cx, x, td, ed, v) {
     const val = ed === 'py' ? +(String(v).replace(/\D/g, '') || 0) : ed === 'dir' ? String(v).trim() : String(v).trim().toUpperCase();
     const C = CI(cx), U = C.units && C.units[`${x.pnu}|${(dongOf(C, x.dn) || {}).dong}`];
-    const n = Array.isArray(U) ? U.filter(u => { const h = +digits(u.ho); return u.flrGb !== '지하' && (h >= 100 ? h % 100 : h) === x.line; }).length : 0;
+    const n = Array.isArray(U) ? U.filter(u => { const h = +digits(normH(u.ho)); return u.flrGb !== '지하' && (h >= 100 ? h % 100 : h) === x.line; }).length : 0;
     const what = ed === 'py' ? (val ? val + '평' : '빈 값') : ed === 'dir' ? (val ? val + '향' : '빈 값') : (val || '빈 값');
     const save = async key => {
       closePop();
@@ -1115,10 +1122,10 @@ window.Danji = (() => {
           cx.lt = { ...(cx.lt || {}), [key]: lt }; redo();
           const j = await post({ op: 'lt', id: cx.id, key, t: lt.t || '', py: lt.py || 0 }); S.cx = { items: j.items, memos: j.memos }; const nn = j.items.find(z => z.id === cx.id); if (nn) cx.lt = nn.lt;
         }
-        redo(); toast(key.includes('|h') ? `${x.dn}-${x.ho}만 ${what}(으)로 적었습니다` : `${x.dn}동 ${x.line}라인 모든 호를 ${what}(으)로 바꿨습니다`); }
+        redo(); toast(key.includes('|h') ? `${US(x)}만 ${what}(으)로 적었습니다` : `${DN(x.dn)} ${x.line}라인 모든 호를 ${what}(으)로 바꿨습니다`); }
       catch (er) { toast(er.message); }
     };
-    const p = openPop(td, `<b class="pt">${esc(x.dn)}동 ${x.line}라인을 모두 ${esc(what)}(으)로 바꿀까요?</b>
+    const p = openPop(td, `<b class="pt">${esc(DN(x.dn))} ${x.line}라인을 모두 ${esc(what)}(으)로 바꿀까요?</b>
       <p class="note" style="margin:2px 0 8px">같은 라인은 보통 ${ed === 'py' ? '평형' : ed === 'dir' ? '방향' : '타입'}이 같습니다.${n ? ` 이 라인은 ${n}호입니다.` : ''}</p>
       <div class="pr2"><button type="button" class="btn dark sm" id="la_all">네, 같은 라인 모두</button><button type="button" class="btn ghost sm" id="la_one">이 호만</button><button type="button" class="btn ghost sm" id="la_no">취소</button></div>`);
     S.ed = { i: -1, c: ed };   // 창이 떠 있는 동안 표를 다시 그리지 않게
@@ -1172,7 +1179,7 @@ window.Danji = (() => {
     const s = x.st, cur = s.done ? { src: '', k: [] } : s;
     const on = (src, k) => cur.src === src && cur.k.includes(k);
     const exp = x.r && x.r.exp;
-    const p = openPop(td, `<b class="pt">상태 — ${esc(x.dn)}-${esc(x.ho)}</b>
+    const p = openPop(td, `<b class="pt">상태 — ${esc(US(x))}</b>
       <div class="pg">${['mine', 'other'].map(src => ['sale', 'jeonse', 'wolse'].map(k => `<button type="button" class="${src === 'mine' ? 'f-' : 'o-'}${k}" data-sk="${src}:${k}" aria-pressed="${on(src, k)}">${src === 'mine' ? '내' : '타'} ${KN[k]}</button>`).join('')).join('')}</div>
       ${cur.src === 'other' ? `<input class="hjin sm" id="pp_of" value="${esc(cur.office || '')}" placeholder="어느 부동산? (예: ○○공인) — Enter" maxlength="30">` : ''}
       <div class="pr2"><button type="button" data-pa="hold" aria-pressed="${!!cur.hold}">보류</button><button type="button" data-pa="deal">계약됨…</button>${exp ? '<button type="button" data-pa="renew">갱신…</button><button type="button" data-pa="early">만기 전 이사…</button>' : ''}<button type="button" data-pa="none">없음</button></div>
@@ -1216,7 +1223,7 @@ window.Danji = (() => {
   function pricePop(cx, x, td) {
     const pr = (x.r && x.r.pr) || {}, ks = x.st.k.length ? x.st.k : ['sale', 'jeonse', 'wolse'];
     const row = (f, t, ph) => `<label>${t}<input class="hjin sm" data-pf="${f}" value="${esc(f === 'wr' ? (pr.wr || '') : manTxt(pr[f]))}" placeholder="${ph}" autocomplete="off"><small data-pv="${f}"></small></label>`;
-    const p = openPop(td, `<b class="pt">가격 — ${esc(x.dn)}-${esc(x.ho)}</b><div class="ppf">${ks.includes('sale') ? row('sale', '매매가', '예: 14억 5천') : ''}${ks.includes('jeonse') ? row('jeonse', '전세 보증금', '예: 8억 5천') : ''}${ks.includes('wolse') ? row('wd', '월세 보증금', '예: 1억') + row('wr', '월세(만원)', '예: 250') : ''}
+    const p = openPop(td, `<b class="pt">가격 — ${esc(US(x))}</b><div class="ppf">${ks.includes('sale') ? row('sale', '매매가', '예: 14억 5천') : ''}${ks.includes('jeonse') ? row('jeonse', '전세 보증금', '예: 8억 5천') : ''}${ks.includes('wolse') ? row('wd', '월세 보증금', '예: 1억') + row('wr', '월세(만원)', '예: 250') : ''}
       <button type="button" class="btn dark sm" id="pp_go">저장 (Enter)</button></div>${x.st.k.length ? '' : '<p class="note">상태에서 매매·전세·월세를 고르면 그 가격만 나옵니다.</p>'}`);
     const ins = [...p.querySelectorAll('[data-pf]')];
     ins.forEach(i => i.oninput = () => { const v = i.dataset.pf === 'wr' ? +(i.value.replace(/\D/g, '') || 0) : parseMan(i.value), s = p.querySelector(`[data-pv="${i.dataset.pf}"]`); s.textContent = Number.isNaN(v) ? '숫자로 (예: 8억 5천)' : v ? '= ' + (i.dataset.pf === 'wr' ? v + '만' : wonFull(v)) : ''; });
@@ -1234,7 +1241,7 @@ window.Danji = (() => {
     if (ten && !T.some(isTen)) T.push({ l: '세입자', n: '' });
     if (!ten && !T.some(t => !isTen(t))) T.unshift({ l: '소유자', n: '' });
     const draw1 = () => {
-      const p = openPop(td, `<b class="pt">연락처 — ${esc(x.dn)}-${esc(x.ho)}</b><span class="note">이 계정에서만 보이고 암호화해서 저장합니다</span>
+      const p = openPop(td, `<b class="pt">연락처 — ${esc(US(x))}</b><span class="note">이 계정에서만 보이고 암호화해서 저장합니다</span>
         <div class="ppf">${T.map((t, i) => `<div class="hjtel"><input class="hjin sm lb" list="hj_tl" data-tl="${i}" value="${esc(t.l)}" placeholder="소유자" maxlength="10"><input class="hjin sm" data-tn="${i}" value="${esc(t.n)}" placeholder="010-0000-0000" inputmode="tel" maxlength="20"><a class="call" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-call="${i}"${t.n ? '' : ' hidden'}>전화</a><button type="button" class="x" data-tdel="${i}" aria-label="지우기">×</button></div>`).join('')}
         ${T.length < 4 ? '<button type="button" class="lnk2" id="pt_add">＋ 연락처 추가</button>' : ''}<datalist id="hj_tl">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>
         <button type="button" class="btn dark sm" id="pt_go">저장 (Enter)</button></div>`);
@@ -1318,7 +1325,7 @@ window.Danji = (() => {
         <div class="rpbtns"><button type="button" class="rpb y" data-tomk>매물장에 올리기</button><button type="button" class="rpb" data-mkx>취소</button></div>`;
     else mkHtml = `<p class="rpn">관리 중인 호입니다. 물건으로 나오면 아래를 누르세요.</p>${ro ? '' : '<div class="rpbtns"><button type="button" class="rpb y" data-mkopen>매물장으로</button></div>'}`;
     const H = R0 && R0.hist ? R0.hist : (r.hist || []), canUndo = R0 && R0.hist && R0.hist[0] && Date.now() - Date.parse(R0.hist[0].t) < 10 * 60e3;
-    P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(x.dn)}동 ${esc(x.ho)}호</b>${lt.t || x.dir ? `<span class="rptg">${esc([lt.t, x.dir].filter(Boolean).join(' · '))}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
+    P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${lt.t || x.dir ? `<span class="rptg">${esc([lt.t, x.dir].filter(Boolean).join(' · '))}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
       ${ro ? `<p class="rpwarn">${S.L[cx.id] && S.L[cx.id].err ? esc(S.L[cx.id].err) : '요금제 단지 한도를 넘은 단지라 보기만 됩니다'}</p>` : ''}
       <section class="rps"><h4>기본</h4><div class="rpg c3">${fld('타입', v('ty', lt.t || '', '예: 84B', 'maxlength="8"'))}${fld('평형', v('py', lt.py || '', sp ? sp.v + '평' + (sp.est ? ' (추정)' : '') : '예: 34', 'inputmode="numeric" maxlength="3"'))}${fld('방향', `<select class="rpi" data-f="dir" ${ro ? 'disabled' : ''}><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select>`)}</div>
         <label class="rpck sm"><input type="checkbox" id="rp_one" ${S.pkOne ? 'checked' : ''}> 이 호만 (안 고르면 ${x.line}라인 모두에)</label>${x.a ? `<span class="rpn sm"> · 전용 ${Math.round(x.a * 100) / 100}㎡</span>` : ''}</section>
@@ -1379,7 +1386,7 @@ window.Danji = (() => {
       save(D => { D.st = { ...D.st, k: kk }; }); setTimeout(() => drawPanel(true), 0);
     });
     const hold = P.querySelector('[data-hold]'); if (hold) hold.onchange = () => save(D => { D.st = { ...D.st, hold: hold.checked }; });
-    const toled = P.querySelector('[data-toled]'); if (toled) toled.onclick = () => { if (!confirm(`${x.dn}동 ${x.ho}호를 매물장에서 내릴까요?\n관리장부에는 그대로 남고, 기록에도 남습니다.`)) return; save(D => { D.st = { ...NONE }; }); toast('매물장에서 내렸습니다 (관리장부에는 그대로)'); setTimeout(() => drawPanel(true), 0); };
+    const toled = P.querySelector('[data-toled]'); if (toled) toled.onclick = () => { if (!confirm(`${UL(x)}를 매물장에서 내릴까요?\n관리장부에는 그대로 남고, 기록에도 남습니다.`)) return; save(D => { D.st = { ...NONE }; }); toast('매물장에서 내렸습니다 (관리장부에는 그대로)'); setTimeout(() => drawPanel(true), 0); };
     const card = P.querySelector('[data-card]'); if (card) card.onclick = () => cardFrom(x);
     // 매물장으로 (아직 안 나온 호): 받은 곳 · 거래 · 가격을 넣고 [매물장에 올리기]
     const mo = P.querySelector('[data-mkopen]'); if (mo) mo.onclick = () => { S.pkMk = true; S.pkDraft = null; drawPanel(true); const f = P.querySelector('#rp_dpr input'); if (f) f.focus(); };
@@ -1395,7 +1402,7 @@ window.Danji = (() => {
         for (const i of P.querySelectorAll('#rp_dpr [data-f]')) { const f = i.dataset.f, n = f === 'pwr' ? +(String(i.value).replace(/\D/g, '') || 0) : parseMan(i.value); if (Number.isNaN(n)) return toast('가격을 숫자로 적어 주세요 (예: 8억 5천)'); vals[M[f]] = n || 0; }
         const st = { src: dr.src, k: [...dr.k], hold: false, office: dr.src === 'other' ? (dr.office || '').trim() : '' };
         save(D => { D.st = st; D.pr = { ...D.pr, ...vals }; });
-        S.pkMk = false; S.pkDraft = null; toast(`${x.dn}동 ${x.ho}호를 매물장에 올렸습니다`); setTimeout(() => drawPanel(true), 0);
+        S.pkMk = false; S.pkDraft = null; toast(`${UL(x)}를 매물장에 올렸습니다`); setTimeout(() => drawPanel(true), 0);
       };
     }
     // 상담 기록
@@ -1418,7 +1425,7 @@ window.Danji = (() => {
         cx.lt = { ...(cx.lt || {}), [key]: lt }; redo();
         const j = await post({ op: 'lt', id: cx.id, key, t: lt.t || '', py: lt.py || 0 }); S.cx = { items: j.items, memos: j.memos }; const nn = j.items.find(z => z.id === cx.id); if (nn) cx.lt = nn.lt;
       }
-      redo(); toast(one ? `${x.dn}-${x.ho}만 적었습니다` : `${x.dn}동 ${x.line}라인 모든 호에 적었습니다`);
+      redo(); toast(one ? `${US(x)}만 적었습니다` : `${DN(x.dn)} ${x.line}라인 모든 호에 적었습니다`);
     } catch (er) { toast(er.message); }
   }
 
@@ -1449,7 +1456,7 @@ window.Danji = (() => {
     if (!x) { if (P) P.remove(); return; }
     if (!P) { P = document.createElement('aside'); P.id = 'dj_hp'; P.className = 'hpanel'; ($('dj_wrap') || document.body).appendChild(P); }
     const st = x.st, sub = [st.done ? '계약됨' : ofTxt(st), (st.k || []).map(k => KN[k]).join('·'), liveTxt(x)].filter(Boolean).join(' · ');
-    P.innerHTML = `<div class="hp-h"><b>${S.cur === '__all' ? esc(x.cx.name) + ' ' : ''}${esc(x.dn)}동 ${esc(x.ho)}호</b><span>상담 기록${sub ? ' · ' + esc(sub) : ''}</span><button type="button" class="hp-x" id="hp_x" aria-label="닫기">×</button></div>${histRowHtml(x)}`;
+    P.innerHTML = `<div class="hp-h"><b>${S.cur === '__all' ? esc(x.cx.name) + ' ' : ''}${esc(UL(x))}</b><span>상담 기록${sub ? ' · ' + esc(sub) : ''}</span><button type="button" class="hp-x" id="hp_x" aria-label="닫기">×</button></div>${histRowHtml(x)}`;
     $('hp_x').onclick = () => { S.hist = null; S.histRec = null; drawTable(S.tcx || cx); };
     // 창 위치: 표 머리 높이에 맞춤 (위 단지 막대·탭을 가리지 않게)
     const tw = $('dj_tbw'), fz = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fz')) || 1, th = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toph')) || 60;
@@ -1564,6 +1571,8 @@ window.Danji = (() => {
 
   // ---------- 호실 장부 (api/_ledger.js) ----------
   // 단지를 열면 그 단지의 장부 요약(호별 상태·만기·히스토리 최근 3건)을 한 번에 받습니다.
+  // 10/28 단지 종류: 건축물대장 용도에 아파트·공동주택이 없고 오피스텔·업무시설이면 오피스텔 (매물 카드 만들 때)
+  const cxType = cx => { const ds = (CI(cx).dongs || []); return ds.length && !ds.some(d => /아파트|공동주택/.test(d.use || '')) && ds.some(d => /오피스텔|업무/.test(d.use || '')) ? '오피스텔' : '아파트'; };
   const keyOf = (pnu, dong, ho) => `${pnu}|${normD(dong)}|${normH(ho)}`;
   const KK = { sale: 'sale', jeonse: 'jeonse', wolse: 'wolse', presale: 'sale' };
   const KN = { sale: '매매', jeonse: '전세', wolse: '월세' };
@@ -1603,7 +1612,7 @@ window.Danji = (() => {
     return o;
   }
   // 동 버튼 숫자: 매물(내 매물 + 타부동산, 색 구분은 표·현황판에서) · 만기 임박
-  const dongLabel = (dong, n) => `${esc(dong)}${n.m + n.o ? `<em title="매물 (내 매물 ${n.m} · 타부동산 ${n.o})">${n.m + n.o}</em>` : ''}${n.e ? `<i class="xd" title="만기 임박">${n.e}</i>` : ''}`;
+  const dongLabel = (dong, n) => `${esc(dong || '건물')}${n.m + n.o ? `<em title="매물 (내 매물 ${n.m} · 타부동산 ${n.o})">${n.m + n.o}</em>` : ''}${n.e ? `<i class="xd" title="만기 임박">${n.e}</i>` : ''}`;
   function dongCounts(cx, d, M) {
     const L = S.L[cx.id], dd = normD(d.dong), hs = new Set();
     if (L && L.units) for (const k of Object.keys(L.units)) { const [p, dn, h] = k.split('|'); if (p === d.pnu && dn === dd) hs.add(h); }
@@ -1652,11 +1661,14 @@ window.Danji = (() => {
   // ---------- 내 매물 · 메모 ----------
   function mineMap(cx) {
     const pn = new Set(cx.places.map(p => p.pnu)), base = baseName(cx.name), m = new Map();
+    // 10/28 오피스텔: 매물 카드에 동을 안 적었거나 다르게 적었어도, 그 필지에 건물이 하나뿐이면 그 건물로
+    const ds = (S.C[cx.id] && S.C[cx.id].dongs) || (S.CL && S.CL[cx.id] && S.CL[cx.id].dongs) || [];
+    const dnOf = p => { const d0 = normD(p.dong), c = ds.filter(d => d.pnu === p.pnu); return c.length === 1 && !c.some(d => normD(d.dong) === d0) ? normD(c[0].dong) : d0; };
     for (const x of items()) for (const p of (x.places && x.places.length ? x.places : [x])) {
       if (!p.dong && !p.ho) continue;
       const inCx = pn.has(p.pnu) || (base.length >= 4 && normName(p.bname || x.bname).startsWith(base));
       if (!inCx) continue;
-      const k = `${pn.has(p.pnu) ? p.pnu : '*'}|${normD(p.dong)}|${normH(p.ho)}`;
+      const k = `${pn.has(p.pnu) ? p.pnu : '*'}|${dnOf(p)}|${normH(p.ho)}`;
       (m.get(k) || m.set(k, []).get(k)).push(x);
     }
     return m;
@@ -1722,7 +1734,7 @@ window.Danji = (() => {
     const retry = () => { delete C.units[C.cur]; drawGrid(cx); };
     if (U === 'error') { box.innerHTML = `<div class="muted">호 목록을 불러오지 못했습니다. 큰 단지는 공공데이터 응답이 느려 처음 한 번이 오래 걸릴 수 있습니다.${C.err ? `<br><small>${esc(C.err).slice(0, 120)}</small>` : ''}<br><button type="button" class="lnk" id="dj_retry">다시 불러오기</button></div>`; $('dj_retry').onclick = retry; return; }
     // 지상층 · 숫자 호만
-    const units = U.filter(u => u.flrGb !== '지하' && digits(u.ho)).map(u => { const h = +digits(u.ho); const fl = u.flr != null ? u.flr : Math.floor(h / 100); return { ho: u.ho, h, fl, line: h >= 100 ? h % 100 : h }; });
+    const units = U.filter(u => u.flrGb !== '지하' && digits(u.ho)).map(u => { const h = +digits(normH(u.ho)); const fl = u.flr != null ? u.flr : Math.floor(h / 100); return { ho: u.ho, h, fl, line: h >= 100 ? h % 100 : h }; });
     if (!units.length) { box.innerHTML = `<div class="muted">${C.partial && C.partial[C.cur] ? '호 목록을 아직 다 받지 못했습니다.' : '이 동의 호 정보가 없습니다.'} <button type="button" class="lnk" id="dj_retry">다시 불러오기</button></div>`; $('dj_retry').onclick = retry; return; }
     const lines = [...new Set(units.map(u => u.line))].sort((a, b) => a - b);
     const floors = [...new Set(units.map(u => u.fl))].sort((a, b) => b - a);
@@ -1827,7 +1839,7 @@ window.Danji = (() => {
     const key = memoKey(cx, pnu, dong, ho), memo = S.cx.memos[key];
     const trades = (C.trades || []).filter(r => normD(r.aptDong) === normD(dong) && +r.floor === u.fl);
     const lineEx = LA[u.line];
-    $('djShTitle').textContent = `${dong}${/동$/.test(dong) ? '' : '동'} ${normH(ho)}호`;
+    $('djShTitle').textContent = [DN(normD(dong)), normH(ho) + '호'].filter(Boolean).join(' ');
     const render = (info) => {
       $('djShBody').innerHTML = `${why ? `<div class="hjwarn">호실 장부를 쓸 수 없어 메모만 보여 드립니다. ${esc(why)}</div>` : ''}
         <div class="info"><div><small>전용면적</small><b>${info.ex ? `${info.ex}㎡ (${(info.ex / PY).toFixed(1)}평)` : info.loading ? '불러오는 중…' : '-'}</b></div><div><small>공동주택 공시가격</small><b>${info.price ? `${shortWon(Math.round(info.price / 10000))}원` : info.loading ? '…' : '-'}</b>${info.year ? `<span class="note"> ${info.year}년</span>` : ''}</div></div>

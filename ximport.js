@@ -7,8 +7,8 @@ window.XImport = (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const PY = 3.3058;
   let H = null, S = null;
-  const MAINS = [['apt', '아파트'], ['shop', '상가·사무실'], ['bld', '건물'], ['ofc', '오피·지산'], ['home', '빌라·주택'], ['redev', '재개발·재건축'], ['pre', '분양권'], ['land', '토지'], ['fac', '공장·창고'], ['etc', '숙박·기타']];
-  const MAIN_TY = { apt: '아파트', shop: '상가', bld: '건물', ofc: '오피스텔', home: '빌라', redev: '재개발', pre: '아파트', land: '토지', fac: '공장·창고', etc: '기타' };
+  const MAINS = [['apt', '아파트·오피스텔'], ['shop', '상가·사무실'], ['bld', '건물'], ['ofc', '지식산업센터'], ['home', '빌라·주택'], ['redev', '재개발·재건축'], ['pre', '분양권'], ['land', '토지'], ['fac', '공장·창고'], ['etc', '숙박·기타']];
+  const MAIN_TY = { apt: '아파트', shop: '상가', bld: '건물', ofc: '지식산업센터', home: '빌라', redev: '재개발', pre: '아파트', land: '토지', fac: '공장·창고', etc: '기타' };
 
   // ---------- 칸 이름 사전 (칸 제목 → 넣을 곳) ----------
   const T = {
