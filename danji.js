@@ -276,7 +276,7 @@ window.Danji = (() => {
   //   매물장 = 나온 물건(내 물건·타부동산)만 · 표 / 동 지도 / 현황판 — 같은 호 기록을 같이 씀 (가격·상태는 한 곳에만 저장)
   S.book = 'ledger';   // 10/28 단순화: 늘 '전체 호'부터 (기억 안 함)
   const LED = () => S.book === 'ledger';
-  const bookTog = () => `<span class="vtab bk" role="tablist" aria-label="장부 고르기">${[['ledger', '전체 호'], ['market', '매물만']].map(([v, t]) => `<button type="button" data-book="${v}" aria-pressed="${S.book === v}">${t}</button>`).join('')}</span>`;
+  const bookTog = () => `<span class="vtab bk" role="tablist" aria-label="장부 고르기">${[['ledger', '전체'], ['market', '매물만']].map(([v, t]) => `<button type="button" data-book="${v}" aria-pressed="${S.book === v}">${t}</button>`).join('')}</span>`;
   function wireBook() {
     document.querySelectorAll('#dj_cxBody [data-book]').forEach(b => b.onclick = () => {
       if (S.book === b.dataset.book) return;
@@ -317,9 +317,9 @@ window.Danji = (() => {
   function treeDongs(c, C) {
     const M = mineMap(c), dongBtn = d => { const m = dongCounts(c, d, M), k = d.pnu + '|' + d.dong; return { m, html: `<button type="button" class="tn d${C.view === 'dong' && C.cur === k ? ' on' : ''}" data-tdong="${esc(k)}"><i></i>${esc(d.dong || '건물')}<span class="ct">${m.m + m.o || ''}${m.e ? ` <em>만기 ${m.e}</em>` : ''}</span></button>` }; };
     const sorted = ds => ds.map(dongBtn).sort((p, q) => (q.m.m + q.m.o) - (p.m.m + p.m.o) || q.m.e - p.m.e).map(z => z.html).join('');
-    const G = null; if (!G) return sorted(C.dongs);   // 10/28 단순화: 1단지·2단지 묶음 없이 동만
+    const G = subOf(c, C); if (!G) return sorted(C.dongs);   // 10/28 1단지·2단지는 폴더처럼 (체크박스 없음)
     S.gopen = S.gopen || new Set(); const sel = gOn(C) || [];
-    return G.map(g => { const op = S.gopen.has(c.id + '|' + g.k); return `<div class="tn g${sel.includes(g.k) ? ' ck' : ''}"><input type="checkbox" data-tgs="${g.k}" ${sel.includes(g.k) ? 'checked' : ''} aria-label="${esc(g.nm)}만 보기"><button type="button" data-tgo="${g.k}"><span class="ar">${op ? '▾' : '▸'}</span>${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
+    return G.map(g => { const op = S.gopen.has(c.id + '|' + g.k); return `<div class="tn g${sel.includes(g.k) ? ' on' : ''}"><button type="button" data-tgo="${g.k}"><span class="ar">${op ? '▾' : '▸'}</span>${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
   }
   // 하위 단지 고르기 (탐색기 체크 · 표 위 칩 같은 것)
   function pickSub(cx, k) {
@@ -365,7 +365,7 @@ window.Danji = (() => {
       else S.cur = '__all';
       saveMulti(); S.adding = false; S.hist = null; draw(); });
     T.querySelectorAll('[data-tgs]').forEach(b => b.onchange = () => pickSub(cur, b.dataset.tgs));
-    T.querySelectorAll('[data-tgo]').forEach(b => b.onclick = () => { S.gopen = S.gopen || new Set(); const k = cur.id + '|' + b.dataset.tgo; S.gopen.has(k) ? S.gopen.delete(k) : S.gopen.add(k); drawTree(); });
+    T.querySelectorAll('[data-tgo]').forEach(b => b.onclick = () => { const C2 = S.C[cur.id]; if (!C2) return; const g = b.dataset.tgo, k = cur.id + '|' + g, was = !!(S.gopen && S.gopen.has(k)) && (C2.gsel || []).includes(g); S.gopen = new Set(was ? [] : [k]); C2.gsel = was ? [] : [g]; C2.view = 'all'; S.hist = null; drawComplex(cur); drawTree(); });   // 1단지 누르기 = 그 단지만 펼치고 표도 그 단지만 · 다시 누르면 접고 전체
     T.querySelectorAll('[data-tdong]').forEach(b => b.onclick = () => { const C2 = S.C[S.cur]; if (!C2) return; C2.view = 'dong'; C2.cur = b.dataset.tdong; C2.picked = true; S.hist = null; drawComplex(cur); drawTree(); });
     T.querySelector('[data-tadd]').onclick = () => { S.delMode = false; S.adding = true; S.results = null; draw(); };
     const tr = T.querySelector('[data-tren]'); if (tr) tr.onclick = async () => { const c = cur; if (!c) return; const nm = prompt('단지 이름', c.name); if (!nm || nm === c.name) return; try { const j = await post({ op: 'rename', id: c.id, name: nm }); S.cx = { items: j.items, memos: j.memos }; delete S.C[c.id]; draw(); } catch (e) { toast(e.message); } };
@@ -410,7 +410,7 @@ window.Danji = (() => {
     drawTable(AX);
   }
   // 보기 탭 (10/26): 표 | 동 지도 | 현황판 — 이 브라우저에 기억
-  const djTab = () => S.djtab === 'grid' ? 'grid' : 'table';   // 10/28 단순화: 표 ↔ 층별 그림(현황판)만 · 동 지도 없앰 · 기억 안 함
+  const djTab = () => S.djtab === 'map' ? 'map' : 'table';   // 10/28 단순화: 표 ↔ 층별 그림(현황판)만 · 동 지도 없앰 · 기억 안 함
   const setTab = v => { S.djtab = v; };
   const boardOn = () => djTab() === 'grid';
   // 요금제 단지 한도: 등록한 순서대로 앞의 N곳만 입력 (서버 cxOpen과 같은 규칙)
@@ -435,11 +435,11 @@ window.Danji = (() => {
     if (tab === 'grid' && C.view !== 'dong' && C.dongs && C.dongs.length) { const d = C.dongs.find(z => { const n = dongCounts(cx, z, MM); return n.m || n.o || n.e; }) || C.dongs[0]; C.view = 'dong'; C.cur = d.pnu + '|' + d.dong; }
     $('dj_cxBody').innerHTML = `
       <div class="card hdc hd1"><div class="h1r">
-        ${cxSelHtml(cx.id)}${C.view === 'dong' && C.cur ? `<b class="cxdn">${esc(DN(normD(String(C.cur).split('|')[1])) || '건물')}</b>` : ''}
+        ${cxSelHtml(cx.id)}${C.view === 'dong' && C.cur ? `<b class="cxdn">${esc(DN(normD(String(C.cur).split('|')[1])) || '건물')}</b>` : gOn(C) ? `<b class="cxdn">${esc(((subOf(cx, C) || []).filter(g => gOn(C).includes(g.k)).map(g => g.nm)).join(' · '))}</b>` : ''}
         <span class="hm">매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span>
         <span class="sp"></span>
         ${bookTog()}
-        <button type="button" class="btn ghost xs${tab === 'grid' ? ' on' : ''}" id="dj_grid" title="동 하나를 층 × 라인 그림으로">${tab === 'grid' ? '표로 보기' : '층별 그림'}</button>
+        <button type="button" class="btn ghost xs${tab === 'map' ? ' on' : ''}" id="dj_grid" title="단지 지도 위에 동마다 매물·만기">${tab === 'map' ? '표로 보기' : '지도 보기'}</button>
         <button type="button" class="btn ghost xs${open ? ' on' : ''}" id="dj_bt">시세 ${open ? '▴' : '▾'}</button>
         <span class="mmw nw"><button type="button" class="btn ghost xs" id="dj_more" aria-label="단지 메뉴">⋯</button><span class="mmenu" id="dj_mmenu" hidden><button type="button" id="dj_ren">단지 이름 바꾸기</button><button type="button" id="dj_addPl">빠진 동 더하기</button><button type="button" id="dj_delCx" class="red">단지 빼기</button></span></span>
       </div>${open ? `<div class="sum">${summary(C)}</div><div id="dj_board">${board(C)}</div>` : ''}</div>
@@ -459,7 +459,7 @@ window.Danji = (() => {
     $('dj_addPl').onclick = () => { S.adding = 'place'; S.results = null; draw(); };
     $('dj_ren').onclick = async () => { const nm = prompt('단지 이름', cx.name); if (!nm || nm === cx.name) return; try { const j = await post({ op: 'rename', id: cx.id, name: nm }); S.cx = { items: j.items, memos: j.memos }; delete S.C[cx.id]; draw(); } catch (e) { toast(e.message); } };
     $('dj_delCx').onclick = () => delCx(cx);
-    $('dj_grid').onclick = () => { setTab(tab === 'grid' ? 'table' : 'grid'); S.hist = null; drawComplex(cx); };   // 10/28 [층별 그림] ↔ [표로 보기]
+    $('dj_grid').onclick = () => { setTab(tab === 'map' ? 'table' : 'map'); S.hist = null; drawComplex(cx); };   // 10/28 [층별 그림] ↔ [표로 보기]
     wireDongChips(cx);
     drawCxMap(cx, MM);
     if (C.scan) scanApply(cx, C);
@@ -819,7 +819,7 @@ window.Danji = (() => {
     vc.forEach((c, n) => { if (c.g) { if (!vc[n - 1] || vc[n - 1].g !== c.g) h1 += `<th class="grp" colspan="${vc.filter(z => z.g === c.g).length}">${c.g}</th>`; h2 += leaf(c, n); } else h1 += leaf(c, n, true); });
     const fr = vc.map(c => { const on = F.cf && F.cf[c.id]; return `<th class="fc c-${c.id}">${DCF[c.id] ? `<button type="button" class="cfs${on ? ' on' : ''}" data-cf="${c.id}" title="골라서 보기">${on ? esc(on.join(', ')) : ''}</button>` : ''}</th>`; }).join('');
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt big${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr>${h2 ? `<tr>${h2}</tr>` : ''}</thead>
-      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물로 올린 호가 없습니다. [전체 호]에서 호를 누른 뒤 [매물로 올리기]를 눌러 주세요.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
+      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물로 올린 호가 없습니다. [전체]에서 호를 누른 뒤 [매물로 올리기]를 눌러 주세요.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       ${ro || ALL ? '' : '<div class="addho"><span>＋ 호 추가</span><input id="dj_addHo" class="hjin" placeholder="예) 103-1502 쓰고 Enter" autocomplete="off"></div>'}
       <p class="note">${LED() ? '줄을 누르면 오른쪽에 입력창이 열립니다 · 칸 머리를 누르면 정렬' : '매물(보류 포함)로 올린 호만 보입니다 · 줄을 누르면 오른쪽에 입력창이 열립니다'} · ${rows.length}호</p>`;
     stickHead(box);
@@ -1323,29 +1323,35 @@ window.Danji = (() => {
         <div class="rprow">${seg('dk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], draft.k)}</div>
         <div class="rpg" id="rp_dpr">${priceIns(draft.k)}</div>
         <div class="rpbtns"><button type="button" class="rpb y" data-tomk>매물로 올리기</button><button type="button" class="rpb" data-mkx>취소</button></div>`;
-    else mkHtml = `<p class="rpn">관리 중인 호입니다. 물건으로 나오면 아래를 누르세요.</p>${ro ? '' : '<div class="rpbtns"><button type="button" class="rpb y" data-mkopen>매물로 올리기</button></div>'}`;
+    else mkHtml = `<div class="rpmk0"><span class="mut">아님</span>${ro ? '' : '<button type="button" class="rpb y" data-mkopen>매물로 올리기</button>'}</div>`;
     const H = R0 && R0.hist ? R0.hist : (r.hist || []), canUndo = R0 && R0.hist && R0.hist[0] && Date.now() - Date.parse(R0.hist[0].t) < 10 * 60e3;
-    P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${lt.t || x.dir ? `<span class="rptg">${esc([lt.t, x.dir].filter(Boolean).join(' · '))}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
+    // 10/28 입력창 단순화: 설명 문구 없이, 왼쪽 이름표 한 줄씩 · 타입·평형·방향은 접어 둠(같은 라인 모두에) · 옵션은 메모로 (예전 옵션 값이 있으면 그 줄만 보임)
+    const row = (t, inner, cls = '') => `<div class="rpr ${cls}"><b>${t}</b><div class="rpv">${inner}</div></div>`;
+    const meta = [sp ? sp.v + '평' : '', lt.t, x.dir].filter(Boolean).join(' · ');
+    P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${meta ? `<span class="rptg">${esc(meta)}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
       ${ro ? `<p class="rpwarn">${S.L[cx.id] && S.L[cx.id].err ? esc(S.L[cx.id].err) : '요금제 단지 한도를 넘은 단지라 보기만 됩니다'}</p>` : ''}
-      <section class="rps"><h4>기본</h4><div class="rpg c3">${fld('타입', v('ty', lt.t || '', '예: 84B', 'maxlength="8"'))}${fld('평형', v('py', lt.py || '', sp ? sp.v + '평' + (sp.est ? ' (추정)' : '') : '예: 34', 'inputmode="numeric" maxlength="3"'))}${fld('방향', `<select class="rpi" data-f="dir" ${ro ? 'disabled' : ''}><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select>`)}</div>
-        <label class="rpck sm"><input type="checkbox" id="rp_one" ${S.pkOne ? 'checked' : ''}> 이 호만 (안 고르면 ${x.line}라인 모두에)</label>${x.a ? `<span class="rpn sm"> · 전용 ${Math.round(x.a * 100) / 100}㎡</span>` : ''}</section>
-      <section class="rps"><h4>지금 사는 사람</h4><div class="rprow">${seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || '')}</div>
-        <div class="rpg c3">${fld('현 보증금', v('cd', manTxt(r.cd), '예: 6.5억'))}${fld('현 월세', v('cr', r.cr || '', '만원', 'inputmode="numeric"'))}${fld('만기일', v('exp', /^\d{4}-\d{2}-\d{2}$/.test(r.exp || '') ? r.exp : '', '', 'type="date"'))}</div></section>
-      <section class="rps"><h4>연락처 <small>이 계정에서만 보이고 암호화해 저장</small></h4><div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="소유자" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" value="${esc(t.n)}" placeholder="010-0000-0000" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>
-        ${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 연락처 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist></section>
-      <section class="rps mk${s.src && !s.done ? ' on' : ''}"><h4>매물 ${s.done ? '' : s.src ? '<span class="rpst-on">매물 중</span>' : '<span class="rpst-off">매물 아님</span>'}</h4>${mkHtml}</section>
-      <section class="rps"><h4>꼭 챙길 것 · 옵션 · 메모</h4>${fld('꼭 챙길 것', v('imp', r.imp || '', '예: 11/15 중도금 · 이사 3/10~14 고정', 'maxlength="100"'), 'w')}${fld('옵션·수리', v('opt', r.opt || '', '예: 시스템에어컨 · 올수리', 'maxlength="200"'), 'w')}${fld('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" placeholder="예: 근저당 3억" ${ro ? 'disabled' : ''}>${esc(r.note || '')}</textarea>`, 'w')}</section>
-      <section class="rps"><h4>상담 기록 <small>${R0 && R0.hist ? R0.hist.length + '건' : r.histN ? r.histN + '건' : ''}</small></h4>
-        ${ro ? '' : '<div class="rprow"><input class="rpi" id="rp_hin" placeholder="기록 남기기 (예: 집주인 통화 — 3월에 결정) · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>'}
-        ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && i === 0 && canUndo && !ro ? '<button type="button" class="un" data-rpundo>되돌리기</button>' : ''}${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : '<p class="rpn">아직 기록이 없습니다.</p>'}</section>
-      <div class="rp-f"><span>입력하면 바로 저장됩니다 · 바뀐 내용은 기록에 남습니다</span>${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체 호에서 보기</button>'}<button type="button" class="rpb" id="rp_close">닫기</button></div>`;
-    if (!LED()) { const mk = P.querySelector('.rps.mk'), first = P.querySelector('.rps'); if (mk && first && mk !== first) P.insertBefore(mk, first); }   // 매물장에서는 '매물' 칸이 맨 위
+      <div class="rpbody">
+      ${row('거주', seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || ''))}
+      ${row('보증금', `<div class="rpin2">${v('cd', manTxt(r.cd), '예: 6.5억')}${v('cr', r.cr || '', '월세(만원)', 'inputmode="numeric"')}</div>`)}
+      ${row('만기', v('exp', /^\d{4}-\d{2}-\d{2}$/.test(r.exp || '') ? r.exp : '', '', 'type="date"'))}
+      ${row('연락처', `<div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="소유자" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" value="${esc(t.n)}" placeholder="010-0000-0000" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`)}
+      ${row('매물', mkHtml, `mk${s.src && !s.done ? ' on' : ''}`)}
+      ${row('챙길 것', v('imp', r.imp || '', '예: 11/15 중도금', 'maxlength="100"'))}
+      ${r.opt ? row('옵션', v('opt', r.opt, '', 'maxlength="200"')) : ''}
+      ${row('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" placeholder="옵션·수리·근저당 등" ${ro ? 'disabled' : ''}>${esc(r.note || '')}</textarea>`)}
+      <details class="rpmore" id="rp_more"${S.pkMore ? ' open' : ''}><summary>타입 · 평형 · 방향 고치기</summary><div class="rpg c3">${fld('타입', v('ty', lt.t || '', '예: 84B', 'maxlength="8"'))}${fld('평형', v('py', lt.py || '', sp ? sp.v + '평' : '예: 34', 'inputmode="numeric" maxlength="3"'))}${fld('방향', `<select class="rpi" data-f="dir" ${ro ? 'disabled' : ''}><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select>`)}</div></details>
+      ${row('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 남기기 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
+      ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && i === 0 && canUndo && !ro ? '<button type="button" class="un" data-rpundo>되돌리기</button>' : ''}${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : ''}
+      </div>
+      <div class="rp-f">${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체에서 보기</button>'}<button type="button" class="rpb" id="rp_close">닫기</button></div>`;
+    { const m = $('rp_more'); if (m) m.ontoggle = () => { S.pkMore = m.open; }; }
+    if (!LED()) { const mk = P.querySelector('.rpr.mk'), first = P.querySelector('.rpbody .rpr'); if (mk && first && mk !== first) first.parentNode.insertBefore(mk, first); }   // 매물장에서는 '매물' 칸이 맨 위
     wirePanel(x, P, ro);
   }
   function wirePanel(x, P, ro) {
     const cx = x.cx, r = x.r || {};
     $('rp_x').onclick = closePanel; $('rp_close').onclick = closePanel;
-    if ($('rp_toled')) $('rp_toled').onclick = () => { const pk = S.pk; S.book = 'ledger'; try { localStorage.setItem('rm.djbook', 'ledger'); } catch { /* 무시 */ } S.focusKey = pk.key; S.selKey = pk.key; draw(); S.pk = pk; drawPanel(true); };
+    if ($('rp_toled')) $('rp_toled').onclick = () => { const pk = S.pk; S.book = 'ledger'; S.focusKey = pk.key; S.selKey = pk.key; draw(); S.pk = pk; drawPanel(true); };
     P.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); closePanel(); } };
     P.querySelectorAll('[data-ls]').forEach(b => b.onclick = () => S.host.openEdit(b.dataset.ls));
     if (ro) return;
