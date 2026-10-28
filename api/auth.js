@@ -178,7 +178,7 @@ async function verifyBk(uid, bk) {
     return { st: 'dup', msg: V_MSG.dup };
   }
   let r;
-  try { r = await checkOffice(bk); } catch { return { st: 'error', msg: '' }; }
+  try { r = await checkOffice(bk); } catch (e) { return { st: 'error', msg: '', code: String((e && e.message) || e).slice(0, 60) }; }
   if (r.st !== 'ok') return { st: r.st, msg: r.st === 'closed' ? `국가 자료에 '${r.row.sttusSeCodeNm || '휴업·폐업'}' 상태로 조회됩니다. 영업 중인 중개사무소만 이용하실 수 있습니다.` : V_MSG[r.st] };
   bk.verified = now; bk.vby = 'auto'; bk.regno = r.row.jurirno || bk.regno;
   if (r.row.bsnmCmpnm) bk.office = r.row.bsnmCmpnm; // 광고에는 등록된 명칭 그대로
@@ -991,7 +991,7 @@ export default async function (req, res) {
         Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
         if (prevBk.vby === 'auto') bk.office = prevBk.office;
       } else if (P.op) {   // 10/29 운영자도 등록번호를 국가 자료로 확인해 둠 (확인되면 소개 페이지·확인 배지) — 안 돼도 저장은 그대로
-        try { const v = await verifyBk(s.id, bk); if (v.st !== 'ok') { delete bk.verified; opWarn = v.st === 'error' ? '국가 자료(브이월드) 조회가 원활하지 않아 등록번호를 확인하지 못했습니다. 운영 화면 [중개사 관리]에서 직접 확인 표시를 할 수 있습니다.' : `등록번호 확인 안 됨: ${v.msg || v.st}`; } } catch { /* 저장은 계속 */ }
+        try { const v = await verifyBk(s.id, bk); if (v.st !== 'ok') { delete bk.verified; opWarn = v.st === 'error' ? '국가 자료(브이월드) 조회가 원활하지 않아 등록번호를 확인하지 못했습니다. 운영 화면 [중개사 관리]에서 직접 확인 표시를 할 수 있습니다.' + (v.code ? ` (사유: ${v.code})` : '') : `등록번호 확인 안 됨: ${v.msg || v.st}`; } } catch { /* 저장은 계속 */ }
       } else {
         const v = await verifyBk(s.id, bk);
         if (v.st === 'error') return fail(res, 503, 'vworld', '지금은 국가 자료(브이월드) 조회가 원활하지 않아 등록번호·대표자 변경을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
