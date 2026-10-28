@@ -712,3 +712,10 @@ a.favbtn{text-decoration:none}
 .promo-tip{position:absolute;right:-4px;top:calc(100% + 8px);background:#14212E;color:#fff;font-size:12px;font-weight:700;border-radius:8px;padding:5px 9px;white-space:nowrap;z-index:46;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:ptip .3s}
 .promo-tip:before{content:"";position:absolute;right:16px;top:-5px;border:5px solid transparent;border-top:0;border-bottom-color:#14212E}
 @keyframes ptip{from{opacity:0;transform:translateY(-4px)}}
+/* 10/29 중개사 소개 페이지 → 지도에서 그 중개사 매물만 (app.js ofcOn) */
+#ofcBar{position:absolute;left:50%;top:62px;transform:translateX(-50%);z-index:11;display:flex;align-items:center;gap:6px;background:var(--fg);color:var(--surface);border-radius:999px;padding:5px 5px 5px 14px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.22);max-width:calc(100% - 24px);white-space:nowrap}
+#ofcBar i{font-style:normal}#ofcBar>span{overflow:hidden;text-overflow:ellipsis;min-width:0}#ofcBar b{font-weight:700}
+#ofcBar a,#ofcBar button{flex:none;border:0;border-radius:999px;padding:5px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none}
+#ofcBar a{background:rgba(255,255,255,.14);color:inherit}#ofcBar button{background:#F2B705;color:#14212E}
+.ofc-on .toast{top:104px}
+@media (max-width:760px){#ofcBar{top:auto;bottom:calc(18px + env(safe-area-inset-bottom));font-size:12.5px}#ofcBar i{display:none}.ofc-on .toast{top:118px}}

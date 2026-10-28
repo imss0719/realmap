@@ -1252,6 +1252,8 @@ window.Board = (() => {
     if (o.area) D.area = o.area;
     if (D.mode === 'whole') { D.tot = (rc && rc.totArea) || Math.round(ts.reduce((a, z) => a + (z.totArea || 0), 0) * 100) / 100 || null; D.area = o.area || D.tot; D.site = (rc && rc.platArea) || (t && t.platArea) || null; D.arch = (rc && rc.archArea) || null; }
     const it = buildItem(D, o.kind || 'sale', o.money || {}, o.contacts || []);
+    // 10/29 지도에서 아파트처럼 호를 골라야 하는 건물인데 호가 없으면: 간단 등록창 안에서 동·호를 고르게 (listings.js psUnit)
+    if (D.mode === 'unit' && !o.ho) { const nat = (a, z) => String(a).localeCompare(String(z), 'ko', { numeric: true }); it._unit = { pnu: D.pnu, dongs: [...new Set(ts.map(z => String(z.dong || '').trim()).filter(Boolean))].sort(nat), dong: o.dong || '' }; }
     if (o.dir) it.ad.dir = o.dir; if (o.movein) it.ad.movein = o.movein;
     if (o.memo) it.memo = o.memo;
     return it;

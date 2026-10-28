@@ -134,7 +134,7 @@
       S.map.setLevel(3); S.map.setCenter(new K.LatLng(qla, qln)); pick(qla, qln);
     } else toast(qs.get('promo') ? '매물이 있는 필지를 누르고 [여기 매물 광고하기]를 눌러 주세요' : '필지를 누르면 정보가 열립니다', qs.get('promo') ? 7000 : 2600);
     // 첫 화면으로 그냥 들어온 분께만 안내 창 (공유 링크·정비사업 페이지·매물 보기로 온 경우는 띄우지 않음)
-    if (!pnu && !(qla > 33) && !qs.get('lst') && !qs.get('promo') && !qs.get('login') && qs.get('from') !== 'seoul') setTimeout(welcome, 1500);
+    if (!pnu && !(qla > 33) && !qs.get('lst') && !qs.get('office') && !qs.get('promo') && !qs.get('login') && qs.get('from') !== 'seoul') setTimeout(welcome, 1500);
   }
 
   // ---------- 처음 오신 분 안내 배너 (한 장씩 넘어가는 작은 카드 · '오늘 하루 보지 않기') ----------
@@ -2710,7 +2710,23 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     $('mtLst').onclick = () => { LS.on = !LS.on; $('mtLst').setAttribute('aria-pressed', LS.on); lsSave(); drawListings(); drawTrades();
       if (LS.on) toast(LS.items.length ? `중개사가 올린 매물 ${LS.items.length}건 · 흰 바탕에 노란 테두리가 매물입니다` : '아직 지도에 올라온 매물이 없습니다'); };
     kakao.maps.event.addListener(S.map, 'idle', drawListings);
-    api('/api/auth?action=pubs').then(j => { LS.items = (j.items || []).filter(x => x.lat && x.lng); LS.loaded = true; drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
+    const ofc = String(new URLSearchParams(location.search).get('office') || '').replace(/\D/g, '');
+    if (ofc) { LS.on = true; LS.ofc = ofc; $('mtLst').setAttribute('aria-pressed', true); }
+    api('/api/auth?action=pubs').then(j => { LS.all = (j.items || []).filter(x => x.lat && x.lng); LS.items = LS.all; LS.loaded = true; if (LS.ofc) ofcOn(); drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
+  }
+  // 10/29 중개사 소개 페이지 [지도에서 모아 보기] → /?office=등록번호숫자 : 그 중개사 매물만 지도에 + 위에 '모두 보기' 띠
+  function ofcOn() {
+    const r = LS.ofc, mine = LS.all.filter(x => String((x.bk && x.bk.regno) || '').replace(/\D/g, '') === r);
+    if (!mine.length) { LS.ofc = null; toast('이 중개사무소가 지금 지도에 올린 매물이 없습니다', 3500); return; }
+    LS.items = mine;
+    const K = kakao.maps, bd = new K.LatLngBounds(); mine.forEach(x => bd.extend(new K.LatLng(x.lat, x.lng)));
+    S.map.setBounds(bd, 90, 60, 60, 60); if (S.map.getLevel() < 4) S.map.setLevel(4);
+    let bar = $('ofcBar'); if (!bar) { bar = document.createElement('div'); bar.id = 'ofcBar'; $('toast').parentElement.appendChild(bar); }
+    $('toast').parentElement.classList.add('ofc-on');
+    const bk = mine[0].bk || {};
+    bar.innerHTML = `<span><b>${esc(bk.office || '중개사무소')}</b> 매물 ${mine.length}건<i>만 보는 중</i></span><a href="/office.html?r=${r}">소개</a><button type="button" id="ofcAll">모두 보기 ✕</button>`;
+    bar.hidden = false;
+    $('ofcAll').onclick = () => { LS.ofc = null; LS.items = LS.all; bar.hidden = true; $('toast').parentElement.classList.remove('ofc-on'); try { const u = new URL(location.href); u.searchParams.delete('office'); history.replaceState(null, '', u.pathname + u.search); } catch { /* 주소는 그대로 */ } LS.ovs.forEach(o => o.setMap(null)); LS.ovs.clear(); drawListings(); drawTrades(); if (S.sel) render(); };
   }
   // 건물(필지)별로 묶기: 가장 낮은 가격 하나 + 건수
   // 가까이(레벨 4 이하) 보면 아파트·오피스텔 매물은 그 동 위에 따로 표시 (동 위치는 DongPos로 한 번만 받음, 못 찾으면 단지 자리)
