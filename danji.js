@@ -108,7 +108,7 @@ window.Danji = (() => {
   // ---------- 화면 ----------
   function draw() {
     const W = $('dj_wrap'); if (!W) return;
-    if (S.pk && (!LED() || S.adding || (S.cur !== '__all' && S.pk.cx !== S.cur))) closePanel();   // 다른 단지·매물장으로 가면 입력창 닫기
+    if (S.pk && (S.adding || (S.cur !== '__all' && S.pk.cx !== S.cur))) closePanel();   // 다른 단지·매물장으로 가면 입력창 닫기
     const chips = `<div class="djcap"><b>아파트</b><span>단지별 동·호 장부</span></div><div class="chips">${S.cx.items.length >= 2 ? `<button type="button" data-cx="__all" class="allcx" aria-pressed="${S.cur === '__all' && !S.adding}">모든 단지</button>` : ''}${S.cx.items.map(c => `<button type="button" data-cx="${c.id}" aria-pressed="${c.id === S.cur && !S.adding}">${esc(c.name)}</button>`).join('')}<button type="button" class="add" id="dj_addBtn" aria-pressed="${S.adding === true}">＋ 단지 추가</button></div>`;
     // 넓은 화면: 왼쪽 단지 목록(폴더) + 오른쪽 내용 · 좁은 화면: 위쪽 단지 버튼 (10/26)
     // 10/26: 단지 고르기는 왼쪽 목록 + 머리의 드롭메뉴로. 위쪽 단지 버튼 줄은 단지 추가 화면에서만
@@ -253,7 +253,7 @@ window.Danji = (() => {
   // 거르기 (10/26 누적): k 거래(매매·전세·월세) · s 상태(매물·보류·계약됨) · c 챙길 것(만기 임박·꼭 챙길 것·표시한 줄) · t 타입 · a 평형
   //   같은 묶음 안은 '또는', 묶음끼리는 '그리고'. 아무것도 안 고르면 전부
   // 10/28 관리장부(LED) / 매물장 — 거르기는 장부마다 따로 (관리장부 '모든 단지'는 적어 둔 호 전부, 매물장 '모든 단지'는 매물만)
-  const TF = () => { const k = (S.cur === '__all' ? 'A' : 'O') + (LED() ? 'L' : 'M'); S.FS = S.FS || {}; return S.FS[k] || (S.FS[k] = { k: [], s: k === 'AM' ? ['on'] : [], c: [], t: [], a: [], sort: 'dh' }); };
+  const TF = () => { const k = (S.cur === '__all' ? 'A' : 'O') + (LED() ? 'L' : 'M'); S.FS = S.FS || {}; return S.FS[k] || (S.FS[k] = { k: [], s: k.endsWith('M') ? ['on', 'hold'] : [], c: [], t: [], a: [], sort: 'dh' }); };   // 매물장은 처음부터 '나온 물건'(매물·보류)만
   const resetF = () => Object.assign(TF(), { k: [], s: [], c: [], t: [], a: [], cf: null });
   const F0 = () => ({ ...TF(), k: [], s: [], c: [], t: [], a: [], cf: null });
   const fOn = F => !!(F.k.length || F.s.length || F.c.length || F.t.length || F.a.length || (F.cf && Object.values(F.cf).some(Boolean)));
@@ -657,7 +657,10 @@ window.Danji = (() => {
     { id: 'own', t: '소유주', ed: 'tel' }, { id: 'ten', t: '세입자', ed: 'tel' },
     { id: 'imp', t: '꼭 챙길 것', ed: 'text', f: 'imp', ph: '예: 11/15 중도금 · 이사 3/10~14 고정' },
     { id: 'h', t: '최근 기록' }, { id: 'mkt', t: '매물' }];
-  const VC = () => { const cs = LED() ? LCOLS : COLS; return S.cur === '__all' ? cs : cs.filter(c => !c.all); };
+  // 매물장 표: 관리용 칸(만기·연락처·옵션·메모)은 빼고 거래·가격 중심 (연락처·만기는 오른쪽 입력창에서)
+  const MHIDE = new Set(['exp', 'own', 'ten', 'opt', 'note']);
+  const MCOLS = COLS.filter(c => !MHIDE.has(c.id)).map(c => c.id === 'of' ? { ...c, t: '받은 곳' } : c);
+  const VC = () => { const cs = LED() ? LCOLS : MCOLS; return S.cur === '__all' ? cs : cs.filter(c => !c.all); };
   const SORTC = { cxn: 'dh', dn: 'dh', ho: 'dh', ar: 'py', ps: 'ps', pj: 'pj', pwd: 'pwd', gap: 'gap', imp: 'imp', cd: 'cur', exp: 'exp', h: 'up' };   // 칸 머리 정렬
   const NAV = ['ar', 'ty', 'dir', 'ps', 'pj', 'pwd', 'pwr', 'imp', 'live', 'cd', 'cr', 'exp', 'own', 'ten', 'opt', 'note'];   // Tab 순서 (부동산명·거래는 눌러서)
   const LIVE = { owner: '입주', tenant: '임차', empty: '공실' };   // 10/28 두 글자로 통일
@@ -751,7 +754,7 @@ window.Danji = (() => {
       case 'ten': return telsHtml(x, true);
       case 'h': {
         const n = r.histN || 0, op = S.hist === x.key, h0 = (r.hist || [])[0];
-        if (LED()) return h0 ? `<span class="hl"><i>${esc(String(fmtT(h0.t)).slice(0, 8))}</i> ${esc(h0.x)}</span>` : '<span class="mut">-</span>';
+        return h0 ? `<span class="hl"><i>${esc(String(fmtT(h0.t)).slice(0, 8))}</i> ${esc(h0.x)}</span>` : '<span class="mut">-</span>';   // 10/28 기록은 오른쪽 입력창에서 (두 장부 모두)
         return `${h0 ? `<span class="hl"><i>${esc(String(fmtT(h0.t)).slice(0, 8))}</i> ${esc(h0.x)}</span>` : ''}<button type="button" class="hbtn${op ? ' on' : ''}" data-hist="${esc(x.key)}">${op ? '기록 ▴' : `기록${n ? ' ' + n : ''}`}</button>`;
       }
       case 'pub': {
@@ -811,7 +814,7 @@ window.Danji = (() => {
     const fr = vc.map(c => { const on = F.cf && F.cf[c.id]; return `<th class="fc c-${c.id}">${DCF[c.id] ? `<button type="button" class="cfs${on ? ' on' : ''}" data-cf="${c.id}" title="골라서 보기">${on ? esc(on.join(', ')) : ''}</button>` : ''}</th>`; }).join('');
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr><tr>${h2}</tr><tr class="frow">${fr}</tr></thead>
       <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${ALL ? '조건에 맞는 호가 없습니다. 위에서 거르기를 바꿔 보세요.' : C.view === 'all' && !fOn(F) ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '조건에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
-      <p class="note">${LED() ? '줄을 누르면 오른쪽에 입력창이 열립니다 · 칸을 <b>두 번</b> 누르면 표에서 바로 고치기 · 나온 물건은 [매물장으로] · 바뀐 내용은 날짜·시간과 함께 기록에 남습니다' : '칸을 누르면 바로 입력 · <b>Enter</b> 저장 후 아래 칸 · <b>Tab</b> 오른쪽 칸 · <b>Esc</b> 취소 · 바뀐 내용은 날짜·시간과 함께 [기록]에 자동으로 남습니다'} · ${rows.length}호</p>`;
+      <p class="note">${LED() ? '줄을 누르면 오른쪽에 입력창이 열립니다 · 칸을 <b>두 번</b> 누르면 표에서 바로 고치기 · 나온 물건은 [매물장으로] · 바뀐 내용은 날짜·시간과 함께 기록에 남습니다' : '나온 물건(매물·보류)만 보입니다 · 줄을 누르면 오른쪽에 입력창 · 칸을 <b>두 번</b> 누르면 표에서 바로 고치기 · [관리장부로]를 누르면 여기서만 빠지고 관리장부에는 그대로 남습니다'} · ${rows.length}호</p>`;
     colWidths(box, ALL);
     stickHead(box);
     const redo = () => { drawTable(cx); if (!ALL) drawCxMap(cx, MM); };
@@ -834,12 +837,11 @@ window.Danji = (() => {
       saveRow(c2, x, D => { D.mk = v; }); toast(v ? '표시했습니다' : '표시를 지웠습니다');
     });
     if ($('dj_addHo')) $('dj_addHo').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) addHo(cx, e.target.value); };
-    if (LED()) wireLedRows(cx, box, ro);
-    else if (!ro) box.querySelectorAll('td.ed').forEach(td => td.onclick = e => { if (td.classList.contains('editing') || e.target.closest('a,button.hbtn,button.tx')) return; startEdit(cx, +td.parentNode.dataset.i, td.dataset.c); });
+    wireLedRows(cx, box, ro);   // 10/28 두 장부 모두: 한 번 누르면 오른쪽 입력창 · 두 번 누르면 표에서 바로 고치기
     box.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
     wireTel(cx, box);
     box.querySelectorAll('[data-gocx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.multi.clear(); saveMulti(); S.cur = b.dataset.gocx; S.hist = null; draw(); });
-    if (LED()) drawPanel(); else drawHist(cx);
+    drawPanel();
     // 누른 줄은 진한 파랑으로 남겨 둠 (상세·기록을 보는 동안 어느 호인지 놓치지 않게)
     box.querySelectorAll('tbody tr[data-key]').forEach(tr => tr.addEventListener('pointerdown', () => { S.selKey = tr.dataset.key; box.querySelectorAll('tr.sel').forEach(z => { if (z !== tr) z.classList.remove('sel'); }); tr.classList.add('sel'); }));
     if (!ALL) drawSide(cx);   // 지도·현황판 옆 매물 목록
@@ -897,11 +899,10 @@ window.Danji = (() => {
     const tr = document.querySelector(`#dj_tbl tr[data-i="${i}"]`); if (!tr) return;
     tr.outerHTML = rowHtml(x, i);
     const n = document.querySelector(`#dj_tbl tr[data-i="${i}"]`);
-    if (LED()) wireLedRows(cx, n, LOCK(x));
-    else n.querySelectorAll('td.ed').forEach(td => td.onclick = e => { if (td.classList.contains('editing') || e.target.closest('a,button.hbtn,button.tx')) return; startEdit(cx, i, td.dataset.c); });
+    wireLedRows(cx, n, LOCK(x));
     n.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
     wireTel(cx, n);
-    if (LED() && S.pk && S.pk.key === key) drawPanel();
+    if (S.pk && S.pk.key === key) drawPanel();
   }
   // 장부 내용으로 매물 카드(사진·광고 항목·리얼맵 지도) 만들기 — 표의 [리얼맵 등록] · 관리장부 입력창의 [광고 카드 만들기]
   function cardFrom(x) {
@@ -965,6 +966,7 @@ window.Danji = (() => {
       try {
         const j = await hjPost({ id: cx.id, key: x.key, op: 'save', rec: D, up: (cur && cur.up) || '' });   // up: 다른 직원이 먼저 고쳤는지 확인용 (10/28)
         if (j.memos) S.cx.memos = j.memos;
+        if (j.lsDirty && S.host.refreshItems) S.host.refreshItems();   // 같은 호의 매물 카드도 바뀜
         putSum(cx, x.key, { ...EMPTY_REC(), ...j.rec });
         if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...j.rec }; drawPanel(); }
       } catch (e) { if (e.code === 'conflict' && e.data && e.data.rec) putSum(cx, x.key, { ...EMPTY_REC(), ...e.data.rec }); toast(e.message, e.code === 'conflict' ? 6000 : 4000); }
@@ -976,6 +978,7 @@ window.Danji = (() => {
       try {
         const j = await hjPost({ id: cx.id, key: x.key, op, ...extra });
         if (j.memos) S.cx.memos = j.memos;
+        if (j.lsDirty && S.host.refreshItems) S.host.refreshItems();
         putSum(cx, x.key, { ...EMPTY_REC(), ...j.rec });
         if (S.hist === x.key) S.histRec = { ...EMPTY_REC(), ...j.rec };
         if (S.pk && S.pk.key === x.key) S.pkRec = { ...EMPTY_REC(), ...j.rec };
@@ -1285,7 +1288,7 @@ window.Danji = (() => {
   function closePanel() { S.pk = null; S.pkRec = null; S.pkMk = false; const P = $('dj_rp'); if (P) P.remove(); const W = $('dj_wrap'); if (W) W.classList.remove('rpon'); document.querySelectorAll('#dj_tbl tr.pk').forEach(z => z.classList.remove('pk')); }
   // 입력 중이면(창 안에 커서) 다시 그리지 않음 — force: 고르기 버튼처럼 모양이 바뀌는 경우
   function drawPanel(force) {
-    if (!LED() || !S.pk) { const P0 = $('dj_rp'); if (P0) P0.remove(); const W0 = $('dj_wrap'); if (W0) W0.classList.remove('rpon'); return; }
+    if (!S.pk) { const P0 = $('dj_rp'); if (P0) P0.remove(); const W0 = $('dj_wrap'); if (W0) W0.classList.remove('rpon'); return; }
     const x = rowFor(S.pk); if (!x) return closePanel();
     let P = $('dj_rp');
     if (P && !force && P.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
@@ -1328,12 +1331,14 @@ window.Danji = (() => {
       <section class="rps"><h4>상담 기록 <small>${R0 && R0.hist ? R0.hist.length + '건' : r.histN ? r.histN + '건' : ''}</small></h4>
         ${ro ? '' : '<div class="rprow"><input class="rpi" id="rp_hin" placeholder="기록 남기기 (예: 집주인 통화 — 3월에 결정) · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>'}
         ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && i === 0 && canUndo && !ro ? '<button type="button" class="un" data-rpundo>되돌리기</button>' : ''}${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : '<p class="rpn">아직 기록이 없습니다.</p>'}</section>
-      <div class="rp-f"><span>입력하면 바로 저장됩니다 · 바뀐 내용은 기록에 남습니다</span><button type="button" class="rpb" id="rp_close">닫기</button></div>`;
+      <div class="rp-f"><span>입력하면 바로 저장됩니다 · 바뀐 내용은 기록에 남습니다</span>${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">관리장부에서 보기</button>'}<button type="button" class="rpb" id="rp_close">닫기</button></div>`;
+    if (!LED()) { const mk = P.querySelector('.rps.mk'), first = P.querySelector('.rps'); if (mk && first && mk !== first) P.insertBefore(mk, first); }   // 매물장에서는 '매물' 칸이 맨 위
     wirePanel(x, P, ro);
   }
   function wirePanel(x, P, ro) {
     const cx = x.cx, r = x.r || {};
     $('rp_x').onclick = closePanel; $('rp_close').onclick = closePanel;
+    if ($('rp_toled')) $('rp_toled').onclick = () => { const pk = S.pk; S.book = 'ledger'; try { localStorage.setItem('rm.djbook', 'ledger'); } catch { /* 무시 */ } S.focusKey = pk.key; S.selKey = pk.key; draw(); S.pk = pk; drawPanel(true); };
     P.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); closePanel(); } };
     P.querySelectorAll('[data-ls]').forEach(b => b.onclick = () => S.host.openEdit(b.dataset.ls));
     if (ro) return;
@@ -1592,7 +1597,8 @@ window.Danji = (() => {
       // 10/26: 계약하면 '계약됨' 표시 없이 바로 빈 상태로 (계약 내용은 기록 · 만기는 알림으로)
       if (r.st && r.st.src) { o.src = r.st.src; o.k = r.st.k || []; o.hold = !!r.st.hold; o.office = r.st.office; o.pr = prShort(o.k[0], r.pr); return o; }
     }
-    if (live) { o.src = 'mine'; o.k = [KK[live.kind] || 'sale']; o.hold = live.status === 'hold'; o.fromLs = true; o.prn = (live.kind === 'sale' || live.kind === 'presale' ? live.price : live.deposit) || 0; o.pr = live.kind === 'sale' ? shortWon(live.price) : live.kind === 'jeonse' ? shortWon(live.deposit) : live.kind === 'wolse' ? `${shortWon(live.deposit)}/${live.rent || ''}` : shortWon(live.pr); }
+    // 10/28: 관리장부에서 [관리장부로] 내린 호는 매물 카드가 '보류'로 남아 있어도 매물로 보지 않음 (장부에 기록이 있는 호)
+    if (live && !(r && live.status === 'hold')) { o.src = 'mine'; o.k = [KK[live.kind] || 'sale']; o.hold = live.status === 'hold'; o.fromLs = true; o.prn = (live.kind === 'sale' || live.kind === 'presale' ? live.price : live.deposit) || 0; o.pr = live.kind === 'sale' ? shortWon(live.price) : live.kind === 'jeonse' ? shortWon(live.deposit) : live.kind === 'wolse' ? `${shortWon(live.deposit)}/${live.rent || ''}` : shortWon(live.pr); }
     else if (mine.length && !r) o.done = false;
     return o;
   }

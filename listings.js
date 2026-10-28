@@ -127,6 +127,7 @@
     items: () => S.items, goAptList: () => setMode('list', 'apt'), xlGate: fn => xlGate(fn),
     openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
+    refreshItems: async () => { try { const j = await api('/api/auth?action=listings'); S.items = j.items || S.items; draw(); } catch { /* 다음에 */ } },   // 10/28 관리장부에서 가격을 바꿔 매물 카드가 같이 바뀐 경우
     toast,
     plan: () => S.plan || {}, upsell,
     pubCell: id => pubCell(S.items.find(i => i.id === id)), pubClick: (id, el) => pubClick(id, el), pubNew: o => pubNew(o), canPub: () => !!S.canPub,
@@ -293,7 +294,7 @@
       } catch { /* 다음에 */ }
     }, 60e3);
   }
-  function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); if (j.cxDirty && window.Danji && Danji.reloadCx) Danji.reloadCx(); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if ('team' in j) S.team = j.team || null; if (j.items) S.seen = sig(j.items); if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
+  function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); if ((j.cxDirty || j.ledDirty) && window.Danji && Danji.reloadCx) Danji.reloadCx(!!j.ledDirty); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if ('team' in j) S.team = j.team || null; if (j.items) S.seen = sig(j.items); if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // ---------- 지도 ----------
   async function loadMap() {
