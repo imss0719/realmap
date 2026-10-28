@@ -326,7 +326,7 @@ window.XImport = (() => {
   }
   async function run(list) {
     S.step = 2; S.busy = true; S.stop = false; S.ib = 'x' + Date.now().toString(36);
-    const done = [], fail = [...S.conv.rows], ready = [];
+    const done = [], fail = [...S.conv.rows], ready = [], aptP = new Map();   // aptP: 아파트·오피스텔 필지 → 끝나고 단지 장부에 자동으로 담음 (10/28)
     const draw = () => shell(`<div class="xi-bd"><b>주소 찾는 중… ${done.length + fail.length - S.conv.rows.length} / ${list.length}</b><span class="xi-m"> · 창을 닫지 마세요</span>
       <div class="xi-bar"><i style="width:${Math.round((done.length + fail.length - S.conv.rows.length) / Math.max(1, list.length) * 100)}%"></i></div>
       <p class="xi-m">찾은 매물은 ${150}건씩 묶어서 저장합니다. 저장됨 ${S.saved || 0}건</p></div>`);
@@ -352,6 +352,7 @@ window.XImport = (() => {
           const send = { ...it, places: [L.P], memo, ...(x.warn.length ? { mk: 'y', imp: `엑셀 확인: ${x.warn.join(' · ')}` } : {}) };
           Object.keys(send).forEach(kk => { if (kk.startsWith('_')) delete send[kk]; });
           send._row = it._row; ready.push(send); done.push(it._row);
+          if (APTT.includes(it.ptype) && it.kind !== 'presale') { const g = aptP.get(L.P.pnu) || { pnu: L.P.pnu, addr: L.P.addr, lat: L.P.lat, lng: L.P.lng, name: it.bname || '', rows: [] }; g.rows.push(it._row); aptP.set(L.P.pnu, g); }
         }
         if ((done.length + fail.length) % 5 === 0) draw();
         if (ready.length >= 150) await flush(false);
@@ -359,6 +360,7 @@ window.XImport = (() => {
     };
     await Promise.all([worker(), worker(), worker()]);
     await flush(true);
+    if (S.saved) await autoCx(aptP, fail);
     S.busy = false;
     if (S.saved) await imLog({ to: 'ls', n: S.saved, ib: S.ib });
     result(fail.sort((a, b) => a.i - b.i));
@@ -366,7 +368,8 @@ window.XImport = (() => {
   function result(fail) {
     S.step = 2;
     const el = shell(`<div class="xi-bd"><div class="xi-sum"><div class="g"><b>${S.saved || 0}</b>등록됨</div><div class="y"><b>${fail.length}</b>못 넣음</div></div>
-      <p class="xi-m">확인이 필요한 줄은 <b>노랑 표시</b>와 '꼭 챙길 것'에 '엑셀 확인'을 적어 두었습니다. 표에서 바로 고치시면 됩니다.</p>
+      <p class="xi-m">확인이 필요한 줄은 <b>노랑 표시</b>와 '꼭 챙길 것'에 '엑셀 확인'을 적어 두었습니다. 줄을 눌러 입력창에서 고치시면 됩니다.</p>
+      ${(S.cxAdd || []).length ? `<p class="xi-m">아파트·오피스텔 단지 <b>${S.cxAdd.length}곳</b>을 [아파트·오피] 단지 목록에 자동으로 담았습니다: ${esc(S.cxAdd.map(c => c.name).join(', '))}</p>` : ''}${(S.cxFull || []).length ? `<p class="xi-m xi-r">단지 한도가 차서 ${esc(S.cxFull.join(', '))} 단지는 담지 못했습니다. 이 매물들은 '단지 밖' 목록에 있습니다.</p>` : ''}
       ${fail.length ? `<h3>못 넣은 줄</h3><table class="xi-t"><tr><th>엑셀 줄</th><th>내용</th><th>이유</th></tr>${fail.slice(0, 50).map(f => `<tr><td>${(f.r && f.r._n) || f.i + 1}</td><td class="ex">${esc((f.r || []).map(clean).filter(Boolean).slice(0, 6).join(' · ').slice(0, 80))}</td><td>${esc(f.err)}</td></tr>`).join('')}</table>${fail.length > 50 ? `<p class="xi-m">외 ${fail.length - 50}줄 — 엑셀로 받아서 보세요</p>` : ''}` : ''}</div>
       <div class="xi-f">${S.saved ? `<button type="button" class="xi-b red" id="xiUndo">이번에 불러온 ${S.saved}건 모두 되돌리기</button>` : '<span></span>'}${fail.length ? '<button type="button" class="xi-b" id="xiFail">못 넣은 줄 엑셀로 받기</button>' : ''}<button type="button" class="xi-b go" id="xiDone">닫고 매물장 보기</button></div>`);
     $('xiDone').onclick = close;
@@ -377,9 +380,34 @@ window.XImport = (() => {
     };
     if ($('xiUndo')) $('xiUndo').onclick = async () => {
       if (!confirm(`이번에 불러온 ${S.saved}건을 모두 지울까요? (불러온 뒤 고친 내용도 함께 지워집니다)`)) return;
-      try { const j = await H.api('/api/auth?action=listing', H.post({ op: 'unimport', ib: S.ib })); H.took(j); S.dirty = true; await imDone(); H.toast(`${j.unimported || 0}건을 되돌렸습니다`); S.saved = 0; close(); }
+      try { const j = await H.api('/api/auth?action=listing', H.post({ op: 'unimport', ib: S.ib })); H.took(j); S.dirty = true; for (const c of S.cxAdd || []) { try { await H.api('/api/auth?action=cx', H.post({ op: 'del', id: c.id })); S.cxDirty = true; } catch { /* 단지는 남음 */ } } await imDone(); H.toast(`${j.unimported || 0}건을 되돌렸습니다`); S.saved = 0; close(); }
       catch (e) { H.toast(e.message || '되돌리지 못했습니다'); }
     };
+  }
+
+  // 10/28 매물장 양식에서도 아파트·오피스텔 매물은 그 단지를 단지 장부에 자동으로 담음 → 아파트 화면의 '단지 밖'으로 갈라지지 않게
+  //   이미 담긴 필지는 그대로 · 같은 동네(법정동)에 같은 이름 단지가 있으면 그 단지에 필지를 더함(1단지·2단지 등) · 한도가 차면 못 담은 이름만 알려 줌
+  const APTT = ['아파트', '주상복합', '오피스텔'];
+  async function autoCx(M, fail) {
+    S.cxAdd = []; S.cxFull = [];
+    const bad = new Set(fail.map(f => f.i)), L = [...M.values()].filter(g => g.rows.some(i => !bad.has(i)));
+    if (!L.length) return;
+    shell('<div class="xi-bd"><p class="xi-m">아파트·오피스텔 단지를 단지 목록에 담는 중…</p></div>');
+    let cxs = []; try { cxs = (await H.api('/api/auth?action=cx')).items || []; } catch { return; }
+    const ids0 = new Set(cxs.map(c => c.id));
+    for (const g of L) {
+      if (cxs.some(c => (c.places || []).some(p => p.pnu === g.pnu))) continue;
+      let name = ''; try { const b = await H.api(`/api/building?pnu=${g.pnu}`); const rc = b.recap && b.recap.data && b.recap.data[0], t = (b.titles && b.titles.data || []).find(x => x.name); name = (rc && rc.name) || (t && t.name) || ''; } catch { /* 이름 없음 */ }
+      name = (name || g.name || g.addr || '').slice(0, 40);
+      const place = { pnu: g.pnu, addr: g.addr, lat: g.lat, lng: g.lng };
+      const same = cxs.find(c => nmN(c.name) === nmN(name) && (c.places || []).some(p => String(p.pnu).slice(0, 10) === g.pnu.slice(0, 10)));
+      try {
+        const j = await H.api('/api/auth?action=cx', H.post(same ? { op: 'addplace', id: same.id, place } : { op: 'add', name, place }));
+        if (j.items) cxs = j.items;
+        if (!same && j.id && !ids0.has(j.id)) S.cxAdd.push({ id: j.id, name });   // 원래 있던 단지는 되돌리기 때 지우지 않게
+        S.cxDirty = true;
+      } catch (e) { if (e.code === 'full') S.cxFull.push(name); }
+    }
   }
 
   // ================= 아파트 장부(동·호별) → 단지 장부 (10/26) =================
