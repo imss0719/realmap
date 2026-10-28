@@ -30,10 +30,11 @@ export function unseal(s) {
 }
 
 // 동·호 이름 맞추기 (화면 danji.js와 같은 규칙)
-export const normD = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
+// 10/28 오피스텔: 동 이름이 비었거나 건물 이름인 경우 · '주건축물제1동' → '1' · 호 '4층404호' → '404'
+export const normD = s => String(s || '').replace(/\s/g, '').replace(/^주건축물/, '').replace(/^제/, '').replace(/동$/, '').toUpperCase().slice(0, 16);
 const digits = s => String(s || '').replace(/\D/g, '');
-export const normH = s => digits(s) || String(s || '').replace(/\s|호$/g, '');
-const okKey = k => /^(\d{19}|\*)\|[^|<>]{1,16}\|[^|<>]{1,12}$/.test(k);
+export const normH = s => { const t = String(s || '').replace(/\s/g, '').replace(/^(지하)?\d+층(?=\D*\d)/, ''); return digits(t) || t.replace(/호$/, ''); };
+const okKey = k => /^(\d{19}|\*)\|[^|<>]{0,16}\|[^|<>]{1,12}$/.test(k);   // 동 없는 건물(오피스텔)은 동 칸이 빔
 
 const KS = ['sale', 'jeonse', 'wolse'];
 const KN = { sale: '매매', jeonse: '전세', wolse: '월세' };

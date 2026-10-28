@@ -295,7 +295,8 @@ const lineOf = ho => { const n = Number(String(ho || '').replace(/\D/g, '')); re
 //   호 장부(관리장부)에서 매물을 올리거나 가격·상태를 바꾸면 → 같은 동·호의 내 매물 카드도 맞춤 (내리면 카드는 보류 + 지도 광고 내림)
 //   매물 카드에서 가격·상태를 바꾸거나 거래완료·삭제하면 → 그 단지 장부의 그 호도 맞춤 (기록에 '매물 카드에서'로 남음)
 const lsKeyOf = p => `${p.pnu}|${normD(p.dong)}|${normH(p.ho)}`;
-const lsAt = (items, key) => items.find(x => x.status !== 'done' && x.kind !== 'presale' && (x.places || []).some(p => p.dong && p.ho && lsKeyOf(p) === key));
+// 10/28 오피스텔: 매물 카드에 동을 안 적은 경우 → 같은 필지·같은 호면 그 카드
+const lsAt = (items, key) => { const [pn, , h] = key.split('|'); return items.find(x => x.status !== 'done' && x.kind !== 'presale' && (x.places || []).some(p => p.ho && (lsKeyOf(p) === key || (!normD(p.dong) && p.pnu === pn && normH(p.ho) === h)))); };
 async function lsFromLedger(uid, { key, st, pr }) {
   if (st.src === 'other') return false;   // 타부동산 물건은 내 매물 카드가 아님
   let hit = false;
@@ -318,10 +319,13 @@ async function lsFromLedger(uid, { key, st, pr }) {
 }
 async function ledgerFromLs(uid, op, x) {
   if (!x || !Array.isArray(x.places) || x.kind === 'presale' || !['아파트', '오피스텔'].includes(tbase(x))) return false;
-  const p = x.places.find(q => q.dong && q.ho); if (!p) return false;
+  const p = x.places.find(q => q.pnu && q.ho); if (!p) return false;
   let d = null; try { const v = await redis(['GET', `realmap:cx:${uid}`]); d = v ? JSON.parse(v) : null; } catch { d = null; }
   const c = d && Array.isArray(d.items) ? d.items.find(z => (z.places || []).some(q => q.pnu === p.pnu)) : null; if (!c) return false;
-  const key = lsKeyOf(p), gone = op === 'del' || x.status === 'done';
+  let key = lsKeyOf(p); const gone = op === 'del' || x.status === 'done';
+  if (!normD(p.dong)) {   // 10/28 오피스텔: 카드에 동이 없으면 장부에서 같은 필지·같은 호를 찾아 (하나뿐일 때)
+    try { const ks = ((await redis(['HKEYS', `realmap:hj:${uid}:${c.id}`])) || []).filter(k => { const [a, , b] = k.split('|'); return a === p.pnu && b === normH(p.ho); }); if (ks.length !== 1) return false; key = ks[0]; } catch { return false; }   // 장부에 아직 없으면 매물장은 카드로 보임
+  }
   return ledgerPatch(redis, uid, c.id, key, rec => {
     if (gone) { if (rec.st.src === 'mine') rec.st = { src: '', k: [], hold: false, office: '' }; return; }
     const k = x.kind === 'sale' || x.kind === 'jeonse' || x.kind === 'wolse' ? x.kind : 'sale';
@@ -635,21 +639,21 @@ export default async function (req, res) {
       } else if (body.op === 'dir') {
         // 라인별 방향 (같은 라인은 보통 같은 방향): key = 'PNU|동|라인'
         const dk = str(body.key, 40), DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
-        if (!/^(\d{19}|\*)\|[^|]{1,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/.test(dk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');   // 라인 또는 h호(이 호만)
+        if (!/^(\d{19}|\*)\|[^|]{0,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/.test(dk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');   // 라인 또는 h호(이 호만)
         it.dir = it.dir || {};
         if (DIRS.includes(body.v)) it.dir[dk] = body.v; else delete it.dir[dk];
         if (Object.keys(it.dir).length > 800) return fail(res, 400, 'full', '방향 정보가 너무 많습니다.');
       } else if (body.op === 'lt') {
         // 라인별 타입·공급평 (10/26): key = 'PNU|동|라인' (또는 'PNU|동|h호' = 그 호만), t = '84B' 같은 타입 이름, py = 공급평(숫자). 둘 다 비우면 지움
         const lk = str(body.key, 40);
-        if (!/^(\d{19}|\*)\|[^|]{1,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/.test(lk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');   // 라인 또는 h호(이 호만)
+        if (!/^(\d{19}|\*)\|[^|]{0,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/.test(lk)) return fail(res, 400, 'bad_key', '라인 위치가 올바르지 않습니다.');   // 라인 또는 h호(이 호만)
         const t = str(body.t, 8).replace(/\s/g, '').toUpperCase(), py = Math.round(Number(body.py) || 0);
         it.lt = it.lt || {};
         if (t || (py > 3 && py < 300)) it.lt[lk] = { ...(t ? { t } : {}), ...(py > 3 && py < 300 ? { py } : {}) }; else delete it.lt[lk];
         if (Object.keys(it.lt).length > 800) return fail(res, 400, 'full', '타입 정보가 너무 많습니다.');
       } else if (body.op === 'bulk') {
         // 10/28 엑셀 불러오기: 타입·방향을 한 번에 (이미 적어 둔 라인·호는 그대로 둠)
-        const KR = /^(\d{19}|\*)\|[^|]{1,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/, DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
+        const KR = /^(\d{19}|\*)\|[^|]{0,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/, DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
         it.dir = it.dir || {}; it.lt = it.lt || {};
         for (const [k, v] of Object.entries(body.dir || {}).slice(0, 2000)) if (KR.test(k) && DIRS.includes(v) && !it.dir[k] && Object.keys(it.dir).length < 800) it.dir[k] = v;
         for (const [k, v] of Object.entries(body.lt || {}).slice(0, 2000)) {
