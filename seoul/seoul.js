@@ -12,8 +12,8 @@
     let v = '', op = false;
     try { op = localStorage.getItem('rm.op') === '1'; v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
     if (op) return;
-    const m = location.pathname.match(/^\/seoul\/(?:([a-z]+)(?:\/(\d+))?\.html)?$/);
-    const pg = !m ? 'idx' : m[2] ? `${m[1]}/${m[2]}` : m[1] || 'idx';
+    const m = location.pathname.match(/^\/seoul\/(?:([a-z]+)(?:\/(\d+|[a-z]+))?\.html)?$/);
+    const pg = !m ? 'idx' : m[2] ? `${m[1]}/${m[2]}` : m[1] || 'idx';   // 테마 페이지는 t/big 처럼
     let src = '';
     try { if (!sessionStorage.getItem('rm.ssrc')) {
       const ua = navigator.userAgent || ''; let h = ''; try { h = document.referrer ? new URL(document.referrer).hostname : ''; } catch { /* 없음 */ }
@@ -80,8 +80,9 @@
     $$('[data-z]').forEach(box => {
       const it = find(box.dataset.id);
       const f = $('[data-act="fav"]', box), a = $('[data-act="alert"]', box);
-      if (f) { f.classList.toggle('on', !!it); f.innerHTML = it ? '★ 관심 구역' : '☆ 관심 구역'; f.setAttribute('aria-pressed', !!it); }
-      if (a) { const on = !!(it && it.alert); a.classList.toggle('on', on); a.innerHTML = on ? '🔔 알림 받는 중' : '🔔 추진 알림 받기'; a.setAttribute('aria-pressed', on); }
+      const ic = b => b.classList.contains('zi');   // 표 안의 작은 아이콘 버튼 (10/28)
+      if (f) { f.classList.toggle('on', !!it); f.innerHTML = ic(f) ? (it ? '★' : '☆') : it ? '★ 관심 구역' : '☆ 관심 구역'; f.setAttribute('aria-pressed', !!it); }
+      if (a) { const on = !!(it && it.alert); a.classList.toggle('on', on); a.innerHTML = ic(a) ? '🔔' : on ? '🔔 알림 받는 중' : '🔔 추진 알림 받기'; a.setAttribute('aria-pressed', on); if (ic(a)) a.title = on ? '알림 받는 중 (누르면 해제)' : '추진 알림 받기'; }
     });
     renderMine();
   }
@@ -138,4 +139,40 @@
     loaded = true; paint();
   }
   if ($('[data-z]') || $('[data-myzones]')) load();
+
+  // ---------- 표: 종류·단계·구 거르기 · 찾기 · 머리글 정렬 (10/28) ----------
+  $$('table.zt').forEach(tb => {
+    const body = tb.tBodies[0]; if (!body) return;
+    const box = tb.closest('.pn'), fl = box && $('[data-flt]', box);
+    const F = { k: '', s: '', gu: '', q: '' };
+    function apply() {
+      let n = 0;
+      [...body.rows].forEach(tr => {
+        const ok = (!F.k || tr.dataset.k === F.k) && (!F.s || tr.dataset.g === F.s) && (!F.gu || tr.dataset.gu === F.gu) && (!F.q || (tr.dataset.q || '').toLowerCase().includes(F.q));
+        tr.hidden = !ok; if (ok) n++;
+      });
+      const c = fl && $('[data-fn]', fl); if (c) c.textContent = `${n}곳`;
+    }
+    if (fl) {
+      const grp = (attr, key) => $$(`[${attr}]`, fl).forEach(b => b.onclick = () => { F[key] = b.getAttribute(attr); $$(`[${attr}]`, fl).forEach(x => x.classList.toggle('on', x === b)); apply(); });
+      grp('data-fk', 'k'); grp('data-fs', 's');
+      const g = $('[data-fgu]', fl); if (g) g.onchange = () => { F.gu = g.value; apply(); };
+      const q = $('[data-fq]', fl); if (q) q.oninput = () => { F.q = q.value.trim().toLowerCase(); apply(); };
+    }
+    // 머리글 누르면 정렬 (같은 칸을 다시 누르면 반대로) · 숫자는 숫자로
+    const ths = [...tb.tHead.rows[0].cells];
+    ths.forEach((th, ci) => {
+      if (!th.dataset.s) return;
+      th.onclick = () => {
+        const dn = th.classList.contains('on') ? !th.classList.contains('dn') : th.classList.contains('n');   // 숫자 칸은 큰 것부터
+        ths.forEach(x => x.classList.remove('on', 'dn')); th.classList.add('on'); if (dn) th.classList.add('dn');
+        const val = tr => { const td = tr.cells[ci]; const v = td ? (td.dataset.v ?? td.textContent) : ''; return v; };
+        const L = [...body.rows], num = L.every(tr => { const v = val(tr); return v === '' || !isNaN(+v); });
+        L.sort((a, b) => { const x = val(a), y = val(b); const r = num ? (+x || 0) - (+y || 0) : String(x).localeCompare(String(y), 'ko', { numeric: true }); return dn ? -r : r; });
+        L.forEach(tr => body.appendChild(tr));
+      };
+    });
+  });
+  // 위쪽 '25개 구' 펼침: 바깥을 누르면 닫기
+  document.addEventListener('click', e => { $$('details.vd[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 })();
