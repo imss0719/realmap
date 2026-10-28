@@ -234,9 +234,22 @@ window.Sett = (() => {
       rw('글씨 크기', '<small>위쪽 [가−][가+]와 같습니다</small>', B('', '가− 작게', '', 'data-fz="-1"') + B('', '가+ 크게', '', 'data-fz="1"')) +
       rw('안내', '<a href="/pro-guide.html" target="_blank" rel="noopener">설명서</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener"><b>개인정보처리방침</b></a>'))}
       ${pn('운영 회사', '', rw('상호', '주식회사 드림인베스트 · 대표 임승재') + rw('사업자등록번호', '643-87-01035 <small>· 통신판매업 신고 진행 중</small>') + rw('주소', '경기도 파주시 고봉로 755-27 가동 2층 201-116호') + rw('연락처', '02-393-7676 · contact@realmap.online'))}
+      ${me.staff ? '' : pn('자료 비우기', '되돌릴 수 없음 · 요금제·사무소 정보·직원은 그대로',
+        rw('지울 자료', `<label><input type="checkbox" data-wp="ls"> 매물장 ${H.items().length.toLocaleString()}건 <small>(사진·지도 광고 포함)</small></label><br><label><input type="checkbox" data-wp="hj"> 아파트 장부 호 기록 <small>(담은 단지 목록은 남음)</small></label><br><label><input type="checkbox" data-wp="cu"> 고객관리${Array.isArray(cus) ? ` ${cus.length.toLocaleString()}명` : ''}</label>`) +
+        rw('확인', `<input id="stWipeTx" class="si" maxlength="10" placeholder="전체 삭제" autocomplete="off"> <small>'전체 삭제'라고 입력해야 지워집니다</small>`, B('stWipe', '골라서 지우기', 'r')) +
+        '<p class="sp-n">테스트로 넣은 자료를 정리할 때 쓰세요. 지우기 전에 [엑셀 → 내려받기]로 받아 두시길 권합니다.</p>', 'q')}
       ${me.op || me.staff ? '' : pn('중개사 서비스 해지', '되돌릴 수 없음', rw('해지', '<small>매물장·사진·지도 광고·단지 장부·고객·사무소 정보가 모두 지워집니다. 먼저 [엑셀]에서 받아 두세요.</small>', B('stQuit', '해지하기', 'r')), 'q')}</div>`;
     m.querySelectorAll('[data-fz]').forEach(b => b.onclick = () => H.fz(+b.dataset.fz));
     if ($('stQuit')) $('stQuit').onclick = () => H.quit();
+    if (!cus && !me.staff) loadCu().then(() => sec === 'acct' && !el.contains(document.activeElement) && draw());
+    if ($('stWipe')) $('stWipe').onclick = async () => {   // 10/28 자료 비우기
+      const pick = [...m.querySelectorAll('[data-wp]:checked')].map(c => c.dataset.wp); if (!pick.length) return H.toast('지울 자료를 골라 주세요');
+      if ($('stWipeTx').value.replace(/\s/g, '') !== '전체삭제') { $('stWipeTx').focus(); return H.toast("'전체 삭제'라고 입력해 주세요"); }
+      const NM = { ls: `매물장 ${H.items().length.toLocaleString()}건(사진·지도 광고 포함)`, hj: '아파트 장부의 모든 호 기록', cu: '고객관리의 모든 고객' };
+      if (!confirm(`정말 지울까요? 되돌릴 수 없습니다.\n\n${pick.map(k => '· ' + NM[k]).join('\n')}`)) return;
+      try { await H.api('/api/auth?action=wipe', H.post({ ...Object.fromEntries(pick.map(k => [k, true])), confirm: '전체 삭제' })); alert('지웠습니다. 화면을 새로 불러옵니다.'); location.reload(); }
+      catch (e) { H.toast(e.message, 4000); }
+    };
   }
   // ---------- 직원 자리 추가 (유료 요금제 쓰는 중) ----------
   function seatPanel() {
