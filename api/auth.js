@@ -606,6 +606,15 @@ export default async function (req, res) {
         it.lt = it.lt || {};
         if (t || (py > 3 && py < 300)) it.lt[lk] = { ...(t ? { t } : {}), ...(py > 3 && py < 300 ? { py } : {}) }; else delete it.lt[lk];
         if (Object.keys(it.lt).length > 800) return fail(res, 400, 'full', '타입 정보가 너무 많습니다.');
+      } else if (body.op === 'bulk') {
+        // 10/28 엑셀 불러오기: 타입·방향을 한 번에 (이미 적어 둔 라인·호는 그대로 둠)
+        const KR = /^(\d{19}|\*)\|[^|]{1,16}\|(\d{1,3}|h[0-9A-Za-z]{1,8})$/, DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
+        it.dir = it.dir || {}; it.lt = it.lt || {};
+        for (const [k, v] of Object.entries(body.dir || {}).slice(0, 2000)) if (KR.test(k) && DIRS.includes(v) && !it.dir[k] && Object.keys(it.dir).length < 800) it.dir[k] = v;
+        for (const [k, v] of Object.entries(body.lt || {}).slice(0, 2000)) {
+          const t = str(v && v.t, 8).replace(/\s/g, '').toUpperCase(), py = Math.round(Number(v && v.py) || 0);
+          if (KR.test(k) && !it.lt[k] && (t || (py > 3 && py < 300)) && Object.keys(it.lt).length < 800) it.lt[k] = { ...(t ? { t } : {}), ...(py > 3 && py < 300 ? { py } : {}) };
+        }
       } else if (body.op === 'memo') {
         const mk = str(body.key, 80);
         if (!mk.startsWith(id + '|')) return fail(res, 400, 'bad_key', '메모 위치가 올바르지 않습니다.');
