@@ -638,6 +638,7 @@
     else setTimeout(() => $('fq') && $('fq').focus(), 50);
   }
   function closeForm() {
+    if (S.pubS && S.pubS.newPhotos && S.pubS.newPhotos.length) api('/api/auth?action=listing&op=photodel', post({ urls: S.pubS.newPhotos })).catch(() => {});   // 10/28 등록창에서 올리고 안 쓴 사진
     $('sheet').hidden = true; document.body.style.overflow = ''; S.form = null; S.pubS = null;
     if (S.bkTmp && S.bkTmp.length) { api('/api/auth?action=listing&op=photodel', post({ urls: S.bkTmp })).catch(() => {}); } // 저장하지 않은 대표 사진 정리
     S.bkTmp = [];
@@ -1006,7 +1007,8 @@
     if (!S.bk) return openBk(() => pubSheet(x0.id ? S.items.find(i => i.id === x0.id) : x0, edit));
     const x = upgrade(x0); if (x0._new) x._new = true;
     if (!x.area) { const t = x.places.reduce((n, p) => n + (p.area || 0), 0); x.area = t ? Math.round(t * 100) / 100 : null; }
-    S.form = null; S.pubS = { x, edit: !!edit, orig: JSON.stringify(pubBody(x)), open: new Set(), tried: false };
+    if (!Array.isArray(x.photos)) x.photos = [];
+    S.form = null; S.pubS = { x, edit: !!edit, orig: JSON.stringify(pubBody(x)), open: new Set(), tried: false, newPhotos: [], upN: 0 };
     $('shTitle').textContent = edit ? '리얼맵 게시 내용 수정' : '리얼맵에 올리기';
     $('sheet').hidden = false; document.body.style.overflow = 'hidden';
     drawPubSheet();
@@ -1066,13 +1068,17 @@
     const miss = adMissing(x, S.bk).filter(m => m !== '중개사무소 정보');
     const needK = [...new Set(miss.map(m => MISS_KEY[m]).filter(Boolean))];
     const other = miss.filter(m => !MISS_KEY[m]);
-    const filled = psKeys(x).filter(k => !needK.includes(k));
+    // 10/28 아파트 화면에서 올릴 때: 가격은 장부 입력창 한 곳에서만 (여기선 보여 주기만 · 비어 있을 때만 입력)
+    const prLock = S.mode === 'danji' && ['아파트', '오피스텔'].includes(tbase(x)) && !!psVal(x, 'price');
+    const filled = psKeys(x).filter(k => !needK.includes(k) && !(prLock && k === 'price'));
+    const phs = x.photos || [];
     const dh = [p0.dong && (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동'), p0.ho && (/(호|층)$/.test(p0.ho) ? p0.ho : p0.ho + '호')].filter(Boolean).join(' ');
     const live = pubLive(x);
     $('form').innerHTML = `<div class="ps">
       <div class="ps-sum"><b><span class="kd ${x.kind}">${KIND[x.kind]}</span> ${esc(priceText(x))} · ${esc(x.bname || (x.addr || p0.addr || '').split(' ').slice(-2).join(' '))}${dh ? ' ' + esc(dh) : ''}</b>
         <small>${esc([x.area ? `면적 ${x.area}㎡ (${(x.area / 3.3058).toFixed(1)}평)` : '', a.fl ? `${a.fl}${/^\d+$/.test(a.fl) ? '층' : ''}${a.tfl ? ' / ' + a.tfl + '층' : ''}` : ''].filter(Boolean).join(' · '))} · 호수·연락처·메모는 공개되지 않습니다</small>
-        ${live ? `<small class="ps-live">● ${ymd(x.pub.exp).slice(5)}까지 게시 중</small>` : ''}</div>
+        ${live ? `<small class="ps-live">● ${ymd(x.pub.exp).slice(5)}까지 게시 중</small>` : ''}${prLock ? '<small class="ps-lock">가격은 장부 입력창에서 고칩니다</small>' : ''}</div>
+      <div class="ps-ph"><h4>사진 <small>${phs.length}/30 · 첫 번째가 대표 사진</small></h4><div class="pgrid">${phs.map((p, i) => `<div class="ph"><img src="${esc(p.url)}" alt="" loading="lazy">${i === 0 ? '<em>대표</em>' : ''}<div class="pbar">${i ? `<button type="button" data-psl="${i}" aria-label="앞으로">◀</button>` : '<span></span>'}<button type="button" data-psx="${i}" aria-label="사진 빼기">×</button>${i < phs.length - 1 ? `<button type="button" data-psl="${i + 1}" aria-label="뒤로">▶</button>` : '<span></span>'}</div></div>`).join('')}${Array.from({ length: P.upN }, () => '<div class="ph up"><span>올리는 중…</span></div>').join('')}${phs.length + P.upN < 30 ? '<label class="ph add"><input type="file" id="psPhF" accept="image/*" multiple hidden><b>＋</b><span>사진 추가</span></label>' : ''}</div></div>
       ${P.filling ? '<div class="ps-fill">건축물대장에서 빈 칸을 채우는 중…</div>' : ''}
       ${needK.length || other.length ? `<div class="ps-need${P.tried ? ' tried' : ''}"><h4>이것만 채워 주세요 <em>${needK.length + other.length}칸</em></h4>
         ${needK.map(k => `<div class="pf"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`).join('')}
@@ -1081,7 +1087,7 @@
         ${filled.map(k => P.open.has(k) ? `<div class="pf op"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`
           : `<button type="button" class="pa" data-po="${k}"><span>${PS_LB[k]}</span><b>${esc(psVal(x, k)) || '<i>비어 있음 · 선택</i>'}</b>${AUTOK.includes(k) && psVal(x, k) ? '<u>자동</u>' : ''}</button>`).join('')}</div>
       <details class="ps-opt"${a.desc ? ' open' : ''}><summary>광고 소개글 · 선택</summary><textarea class="pin2" data-pk="desc" rows="2" maxlength="300" placeholder="예) 남향 로열층, 올수리, 역 도보 5분">${esc(a.desc || '')}</textarea></details>
-      <div class="ps-opt2">사진 ${(x.photos || []).length}장 · <button type="button" class="lnk2" id="psCard">사진 추가 · 전체 수정(매물카드)</button></div>
+      ${S.mode === 'danji' ? '' : '<div class="ps-opt2"><button type="button" class="lnk2" id="psCard">전체 수정(매물카드)</button></div>'}
       <div class="ps-go"><button type="button" class="btn main" id="psGo">${P.edit ? '저장하기' : isPub(x) ? '다시 게시 (30일)' : '리얼맵 지도에 올리기 (30일)'}</button>
         <p>${esc(S.bk ? S.bk.office : '')} 정보와 함께 표시됩니다${P.edit ? ' · 필수 항목이 비면 지도에서 내려갑니다' : ''}</p></div></div>`;
     const F = $('form');
@@ -1102,7 +1108,10 @@
     F.querySelectorAll('[data-pb]').forEach(c => c.onchange = () => { set(); x.ad[c.dataset.pb] = c.checked; drawPubSheet(); });
     F.querySelectorAll('[data-mgi2]').forEach(c => c.onchange = () => { x.ad.mgmtInc = [...F.querySelectorAll('[data-mgi2]:checked')].map(z => z.dataset.mgi2); });
     F.querySelectorAll('[data-po]').forEach(b => b.onclick = () => { set(); P.open.add(b.dataset.po); drawPubSheet(); const n = F.querySelector(`.pf.op [data-pk]`); if (n) n.focus(); });
-    $('psCard').onclick = () => { set(); const it = S.pubS.x; closeForm(); if (it.id) openForm(S.items.find(i => i.id === it.id) || it); else openForm(null, it.pnu, { dong: it.places[0].dong, ho: it.places[0].ho, kind: it.kind, price: it.price, deposit: it.deposit, rent: it.rent, contacts: it.contacts }); };
+    const psF = $('psPhF'); if (psF) psF.onchange = () => { set(); const fs = [...psF.files]; psF.value = ''; psUpload(P, fs); };
+    F.querySelectorAll('[data-psx]').forEach(b => b.onclick = () => { set(); x.photos.splice(+b.dataset.psx, 1); drawPubSheet(); });
+    F.querySelectorAll('[data-psl]').forEach(b => b.onclick = () => { set(); const i = +b.dataset.psl, a = x.photos; [a[i - 1], a[i]] = [a[i], a[i - 1]]; drawPubSheet(); });
+    if ($('psCard')) $('psCard').onclick = () => { set(); const it = S.pubS.x; closeForm(); if (it.id) openForm(S.items.find(i => i.id === it.id) || it); else openForm(null, it.pnu, { dong: it.places[0].dong, ho: it.places[0].ho, kind: it.kind, price: it.price, deposit: it.deposit, rent: it.rent, contacts: it.contacts }); };
     $('psGo').onclick = () => { set(); pubSubmit(); };
   }
   async function pubSubmit() {
@@ -1117,7 +1126,7 @@
         took(j); if (!id) id = S.items[0] && S.items[0].id;
       }
       if (!P.edit) { const y = S.items.find(i => i.id === id); took(await api('/api/auth?action=listing', post({ op: y && isPub(y) ? 'renew' : 'pub', id }))); }
-      closeForm(); draw();
+      P.newPhotos = []; closeForm(); draw();
       toast(P.edit ? '저장했습니다' : '리얼맵 지도에 올렸습니다. 1분 안에 지도에 나타납니다', 3500);
     } catch (e) {
       $('psGo').disabled = false; $('psGo').textContent = P.edit ? '저장하기' : '리얼맵 지도에 올리기 (30일)';
@@ -1125,6 +1134,25 @@
       if (['adlimit', 'readonly', 'limit'].includes(e.code)) return upsell(e.message);
       toast(e.message, 5000);
     }
+  }
+  // 10/28 등록창에서 바로 사진 올리기 (매물카드로 넘어가지 않음) · 올리지 않고 닫으면 새 사진은 지움(closeForm)
+  async function psUpload(P, files) {
+    const x = P.x, room = 30 - x.photos.length - P.upN;
+    if (files.length > room) toast(`사진은 매물당 30장까지입니다. ${Math.max(0, room)}장만 올립니다.`, 3500);
+    files = files.slice(0, Math.max(0, room)).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
+    if (!files.length) return;
+    P.upN += files.length; drawPubSheet();
+    let bad = 0;
+    for (const f of files) {
+      try {
+        const data = await shrink(f);
+        const j = await api('/api/auth?action=listing&op=photo', post({ data }));
+        if (S.pubS !== P) { api('/api/auth?action=listing&op=photodel', post({ urls: [j.url] })).catch(() => {}); continue; }
+        x.photos.push({ url: j.url }); P.newPhotos.push(j.url);
+      } catch { bad++; }
+      P.upN--; if (S.pubS === P) drawPubSheet();
+    }
+    if (bad) toast(`사진 ${bad}장을 올리지 못했습니다. 다른 사진으로 다시 시도해 주세요.`, 4000);
   }
   // 줄 끝 상태 버튼: [리얼맵 등록] / [● 게시중 ▾] / [기간만료]
   function pubCell(x) {
@@ -1139,14 +1167,14 @@
     pubMenu(x, el);
   }
   function pubMenu(x, el) {
-    let m = $('pubPop'); if (!m) { m = document.createElement('div'); m.id = 'pubPop'; document.body.appendChild(m); document.addEventListener('mousedown', e => { if (!m.hidden && !m.contains(e.target) && !e.target.closest('[data-pubm]')) m.hidden = true; }); addEventListener('scroll', () => { m.hidden = true; }, true); }
+    let m = $('pubPop'); if (!m) { m = document.createElement('div'); m.id = 'pubPop'; document.body.appendChild(m); document.addEventListener('mousedown', e => { if (!m.hidden && !m.contains(e.target) && !e.target.closest('[data-pubm]')) m.hidden = true; }); addEventListener('scroll', () => { if (Date.now() - (m._t || 0) > 400) m.hidden = true; }, true); }   // 10/28 누를 때 표가 살짝 밀리며 나는 scroll로는 닫지 않음
     const live = pubLive(x);
     m.innerHTML = `<div class="h">${live ? `${ymd(x.pub.exp).slice(5)}까지 게시 · 확인 ${ymd(x.pub.chk).slice(5)}` : '게시 기간이 끝났습니다'}</div>
       ${live ? `<a href="/?pnu=${x.pnu}&lst=1" target="_blank" rel="noopener">지도에서 보기 ↗</a>` : '<button type="button" data-pm="renew">다시 게시 (30일)</button>'}
       <button type="button" data-pm="edit">수정하기</button>
       ${live ? '<button type="button" data-pm="renew">30일 연장</button><button type="button" data-pm="share">링크 복사 (손님에게)</button>' : ''}
       <button type="button" class="x" data-pm="unpub">지도에서 내리기</button>`;
-    m.hidden = false;
+    m.hidden = false; m._t = Date.now();
     const r = el.getBoundingClientRect();
     m.style.top = `${Math.min(r.bottom + 4, innerHeight - m.offsetHeight - 8)}px`; m.style.left = `${Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8))}px`;
     m.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => {

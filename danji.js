@@ -676,7 +676,8 @@ window.Danji = (() => {
     { id: 'ps', t: '매매', f: 'sale', g: '의뢰가격' }, { id: 'pj', t: '전세', f: 'jeonse', g: '의뢰가격' }, { id: 'pwd', t: '보증금', f: 'wd', g: '의뢰가격' }, { id: 'pwr', t: '월세', f: 'wr', g: '의뢰가격' }, { id: 'gap', t: '갭', g: '의뢰가격' },
     { id: 'imp', t: '챙길 것', f: 'imp' },
     { id: 'live', t: '구분', g: '현상태' }, { id: 'cd', t: '보증금', g: '현상태' }, { id: 'cr', t: '차임', g: '현상태' }, { id: 'exp', t: '만기', g: '현상태' },
-    { id: 'tel', t: '연락처' }, { id: 'h', t: '최근 기록' }];
+    { id: 'tel', t: '연락처' }, { id: 'h', t: '최근 기록' },
+    { id: 'pub', t: '리얼맵' }];   // 10/28 지도 광고는 이 칸 하나에서만 (내 매물일 때 [리얼맵 등록] → 간단 등록창 · 올린 뒤 [● 게시중 ▾])
   // 매물장 표: 관리용 칸(만기·연락처·옵션·메모)은 빼고 거래·가격 중심 (연락처·만기는 오른쪽 입력창에서)
   const MHIDE = new Set(['exp', 'own', 'ten', 'opt', 'note']);
   const MCOLS = COLS.filter(c => !MHIDE.has(c.id)).map(c => c.id === 'of' ? { ...c, t: '받은 곳' } : c);
@@ -788,14 +789,17 @@ window.Danji = (() => {
       case 'pub': {
         const ls = (s.mine || []).find(z => z.status !== 'done');
         // 리얼맵: 내 매물만 — [리얼맵 등록] / [● 게시중 ▾] / [기간만료 ▾] (매물장에 없으면 장부 내용으로 간단 등록창)
-        return ls ? (S.host.pubCell ? S.host.pubCell(ls.id) : '') || `<button type="button" class="mbtn on" data-ls="${esc(ls.id)}" title="매물카드 열기">매물</button>`
-          : s.src === 'mine' && !s.done && !s.hold && (!S.host.canPub || S.host.canPub()) ? `<button type="button" class="pbtn reg" data-up="${esc(x.key)}" title="장부 내용으로 리얼맵 지도에 올리기">리얼맵 등록</button>` : '';
+        if (s.src !== 'mine' || s.done) return '<span class="mut">-</span>';
+        // 10/28 칸 폭: 칸 이름이 '리얼맵'이라 버튼 글은 짧게 (등록 / ● 게시 ▾ / 만료 ▾)
+        const sh = h => h.replace('>리얼맵 등록<', ' title="리얼맵 지도에 올리기">등록<').replace('● 게시중 ▾', '● 게시 ▾').replace('기간만료 ▾', '만료 ▾');
+        return ls ? sh((S.host.pubCell ? S.host.pubCell(ls.id) : '') || '<span class="mut">-</span>')   // 10/28 매물카드 여는 버튼은 없앰 (보류 매물 등은 빈칸)
+          : s.src === 'mine' && !s.done && !s.hold && (!S.host.canPub || S.host.canPub()) ? `<button type="button" class="pbtn reg" data-up="${esc(x.key)}" title="리얼맵 지도에 올리기">등록</button>` : '<span class="mut">-</span>';
       }
       case 'imp': return r.imp ? `<span class="imp">${r.impd ? `<span class="dd${impSoon(r.impd) ? ' soon' : ''}">${esc(r.impd.slice(5).replace('-', '/'))}</span>` : ''}${esc(r.impd ? impTxt(r.imp) : r.imp)}</span>` : '<span class="mut">-</span>';
       default: return r[c.f] ? esc(r[c.f]) : '<span class="mut">-</span>';
     }
   }
-  const tipOf = (x, c) => { const r = x.r || {}; if (c.id === 'of') return x.st.src === 'other' ? x.st.office || '' : ''; if (c.id === 'tel') return (r.tels || []).map(t => `${t.l} ${t.n}`).join(' / '); return c.id === 'note' || c.id === 'opt' || c.id === 'imp' ? r[c.f] || '' : c.id === 'own' || c.id === 'ten' ? (r.tels || []).filter(t => isTen(t) === (c.id === 'ten')).map(t => `${t.l} ${t.n}`).join(' / ') : c.id === 'h' && r.hist && r.hist[0] ? `${fmtT(r.hist[0].t)} ${r.hist[0].x}${r.hist[0].w ? ' · ' + r.hist[0].w : ''}` : ''; };   // 잘린 글은 마우스를 올리면 전체
+  const tipOf = (x, c) => { const r = x.r || {}; if (c.id === 'cxn') return x.cx ? x.cx.name : ''; if (c.id === 'of') return x.st.src === 'other' ? x.st.office || '' : ''; if (c.id === 'tel') return (r.tels || []).map(t => `${t.l} ${t.n}`).join(' / '); return c.id === 'note' || c.id === 'opt' || c.id === 'imp' ? r[c.f] || '' : c.id === 'own' || c.id === 'ten' ? (r.tels || []).filter(t => isTen(t) === (c.id === 'ten')).map(t => `${t.l} ${t.n}`).join(' / ') : c.id === 'h' && r.hist && r.hist[0] ? `${fmtT(r.hist[0].t)} ${r.hist[0].x}${r.hist[0].w ? ' · ' + r.hist[0].w : ''}` : ''; };   // 잘린 글은 마우스를 올리면 전체
   const rowHtml = (x, i) => `<tr data-i="${i}" data-key="${esc(x.key)}" class="${x.st.src || x.st.done ? 'on' : ''}${x.fs ? ' fs' : ''}${S.selKey === x.key ? ' sel' : ''}${S.pk && S.pk.key === x.key && S.pk.cx === x.cx.id ? ' pk' : ''}${x.r && x.r.mk ? ' mk-' + x.r.mk : ''}">${VC().map(c => { const tp = tipOf(x, c); return `<td class="c-${c.id}${c.ed ? ' ed' : ''}" data-c="${c.id}"${tp ? ` title="${esc(tp)}"` : ''}>${cellHtml(x, c)}</td>`; }).join('')}</tr>`;
   function drawTable(cx) {
     const ALL = !!cx.all, C = ALL ? { view: 'all' } : S.C[cx.id], box = $('dj_tbl'); if (!box || !C) return;
@@ -1313,7 +1317,9 @@ window.Danji = (() => {
     if (P && !force && P.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
     if (!P) { P = document.createElement('aside'); P.id = 'dj_rp'; P.className = 'rpanel'; ($('dj_wrap') || document.body).appendChild(P); }
     $('dj_wrap') && $('dj_wrap').classList.add('rpon');
-    const cx = x.cx, r = x.r || {}, s = x.st, ro = LOCK(x), R0 = S.pkRec, lt = x.lt || {}, pr = r.pr || {};
+    const cx = x.cx, r = x.r || {}, s = x.st, ro = LOCK(x), R0 = S.pkRec, lt = x.lt || {};
+    // 10/28 매물 카드로만 있던 호도 같은 입력칸으로 (카드 가격을 보여 주고, 고치면 장부로 옮겨 적음 → 카드도 따라 바뀜)
+    const pr = s.fromLs ? { ...Object.fromEntries(Object.entries(s.lsp || {}).filter(([, v]) => v)), ...Object.fromEntries(Object.entries(r.pr || {}).filter(([, v]) => v)) } : r.pr || {};
     const v = (id, val, ph, attr = '') => `<input class="rpi" data-f="${id}" value="${esc(val ?? '')}" placeholder="${esc(ph || '')}" ${attr} ${ro ? 'disabled' : ''}>`;
     const fld = (t, inner, cls = '') => `<label class="rpf ${cls}"><span>${t}</span>${inner}</label>`;
     const seg = (g, list, cur) => `<span class="rpseg" data-g="${g}">${list.map(([k, t]) => `<button type="button" data-v="${k}" aria-pressed="${cur === k || (Array.isArray(cur) && cur.includes(k))}" ${ro ? 'disabled' : ''}>${t}</button>`).join('')}</span>`;
@@ -1326,11 +1332,10 @@ window.Danji = (() => {
     const priceIns = ks => `${ks.includes('sale') ? fld('매매가', v('ps', manTxt(pr.sale), '예: 21억 5천')) : ''}${ks.includes('jeonse') ? fld('전세가', v('pj', manTxt(pr.jeonse), '예: 7억')) : ''}${ks.includes('wolse') ? fld('월세 보증금', v('pwd', manTxt(pr.wd), '예: 1억')) + fld('월세', v('pwr', pr.wr || '', '만원', 'inputmode="numeric"')) : ''}`;
     let mkHtml;
     if (s.done) mkHtml = `<p class="rpn">계약됨 ✓ ${r.deal ? `${KN[r.deal.k]} ${r.deal.k === 'wolse' ? `${wonFull(r.deal.a)}/${r.deal.r}` : wonFull(r.deal.a)} · ${esc(String(r.deal.d).slice(2).replace(/-/g, '.'))}` : ''}</p>`;
-    else if (s.src && !s.fromLs) mkHtml = `<div class="rprow">${seg('msrc', [['mine', '내 물건'], ['other', '타부동산']], s.src)}${s.src === 'other' ? v('of', s.office || '', '어느 부동산? (예: ○○공인)', 'maxlength="30"') : ''}</div>
+    else if (s.src) mkHtml = `<div class="rprow">${seg('msrc', [['mine', '내 물건'], ['other', '타부동산']], s.src)}${s.src === 'other' ? v('of', s.office || '', '어느 부동산? (예: ○○공인)', 'maxlength="30"') : ''}</div>
         <div class="rprow">${seg('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], s.k)}<label class="rpck"><input type="checkbox" data-hold ${s.hold ? 'checked' : ''} ${ro ? 'disabled' : ''}> 보류</label></div>
         <div class="rpg">${priceIns(s.k)}</div>
-        ${ro ? '' : `<div class="rpbtns"><button type="button" class="rpb" data-toled>매물에서 내리기</button>${s.src === 'mine' && !lsLive ? '<button type="button" class="rpb" data-card>광고 카드 만들기 <small>사진·지도 광고</small></button>' : ''}${lsLive ? `<button type="button" class="rpb" data-ls="${esc(lsLive.id)}">매물 카드 열기</button>` : ''}</div>`}`;
-    else if (s.fromLs && lsLive) mkHtml = `<p class="rpn">매물 카드로 등록된 <b>내 매물</b>입니다 · ${esc(mkTxt(x))}</p><div class="rpbtns"><button type="button" class="rpb" data-ls="${esc(lsLive.id)}">매물 카드 열기</button></div>`;
+        ${ro ? '' : '<div class="rpbtns"><button type="button" class="rpb" data-toled>매물에서 내리기</button></div>'}`;   // 10/28 광고 카드·매물 카드 버튼은 없앰 → 지도 광고는 표 맨 끝 [리얼맵 등록] 하나로
     else if (draft) mkHtml = `<div class="rprow">${seg('dsrc', [['mine', '내 물건'], ['other', '타부동산']], draft.src)}${draft.src === 'other' ? `<input class="rpi" id="rp_dof" value="${esc(draft.office)}" placeholder="어느 부동산? (예: ○○공인)" maxlength="30">` : ''}</div>
         <div class="rprow">${seg('dk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], draft.k)}</div>
         <div class="rpg" id="rp_dpr">${priceIns(draft.k)}</div>
