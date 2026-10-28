@@ -966,6 +966,37 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 @media (min-width:980px){
   .djlay.hastree .djtree,.bdlay.hastree .bdtree{top:8px;max-height:calc((100vh - var(--toph,60px) - 16px) / var(--fz,1))}
 }
+/* 10/28 관리장부 / 매물장 · 오른쪽 입력창 */
+.dj .vtab.bk{margin-left:6px;border-color:#14212E}.dj .vtab.bk button{font-size:13.5px;padding:4px 14px}.dj .vtab.bk button[aria-pressed=true]{background:var(--gold,#F2B705);color:#14212E}
+.dj .xt td.c-mkt{white-space:nowrap}.dj .mko{display:inline-block;font-size:11.5px;font-weight:800;color:#fff;background:#F08C00;border-radius:5px;padding:0 7px;line-height:19px}.dj .mko.hold{background:#ADB5BD}.dj .mkp{color:#5E6A77;font-size:12px}
+.dj .mkgo{border:1px solid #C9D2DC;background:#fff;border-radius:6px;font-size:12px;font-weight:700;padding:1px 8px;color:#5E6A77;cursor:pointer}.dj .mkgo:hover{border-color:#F08C00;color:#C2410C}
+.dj .lv{display:inline-block;font-size:12px;font-weight:800;border-radius:9px;padding:0 8px;line-height:19px;background:#F1F3F5;color:#5E6A77}.dj .lv.tenant{background:#FFF4D6;color:#A16207}.dj .lv.owner{background:#E8F0FB;color:#1F4E8C}
+.dj .xt tbody tr.pk td{background:#FFF8E1!important}.dj .xt tbody tr.pk td:first-child{box-shadow:inset 3px 0 0 #F2B705}
+.dj .xt tbody tr td[data-c]{cursor:default}
+@media(min-width:1101px){.dj #dj_wrap.rpon .djmain{margin-right:404px}}
+@media(min-width:1101px){body:has(#dj_rp) .altoasts{right:420px}}   /* 입력창이 열려 있으면 알림 상자는 그 왼쪽에 */
+.dj .rpanel{position:fixed;right:14px;top:calc((var(--toph,60px) + 12px) / var(--fz,1));bottom:12px;width:392px;overflow:auto;z-index:60;background:#fff;border:1px solid #DDE3EA;border-radius:12px;box-shadow:0 12px 32px rgba(16,32,48,.18);font-size:13px}
+.dj .rp-h{position:sticky;top:0;z-index:2;background:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #EEF1F5}.dj .rp-h b{font-size:16px}.dj .rp-h b small{font-size:12px;color:var(--muted);font-weight:700}
+.dj .rptg{font-size:11.5px;font-weight:800;background:#F1F3F5;color:#5E6A77;border-radius:8px;padding:0 7px;line-height:19px}
+.dj .rp-x{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer}
+.dj .rpwarn{margin:8px 12px;background:#FDECEC;color:#C92A2A;border-radius:6px;padding:6px 10px;font-size:12.5px}
+.dj .rps{padding:8px 12px 10px;border-bottom:1px solid #EEF1F5}.dj .rps h4{margin:0 0 6px;font-size:11.5px;color:#64748B;display:flex;align-items:center;gap:6px}.dj .rps h4 small{font-weight:600;color:#94A0AD}
+.dj .rps.mk.on{background:#FFFBEB}.dj .rpst-on{font-size:11px;font-weight:800;color:#fff;background:#F08C00;border-radius:5px;padding:0 6px;line-height:18px;margin-left:auto}.dj .rpst-off{font-size:11px;font-weight:700;color:#94A0AD;margin-left:auto}
+.dj .rpg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 8px}.dj .rpg.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.dj .rpf{display:block;min-width:0}.dj .rpf>span{display:block;font-size:11px;font-weight:700;color:#64748B;margin-bottom:2px}.dj .rpf.w{margin-top:6px}
+.dj .rpi{width:100%;min-width:0;border:1px solid #D5DCE4;border-radius:6px;padding:5px 8px;font:inherit;font-size:13.5px;font-weight:600;background:#fff;color:var(--fg)}.dj .rpi:focus{outline:2px solid var(--gold,#F2B705);border-color:var(--gold,#F2B705)}.dj .rpi:disabled{background:#F7F9FB;color:#5E6A77}
+.dj textarea.rpi{resize:vertical;font-weight:500}
+.dj .rprow{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}.dj .rprow .rpi{flex:1;width:auto}
+.dj .rpseg{display:inline-flex;border:1px solid #C9D2DC;border-radius:7px;overflow:hidden}.dj .rpseg button{border:0;background:#fff;padding:4px 12px;font-weight:700;font-size:12.5px;color:#5E6A77;cursor:pointer}.dj .rpseg button+button{border-left:1px solid #DCE2E8}.dj .rpseg button[aria-pressed=true]{background:#14212E;color:#fff}
+.dj .rpck{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:#3B4754}.dj .rpck.sm{font-size:11.5px;font-weight:600;color:#64748B;margin-top:5px}.dj .rpn{margin:2px 0 6px;color:#5E6A77;font-size:12.5px}.dj .rpn.sm{font-size:11.5px}
+.dj .rptel{display:grid;grid-template-columns:110px minmax(0,1fr) 40px 22px;gap:5px;align-items:center;margin-bottom:4px}.dj .rptel .lb{font-weight:700}
+.dj .rpcall{font-size:12px;font-weight:800;color:var(--sale);text-decoration:none;text-align:center}.dj .rpdel{border:0;background:none;color:#94A0AD;font-size:16px;cursor:pointer}
+.dj .rplnk{border:0;background:none;color:var(--sale);font-weight:700;font-size:12.5px;cursor:pointer;padding:2px 0}
+.dj .rpbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.dj .rpb{border:1px solid #C9D2DC;background:#fff;border-radius:7px;padding:6px 12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;color:var(--fg)}.dj .rpb small{display:block;font-size:10.5px;font-weight:600;color:#94A0AD}.dj .rpb.y{background:var(--gold,#F2B705);border-color:var(--gold,#F2B705)}.dj .rpb.sm{padding:5px 10px}
+.dj .rph{list-style:none;margin:6px 0 0;padding:0;max-height:320px;overflow:auto}.dj .rph li{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:6px;padding:5px 0;border-bottom:1px dashed #EEF1F5;font-size:12.5px;align-items:start}.dj .rph .t{color:#64748B;font-size:11.5px;font-variant-numeric:tabular-nums}.dj .rph .hx{word-break:break-all}.dj .rph .hx small{color:#94A0AD}
+.dj .rph li.e-memo .hx{color:#5C4500}.dj .rph .un{border:1px solid #D5DCE4;background:#fff;border-radius:6px;font-size:11px;padding:1px 6px}.dj .rph .x{border:0;background:none;color:#94A0AD;font-size:15px;cursor:pointer}
+.dj .rp-f{position:sticky;bottom:0;background:#FAFBFC;border-top:1px solid #EEF1F5;display:flex;align-items:center;gap:8px;padding:8px 12px}.dj .rp-f span{flex:1;font-size:11.5px;color:#94A0AD}
+@media(max-width:1100px){.dj .rpanel{left:8px;right:8px;width:auto;top:auto;max-height:72vh;bottom:8px}}
 /* 10/26 상담 기록 창 (오른쪽에 떠 있음 · 휴대폰은 아래에서) */
 .dj .hpanel{position:fixed;right:14px;top:calc((var(--toph,60px) + 12px) / var(--fz,1));width:400px;max-height:calc((100vh - var(--toph,60px) - 28px) / var(--fz,1));overflow:auto;z-index:60;background:#FFFDF6;border:1px solid #E5D9A8;border-radius:14px;box-shadow:0 12px 32px rgba(16,32,48,.22);padding:0 12px 12px}
 .dj .hpanel .hp-h{position:sticky;top:0;background:#FFFDF6;display:flex;align-items:baseline;gap:8px;padding:12px 0 8px;border-bottom:1px solid #EEE3BD;margin-bottom:8px;z-index:1}
