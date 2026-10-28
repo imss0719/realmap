@@ -43,6 +43,8 @@ window.Danji = (() => {
       try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; } catch (e) { toast(e.message, 4000); }
       S.loaded = true; S.cur = S.cur || (S.cx.items[0] || {}).id || null;
     } else if (!$('dj_wrap')) el.innerHTML = '<div class="dj-wrap" id="dj_wrap"></div>';
+    // 10/28 아파트 화면에 들어올 때는 항상 '모든 단지' 표부터 (알림에서 호로 가기·단지 담기·테스트 주소는 그대로)
+    if (!S.adding && !new URLSearchParams(location.search).get('seed')) { S.multi.clear(); saveMulti(); S.cur = S.cx.items.length >= 2 ? '__all' : (S.cx.items[0] || {}).id || null; S.lastCx = null; if (djTab() !== 'table') setTab('table'); }
     draw();
   }
   function refresh() { if (S.loaded && S.el && S.el.offsetParent !== null) draw(); }
@@ -356,6 +358,7 @@ window.Danji = (() => {
   const redrawView = () => { if (S.cur === '__all') return drawAll(); const c = S.cx.items.find(z => z.id === S.cur); if (c) drawComplex(c); };
   // ---------- 모든 단지: 등록한 단지들의 장부를 한 표로 (바로 수정도 됨) ----------
   function drawAll() {
+    S.lastCx = null;
     if (!$('dj_cxBody')) return;
     if (S.ed) { S.redraw = true; return; }
     const items = allList();
@@ -380,6 +383,7 @@ window.Danji = (() => {
   function drawComplex(cx) {
     const C = S.C[cx.id];
     if (!C) { loadComplex(cx); $('dj_cxBody').innerHTML = '<div class="card loading">단지 정보를 불러오는 중…</div>'; return; }
+    if (S.lastCx !== cx.id) { S.lastCx = cx.id; C.view = 'all'; }   // 10/28 다른 단지로 오면 항상 그 단지의 전체 동부터
     if (S.ed) { S.redraw = true; return; }                  // 입력 중에는 다시 그리지 않음 (끝나면 그림)
     if (!S.L[cx.id]) loadLedger(cx);
     const MM = mineMap(cx);
@@ -418,7 +422,7 @@ window.Danji = (() => {
     $('dj_addPl').onclick = () => { S.adding = 'place'; S.results = null; draw(); };
     $('dj_ren').onclick = async () => { const nm = prompt('단지 이름', cx.name); if (!nm || nm === cx.name) return; try { const j = await post({ op: 'rename', id: cx.id, name: nm }); S.cx = { items: j.items, memos: j.memos }; delete S.C[cx.id]; draw(); } catch (e) { toast(e.message); } };
     $('dj_delCx').onclick = async () => { const L = S.L[cx.id], n = L && L.units ? Object.keys(L.units).length : 0; const t = prompt(`${cx.name}을(를) 단지 장부에서 빼면 이 단지의 호실 장부${n ? ` ${n}호` : ''}(연락처·히스토리 포함)와 호별 메모가 모두 지워지고 되돌릴 수 없습니다.\n\n정말 빼려면 단지 이름을 그대로 입력해 주세요.`); if (t == null) return; if (t.trim() !== cx.name.trim()) return toast('단지 이름이 달라서 빼지 않았습니다', 3500); delete S.L[cx.id]; try { const j = await post({ op: 'del', id: cx.id }); S.cx = { items: j.items, memos: j.memos }; S.cur = (S.cx.items[0] || {}).id; draw(); } catch (e) { toast(e.message); } };
-    document.querySelectorAll('#dj_cxBody [data-tab]').forEach(b => b.onclick = () => { setTab(b.dataset.tab); S.hist = null; drawComplex(cx); });
+    document.querySelectorAll('#dj_cxBody [data-tab]').forEach(b => b.onclick = () => { setTab(b.dataset.tab); if (b.dataset.tab === 'table') C.view = 'all'; S.hist = null; drawComplex(cx); });   // [표] = 단지 전체 동부터 (10/28)
     wireDongChips(cx);
     drawCxMap(cx, MM);
     if (C.scan) scanApply(cx, C);
@@ -672,7 +676,7 @@ window.Danji = (() => {
   const plainL = l => /^(소유자|소유주|세입자|임차인|연락처)?$/.test(String(l || '').trim());
   function telsHtml(x, ten) {
     const t = ((x.r && x.r.tels) || []).map((z, i) => ({ ...z, i })).filter(z => isTen(z) === ten); if (!t.length) return '<span class="mut">-</span>';
-    const one = z => `<a class="tl" href="tel:${esc(String(z.n).replace(/[^\d+]/g, ''))}" data-tcall="${z.i}">${plainL(z.l) ? '' : esc(z.l) + ' '}${esc(z.n)}</a>`;
+    const one = z => z.n ? `<a class="tl" href="tel:${esc(String(z.n).replace(/[^\d+]/g, ''))}" data-tcall="${z.i}">${plainL(z.l) ? '' : esc(z.l) + ' '}${esc(z.n)}</a>` : `<span class="tl">${esc(z.l)}</span>`;   // 번호 없이 이름만 (엑셀)
     return one(t[0]) + (t.length > 1 ? ` <small>외 ${t.length - 1}</small>` : '');
   }
   // 의뢰가격 칸 하나: 그 거래가 걸려 있을 때만 (장부엔 없고 매물관리에만 있는 매물은 그 가격)

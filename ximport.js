@@ -391,6 +391,7 @@ window.XImport = (() => {
   const LCOL = [['name', /물건명|단지명|^단지$/], ['dong', /^동$/], ['ho', /^호$/], ['office', /부동산명|중개사무소/], ['prog', /^진행/], ['stt', /^상태$/],
     ['kind', /거래구분|^거래$/], ['ps', /의뢰가격\/매매|^매매가?$/], ['pj', /의뢰가격\/전세|^전세가?$/], ['pwd', /의뢰가격\/보증금|^보증금$/], ['pwr', /의뢰가격\/월세|^월세$/],
     ['opt', /물건내역/], ['cur', /현상태\/구분|^현상태$/], ['cd', /현상태\/(전세|보증)|^현보증금$|^현전세$/], ['cr', /현상태\/(차임|월세)|^현차임$|^현월세$/], ['exp', /만기/],
+    ['dir', /방향|^향$/], ['typ', /타입|^type$/i], ['py', /^평형$|공급평|^평수$|^평$/],   // 10/28 타입·방향·평형 → 단지 장부의 라인(또는 그 호) 정보
     ['oP', /(소유주|소유자|집주인)\/?(핸드폰|전화|연락처|휴대폰)/], ['oN', /(소유주|소유자|집주인)(\/이름)?$/], ['tP', /(세입자|임차인)\/?(핸드폰|전화|연락처|휴대폰)/], ['tN', /(세입자|임차인)(\/이름)?$/],
     ['note', /상담내역|메모|비고/]];
   const lmap = labels => labels.map(lb => { const n = norm(lb); for (const [k, re] of LCOL) if (re.test(n)) return k; return ''; });
@@ -411,13 +412,23 @@ window.XImport = (() => {
     else if (/공실|비어/.test(cur)) rec.live = 'empty';
     else if (cur) notes.push(`현상태: ${cur}`);
     if (!rec.live && (rec.cd || rec.cr)) rec.live = 'tenant';
-    const tel = (nm, ph, lab) => { const name = clean(get(nm)).split('\n')[0]; (clean(get(ph)).match(PHONE) || []).slice(0, 2).forEach(p => rec.tels.length < 4 && rec.tels.push({ l: (lab + (name ? ' ' + name : '')).slice(0, 10), n: fmtPh(p) })); if (name && !clean(get(ph))) notes.push(`${lab} ${name}`); };
+    // 10/28 이름 칸: 번호가 섞여 있으면 번호는 번호로, 번호가 없어도 이름은 소유주·세입자 칸에 (10자 넘는 긴 글은 메모에도 전체를 남김)
+    const tel = (nm, ph, lab) => {
+      const raw = clean(get(nm)).replace(/\n+/g, ' '), phs = [...(clean(get(ph)).match(PHONE) || []), ...(raw.match(PHONE) || [])];
+      const name = raw.replace(PHONE, '').replace(/\(\s*\)|\[\s*\]/g, '').replace(/[\s,/·]+$/g, '').replace(/\s+/g, ' ').trim(), l = (lab + (name ? ' ' + name : '')).slice(0, 10);
+      if (phs.length) [...new Set(phs.map(fmtPh))].slice(0, 2).forEach(p => rec.tels.length < 4 && rec.tels.push({ l, n: p }));
+      else if (name && rec.tels.length < 4) rec.tels.push({ l, n: '' });
+      if (name && (lab + ' ' + name).length > 10) notes.push(`${lab} ${name}`);
+    };
     tel('oN', 'oP', '소유'); tel('tN', 'tP', '임차');
     const prog = clean(get('prog')); if (prog) notes.push(prog === '♥' ? '♥ 표시(받은 장부)' : `진행: ${prog}`);
     const sp = stampSplit(clean(get('note')).replace(/\n+/g, ' ')); if (sp.head) notes.push(sp.head);   // 날짜가 붙은 상담내역은 상담 기록(히스토리)으로 (10/28)
     rec.note = notes.join(' · ').slice(0, 300);
     if (k.length > 0 && !pr.sale && !pr.jeonse && !pr.wd && !pr.wr) warn.push('가격 없음');
-    return { rec, warn, hist: sp.list };
+    const DIR = { 남: '남', 남동: '남동', 동남: '남동', 남서: '남서', 서남: '남서', 동: '동', 서: '서', 북: '북', 북동: '북동', 동북: '북동', 북서: '북서', 서북: '북서' };
+    const dir = DIR[clean(get('dir')).replace(/\s|향|쪽|방향/g, '')] || '';
+    const typ = clean(get('typ')).replace(/\s|타입|type/gi, '').toUpperCase().slice(0, 8), py = Math.round(Number(String(get('py')).replace(/[^\d.]/g, '')) || 0);
+    return { rec, warn, hist: sp.list, dir, typ, py: py > 3 && py < 300 ? py : 0 };
   }
   const nmN = s => String(s || '').replace(/\s|아파트|APT/gi, '');
   const addrQ = (r, map) => {   // 줄의 단지 주소 (주소 칸 또는 시·구·동·지번 칸)
@@ -495,7 +506,7 @@ window.XImport = (() => {
       <p class="xi-m">건너뜀 = 이미 장부에 적힌 호 ${C.skip.have} · 동·호 없음 ${C.skip.empty} · 주소 빈 줄 ${C.skip.noaddr}${C.skip.noaddr ? ' <b class="xi-r">(주소를 채워서 다시 올리면 들어갑니다)</b>' : ''} · 부동산명이 비었거나 우리 사무소면 <b>내 매물</b>, 다른 이름이면 <b>타부동산</b></p>
       ${all.length ? `<table class="xi-t"><tr><th>엑셀 줄</th><th>동·호</th><th>상태</th><th>거래</th><th>의뢰가격</th><th>현상태</th><th></th></tr>${all.slice(0, 8).map(x => `<tr><td>${x.r._n}</td><td>${esc(x.dn)}-${esc(x.ho)}</td><td>${x.rec.st.src ? DS[x.rec.st.src] + (x.rec.st.office ? `(${esc(x.rec.st.office)})` : '') : '-'}</td><td>${kinds(x)}</td><td>${esc(prs(x))}</td><td>${esc(now(x))}</td><td>${x.warn.length ? `<span class="tg y">${esc(x.warn.join(' · '))}</span>` : '<span class="tg g">OK</span>'}</td></tr>`).join('')}</table>` : ''}
       ${C.fail.length ? `<p class="xi-m">못 넣는 줄: ${C.fail.slice(0, 3).map(f => `${f.r._n}줄 ${esc(f.err)}`).join(' · ')}${C.fail.length > 3 ? ` 외 ${C.fail.length - 3}줄` : ''}</p>` : ''}
-      <p class="xi-m">현상태: 전완·월완 → 임차인 거주(현 보증금·차임) · 12퇴 → 임차인 거주 + 꼭 챙길 것 '12월 퇴거 예정' · 입주 → 입주 가능 · ♥ → 메모 · 물건내역 → 옵션·수리 · 상담내역 → 메모</p></div>
+      <p class="xi-m">현상태: 전완·월완 → 임차인 거주(현 보증금·차임) · 12퇴 → 임차인 거주 + 꼭 챙길 것 '12월 퇴거 예정' · 입주 → 입주 가능 · ♥ → 메모 · 물건내역 → 옵션·수리 · 상담내역 → 메모(날짜가 붙은 글은 그 날짜의 상담 기록) · 타입·방향 → 라인 정보</p></div>
       <div class="xi-f"><span></span><button type="button" class="xi-b" id="xiBack">‹ 다른 파일</button><button type="button" class="xi-b go" id="xiGo" ${all.length ? '' : 'disabled'}>${all.length}호 넣기</button></div>`);
     $('xiBack').onclick = () => { S.file = ''; S.ld = false; step1(); };
     $('xiGo').onclick = () => ldRun(all);
@@ -525,6 +536,22 @@ window.XImport = (() => {
       }
     };
     await Promise.all([worker(), worker(), worker()]);
+    // 10/28 타입·방향: 같은 라인이 모두 같으면 라인에, 다르면 그 호에만 — 단지마다 한 번에 저장 (이미 적어 둔 라인·호는 그대로)
+    const okKeys = new Set(S.made.map(([id, key]) => id + '#' + key));
+    for (const G of S.groups) {
+      if (!G.cx) continue;
+      const xs = todo.filter(x => x.G === G && okKeys.has(G.cx.id + '#' + x.key) && (x.dir || x.typ || x.py)); if (!xs.length) continue;
+      const byLine = new Map();
+      xs.forEach(x => { const [pnu, dn, ho] = x.key.split('|'), h = +String(ho).replace(/\D/g, ''); const lk = `${pnu}|${dn}|${h >= 100 ? h % 100 : h}`; (byLine.get(lk) || byLine.set(lk, []).get(lk)).push({ x, hk: `${pnu}|${dn}|h${String(ho).replace(/[^0-9A-Za-z]/g, '').slice(0, 8)}` }); });
+      const dir = {}, lt = {};
+      for (const [lk, L] of byLine) {
+        const same = f => L.every(z => z.x[f] === L[0].x[f]);
+        if (L[0].x.dir && same('dir')) dir[lk] = L[0].x.dir; else L.forEach(z => { if (z.x.dir) dir[z.hk] = z.x.dir; });
+        const tv = z => ({ ...(z.x.typ ? { t: z.x.typ } : {}), ...(z.x.py ? { py: z.x.py } : {}) });
+        if ((L[0].x.typ || L[0].x.py) && same('typ') && same('py')) lt[lk] = tv(L[0]); else L.forEach(z => { if (z.x.typ || z.x.py) lt[z.hk] = tv(z); });
+      }
+      try { await H.api('/api/auth?action=cx', H.post({ op: 'bulk', id: G.cx.id, dir, lt })); S.cxDirty = true; } catch { /* 타입·방향은 못 넣어도 장부는 그대로 */ }
+    }
     S.busy = false;
     if (S.made.length || S.newCx.length) await imLog({ to: 'hj', n: S.made.length, made: S.made, newCx: S.newCx, names: [...new Set(S.made.map(([id]) => (S.groups.find(G => G.cx && G.cx.id === id) || {}).name).filter(Boolean))].join(', ') });
     ldResult(fail.sort((a, b) => a.r._n - b.r._n));
