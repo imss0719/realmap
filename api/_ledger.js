@@ -87,7 +87,7 @@ const prTxt = (k, pr) => k === 'sale' ? `매매 ${won(pr.sale)}` : k === 'jeonse
 // 바뀐 내용 → 히스토리 한 줄
 function diff(a, b) {
   const out = [];
-  if (stTxt(a.st) !== stTxt(b.st)) out.push(!a.st.src && b.st.src ? `매물장에 올림 · ${stTxt(b.st)}` : a.st.src && !b.st.src ? '매물장에서 내림 (관리장부에만)' : stTxt(b.st));   // 10/28 관리장부 ↔ 매물장
+  if (stTxt(a.st) !== stTxt(b.st)) out.push(!a.st.src && b.st.src ? `매물로 올림 · ${stTxt(b.st)}` : a.st.src && !b.st.src ? '매물에서 내림' : stTxt(b.st));   // 10/28 관리장부 ↔ 매물장
   for (const k of b.st.k) {
     const ch = k === 'wolse' ? (a.pr.wd !== b.pr.wd || a.pr.wr !== b.pr.wr) : a.pr[k] !== b.pr[k];
     const has = k === 'wolse' ? b.pr.wd || b.pr.wr : b.pr[k];
