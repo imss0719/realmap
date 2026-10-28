@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리얼맵 매물 홍보 - 내 매물을 지도 위에, 내 얼굴과 함께</title>
+<meta name="description" content="중개사무소 매물을 리얼맵 지도에 무료로 올리세요. 필지를 누르고 가격·사진만 넣으면 건축물대장 정보는 자동. 대표 사진과 중개사 소개 페이지까지. 10건까지 무료.">
+<link rel="canonical" href="https://realmap.online/promo.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="리얼맵">
+<meta property="og:title" content="리얼맵 매물 홍보 - 내 매물을 지도 위에, 내 얼굴과 함께">
+<meta property="og:description" content="필지를 누르고 가격·사진만 넣으면 끝. 중개사 소개 페이지까지. 10건까지 무료.">
+<meta property="og:url" content="https://realmap.online/promo.html">
+<meta property="og:image" content="https://realmap.online/guide/map.webp">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 10/28 매물 홍보 페이지: 장부 없이 '광고만' 하려는 중개사용 (중개장부 소개는 pro.html) */
+:root{--navy:#14212E;--gold:#F2B705;--bg:#F6F7F9;--fg:#14212E;--muted:#5E6A77;--line:#E1E6EB;--sale:#1E5EDB;--jeonse:#1F8A4C;--wolse:#D93A3A}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;letter-spacing:-.02em;word-break:keep-all;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.nav{position:sticky;top:0;z-index:20;background:rgba(20,33,46,.96);backdrop-filter:blur(8px)}
+.nav .in{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;font-weight:800;font-size:18px;color:#fff}.brand img{width:28px;height:28px;border-radius:7px}
+.brand em{font-style:normal;font-size:11px;font-weight:800;background:var(--gold);color:var(--navy);border-radius:999px;padding:2px 8px}
+.nav .sp{flex:1}.nav a.lk{color:rgba(255,255,255,.78);text-decoration:none;font-weight:600;font-size:14px}
+.btn{display:inline-block;border:0;border-radius:12px;padding:14px 22px;font:inherit;font-size:16px;font-weight:800;text-decoration:none;cursor:pointer}
+.btn.y{background:var(--gold);color:var(--navy)}.btn.g{background:transparent;color:#fff;border:1px solid #5F7187}.btn.sm{padding:8px 14px;font-size:14px;border-radius:9px}
+.hero{background:linear-gradient(135deg,#14212E 0%,#1F3550 100%);color:#fff}
+.hero .in{max-width:1080px;margin:0 auto;padding:64px 20px 70px;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:40px;align-items:center}
+.hero h1{font-size:46px;line-height:1.25;margin:0 0 16px;letter-spacing:-.03em}.hero h1 em{font-style:normal;color:var(--gold)}
+.hero p{margin:0 0 26px;color:#C9D3DE;font-size:18px;line-height:1.65}
+.hero .b{display:flex;gap:10px;flex-wrap:wrap}
+.hero .free{margin-top:14px;font-size:14px;color:#9FB0C2}
+/* 지도 그림 */
+.mv{position:relative;height:300px;border-radius:16px;overflow:hidden;background:#EFEBE2;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.mv:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 100px,#fff 100px 108px),repeating-linear-gradient(0deg,transparent 0 80px,#fff 80px 88px)}
+.pin{position:absolute;background:var(--sale);color:#fff;font-weight:800;font-size:13px;border-radius:14px;padding:3px 10px 3px 3px;display:flex;align-items:center;gap:5px;box-shadow:0 3px 8px rgba(0,0,0,.25)}.pin s{width:20px;height:20px;border-radius:50%;background:#fff;display:inline-block;border:2px solid #fff;background:#CFD8E3}
+.pin.w{background:var(--wolse)}.pin.j{background:var(--jeonse)}
+.mc{position:absolute;right:14px;bottom:14px;width:236px;background:#fff;color:var(--fg);border-radius:12px;padding:12px;box-shadow:0 8px 22px rgba(0,0,0,.25);font-size:13px}
+.mc b{font-size:18px;display:block}.mc small{color:var(--muted)}
+.mc .of{display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-weight:700;font-size:12.5px}.mc .of s{width:26px;height:26px;border-radius:50%;background:#CFD8E3;display:inline-block}.mc .of u{margin-left:auto;color:var(--sale);text-decoration:none;font-size:12px}
+.sec{max-width:1080px;margin:0 auto;padding:64px 20px}
+.sec h2{font-size:30px;margin:0 0 8px;letter-spacing:-.03em}.sec .lead{color:var(--muted);font-size:17px;margin:0 0 28px;line-height:1.6}
+.alt{background:var(--bg)}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.steps div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px}
+.steps .n{width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:12px}
+.steps b{font-size:19px}.steps p{margin:8px 0 0;color:var(--muted);line-height:1.6;font-size:15px}
+.feat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.feat div{border:1px solid var(--line);border-radius:16px;padding:20px;background:#fff}.feat i{font-style:normal;font-size:28px;display:block;margin-bottom:10px}.feat b{display:block;font-size:17px;margin-bottom:6px}.feat span{color:var(--muted);font-size:14.5px;line-height:1.6}
+/* 소개 페이지 미리보기 */
+.pv{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:36px;align-items:center}
+.pv ul{margin:0;padding-left:20px;line-height:1.9;font-size:16px;color:#33404F}
+.prof{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 14px 40px rgba(20,33,46,.16);border:1px solid var(--line)}
+.prof .h{background:linear-gradient(120deg,#14212E,#24384E);color:#fff;padding:18px;display:grid;grid-template-columns:70px 1fr;gap:12px;align-items:center}
+.prof .av{width:70px;height:70px;border-radius:50%;border:3px solid #fff;background:#CFD8E3;display:grid;place-items:center;font-weight:800;color:#5B6675;font-size:22px}
+.prof .h b{font-size:18px}.prof .h small{display:block;color:#C9D3DE;font-size:12.5px;margin-top:3px}.ver{font-size:11px;font-weight:800;background:#2E7D4F;color:#fff;border-radius:6px;padding:1px 6px;margin-left:5px;vertical-align:2px}
+.prof .bd{padding:14px 16px}.prof .bd p{margin:0 0 10px;line-height:1.6}
+.tags span{display:inline-block;background:#F1F3F5;border-radius:6px;padding:2px 8px;margin:0 4px 4px 0;font-size:12.5px;font-weight:700}.tags span.ar{background:#FFF4D6;color:#8A5300}
+.cta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 12px}.cta span{text-align:center;border-radius:9px;padding:9px;font-weight:800;border:1px solid #C9D2DC;font-size:14px}.cta .y{background:var(--gold);border-color:var(--gold)}
+.ls{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.ls div{border:1px solid var(--line);border-radius:10px;overflow:hidden}.ls i{display:block;height:54px;background:#DCE3EB}.ls b{display:block;padding:5px 7px 0;font-size:13.5px}.ls small{display:block;padding:0 7px 6px;color:var(--muted);font-size:11.5px}
+.k{display:inline-block;border-radius:4px;padding:0 5px;font-size:10.5px;font-weight:800;color:#fff;background:var(--sale);margin-right:3px;vertical-align:1px}.k.w{background:var(--wolse)}.k.j{background:var(--jeonse)}
+/* 비교 · 질문 */
+.cmp{width:100%;border-collapse:collapse;font-size:15.5px;background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.cmp th,.cmp td{border-bottom:1px solid var(--line);padding:14px 16px;text-align:center}.cmp th{background:#F4F6F9}.cmp td:first-child,.cmp th:first-child{text-align:left}.cmp .hl{background:#FFF8DB;font-weight:800}
+.faq details{border-bottom:1px solid var(--line);padding:16px 0}.faq summary{font-weight:800;font-size:17px;cursor:pointer;list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:"+";float:right;color:var(--muted)}.faq details[open] summary:after{content:"−"}
+.faq p{margin:10px 0 0;color:var(--muted);line-height:1.7;font-size:15.5px}
+.end{background:#FFF8DB;text-align:center;padding:60px 20px}.end h2{font-size:30px;margin:0 0 10px}.end p{color:#6B5A1E;margin:0 0 22px;font-size:16px}
+.foot{background:var(--navy);color:#9FB0C2;font-size:13px;text-align:center;padding:22px 20px}.foot a{color:#C9D3DE;margin:0 8px}
+@media(max-width:900px){
+  .hero .in{grid-template-columns:1fr;padding:40px 20px 46px}.hero h1{font-size:34px}.mv{height:240px}
+  .steps,.feat{grid-template-columns:1fr 1fr}.pv{grid-template-columns:1fr}
+}
+@media(max-width:560px){.steps,.feat{grid-template-columns:1fr}.hero h1{font-size:29px}.sec{padding:44px 18px}.sec h2{font-size:24px}.nav a.lk{display:none}.cmp{font-size:13.5px}.cmp th,.cmp td{padding:10px 8px}}
+</style>
+</head>
+<body>
+<div class="nav"><div class="in"><a class="brand" href="/"><img src="/favicon.svg" alt="">리얼맵 <em>매물 홍보</em></a><span class="sp"></span><a class="lk" href="/">리얼맵 지도</a><a class="lk" href="/pro.html">중개장부</a><a class="btn y sm" href="/pro.html?go=1&to=map" data-go>무료로 매물 올리기</a></div></div>
+
+<div class="hero"><div class="in">
+  <div>
+    <h1>내 매물을 <em>지도 위에</em><br>내 얼굴과 함께 보여 주세요</h1>
+    <p>필지를 누르고 가격·사진만 넣으면 끝입니다.<br>면적·층·용도·주차·사용승인일은 건축물대장에서 자동으로 채워집니다.</p>
+    <div class="b"><a class="btn y" href="/pro.html?go=1&to=map" data-go>무료로 매물 올리기</a><a class="btn g" href="#profile">소개 페이지 미리 보기</a></div>
+    <div class="free">매물 광고 10건까지 무료 · 장부를 안 써도 됩니다 · 등록번호가 확인된 중개사무소만</div>
+  </div>
+  <div class="mv"><span class="pin" style="left:40px;top:46px"><s></s>21.5억</span><span class="pin w" style="left:170px;top:120px"><s></s>월 320</span><span class="pin j" style="left:70px;top:190px"><s></s>7억</span>
+    <div class="mc"><b>매매 21.5억</b><small>○○아파트 101동 · 34평 · 남향 · 고층</small><div class="of"><s></s>○○공인중개사<u>중개사 소개 ▸</u></div></div></div>
+</div></div>
+
+<div class="sec"><h2>이렇게 올립니다</h2><p class="lead">처음 한 번 사무소 확인, 그다음부터는 매물 하나에 1분이면 됩니다.</p>
+  <div class="steps">
+    <div><span class="n">1</span><b>사무소 확인</b><p>등록번호를 넣으면 사무소 명칭·소재지가 국가 자료로 자동 확인됩니다. 대표 사진 한 장과 한 줄 소개를 넣으면 나만의 소개 페이지가 생깁니다.</p></div>
+    <div><span class="n">2</span><b>지도에서 필지 누르기</b><p>리얼맵 지도에서 매물이 있는 필지를 누르고 <b>[여기 매물 광고하기]</b>. 거래·가격·사진만 넣으면 나머지는 건축물대장에서 채웁니다.</p></div>
+    <div><span class="n">3</span><b>지도에 바로 노출</b><p>1분 안에 지도 핀으로 나타납니다. 30일마다 [연장]을 한 번 눌러 거래 가능 여부를 확인합니다. 오래된 허위매물이 남지 않는 이유입니다.</p></div>
+  </div></div>
+
+<div class="alt"><div class="sec"><h2>중개사에게 좋은 점</h2><p class="lead">매물만 보이는 광고가 아니라, 매물을 가진 사람이 보이는 광고입니다.</p>
+  <div class="feat">
+    <div><i>🧑‍💼</i><b>얼굴이 보이는 광고</b><span>매물마다 대표 사진과 사무소 이름이 함께 나갑니다. 손님은 '사람'을 보고 연락합니다.</span></div>
+    <div><i>🗺️</i><b>필지 정보와 한 화면</b><span>토지·건축물대장·실거래가·개발 정보 바로 옆에 내 매물이 보입니다.</span></div>
+    <div><i>🔗</i><b>내 소개 페이지</b><span>명함·블로그·카톡 프로필에 붙이는 링크 하나와 QR로 내 매물 전부를 보여 줍니다.</span></div>
+    <div><i>✅</i><b>등록번호 확인 배지</b><span>국가 자료로 확인한 중개사만 올릴 수 있어서, 손님이 믿고 보는 지도입니다.</span></div>
+  </div></div></div>
+
+<div class="sec" id="profile"><div class="pv">
+  <div><h2>나만의 중개사 소개 페이지</h2><p class="lead">매물을 올리면 자동으로 쌓이는, 명함 같은 페이지입니다.</p>
+    <ul><li>대표 사진 · 한 줄 소개 · 전문 분야 · 활동 동네</li><li>손님은 전화·문자 한 번에, 사무소 위치는 지도로</li><li>지금 광고 중인 매물이 자동으로 모여 보임</li><li><b>링크 복사 · QR 코드</b>로 명함·블로그·카톡에</li><li>지도의 매물에서도 [중개사 소개 ▸]로 연결</li></ul>
+    <p style="margin-top:22px"><a class="btn y" href="/pro.html?go=1&to=map" data-go>내 소개 페이지 만들기</a></p></div>
+  <div class="prof"><div class="h"><span class="av">○</span><div><b>○○공인중개사사무소</b><span class="ver">등록번호 확인</span><small>대표 공인중개사 ○○○<br>서울 ○○구 ○○로 00</small></div></div>
+    <div class="bd"><p>"○○동에서만 10년째입니다. 단지별 특징과 동네 시세를 가장 잘 아는 중개사가 되겠습니다."</p>
+      <div class="tags"><span>아파트</span><span>상가·사무실</span><span>재개발·재건축</span><span class="ar">○○동 · ○○동</span></div>
+      <div class="cta"><span class="y">전화</span><span>문자</span><span>사무소 위치</span></div>
+      <b style="font-size:14px">지금 광고 중인 매물 7건</b>
+      <div class="ls" style="margin-top:8px"><div><i></i><b><span class="k">매매</span>21.5억</b><small>○○아파트 34평</small></div><div><i></i><b><span class="k w">월세</span>5000/320</b><small>1층 상가 14평</small></div><div><i></i><b><span class="k j">전세</span>7억</b><small>○○아파트 25평</small></div></div></div></div>
+</div></div>
+
+<div class="alt"><div class="sec"><h2>광고만 해도, 장부까지 써도</h2><p class="lead">같은 계정입니다. 광고만 쓰다가 언제든 중개장부를 열면 올린 매물이 그대로 들어 있습니다.</p>
+  <table class="cmp"><tr><th></th><th class="hl">매물 홍보 (광고만)</th><th>중개장부</th></tr>
+    <tr><td>리얼맵 지도 광고 · 중개사 소개 페이지</td><td class="hl">✓</td><td>✓</td></tr>
+    <tr><td>아파트 단지 장부 · 만기 알림 · 고객관리</td><td>—</td><td>✓</td></tr>
+    <tr><td>무료</td><td class="hl">광고 10건</td><td>매물 10건 · 광고 10건</td></tr>
+    <tr><td>더 많이 올릴 때</td><td class="hl">Basic 월 9,900원 · 광고 300건</td><td>Basic 월 9,900원 (장부 포함)</td></tr></table>
+  <p style="margin-top:14px;color:var(--muted);font-size:14px">요금은 부가세 포함입니다. 자세한 요금제는 <a href="/pro.html#price">중개장부 요금 안내</a>를 봐 주세요.</p></div></div>
+
+<div class="sec faq"><h2>자주 묻는 질문</h2>
+  <details><summary>중개사가 아니어도 올릴 수 있나요?</summary><p>아니요. 공인중개사법의 표시·광고 규정에 따라 국가 자료로 등록번호가 확인된 중개사무소만 올릴 수 있습니다. 광고마다 사무소 명칭·소재지·등록번호·대표자·연락처가 함께 표시됩니다.</p></details>
+  <details><summary>다른 광고 사이트에 올린 매물도 같이 올려도 되나요?</summary><p>네. 의뢰받은 매물이라면 여러 곳에 함께 올리셔도 됩니다. 리얼맵은 30일마다 [연장]을 눌러 거래 가능 여부를 다시 확인받습니다.</p></details>
+  <details><summary>중개장부를 꼭 써야 하나요?</summary><p>아니요. 매물 홍보만 쓰셔도 됩니다. 나중에 중개장부를 열면 올린 매물이 그대로 들어 있어서, 언제든 넘어가실 수 있습니다.</p></details>
+  <details><summary>사진은 몇 장까지 올릴 수 있나요?</summary><p>매물 하나에 30장까지 올릴 수 있고, 첫 번째 사진이 대표 사진으로 지도 카드에 보입니다.</p></details>
+  <details><summary>소개 페이지는 어디서 고치나요?</summary><p>중개장부 → 설정 → 우리 사무소에서 대표 사진·한 줄 소개·전문 분야·활동 동네를 고치고, 링크를 복사할 수 있습니다.</p></details>
+</div>
+
+<div class="end"><h2>첫 매물, 지금 1분이면 올라갑니다</h2><p>매물 광고 10건까지 무료 · 카드 등록 없이 시작</p><a class="btn y" href="/pro.html?go=1&to=map" data-go>무료로 매물 올리기</a></div>
+<div class="foot">리얼맵 · <a href="/">지도</a><a href="/pro.html">중개장부</a><a href="/terms.html">이용약관</a><a href="/privacy.html">개인정보처리방침</a></div>
+<script>
+// 이미 중개사로 시작한 분은 버튼을 '지도에서 매물 올리기'로 (바로 지도로)
+fetch('/api/auth?action=me', { credentials: 'same-origin' }).then(r => r.json()).then(me => {
+  if (me && me.member && me.plan && me.plan.started) document.querySelectorAll('[data-go]').forEach(a => { a.href = '/?promo=1'; if (!a.classList.contains('sm')) a.textContent = '지도에서 매물 올리기'; });
+}).catch(() => {});
+</script>
+</body>
+</html>

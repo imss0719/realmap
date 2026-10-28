@@ -100,7 +100,11 @@
     // 리얼맵 지도에서 '단지에 담기'로 넘어온 경우: ?cxadd=PNU
     if (cxadd && /^\d{19}$/.test(cxadd)) { history.replaceState(null, '', '/listings.html'); window.Danji && Danji.add(cxadd); }
     // 단지 장부에서 넘어온 경우: ?add=PNU&dong=101&ho=1203 (동·호까지 미리 골라 둠) · ?edit=매물id
-    if (add && /^\d{19}$/.test(add)) { history.replaceState(null, '', '/listings.html'); openForm(null, add, { dong: (qs.get('dong') || '').slice(0, 20), ho: (qs.get('ho') || '').slice(0, 20) }); }
+    if (add && /^\d{19}$/.test(add)) {
+      history.replaceState(null, '', '/listings.html');
+      const o = { pnu: add, dong: (qs.get('dong') || '').slice(0, 20), ho: (qs.get('ho') || '').slice(0, 20) };
+      if (S.canPub) adFrom(o); else openForm(null, add, { dong: o.dong, ho: o.ho });   // 10/28 지도 [여기 매물 광고하기] → 간단 등록창(사진 포함)으로 바로
+    }
     else if (edit) { history.replaceState(null, '', '/listings.html'); const x = S.items.find(i => i.id === edit); if (x) openForm(x); }
   }
   function gate(h, p, btn) { $('root').innerHTML = `<div class="gate"><h2>${h}</h2><p>${p}</p>${btn}</div>`; }
@@ -1184,6 +1188,17 @@
       if (a === 'unpub' && confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물장에는 그대로 남습니다)')) pubOp(x.id, 'unpub');
     });
   }
+  // 10/28 리얼맵 지도에서 [여기 매물 광고하기]: 건축물대장으로 매물을 만들어 간단 등록창으로 · 아파트처럼 호를 골라야 하는데 호가 없으면 매물카드(호 고르기)로
+  async function adFrom(o) {
+    if (!window.Board) return openForm(null, o.pnu, { dong: o.dong, ho: o.ho });
+    toast('건축물대장에서 면적·층 정보를 가져오는 중…', 6000);
+    try {
+      const it = await Board.autoItem(o), p0 = (it.places && it.places[0]) || {};
+      $('toast').hidden = true;
+      if (p0.ak === 'ex' && !p0.ho) { toast('호수를 골라 주세요', 2500); return openForm(null, o.pnu, { dong: o.dong, ho: o.ho }); }
+      it._new = true; pubSheet(it);
+    } catch { $('toast').hidden = true; openForm(null, o.pnu, { dong: o.dong, ho: o.ho }); }
+  }
   // 단지 장부에서 바로 올리기: 장부 내용 + 건축물대장으로 매물을 만들어 간단 등록창으로 (저장은 [올리기] 때)
   async function pubNew(o) {
     if (!S.canPub) return toast('지금은 리얼맵 지도 게시를 시범 운영 중이라 올릴 수 없습니다', 4000);
@@ -1249,6 +1264,7 @@
     el.innerHTML = pl + (need ? `<div class="bkline"><span><b style="color:#B4400B">${need}</b></span><button type="button" class="bkEdit">${S.bk ? '고치기' : '입력하기'}</button></div>` : '');
     const e = el.querySelector('.bkEdit'); if (e) e.onclick = () => openBk();
   }
+  const SPECS = ['아파트', '오피스텔', '빌라·주택', '상가·사무실', '건물', '토지', '공장·창고', '재개발·재건축', '분양권'];   // 10/28 소개 페이지 전문 분야 (서버 SPECS와 같게)
   function openBk(then, note) {
     const b = S.bk || {};
     S.form = null;
@@ -1261,6 +1277,10 @@
       ${f('office', '중개사무소 명칭', '○○○공인중개사사무소')}${f('addr', '중개사무소 소재지', '서울 ○○구 ○○로 00')}
       <div class="two">${f('regno', '등록번호', '11440-2025-00123')}${f('ceo', '대표 공인중개사 성명', '홍길동')}</div>
       <div class="two">${f('tel', '사무소 전화', '02-000-0000', 'tel')}${f('mobile', '휴대폰 (문자 받을 번호)', '010-0000-0000', 'tel')}</div>
+      <div class="fld" style="margin-top:6px"><span class="lb">중개사 소개 페이지 <small>선택 · 손님에게 보이는 소개 (등록번호 확인 뒤 공개)</small></span></div>
+      ${f('intro', '한 줄 소개', '예: ○○동에서만 10년째, 단지별 특징을 가장 잘 아는 중개사')}
+      <div class="fld"><span class="lb">전문 분야 <small>여러 개 골라도 됩니다</small></span><div class="pchips" id="bSpec">${SPECS.map(t => `<button type="button" data-sp="${t}" aria-pressed="${(b.spec || []).includes(t)}">${t}</button>`).join('')}</div></div>
+      ${f('area', '활동 동네', '예: ○○동 · ○○동 · ○○역 주변')}
       <div class="saveRow"><button class="btn main" id="bSave" type="button">저장하기</button></div>`;
     // 대표 사진: 정사각형으로 가운데를 잘라 400px JPEG로 올림. 저장 전에는 임시 (닫으면 정리)
     let photo = b.photo || '';
@@ -1268,6 +1288,7 @@
     const avDraw = () => { $('bkAv').innerHTML = photo ? `<img src="${esc(photo)}" alt="대표 사진">` : `<b>${esc((($('b_office') && $('b_office').value) || b.office || '리').trim().charAt(0) || '리')}</b>`; $('bkPhDel').hidden = !photo; };
     avDraw();
     $('bkPhDel').onclick = () => { photo = ''; avDraw(); };
+    $('bSpec').querySelectorAll('[data-sp]').forEach(x => x.onclick = () => x.setAttribute('aria-pressed', x.getAttribute('aria-pressed') !== 'true'));
     $('bkPhF').onchange = async e => {
       const file = e.target.files[0]; e.target.value = ''; if (!file) return;
       $('bkAv').classList.add('up');
@@ -1284,8 +1305,8 @@
     const SMSA = S.me && S.me.sms && window.SmsAuth && !(S.plan && S.plan.op) ? SmsAuth.attach($('b_mobile'), { done: b.mobileOk }) : null;
     $('bSave').onclick = async () => {
       if (SMSA && !SMSA.ok()) return toast('휴대폰 번호 인증을 먼저 해 주세요 (번호 아래 [인증번호 받기])', 3500);
-      const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
-      bk.photo = photo;
+      const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile', 'intro', 'area'].map(k => [k, $('b_' + k).value.trim()]));
+      bk.photo = photo; bk.spec = [...$('bSpec').querySelectorAll('[aria-pressed=true]')].map(x => x.dataset.sp);
       $('bSave').disabled = true;
       try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; S.bkTmp = (S.bkTmp || []).filter(u => u !== j.bk.photo); closeForm(); draw(); toast('중개사무소 정보를 저장했습니다'); if (then) then(); }
       catch (e) { toast(e.message, 4000); $('bSave').disabled = false; }

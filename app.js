@@ -132,9 +132,9 @@
     if (pnu) pickPnu(pnu);
     else if (qla > 33 && qla < 39 && qln > 124 && qln < 132) { // 정비사업 안내 페이지 등에서 '지도에서 보기'
       S.map.setLevel(3); S.map.setCenter(new K.LatLng(qla, qln)); pick(qla, qln);
-    } else toast('필지를 누르면 정보가 열립니다');
+    } else toast(qs.get('promo') ? '매물이 있는 필지를 누르고 [여기 매물 광고하기]를 눌러 주세요' : '필지를 누르면 정보가 열립니다', qs.get('promo') ? 7000 : 2600);
     // 첫 화면으로 그냥 들어온 분께만 안내 창 (공유 링크·정비사업 페이지·매물 보기로 온 경우는 띄우지 않음)
-    if (!pnu && !(qla > 33) && !qs.get('lst') && !qs.get('login') && qs.get('from') !== 'seoul') setTimeout(welcome, 1500);
+    if (!pnu && !(qla > 33) && !qs.get('lst') && !qs.get('promo') && !qs.get('login') && qs.get('from') !== 'seoul') setTimeout(welcome, 1500);
   }
 
   // ---------- 처음 오신 분 안내 배너 (한 장씩 넘어가는 작은 카드 · '오늘 하루 보지 않기') ----------
@@ -1832,8 +1832,21 @@
     setTimeout(start, 8000);
   }
   const here = () => location.pathname + location.search;
+  // 10/28 왼쪽 위 작은 원형 버튼: 중개사에게 '매물 홍보' (가입 전) / '매물 올리기' 안내 (중개사로 시작한 뒤)
+  function drawPromo() {
+    const el = $('promo'); if (!el || !S.me.ready) return;
+    const pro = !!(S.me.member && S.me.plan && S.me.plan.started);
+    el.innerHTML = `<button type="button" id="promoBtn" class="promo-b" aria-label="${pro ? '매물 올리기' : '중개사 매물 홍보'}"><i aria-hidden="true">${pro ? '＋' : '📣'}</i><span>${pro ? '매물 올리기' : '매물 홍보'}</span></button>
+      <div class="promo-pop" id="promoPop" hidden>${pro
+        ? '<b>지도에서 필지를 눌러 주세요</b><p>필지 정보 위의 <b>[여기 매물 광고하기]</b>를 누르면 가격·사진만 넣고 바로 올릴 수 있습니다. 면적·층·용도는 건축물대장에서 자동으로 채워집니다.</p><a class="y" href="/listings.html" target="_blank" rel="noopener">중개장부 열기</a><a href="/listings.html?mode=set" target="_blank" rel="noopener">내 소개 페이지 · 사무소 정보</a>'
+        : '<b>중개사이신가요?</b><p>내 매물을 리얼맵 지도에 올리고, 대표 사진·사무소 소개와 함께 손님에게 보여 주세요. <b>10건까지 무료</b>입니다.</p><a class="y" href="/pro.html?go=1&to=map">매물 홍보 시작하기</a><a href="/promo.html" target="_blank" rel="noopener">어떻게 보이는지 먼저 보기</a>'}</div>`;
+    const P = $('promoPop');
+    $('promoBtn').onclick = e => { e.stopPropagation(); P.hidden = !P.hidden; };
+    if (!drawPromo.w) { drawPromo.w = true; document.addEventListener('mousedown', e => { const q = $('promoPop'); if (q && !q.hidden && !e.target.closest('#promo')) q.hidden = true; }); }
+  }
   function drawAcct() {
     const el = $('acct'); if (!el) return;
+    drawPromo();
     if (!S.me.ready) { el.innerHTML = ''; return; }
     // 휴대폰에서는 동그라미 버튼(사람 아이콘 / 로그인 후 닉네임 첫 글자)만 보이고, 누르면 메뉴가 열립니다
     const nick = S.me.nickname || '회원';
@@ -1938,7 +1951,7 @@
     const p = S.sel; if (!p) return '';
     const on = isFav(p.pnu), home = S.favs.home === p.pnu;
     const star = `<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l1.9 4 4.4.5-3.3 3 .9 4.3L8 11.2l-3.9 2.2.9-4.3-3.3-3 4.4-.5z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
-    const lsBtn = S.me.plan && S.me.plan.started ? `<a class="favbtn" href="/listings.html?add=${p.pnu}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>매물 등록</a>` : '';
+    const lsBtn = S.me.plan && S.me.plan.started ? `<a class="favbtn" href="/listings.html?add=${p.pnu}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>여기 매물 광고하기</a>` : '';
     return lsBtn + `<button class="favbtn${on ? ' on' : ''}" id="favBtn" type="button" aria-pressed="${on}" aria-label="${on ? '관심 부동산에서 빼기' : '관심 부동산으로 저장'}">${star}${on ? '저장됨' : '저장'}</button>`
       + (on ? `<button class="favbtn home${home ? ' on' : ''}" id="homeBtn" type="button" aria-pressed="${home}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 7.5L8 2.5l6 5V14H10v-4H6v4H2z" fill="${home ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>${home ? '우리 집' : '우리 집으로'}</button>` : '');
   }
@@ -2822,7 +2835,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       ${lsCompare(x)}
       ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
       <dl class="lfacts">${f.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}<dt>소재지</dt><dd>${esc(x.addr)}</dd></dl>
-      <div class="lbk">${lsAv(x.bk, 'lav lg')}<div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small></div>
+      <div class="lbk">${lsAv(x.bk, 'lav lg')}<div><b>${esc(x.bk.office)}</b>${x.bk.verified ? '<span class="lver">등록번호 확인</span>' : ''}<small>대표 ${esc(x.bk.ceo)} · 등록번호 ${esc(x.bk.regno)}<br>${esc(x.bk.addr)}</small>${x.bk.verified ? `<a class="lofc" href="/office.html?r=${esc(String(x.bk.regno || '').replace(/\D/g, ''))}" target="_blank" rel="noopener">중개사 소개 ▸</a>` : ''}</div>
         <div class="lbtn">${btns}</div></div>
       <div class="lft">등록 ${lsYmd(x.at)} · 거래 가능 확인 ${lsYmd(x.chk)}${x.no ? ' · No. ' + esc(x.no) : ''} · <a href="mailto:contact@realmap.online?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>`;
   }

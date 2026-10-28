@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>중개사 소개 · 리얼맵</title>
+<meta name="description" content="리얼맵에서 등록번호가 확인된 중개사무소의 소개와 지금 광고 중인 매물입니다.">
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="리얼맵">
+<meta property="og:title" content="중개사 소개 · 리얼맵">
+<meta property="og:description" content="등록번호가 확인된 중개사무소의 소개와 광고 중인 매물">
+<meta property="og:image" content="https://realmap.online/guide/map.webp">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 10/28 중개사 소개 페이지: realmap.online/office.html?r=등록번호 숫자 — 명함·블로그·카톡에 붙이는 링크 */
+:root{--bg:#EEF1F4;--fg:#14212E;--muted:#5E6A77;--line:#DCE2E8;--navy:#14212E;--gold:#F2B705;--sale:#1E5EDB;--jeonse:#1F8A4C;--wolse:#D93A3A;--presale:#7048E8;--ok:#1F7A3A}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;letter-spacing:-.01em;word-break:keep-all}
+a{color:inherit}
+.top{background:#fff;border-bottom:1px solid var(--line)}
+.top .in{max-width:760px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:8px}
+.top a.home{display:flex;align-items:center;gap:7px;text-decoration:none;font-weight:800;font-size:16px}
+.top a.home img{width:26px;height:26px;border-radius:7px}
+.top .sp{flex:1}
+.top a.lk{font-size:13px;color:var(--muted);text-decoration:none;font-weight:600}
+.wrap{max-width:760px;margin:16px auto 40px;padding:0 16px}
+.card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 0 var(--line)}
+.hd{background:linear-gradient(120deg,#14212E,#24384E);color:#fff;padding:22px 20px;display:grid;grid-template-columns:88px minmax(0,1fr);gap:16px;align-items:center}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid #fff;background:#CFD8E3;display:grid;place-items:center;overflow:hidden;font-size:30px;font-weight:800;color:#5B6675}
+.av img{width:100%;height:100%;object-fit:cover}
+.hd h1{margin:0;font-size:22px;line-height:1.3}
+.ver{display:inline-block;vertical-align:3px;font-size:11.5px;font-weight:800;background:#2E7D4F;color:#fff;border-radius:6px;padding:1px 7px;margin-left:6px}
+.hd small{display:block;color:#C9D3DE;font-size:13.5px;margin-top:5px;line-height:1.5}
+.bd{padding:18px 20px}
+.intro{margin:0 0 12px;font-size:16px;line-height:1.7}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.tags span{background:#F1F3F5;border-radius:7px;padding:3px 10px;font-size:13px;font-weight:700}.tags span.ar{background:#FFF4D6;color:#8A5300}
+.cta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cta a,.cta button{display:block;text-align:center;border-radius:10px;padding:11px 6px;font:inherit;font-weight:800;font-size:15px;border:1px solid #C9D2DC;background:#fff;color:var(--fg);text-decoration:none;cursor:pointer}
+.cta .y{background:var(--gold);border-color:var(--gold)}
+.sec{border-top:1px solid var(--line);padding:16px 20px}
+.sec h2{margin:0 0 10px;font-size:17px;display:flex;align-items:baseline;gap:8px}.sec h2 small{font-size:13px;color:var(--muted);font-weight:500}
+.ls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:600px){.ls{grid-template-columns:repeat(2,minmax(0,1fr))}.hd{grid-template-columns:72px minmax(0,1fr)}.av{width:72px;height:72px}}
+.ls a{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;text-decoration:none;background:#fff}
+.ls .ph{aspect-ratio:4/3;background:#E3E8EE center/cover no-repeat;display:grid;place-items:center;color:#9AA6B2;font-size:12px}
+.ls b{display:block;padding:8px 10px 0;font-size:16px}
+.ls small{display:block;padding:2px 10px 9px;color:var(--muted);font-size:12.5px;line-height:1.45}
+.k{display:inline-block;border-radius:5px;padding:0 6px;font-size:11.5px;font-weight:800;color:#fff;margin-right:4px;vertical-align:2px;background:var(--sale)}.k.jeonse{background:var(--jeonse)}.k.wolse{background:var(--wolse)}.k.presale{background:var(--presale)}
+.none{color:var(--muted);font-size:14px;padding:6px 0}
+.ft{border-top:1px solid var(--line);padding:12px 20px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.share{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.share button{border:1px solid #C9D2DC;background:#fff;border-radius:9px;padding:8px 14px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.msg{text-align:center;padding:60px 20px;color:var(--muted)}
+.qr{position:fixed;inset:0;background:rgba(16,24,32,.55);display:grid;place-items:center;z-index:50}
+.qr>div{background:#fff;border-radius:16px;padding:20px;text-align:center;width:min(320px,90vw)}
+.qr #qrBox{display:grid;place-items:center;margin:10px 0}.qr #qrBox img,.qr #qrBox canvas{width:220px;height:220px;image-rendering:pixelated}
+.qr p{margin:0;color:var(--muted);font-size:13px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#14212E;color:#fff;border-radius:10px;padding:10px 16px;font-size:14px;z-index:60}
+.mine{background:#FFF8DB;border:1px solid #F0D98A;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;line-height:1.6}
+.mine a{font-weight:800}
+</style>
+</head>
+<body>
+<div class="top"><div class="in"><a class="home" href="/"><img src="/favicon.svg" alt="">리얼맵</a><span class="sp"></span><a class="lk" href="/promo.html">중개사이신가요? 매물 홍보하기 ›</a></div></div>
+<div class="wrap" id="app"><div class="msg">불러오는 중…</div></div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const r = (new URLSearchParams(location.search).get('r') || '').replace(/\D/g, '');
+  const KIND = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
+  const won = v => { v = Math.round(v || 0); if (!v) return ''; if (v >= 10000) { const e = v / 10000; return (Math.round(e * 10) / 10).toString().replace(/\.0$/, '') + '억'; } return v.toLocaleString(); };   // 만원 단위
+  const price = x => x.kind === 'wolse' ? `${won(x.deposit) || 0}/${(x.rent || 0).toLocaleString()}` : x.kind === 'jeonse' ? won(x.deposit) : x.kind === 'presale' ? `${won(x.price)}${x.pr ? ' +P' + won(x.pr) : ''}` : won(x.price);
+  const py = a => a ? (a / 3.3058).toFixed(1).replace(/\.0$/, '') + '평' : '';
+  const toast = t => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); };
+  const phone = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  if (!r) { $('app').innerHTML = '<div class="msg">중개사무소 주소가 올바르지 않습니다.</div>'; return; }
+  Promise.all([
+    fetch('/api/auth?action=office&r=' + r).then(x => x.json()),
+    fetch('/api/auth?action=me', { credentials: 'same-origin' }).then(x => x.json()).catch(() => ({})),
+  ]).then(([j, me]) => {
+    if (!j.ok) { $('app').innerHTML = `<div class="msg">${esc(j.message || '중개사무소를 찾지 못했습니다.')}</div>`; return; }
+    const o = j.office, L = j.items || [];
+    document.title = `${o.office} · 중개사 소개 · 리얼맵`;
+    const tel = String(o.tel || '').replace(/[^\d]/g, ''), mob = String(o.mobile || '').replace(/[^\d]/g, '');
+    const sms = `[리얼맵] ${o.office} 소개 페이지를 보고 문의드립니다.`;
+    const callBtns = phone
+      ? `<a class="y" href="tel:${tel || mob}">전화</a>${mob ? `<a href="sms:${mob}${/iPhone|iPad/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(sms)}">문자</a>` : '<span></span>'}`
+      : `<button type="button" class="y" data-copy="${esc(o.tel)}">☎ ${esc(o.tel)}</button>${o.mobile ? `<button type="button" data-copy="${esc(o.mobile)}">📱 ${esc(o.mobile)}</button>` : '<span></span>'}`;
+    const isMine = me && me.plan && me.plan.started && me.member;   // 로그인한 중개사 본인일 수도 있음 → 수정 안내 (본인 확인은 설정 화면에서)
+    $('app').innerHTML = `<div class="card">
+      <div class="hd"><span class="av">${o.photo ? `<img src="${esc(o.photo)}" alt="">` : esc(String(o.office || '').trim().charAt(0))}</span>
+        <div><h1>${esc(o.office)}<span class="ver">등록번호 확인</span></h1><small>대표 공인중개사 ${esc(o.ceo)}<br>${esc(o.addr)}</small></div></div>
+      <div class="bd">
+        ${o.intro ? `<p class="intro">${esc(o.intro)}</p>` : ''}
+        ${(o.spec || []).length || o.area ? `<div class="tags">${(o.spec || []).map(t => `<span>${esc(t)}</span>`).join('')}${o.area ? `<span class="ar">${esc(o.area)}</span>` : ''}</div>` : ''}
+        <div class="cta">${callBtns}<a href="https://map.kakao.com/?q=${encodeURIComponent(o.addr)}" target="_blank" rel="noopener">사무소 위치</a></div>
+      </div>
+      <div class="sec"><h2>지금 광고 중인 매물 ${L.length}건${L.length ? '<small>누르면 리얼맵 지도에서 필지 정보와 함께 봅니다</small>' : ''}</h2>
+        ${L.length ? `<div class="ls">${L.map(x => `<a href="/?pnu=${esc(x.pnu)}&lst=1" target="_blank" rel="noopener"><span class="ph"${x.photos && x.photos[0] ? ` style="background-image:url('${esc(x.photos[0])}')"` : ''}>${x.photos && x.photos[0] ? '' : '사진 없음'}</span><b><span class="k ${esc(x.kind)}">${KIND[x.kind] || ''}</span>${esc(price(x))}</b><small>${esc([x.bname || String(x.addr || '').split(' ').slice(-2).join(' '), x.dong ? x.dong + '동' : ''].filter(Boolean).join(' '))}<br>${esc([x.ptypeTx || x.ptype, py(x.area), x.flr].filter(Boolean).join(' · '))}</small></a>`).join('')}</div>` : '<div class="none">지금 지도에 올라 있는 매물이 없습니다.</div>'}
+      </div>
+      <div class="ft">${esc(o.office)} · 대표 ${esc(o.ceo)} · 등록번호 ${esc(o.regno)} · ${esc(o.addr)} · ☎ ${esc(o.tel)}<br>리얼맵은 국가 자료(브이월드)로 중개사무소 등록번호를 확인한 중개사만 매물을 올릴 수 있습니다.
+        <div class="share"><button type="button" id="cpy">링크 복사</button><button type="button" id="qrb">QR 코드</button></div></div>
+    </div>
+    ${isMine ? '<p class="none" style="text-align:center;margin-top:12px">내 사무소라면 소개 글·전문 분야는 <a href="/listings.html?mode=set">중개장부 → 설정 → 우리 사무소</a>에서 고칩니다.</p>' : ''}`;
+    document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(b.dataset.copy); toast('번호를 복사했습니다'); });
+    const url = `${location.origin}/office.html?r=${r}`;
+    $('cpy').onclick = async () => { try { await navigator.clipboard.writeText(url); toast('링크를 복사했습니다'); } catch { prompt('이 주소를 복사해 주세요', url); } };
+    $('qrb').onclick = () => {
+      const box = document.createElement('div'); box.className = 'qr';
+      box.innerHTML = `<div><b>${esc(o.office)}</b><div id="qrBox">QR 만드는 중…</div><p>명함·전단지에 넣으면 이 소개 페이지로 연결됩니다.<br>이미지를 길게 누르거나 오른쪽 버튼으로 저장하세요.</p></div>`;
+      box.onclick = e => { if (e.target === box) box.remove(); };
+      document.body.appendChild(box);
+      const draw = () => { try { const q = qrcode(0, 'M'); q.addData(url); q.make(); $('qrBox').innerHTML = q.createImgTag(8, 8); } catch { $('qrBox').textContent = 'QR을 만들지 못했습니다'; } };
+      if (window.qrcode) return draw();
+      const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js'; s.onload = draw; s.onerror = () => { $('qrBox').textContent = 'QR을 만들지 못했습니다'; }; document.head.appendChild(s);
+    };
+  }).catch(() => { $('app').innerHTML = '<div class="msg">잠시 연결이 원활하지 않습니다. 새로고침해 주세요.</div>'; });
+})();
+</script>
+</body>
+</html>

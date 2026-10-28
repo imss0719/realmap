@@ -610,10 +610,12 @@ footer a{color:rgba(255,255,255,.8)}
   // 운영자 미리보기: ?as=new 면 처음 온 회원처럼 보여 줌 (저장은 하지 않음)
   const PREVIEW = new URLSearchParams(location.search).get('as') === 'new';
   const ready = fetch('/api/auth?action=me', { credentials: 'same-origin' }).then(r => r.json()).then(j => { me = j; if (PREVIEW && j.op) { me = { ...j, plan: { plan: 'none', started: false } }; const b = document.createElement('div'); b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:90;background:#C92A2A;color:#fff;text-align:center;font-weight:700;padding:10px;font-size:14px'; b.innerHTML = '운영자 미리보기 · 처음 온 회원 화면입니다 (시작 버튼을 눌러도 저장하지 않음) <a href="/pro.html" style="color:#fff;margin-left:8px">끄기</a>'; document.body.appendChild(b); } return me; }).catch(() => (me = { member: false }));
+  // 10/28 매물 홍보(광고만)로 온 경우 ?to=map: 시작한 뒤 중개장부 대신 리얼맵 지도로 (필지를 눌러 바로 올리기)
+  const TO_MAP = new URLSearchParams(location.search).get('to') === 'map', NEXT = TO_MAP ? '/?promo=1' : '/listings.html';
   async function start() {
     await ready;
-    if (!me.member) return location.href = '/auth/login?r=' + encodeURIComponent('/pro.html?go=1');
-    if (me.plan && me.plan.started) return location.href = '/listings.html';
+    if (!me.member) return location.href = '/auth/login?r=' + encodeURIComponent('/pro.html?go=1' + (TO_MAP ? '&to=map' : ''));
+    if (me.plan && me.plan.started) return location.href = NEXT;
     $('modal').hidden = false; document.body.style.overflow = 'hidden'; setTimeout(() => $('b_regno').focus(), 50);
     // 확인 대기 중인 신청: 넣었던 정보를 채워 두고 안내 (다시 누르면 다시 확인)
     if (me.pend) { ['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].forEach(k => { if (me.pend[k]) $('b_' + k).value = me.pend[k]; }); $('mErr').textContent = '확인 대기 중입니다. 운영자가 확인하면 중개장부이 열립니다. 지금 다시 확인하시려면 아래 버튼을 눌러 주세요.'; }
@@ -656,8 +658,8 @@ footer a{color:rgba(255,255,255,.8)}
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.ok === false) throw new Error(j.message || '잠시 연결이 원활하지 않습니다.');
       if (j.pend) { $('mTitle').textContent = '확인 대기'; $('mErr').textContent = j.message; $('mGo').disabled = false; $('mGo').textContent = '다시 확인하기'; return; }
-      $('mTitle').textContent = j.plan && j.plan.plan === 'trial' ? '2주 무료 체험이 시작됐습니다!' : '중개장부를 열고 있습니다';
-      setTimeout(() => location.href = '/listings.html', 900);
+      $('mTitle').textContent = j.plan && j.plan.plan === 'trial' ? '2주 무료 체험이 시작됐습니다!' : (TO_MAP ? '리얼맵 지도를 열고 있습니다' : '중개장부를 열고 있습니다');
+      setTimeout(() => location.href = NEXT, 900);
     } catch (e) { $('mErr').textContent = e.message; $('mGo').disabled = false; $('mGo').textContent = '무료 체험 시작'; }
   };
 })();

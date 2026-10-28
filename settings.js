@@ -46,6 +46,7 @@ window.Sett = (() => {
   }
 
   // ---------- 우리 사무소 ----------
+  const ofUrl = b => `${location.origin}/office.html?r=${String(b.regno || '').replace(/\D/g, '')}`;   // 10/28 중개사 소개 페이지
   function office(m) {
     const b = H.bk() || {}, v = x => x ? esc(x) : '<i class="em">비어 있음</i>';
     const mobOk = b.mobile && b.mobileOk && String(b.mobileOk).replace(/\D/g, '') === String(b.mobile).replace(/\D/g, '');
@@ -54,8 +55,14 @@ window.Sett = (() => {
       rw('상호', v(b.office)) + rw('대표자', v(b.ceo)) + rw('등록번호', v(b.regno)) + rw('주소', v(b.addr)) + rw('사무실 전화', v(b.tel)) + rw('대표 휴대폰', v(b.mobile) + (b.mobile ? ` <span class="tg ${mobOk ? 'g' : 'r'}">${mobOk ? '인증됨' : '인증 필요'}</span>` : '')),
       '', isStaff() ? '<small>고치기는 대표만</small>' : B('stBk', '고치기 · 사진 · 휴대폰 인증', 'y'))}
       ${H.canPub() ? pn('리얼맵 지도 광고 표시', '공인중개사법 표시·광고 항목',
-        rw('광고에 나가는 글', `<b>${esc(b.office || '')}</b> · 대표 ${esc(b.ceo || '')} · 등록번호 ${esc(b.regno || '')}<br>${esc(b.addr || '')}${b.tel ? ` · ☎ ${esc(b.tel)}` : ''}`) + rw('지금 게시 중', `${live}건`) + rw('고치기', '<small>왼쪽 [고치기]에서 바꾸면 광고에도 바로 반영됩니다</small>')) : ''}</div>`;
+        rw('광고에 나가는 글', `<b>${esc(b.office || '')}</b> · 대표 ${esc(b.ceo || '')} · 등록번호 ${esc(b.regno || '')}<br>${esc(b.addr || '')}${b.tel ? ` · ☎ ${esc(b.tel)}` : ''}`) + rw('지금 게시 중', `${live}건`) + rw('고치기', '<small>왼쪽 [고치기]에서 바꾸면 광고에도 바로 반영됩니다</small>')) : ''}
+      ${b.verified ? pn('중개사 소개 페이지', '명함·블로그·카톡에 붙이는 링크 (10/28)',
+        rw('주소', `<a href="${esc(ofUrl(b))}" target="_blank" rel="noopener">${esc(ofUrl(b).replace(/^https?:\/\//, ''))}</a>`, B('stOfCp', '링크 복사', 'n')) +
+        rw('한 줄 소개', v(b.intro)) + rw('전문 분야', (b.spec || []).length ? esc(b.spec.join(' · ')) : v('')) + rw('활동 동네', v(b.area)),
+        '', isStaff() ? '' : B('stOfEd', '소개 고치기', 'y')) : ''}</div>`;
     if ($('stBk')) $('stBk').onclick = () => H.openBk();
+    if ($('stOfEd')) $('stOfEd').onclick = () => H.openBk();
+    if ($('stOfCp')) $('stOfCp').onclick = async () => { try { await navigator.clipboard.writeText(ofUrl(b)); H.toast('소개 페이지 링크를 복사했습니다'); } catch { prompt('이 주소를 복사해 주세요', ofUrl(b)); } };
   }
 
   // ---------- 엑셀 ----------
