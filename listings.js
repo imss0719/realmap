@@ -123,7 +123,7 @@
     $('addBtn').onclick = () => openForm(null);
     $('find').oninput = e => { S.q = e.target.value.trim(); drawList(); };
     document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode, b.dataset.cat));
-    document.querySelectorAll('[data-top]').forEach(b => b.onclick = () => { let m = 'danji'; try { m = localStorage.getItem('rm.lslast') || 'danji'; } catch { /* 무시 */ } setMode(m); });   // 10/26 B안: [매물] = 마지막으로 본 종류 탭
+    document.querySelectorAll('[data-top]').forEach(b => b.onclick = () => { let m = 'danji'; try { m = localStorage.getItem('rm.lslast') || 'danji'; } catch { /* 무시 */ } if (!['danji', 'list'].includes(m)) m = 'danji'; setMode(m); });   // 10/26 B안: [매물] = 마지막으로 본 종류 탭
     gsWire();
   }
   // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
@@ -153,7 +153,7 @@
   function setMode(m, cat) {
     S.mode = m === 'danji' || m === 'cust' || m === 'set' || m === 'ads' ? m : 'list';
     if (S.mode === 'list' && cat && window.Board) Board.setCat(cat);   // 10/26 종류별 탭
-    try { localStorage.setItem('rm.lsmode', S.mode); if (S.mode !== 'cust' && S.mode !== 'set') localStorage.setItem('rm.lslast', S.mode); } catch { /* 무시 */ }
+    try { localStorage.setItem('rm.lsmode', S.mode); if (S.mode !== 'cust' && S.mode !== 'set' && S.mode !== 'ads') localStorage.setItem('rm.lslast', S.mode);   /* 10/29 '내 광고'는 [매물]의 마지막 화면으로 기억하지 않음 */ } catch { /* 무시 */ }
     const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust', st = S.mode === 'set', ad = S.mode === 'ads';
     document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu || st || ad); document.body.classList.toggle('admode', ad); document.body.classList.toggle('stmode', st);   // 설정은 고객관리처럼 종류 줄 없이
     if (!lv) document.body.classList.remove('lvmap');
