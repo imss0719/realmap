@@ -990,7 +990,9 @@ export default async function (req, res) {
       if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
         Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
         if (prevBk.vby === 'auto') bk.office = prevBk.office;
-      } else if (!P.op) {
+      } else if (P.op) {   // 10/29 운영자도 등록번호를 국가 자료로 확인해 둠 (확인되면 소개 페이지·확인 배지) — 안 돼도 저장은 그대로
+        try { const v = await verifyBk(s.id, bk); if (v.st !== 'ok') delete bk.verified; } catch { /* 저장은 계속 */ }
+      } else {
         const v = await verifyBk(s.id, bk);
         if (v.st === 'error') return fail(res, 503, 'vworld', '지금은 국가 자료(브이월드) 조회가 원활하지 않아 등록번호·대표자 변경을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
         if (v.st !== 'ok') return fail(res, 400, 'verify', v.msg);
