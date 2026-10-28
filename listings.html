@@ -1245,6 +1245,26 @@ body.cumode .top{padding-bottom:12px}
 .dj .rpbody .rph{margin:4px 14px 0}
 .djtree .tn.g.on{background:#EEF4FC;color:#0B4FA3}
 .dj .rpr .rptel{display:grid;grid-template-columns:80px minmax(0,1fr) auto auto;gap:4px;align-items:center;margin-bottom:4px}.dj .rpr .rptel .rpi{min-width:0}
+.dj .telx{border:0;background:none;color:#1C64C8;font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:0 2px}.dj .tels{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.dj .xt.big th.c-imp{width:110px}.dj .xt.big td.c-imp{min-width:80px;max-width:150px}.dj .xt.big th.c-h{width:160px}.dj .xt.big td.c-h{max-width:200px;overflow:hidden;text-overflow:ellipsis}.dj .xt.big th.c-exp{width:110px}.dj .xt.big td.c-tel{white-space:nowrap;text-align:left}
+
+/* 10/28 칸 폭 줄이기: 빈 칸은 옅은 점 · 긴 글은 앞부분만(마우스 올리면 전체) · 여백 조금 */
+.dj .xt.big td>span.mut:only-child{font-size:0}.dj .xt.big td>span.mut:only-child::after{content:'·';font-size:15px;color:#C3CBD4}
+.dj .xt.big td,.dj .xt.big th{padding-left:5px;padding-right:5px}
+.dj .xt.big td.c-of{max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dj .xt.big td.c-imp{min-width:0;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dj .xt.big th.c-imp{width:auto}
+.dj .xt.big td.c-h{max-width:130px}.dj .xt.big th.c-h{width:auto}.dj .xt.big th.c-exp{width:auto}
+.dj .xt.big td.c-tel small{color:var(--muted);font-size:11px}
+.dj .xt.big td.c-kd .p{min-width:0;padding:0 5px}
+
+.dj .xt.big th.c-imp,.dj .xt.big td.c-imp{width:88px!important;min-width:0!important;max-width:88px!important}
+.dj .xt.big th.c-tel,.dj .xt.big td.c-tel{width:auto!important;min-width:0!important}
+.dj .xt.big th.c-h,.dj .xt.big td.c-h{width:96px!important;min-width:0!important;max-width:96px!important}
+.dj .xt.big th.c-live,.dj .xt.big th.c-ty,.dj .xt.big th.c-dir,.dj .xt.big th.c-gap,.dj .xt.big th.c-exp,.dj .xt.big th.c-of,.dj .xt.big th.c-cd,.dj .xt.big th.c-ps,.dj .xt.big th.c-pj,.dj .xt.big th.c-pwd{width:auto!important;min-width:0!important}
+.dj .xt.big td.c-of{max-width:80px}
+@media (max-width:1440px){.dj .xt.big td,.dj .xt.big th{padding-left:4px;padding-right:4px}}
+.dj .xt.big td.c-h{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap}.dj .xt.big td.c-h .hl{display:inline}
+.dj .xt.big td.c-tel .tels a.tl{display:inline}
 </style>
 </head>
 <body>
