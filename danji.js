@@ -310,11 +310,13 @@ window.Danji = (() => {
     const T = $('dj_tree'); if (!T) return;
     const cnt = c => { if (!S.L[c.id]) { loadLedger(c); return ''; } const n = cxN(c); return n < 0 ? '' : n; };   // 숫자 = 매물(내+타)
     const cur = S.cx.items.find(c => c.id === S.cur), C = cur && S.C[cur.id];
+    const allMode = S.cur === '__all' && !multiOn() && !S.adding;
     T.innerHTML = `<div class="tth"><b>단지 목록</b><small>체크하면 여러 단지를 한 표로</small></div>
       <button type="button" class="tn all${S.cur === '__all' && !multiOn() ? ' on' : ''}" data-tall>모든 단지<span class="ct">${S.cx.items.length}곳</span></button>
       ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
-        return `<div class="tn${op ? ' on' : ''}${S.multi.has(c.id) ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${S.multi.has(c.id) ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
+        const ck = S.multi.has(c.id) || allMode;   // 10/28: '모든 단지'를 보는 중이면 모든 단지에 체크 표시
+        return `<div class="tn${op ? ' on' : ''}${ck ? ' ck' : ''}"><input type="checkbox" data-tck="${c.id}" ${ck ? 'checked' : ''} aria-label="${esc(c.name)} 함께 보기"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button><span class="ct">${n === '' ? '' : n}</span></div>
         ${fo && C && C.dongs ? treeDongs(c, C) : ''}`; }).join('')}
       <button type="button" class="tn add" data-tadd>＋ 단지 추가</button>
       ${(() => { const n = (S.host.items() || []).filter(x => (x.ptype === '아파트' || x.ptype === '주상복합') && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
@@ -324,7 +326,11 @@ window.Danji = (() => {
       if (S.cur === id && !S.adding) { S.fold.has(id) ? S.fold.delete(id) : S.fold.add(id); return drawTree(); }   // 지금 단지 → 접기·펼치기만
       S.fold.delete(id); S.cur = id; S.adding = false; S.hist = null; draw();
     });
-    T.querySelectorAll('[data-tck]').forEach(b => b.onchange = () => { const id = b.dataset.tck; if (b.checked) S.multi.add(id); else S.multi.delete(id); saveMulti(); if (multiOn()) { S.cur = '__all'; } else if (S.cur === '__all') { S.cur = [...S.multi][0] || S.cur; } S.adding = false; draw(); });
+    T.querySelectorAll('[data-tck]').forEach(b => b.onchange = () => { const id = b.dataset.tck;
+      if (allMode) { S.multi = new Set(S.cx.items.map(c => c.id)); }   // 모두 체크된 상태에서 하나를 빼면 → 나머지 단지만 한 표로
+      if (b.checked) S.multi.add(id); else S.multi.delete(id);
+      if (S.cx.items.length >= 2 && S.cx.items.every(c => S.multi.has(c.id))) { S.multi.clear(); S.cur = '__all'; }   // 다 체크하면 = 모든 단지
+      saveMulti(); if (multiOn()) { S.cur = '__all'; } else if (S.cur === '__all') { S.cur = [...S.multi][0] || S.cur; } S.adding = false; draw(); });
     T.querySelectorAll('[data-tgs]').forEach(b => b.onchange = () => pickSub(cur, b.dataset.tgs));
     T.querySelectorAll('[data-tgo]').forEach(b => b.onclick = () => { S.gopen = S.gopen || new Set(); const k = cur.id + '|' + b.dataset.tgo; S.gopen.has(k) ? S.gopen.delete(k) : S.gopen.add(k); drawTree(); });
     T.querySelectorAll('[data-tdong]').forEach(b => b.onclick = () => { const C2 = S.C[S.cur]; if (!C2) return; C2.view = 'dong'; C2.cur = b.dataset.tdong; C2.picked = true; S.hist = null; drawComplex(cur); drawTree(); });
