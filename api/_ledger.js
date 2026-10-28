@@ -205,6 +205,12 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     const h0 = rec.hist[0];
     rec.called = now;
     if (!(h0 && h0.e === 'call' && h0.x === `통화: ${lb}` && Date.now() - Date.parse(h0.t) < 5 * 60e3)) push('call', `통화: ${lb}`);
+  } else if (op === 'imh') {   // 10/28 엑셀 불러오기: 메모 속 날짜별 기록을 그 날짜의 상담 기록으로 (최대 100개)
+    const L = (Array.isArray(body.hist) ? body.hist : []).slice(0, 100).map(h => ({ t: String(h && h.t || ''), x: str(h && h.x, 500), w: str(h && h.w, 10) }))
+      .filter(h => h.x && !isNaN(Date.parse(h.t)) && h.t <= now);
+    const seen = new Set(rec.hist.map(h => h.t + '|' + h.x));
+    for (const h of L) if (!seen.has(h.t + '|' + h.x)) { rec.hist.push({ t: new Date(h.t).toISOString(), e: 'memo', x: h.x, ...(h.w ? { w: h.w } : {}), imp: 1 }); seen.add(h.t + '|' + h.x); }
+    rec.hist.sort((a, b) => String(b.t).localeCompare(String(a.t))); if (rec.hist.length > 300) rec.hist.length = 300;
   } else if (op === 'memo') {
     const t = str(body.text, 500); if (!t) return fail(res, 400, 'bad', '기록할 내용을 적어 주세요.');
     push('memo', t);
