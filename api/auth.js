@@ -983,7 +983,7 @@ export default async function (req, res) {
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
       // 등록번호·대표자가 그대로면 확인 유지(명칭은 등록된 그대로), 바뀌면 국가 자료로 다시 확인
-      const prevBk = await loadBk(s.id);
+      const prevBk = await loadBk(s.id); let opWarn = '';
       if (prevBk && prevBk.home) bk.home = prevBk.home;   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
       if (body.bk && ['ads', 'book'].includes(body.bk.home)) bk.home = body.bk.home;
       if (!P.op && !(await mobileOk(s.id, bk, prevBk))) return fail(res, 400, 'sms', SMS_NEED);
@@ -991,7 +991,7 @@ export default async function (req, res) {
         Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
         if (prevBk.vby === 'auto') bk.office = prevBk.office;
       } else if (P.op) {   // 10/29 운영자도 등록번호를 국가 자료로 확인해 둠 (확인되면 소개 페이지·확인 배지) — 안 돼도 저장은 그대로
-        try { const v = await verifyBk(s.id, bk); if (v.st !== 'ok') delete bk.verified; } catch { /* 저장은 계속 */ }
+        try { const v = await verifyBk(s.id, bk); if (v.st !== 'ok') { delete bk.verified; opWarn = v.st === 'error' ? '국가 자료(브이월드) 조회가 원활하지 않아 등록번호를 확인하지 못했습니다. 운영 화면 [중개사 관리]에서 직접 확인 표시를 할 수 있습니다.' : `등록번호 확인 안 됨: ${v.msg || v.st}`; } } catch { /* 저장은 계속 */ }
       } else {
         const v = await verifyBk(s.id, bk);
         if (v.st === 'error') return fail(res, 503, 'vworld', '지금은 국가 자료(브이월드) 조회가 원활하지 않아 등록번호·대표자 변경을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
@@ -1004,7 +1004,7 @@ export default async function (req, res) {
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       if (prevBk && prevBk.photo && prevBk.photo !== bk.photo) await dropPhotos([prevBk.photo]);
       try { await lsMutate(redis, s.id, ls => syncPub(s.id, ls, bk, P)); } catch { /* 다음 저장 때 반영 */ }
-      return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
+      return send(res, 200, { ok: true, bk, canPub: canPub(s.id), ...(opWarn ? { warn: opWarn } : {}) });
     }
 
     // 매물장 (PRO 전용) — 회원별 최대 1,000건, 한 덩어리로 저장

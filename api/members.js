@@ -191,6 +191,7 @@ async function brokers(req, res) {
         if (body.on && d) await redis(['HSET', 'realmap:regno', d, uid]).catch(() => 0);
         // 확인 대기였던 신청자: 승인하면 그때 체험(또는 무료) 시작
         if (body.on && !(await planOf(uid)).started) await startTrial(uid);
+        try { const P = await planOf(uid); await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); } catch { /* 다음 저장 때 */ }   // 10/29 지도 광고의 '등록번호 확인' 표시·[중개사 소개]도 바로
       } else if (body.op === 'nophoto') { // 부적절한 대표 사진 지우기
         const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
         if (bk.photo) { await dropPhotos([bk.photo]); bk.photo = ''; await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]); }
