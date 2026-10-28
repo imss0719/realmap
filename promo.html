@@ -211,7 +211,7 @@ a{color:inherit}
     if (SMSA && !SMSA.ok()) return ($('mErr').textContent = '휴대폰 번호 인증을 먼저 해 주세요. (번호 아래 [인증번호 받기])');
     $('mErr').textContent = ''; $('mGo').disabled = true; $('mGo').textContent = '중개사무소 확인 중…';
     try {
-      const r = await fetch('/api/auth?action=start', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bk }) });
+      const r = await fetch('/api/auth?action=start', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bk, via: 'promo' }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.ok === false) throw new Error(j.message || '잠시 연결이 원활하지 않습니다.');
       if (j.pend) { $('mTitle').textContent = '확인 대기'; $('mErr').textContent = j.message; $('mGo').disabled = false; $('mGo').textContent = '다시 확인하기'; return; }

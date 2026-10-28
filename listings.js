@@ -95,7 +95,7 @@
     if (window.Alarm) Alarm.mount({ tbase, goCust, help: () => api('/api/auth?action=help'), goSet: s => { setMode('set'); if (window.Sett) Sett.go(s, true); }, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
       goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
-    let mode = qs.get('mode') || 'danji';   // 10/28 들어올 때는 늘 아파트·오피부터 (마지막 화면 기억 안 함 · 설정·고객관리로 열려 당황하는 일 없게)
+    let mode = qs.get('mode') || (S.bk && S.bk.home === 'ads' ? 'ads' : 'danji');   // 10/28 매물 홍보로 시작한 중개사는 '내 광고'부터   // 10/28 들어올 때는 늘 아파트·오피부터 (마지막 화면 기억 안 함 · 설정·고객관리로 열려 당황하는 일 없게)
     setMode(cxadd ? 'danji' : mode);
     // 리얼맵 지도에서 '단지에 담기'로 넘어온 경우: ?cxadd=PNU
     if (cxadd && /^\d{19}$/.test(cxadd)) { history.replaceState(null, '', '/listings.html'); window.Danji && Danji.add(cxadd); }
@@ -111,7 +111,7 @@
 
   function layout() {
     $('root').innerHTML = `<div class="wrap">
-      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="lv" id="cu" hidden></div><div class="lv" id="st" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
+      <div class="mapbox"><div id="map"></div><div class="dj" id="dj" hidden></div><div class="lv" id="lv" hidden></div><div class="lv" id="cu" hidden></div><div class="lv" id="st" hidden></div><div class="lv" id="ad" hidden></div><div class="legend"><span><i style="background:var(--sale)"></i>매매</span><span><i style="background:var(--jeonse)"></i>전세</span><span><i style="background:var(--wolse)"></i>월세</span><span><i style="background:var(--presale)"></i>분양권</span><span><i style="background:var(--done)"></i>보류·완료</span></div></div>
       <div class="side" style="display:grid;gap:12px">
         <div class="actions"><button class="btn main" id="addBtn" type="button">＋ 매물 등록</button></div>
         <div id="bkLine"></div>
@@ -151,16 +151,17 @@
   const adv = () => !S.plan || S.plan.adv;
   // 지도+리스트(list) 모드: 표가 기본, [지도로 보기]를 켜면 오른쪽에 지도 · 단지(danji) 모드는 Basic부터
   function setMode(m, cat) {
-    S.mode = m === 'danji' || m === 'cust' || m === 'set' ? m : 'list';
+    S.mode = m === 'danji' || m === 'cust' || m === 'set' || m === 'ads' ? m : 'list';
     if (S.mode === 'list' && cat && window.Board) Board.setCat(cat);   // 10/26 종류별 탭
     try { localStorage.setItem('rm.lsmode', S.mode); if (S.mode !== 'cust' && S.mode !== 'set') localStorage.setItem('rm.lslast', S.mode); } catch { /* 무시 */ }
-    const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust', st = S.mode === 'set';
-    document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu || st); document.body.classList.toggle('stmode', st);   // 설정은 고객관리처럼 종류 줄 없이
+    const dj = S.mode === 'danji', lv = S.mode === 'list', cu = S.mode === 'cust', st = S.mode === 'set', ad = S.mode === 'ads';
+    document.body.classList.toggle('djmode', dj); document.body.classList.toggle('lvmode', lv); document.body.classList.toggle('cumode', cu || st || ad); document.body.classList.toggle('admode', ad); document.body.classList.toggle('stmode', st);   // 설정은 고객관리처럼 종류 줄 없이
     if (!lv) document.body.classList.remove('lvmap');
-    $('dj').hidden = !dj; $('lv').hidden = !lv; $('cu').hidden = !cu; $('st').hidden = !st; $('map').style.visibility = dj || cu || st || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
+    $('dj').hidden = !dj; $('lv').hidden = !lv; $('cu').hidden = !cu; $('st').hidden = !st; $('ad').hidden = !ad; $('map').style.visibility = dj || cu || st || ad || (lv && !document.body.classList.contains('lvmap')) ? 'hidden' : '';
     syncTabs();
     if (window.Board && !S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
-    if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
+    if (ad) drawAds();
+    else if (dj) window.Danji && Danji.mount($('dj'), DJ_HOST);
     else if (st && window.Sett) { if (!S.stMounted) { S.stMounted = true; Sett.mount($('st'), setHost()); } else Sett.refresh(); }
     else if (cu && window.Cust) { if (!S.cuMounted) { S.cuMounted = true; Cust.mount($('cu'), custHost()); } else Cust.refresh(); }
     else if (lv && window.Board) { if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } else Board.refresh(); }
@@ -170,7 +171,7 @@
   function syncTabs() {
     const cat = window.Board ? Board.cat() : 'shop';
     document.querySelectorAll('[data-mode]').forEach(b => { const on = b.dataset.mode === S.mode && (!b.dataset.cat || b.dataset.cat === cat) || (S.mode === 'list' && cat === 'apt' && b.dataset.mode === 'danji'); b.setAttribute('aria-pressed', on); b.classList.remove('lock'); });
-    document.querySelectorAll('[data-top]').forEach(b => b.setAttribute('aria-pressed', S.mode !== 'cust' && S.mode !== 'set'));
+    document.querySelectorAll('[data-top]').forEach(b => b.setAttribute('aria-pressed', S.mode !== 'cust' && S.mode !== 'set' && S.mode !== 'ads'));
     const n = window.Board && S.items ? Board.counts() : {};
     n.all = Object.values(n).reduce((a, v) => a + v, 0);
     document.querySelectorAll('[data-cn]').forEach(e => { const v = n[e.dataset.cn] || 0; e.textContent = v ? ' ' + v : ''; const b = e.closest('.ctab button'); if (b) b.classList.toggle('z', !v && b.getAttribute('aria-pressed') !== 'true' && b.dataset.mode !== 'danji'); });
@@ -233,7 +234,7 @@
     return S.items.filter(x => (S.tab === 'all' || x.status === S.tab) && (S.kind === 'all' || x.kind === S.kind)
       && (!q || [x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.dong, x.ho, x.ptype, JSON.stringify(x.places || ''), JSON.stringify(x.contacts || ''), JSON.stringify(x.rents || '')].join(' ').toLowerCase().includes(q)));
   }
-  function draw() { drawBk(); drawTabs(); drawList(); syncTabs(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); if (S.mode === 'cust' && window.Cust && S.cuMounted) Cust.refresh(); if (S.mode === 'set' && window.Sett && S.stMounted) Sett.refresh(); }
+  function draw() { drawBk(); drawTabs(); drawList(); syncTabs(); if (S.mode !== 'list') drawPins(); if (S.mode === 'danji' && window.Danji) Danji.refresh(); if (S.mode === 'list' && window.Board && S.bdMounted) Board.refresh(); if (S.mode === 'cust' && window.Cust && S.cuMounted) Cust.refresh(); if (S.mode === 'set' && window.Sett && S.stMounted) Sett.refresh(); if (S.mode === 'ads') drawAds(); }
   function drawTabs() {
     const c = k => S.items.filter(x => k === 'all' || x.status === k).length;
     $('tabs').innerHTML = ['on', 'hold', 'done', 'all'].map(k => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${k === 'all' ? '전체' : STAT[k]}<small>${c(k)}</small></button>`).join('');
@@ -988,6 +989,62 @@
       if (e.code === 'missing') { const x = S.items.find(i => i.id === id); if (x) pubSheet(x); }
       toast(e.message, 5000);
     }
+  }
+  // ---------- 10/28 내 광고: 홍보만 하는 중개사용 단순 화면 (같은 매물 데이터 · 표·장부 없이 광고 카드와 버튼 4개) ----------
+  //   [게시 중 · 지도에 없음 · 거래완료] · 수정·사진 = 간단 등록창 · 30일 연장 · 거래완료 · 내리기 · 올리기는 지도에서(필지 누르기)
+  function drawAds() {
+    const box = $('ad'); if (!box) return;
+    const b = S.bk || {}, P = S.plan || {}, now = new Date().toISOString(), soon = new Date(Date.now() + 7 * 864e5).toISOString();
+    const L = S.items || [], live = L.filter(x => pubLive(x)), off = L.filter(x => x.status !== 'done' && !pubLive(x)), done = L.filter(x => x.status === 'done');
+    const miss = x => adMissing(x, S.bk).filter(m => m !== '중개사무소 정보');
+    const expSoon = live.filter(x => x.pub.exp < soon).length, gap = L.filter(x => x.status === 'on' && isPub(x) && miss(x).length).length;
+    S.adTab = S.adTab || 'live';
+    const list = { live, off, done }[S.adTab] || live;
+    const reg = String(b.regno || '').replace(/\D/g, ''), url = `${location.origin}/office.html?r=${reg}`;
+    const card = x => {
+      const p0 = (x.places && x.places[0]) || {}, ph = (x.photos || [])[0], lv = pubLive(x), m = miss(x), d = lv ? Math.ceil((Date.parse(x.pub.exp) - Date.now()) / 864e5) : 0;
+      const where = [x.bname || (p0.addr || x.addr || '').split(' ').slice(-2).join(' '), p0.dong && /아파트|오피스텔|주상복합/.test(x.ptype || '') ? (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동') : ''].filter(Boolean).join(' ');
+      const meta = [x.ptype === '기타' ? x.ptypeTx || '기타' : x.ptype, x.area ? `${(x.area / 3.3058).toFixed(1).replace(/\.0$/, '')}평` : '', (x.ad || {}).dir || ''].filter(Boolean).join(' · ');
+      const st = x.status === 'done' ? '<span class="st gr">거래완료</span>' : x.status === 'hold' ? '<span class="st gr">보류 중</span>'
+        : lv ? `<span class="st ${d <= 7 ? 'ex' : 'on'}">${d <= 7 ? `만료 D-${d} · ` : '● 게시 중 · '}${ymd(x.pub.exp).slice(5)}까지</span>`
+        : isPub(x) && m.length ? `<span class="st nd">${esc(m.slice(0, 3).join('·'))}${m.length > 3 ? ' 등' : ''}이 비어 지도에 안 보임</span>`
+        : x.pub && x.pub.exp && x.pub.exp < now ? '<span class="st ex">게시 기간 끝남</span>' : '<span class="st gr">지도에 안 올림</span>';
+      const acts = x.status === 'done' || x.status === 'hold' ? `<button type="button" class="${x.status === 'hold' ? 'y' : ''}" data-ax="reopen" data-id="${x.id}">다시 진행</button>${x.status === 'hold' ? `<button type="button" data-ax="done" data-id="${x.id}">거래완료</button>` : ''}`
+        : lv ? `${d <= 7 ? `<button type="button" class="y" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="edit" data-id="${x.id}">수정 · 사진</button>${d > 7 ? `<button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="done" data-id="${x.id}">거래완료</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
+        : `<button type="button" class="y" data-ax="pub" data-id="${x.id}">${m.length ? '빈 칸 채워서 올리기' : '지도에 올리기'}</button><button type="button" data-ax="done" data-id="${x.id}">거래완료</button>`;
+      return `<div class="adc"><a class="ph"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}${lv ? ` href="/?pnu=${esc(x.pnu || p0.pnu)}&lst=1" target="_blank" rel="noopener" title="지도에서 손님이 보는 모습"` : ''}>${ph ? '' : '사진 없음'}</a>
+        <div class="tx"><b class="p"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${esc(priceText(x))}</b><div class="m">${esc(where)}${meta ? ' · ' + esc(meta) : ''}</div>${st}</div><div class="acts">${acts}</div></div>`;
+    };
+    box.innerHTML = `<div class="ads">
+      <div class="adh"><span class="av">${b.photo ? `<img src="${esc(b.photo)}" alt="">` : esc(String(b.office || '리').trim().charAt(0))}</span>
+        <div><b>${esc(b.office || '중개사무소 정보를 넣어 주세요')}</b>${b.verified ? '<span class="ver">등록번호 확인</span>' : ''}<small>${b.verified ? `소개 페이지 <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace(/^https?:\/\//, ''))}</a>` : '등록번호가 확인되면 소개 페이지가 생깁니다'}</small></div>
+        <div class="r">${b.verified ? '<button type="button" id="adCp">링크 복사</button>' : ''}<button type="button" id="adBk">${b.office ? '소개 · 사무소 정보 고치기' : '사무소 정보 넣기'}</button></div></div>
+      <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><div class="${gap ? 'yl' : ''}"><small>빈 칸 때문에 안 보임</small><b>${gap}</b></div><div><small>거래완료</small><b>${done.length}</b></div></div>
+      <div class="adb"><span class="seg">${[['live', '게시 중', live.length], ['off', '지도에 없음', off.length], ['done', '거래완료', done.length]].map(([k, t, n]) => `<button type="button" data-at="${k}" aria-pressed="${S.adTab === k}">${t} ${n}</button>`).join('')}</span><span class="sp"></span><a class="go" href="/?promo=1" target="_blank" rel="noopener">＋ 지도에서 매물 올리기</a></div>
+      ${list.length ? list.map(card).join('') : `<div class="ade">${S.adTab === 'live' ? '지금 지도에 올라 있는 매물이 없습니다. <b>[＋ 지도에서 매물 올리기]</b>를 눌러 필지를 고르고 [여기 매물 광고하기]를 눌러 주세요.' : S.adTab === 'off' ? '지도에 안 올린 매물이 없습니다.' : '거래완료한 매물이 없습니다.'}</div>`}
+      <div class="adf">카드의 사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·만기 알림·고객관리는 <button type="button" id="adBook">중개장부 열기</button>${b.home === 'ads' ? ' · <button type="button" id="adHome">처음 화면을 중개장부로</button>' : ' · <button type="button" id="adHome">처음 화면을 내 광고로</button>'}</div></div>`;
+    box.querySelectorAll('[data-at]').forEach(x => x.onclick = () => { S.adTab = x.dataset.at; drawAds(); });
+    if ($('adCp')) $('adCp').onclick = async () => { try { await navigator.clipboard.writeText(url); toast('소개 페이지 링크를 복사했습니다'); } catch { prompt('이 주소를 복사해 주세요', url); } };
+    $('adBk').onclick = () => openBk(() => drawAds());
+    $('adBook').onclick = () => setMode('danji');
+    $('adHome').onclick = async () => {
+      const home = b.home === 'ads' ? 'book' : 'ads';
+      try { const j = await api('/api/auth?action=bk', post({ bk: { ...b, home } })); S.bk = j.bk; drawAds(); toast(home === 'ads' ? '이제 중개장부를 열면 내 광고부터 보입니다' : '이제 중개장부를 열면 아파트·오피 장부부터 보입니다'); }
+      catch (e) { toast(e.message, 4000); }
+    };
+    box.querySelectorAll('[data-ax]').forEach(x => x.onclick = async () => {
+      const it = S.items.find(i => i.id === x.dataset.id); if (!it) return;
+      const a = x.dataset.ax;
+      if (a === 'edit') return pubSheet(it, true);
+      if (a === 'pub') return pubSheet(it);
+      if (a === 'renew') return pubOp(it.id, 'renew');
+      if (a === 'unpub') { if (confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물은 그대로 남아 [지도에 없음]에서 다시 올릴 수 있습니다)')) pubOp(it.id, 'unpub'); return; }
+      if (a === 'done' || a === 'reopen') {
+        const st = a === 'done' ? 'done' : 'on';
+        if (a === 'done' && !confirm('거래완료로 바꿀까요? 지도에서도 내려갑니다.')) return;
+        try { took(await api('/api/auth?action=listing', post({ op: 'status', id: it.id, status: st }))); draw(); toast(`'${STAT[st]}' 처리했습니다`); } catch (e) { if (e.code === 'readonly') return upsell(e.message); toast(e.message, 4000); }
+      }
+    });
   }
   function pubFlow(x) { if (x) pubSheet(x); }
   // ---------- 리얼맵 간단 등록창 (단지 모드 · 지도+리스트 공통) ----------
