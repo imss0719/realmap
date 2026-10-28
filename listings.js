@@ -1017,10 +1017,16 @@
       <div class="adh"><span class="av">${b.photo ? `<img src="${esc(b.photo)}" alt="">` : esc(String(b.office || '리').trim().charAt(0))}</span>
         <div><b>${esc(b.office || '중개사무소 정보를 넣어 주세요')}</b>${b.verified ? '<span class="ver">등록번호 확인</span>' : ''}<small>${b.verified ? `소개 페이지 <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace(/^https?:\/\//, ''))}</a>` : '등록번호가 확인되면 소개 페이지가 생깁니다'}</small></div>
         <div class="r">${b.verified ? '<button type="button" id="adCp">링크 복사</button>' : ''}<button type="button" id="adBk">${b.office ? '소개 고치기' : '사무소 정보 넣기'}</button></div></div>
-      <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><span class="sp"></span><a class="go" href="/?promo=1" target="_blank" rel="noopener">＋ 지도에서 매물 올리기</a></div>
+      <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><div class="adq"><span class="pl">＋</span><input id="adQ" type="search" autocomplete="off" enterkeyhint="search" placeholder="매물 올리기: 주소·건물명 치고 Enter (예: ○○동 395-12 · ○○아파트 101동 1503호)" value="${esc(S.adQ || '')}"><button type="button" id="adQGo">찾기</button><div class="adr" id="adRes" hidden></div></div></div>
+      <div class="adalt">또는 <a href="/?promo=1" target="_blank" rel="noopener">지도에서 필지 골라 올리기 ▸</a></div>
       ${g0 ? `<div class="adw">⚠ ${gap.length}건이 빈 칸(${esc(gm.slice(0, 2).join('·'))}${gm.length > 2 ? ' 등' : ''}) 때문에 지도에서 안 보입니다<span class="sp"></span><button type="button" id="adGap">채우기</button></div>` : ''}
       ${list.length ? list.map(card).join('') : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. <b>[＋ 지도에서 매물 올리기]</b>를 눌러 필지를 고르고 [여기 매물 광고하기]를 눌러 주세요.</div>'}
       <div class="adf">사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·만기 알림·고객관리는 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
+    // 10/28 주소로 올리기: 주소·건물명(+동·호) → 후보 → 필지 → 간단 등록창 (동·호까지 치면 그 호로)
+    const q = $('adQ'), go = () => adSearch(q.value.trim());
+    q.onkeydown = e => { if (e.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); const R = S.adRes; if (R && R.length && q.value.trim() === S.adQ) return adPick(R[0]); go(); } if (e.key === 'Escape') { S.adRes = null; $('adRes').hidden = true; } };
+    $('adQGo').onclick = go;
+    if (!S.adFocused && !matchMedia('(max-width:760px)').matches) { S.adFocused = true; setTimeout(() => q.focus(), 50); }
     if ($('adCp')) $('adCp').onclick = async () => { try { await navigator.clipboard.writeText(url); toast('소개 페이지 링크를 복사했습니다'); } catch { prompt('이 주소를 복사해 주세요', url); } };
     $('adBk').onclick = () => openBk(() => drawAds());
     if ($('adGap')) $('adGap').onclick = () => pubSheet(g0, true);
@@ -1042,6 +1048,31 @@
         try { took(await api('/api/auth?action=listing', post({ op: 'status', id: it.id, status: 'done' }))); draw(); toast("'거래완료' 처리했습니다"); } catch (e) { if (e.code === 'readonly') return upsell(e.message); toast(e.message, 4000); }
       }
     });
+  }
+  function adSearch(v) {
+    const R = $('adRes'); if (!v) return;
+    if (!window.kakao || !kakao.maps || !kakao.maps.services) return toast('지도 기능을 불러오는 중입니다. 잠시 뒤 다시 눌러 주세요');
+    S.adQ = v; S.adRes = null; S.adU = splitUnit(v);
+    R.hidden = false; R.innerHTML = '<div class="m">찾는 중…</div>';
+    const q = S.adU.q, out = []; let left = 2;
+    const done = () => { if (--left) return; if (S.adQ !== v) return;
+      const seen = new Set(); out.sort((a, b) => a.o - b.o);
+      const L = S.adRes = out.filter(r => { const k = r.lat.toFixed(5) + r.lng.toFixed(5); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
+      if (L.length === 1 && S.adU.ho) return adPick(L[0]);
+      R.innerHTML = L.length ? L.map((r, i) => `<button type="button" data-ar="${i}"><b>${esc(r.t)}</b>${i === 0 && S.adU.ho ? ` <em>${esc([S.adU.dong && S.adU.dong + '동', S.adU.ho + '호'].filter(Boolean).join(' '))}까지</em>` : ''}<small>${esc(r.s)}</small></button>`).join('') + '<div class="m">Enter = 첫 번째</div>'
+        : '<div class="m">찾지 못했습니다. 지번(예: ○○동 395-12)이나 도로명으로 다시 입력해 보세요.</div>';
+      R.querySelectorAll('[data-ar]').forEach(b => b.onclick = () => adPick(L[+b.dataset.ar]));
+    };
+    new kakao.maps.services.Geocoder().addressSearch(q, (r, st) => { if (st === 'OK') r.forEach((a, i) => out.push({ t: a.address_name, s: a.road_address ? a.road_address.address_name : '', lat: +a.y, lng: +a.x, o: 0 + i })); done(); });
+    new kakao.maps.services.Places().keywordSearch(q, (r, st) => { const L = st === 'OK' ? r.slice(0, 6) : []; let n = L.length; if (!n) return done(); const G = new kakao.maps.services.Geocoder();
+      L.forEach((a, i) => G.addressSearch(a.address_name, (g, s2) => { const h = s2 === 'OK' && g && g[0]; out.push({ t: a.place_name, s: a.address_name, lat: h ? +h.y : +a.y, lng: h ? +h.x : +a.x, o: 100 + i }); if (!--n) done(); })); });
+  }
+  async function adPick(r) {
+    const U = S.adU || {}; $('adRes').hidden = true; S.adRes = null;
+    try { const p = await api(`/api/parcel?lat=${r.lat}&lng=${r.lng}`); const pnu = p.bldPnu || p.pnu; if (!pnu) throw new Error('');
+      S.adQ = ''; if ($('adQ')) $('adQ').value = '';
+      adFrom({ pnu, dong: U.dong || '', ho: U.ho || '' });
+    } catch { toast('그 위치의 필지를 찾지 못했습니다. 다른 주소로 다시 찾아 주세요', 3500); }
   }
   function pubFlow(x) { if (x) pubSheet(x); }
   // ---------- 리얼맵 간단 등록창 (단지 모드 · 지도+리스트 공통) ----------
@@ -1116,7 +1147,7 @@
       case 'zone': return inp('zone', a.zone, '제2종일반주거지역', 'maxlength="40"');
       case 'area': return `<div class="prow">${inp('$area', x.area, '84.97', 'inputmode="decimal" style="width:120px"')} ㎡</div>`;
       case 'ptype': return chips('ptype', PTYPES.filter(t => t !== '기타'), x.ptype);
-      case 'price': { const M = (MONEY[x.kind] || MONEY.sale).filter(m => m[2]); return `<div class="prow">${M.map(([mk, lb]) => `${lb} ${inp('$' + mk, x[mk], '만원', 'inputmode="numeric" style="width:120px"')}`).join(' ')} 만원</div>`; }
+      case 'price': { const M = (MONEY[x.kind] || MONEY.sale).filter(m => m[2] || (x.kind === 'wolse' && m[0] === 'deposit'));   /* 10/28 월세는 보증금도 */ return `${x.id ? '' : `<div class="pchips">${['sale', 'jeonse', 'wolse'].map(k => `<button type="button" data-pkind="${k}" aria-pressed="${x.kind === k}">${KIND[k]}</button>`).join('')}</div>`}<div class="prow">${M.map(([mk, lb]) => `${lb} ${inp('$' + mk, x[mk], '만원', 'inputmode="numeric" style="width:120px"')}`).join(' ')} 만원</div>`; }
     }
     return '';
   }
@@ -1162,6 +1193,7 @@
       if (k === 'ptype') { const b0 = tbase(x); x.ptype = v; if (/^재(개발|건축)$/.test(v) && !x.ad.form) x.ad.form = v === '재건축' ? '아파트' : formOf(b0); } else if (k === 'mgmtT') x.ad.mgmtT = v === '정액' ? 'fix' : 'avg'; else x.ad[k] = x.ad[k] === v && k !== 'movein' ? '' : v;
       drawPubSheet();
     });
+    F.querySelectorAll('[data-pkind]').forEach(b => b.onclick = () => { set(); x.kind = b.dataset.pkind; drawPubSheet(); const i = F.querySelector('[data-pk^="$"]'); if (i) i.focus(); });   // 10/28 주소·지도로 새로 올릴 때 거래 종류
     F.querySelectorAll('[data-pb]').forEach(c => c.onchange = () => { set(); x.ad[c.dataset.pb] = c.checked; drawPubSheet(); });
     F.querySelectorAll('[data-mgi2]').forEach(c => c.onchange = () => { x.ad.mgmtInc = [...F.querySelectorAll('[data-mgi2]:checked')].map(z => z.dataset.mgi2); });
     F.querySelectorAll('[data-po]').forEach(b => b.onclick = () => { set(); P.open.add(b.dataset.po); drawPubSheet(); const n = F.querySelector(`.pf.op [data-pk]`); if (n) n.focus(); });
