@@ -1224,6 +1224,14 @@ body.cumode .top{padding-bottom:12px}
 .djtree .tn.add.rm{color:#C92A2A}.djtree .tn.add.rm.on{background:#FFF0F0}
 .djtree .tn>button.tdel{flex:none;border:1px solid #F1A9A9;background:#fff;color:#C92A2A;border-radius:6px;font-size:12px;font-weight:700;padding:3px 10px;margin-left:auto}.djtree .tn>button.tdel:hover{background:#FFF0F0}
 .djtree .tdn{font-size:12px;color:#C92A2A;margin:4px 10px}
+
+/* 10/28 아파트 화면 단순화: 동 칩·⋯은 넓은 화면에서 숨김(왼쪽 목록에서) · 표 글씨 크게 · 호 추가는 표 아래 */
+@media (min-width:980px){.dj .djlay.hastree #dj_cxBody .gcard #dj_dongs{display:none}.djlay.hastree .mmw.nw{display:none}}
+.dj .cxdn{font-size:18px;font-weight:800;margin-left:2px}
+.dj table.xt.big td{font-size:14px;padding-top:9px;padding-bottom:9px}.dj table.xt.big th{font-size:13px}
+.dj .addho{display:flex;gap:10px;align-items:center;margin-top:8px;border:1px dashed #C5CDD6;border-radius:8px;padding:6px 12px;background:#F7F9FB;color:var(--muted);font-weight:700}
+.dj .addho input{border:0;background:transparent;font:inherit;font-weight:400;flex:1;outline:none;padding:4px 0}
+.djtree .tmore{font-size:12px;padding:2px 10px 8px 28px;color:var(--muted)}.djtree .tmore button{border:0;background:none;color:#1C64C8;cursor:pointer;font:inherit;padding:0}
 </style>
 </head>
 <body>
