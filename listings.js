@@ -1394,7 +1394,7 @@
       const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile', 'intro', 'area'].map(k => [k, $('b_' + k).value.trim()]));
       bk.photo = photo; bk.spec = [...$('bSpec').querySelectorAll('[aria-pressed=true]')].map(x => x.dataset.sp);
       $('bSave').disabled = true;
-      try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; S.bkTmp = (S.bkTmp || []).filter(u => u !== j.bk.photo); closeForm(); draw(); toast('중개사무소 정보를 저장했습니다'); if (then) then(); }
+      try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; S.bkTmp = (S.bkTmp || []).filter(u => u !== j.bk.photo); closeForm(); draw(); toast(j.warn || '중개사무소 정보를 저장했습니다', j.warn ? 8000 : 2600); if (then) then(); }
       catch (e) { toast(e.message, 4000); $('bSave').disabled = false; }
     };
   }
