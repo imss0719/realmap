@@ -183,7 +183,10 @@ a{color:inherit}
   ready.then(() => {
     if (me.sms && window.SmsAuth) SMSA = SmsAuth.attach($('b_mobile'), { onDone: () => { $('mErr').textContent = ''; } });
     if (started()) document.querySelectorAll('[data-go]').forEach(a => { a.href = '/?promo=1'; if (!a.classList.contains('sm')) a.textContent = '지도에서 매물 올리기'; });
-    if (new URLSearchParams(location.search).get('go') && me.member && !started()) start();
+    const q = new URLSearchParams(location.search);
+    if (q.get('go') && !q.get('login')) { if (!me.member) return start(); }   // 지도에서 [매물 홍보 시작하기]로 왔으면 바로 카카오 로그인으로 (한 번 더 누르지 않게)
+    if (q.get('go') && me.member && !started()) start();
+    if (q.get('login') === 'cancel' || q.get('login') === 'fail') { const t = document.createElement('div'); t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#14212E;color:#fff;border-radius:10px;padding:10px 16px;font-size:14px;z-index:90'; t.textContent = q.get('login') === 'cancel' ? '로그인을 취소했습니다. [무료로 매물 올리기]를 누르면 다시 시작합니다' : '로그인하지 못했습니다. 잠시 뒤 다시 시도해 주세요'; document.body.appendChild(t); setTimeout(() => t.remove(), 4000); }
   });
   document.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', start));
   const close = () => { $('modal').hidden = true; document.body.style.overflow = ''; };

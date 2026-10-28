@@ -591,3 +591,4 @@
   - promo.html: '광고만' 하려는 중개사용 소개 페이지(pro.html과 별개). 버튼은 /pro.html?go=1&to=map → pro.html이 시작 뒤 /?promo=1(지도 + 안내 토스트)로 보냄. 이미 시작한 회원은 버튼이 바로 /?promo=1.
   - 주의: 지도 게시는 canPub(운영자 또는 Vercel 환경변수 PUB_OPEN=1)일 때만. PUB_OPEN이 꺼져 있으면 홍보 페이지로 온 중개사가 올릴 수 없음.
 - 10/28 밤 보완: 지도 계정 버튼 이름 8자 넘으면 '…'(로고가 세로로 밀리던 것) · [매물 홍보 시작하기]는 pro.html이 아니라 promo.html?go=1 → 그 페이지 안에서 로그인·사무소 확인(모달, 휴대폰 인증 포함) → /?promo=1. promo.html 버튼은 모두 같은 시작하기.
+- 10/28 밤 promo.html?go=1: 비회원이면 바로 카카오 로그인 → /promo.html?go=1&login=ok 로 돌아와 사무소 정보 창이 자동으로 열림(login=cancel/fail이면 다시 보내지 않고 안내만).
