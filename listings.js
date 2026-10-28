@@ -994,38 +994,36 @@
   //   [게시 중 · 지도에 없음 · 거래완료] · 수정·사진 = 간단 등록창 · 30일 연장 · 거래완료 · 내리기 · 올리기는 지도에서(필지 누르기)
   function drawAds() {
     const box = $('ad'); if (!box) return;
-    const b = S.bk || {}, P = S.plan || {}, now = new Date().toISOString(), soon = new Date(Date.now() + 7 * 864e5).toISOString();
-    const L = S.items || [], live = L.filter(x => pubLive(x)), off = L.filter(x => x.status !== 'done' && !pubLive(x)), done = L.filter(x => x.status === 'done');
-    const miss = x => adMissing(x, S.bk).filter(m => m !== '중개사무소 정보');
-    const expSoon = live.filter(x => x.pub.exp < soon).length, gap = L.filter(x => x.status === 'on' && isPub(x) && miss(x).length).length;
-    S.adTab = S.adTab || 'live';
-    const list = { live, off, done }[S.adTab] || live;
+    const b = S.bk || {}, P = S.plan || {}, now = new Date().toISOString(), soon = new Date(Date.now() + 7 * 864e5).toISOString(), old = new Date(Date.now() - 30 * 864e5).toISOString();
+    const L = S.items || [], miss = x => adMissing(x, S.bk).filter(m => m !== '중개사무소 정보');
+    // 10/28 선배 결정: 목록 하나 — 게시 중 + 기간이 끝난 지 30일 안 된 광고(다시 게시) · 빈 칸 때문에 안 보이는 광고는 있을 때만 노란 줄 한 줄
+    const live = L.filter(x => pubLive(x) && !miss(x).length), ended = L.filter(x => x.status === 'on' && x.pub && x.pub.exp && x.pub.exp < now && x.pub.exp > old && !pubLive(x));
+    const gap = L.filter(x => x.status === 'on' && isPub(x) && x.pub.exp > now && miss(x).length);
+    const expSoon = live.filter(x => x.pub.exp < soon).length;
+    const list = [...live.sort((x, y) => String(x.pub.exp).localeCompare(String(y.pub.exp))), ...ended.sort((x, y) => String(y.pub.exp).localeCompare(String(x.pub.exp)))];
     const reg = String(b.regno || '').replace(/\D/g, ''), url = `${location.origin}/office.html?r=${reg}`;
     const card = x => {
-      const p0 = (x.places && x.places[0]) || {}, ph = (x.photos || [])[0], lv = pubLive(x), m = miss(x), d = lv ? Math.ceil((Date.parse(x.pub.exp) - Date.now()) / 864e5) : 0;
+      const p0 = (x.places && x.places[0]) || {}, ph = (x.photos || [])[0], lv = pubLive(x), d = lv ? Math.ceil((Date.parse(x.pub.exp) - Date.now()) / 864e5) : 0;
       const where = [x.bname || (p0.addr || x.addr || '').split(' ').slice(-2).join(' '), p0.dong && /아파트|오피스텔|주상복합/.test(x.ptype || '') ? (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동') : ''].filter(Boolean).join(' ');
       const meta = [x.ptype === '기타' ? x.ptypeTx || '기타' : x.ptype, x.area ? `${(x.area / 3.3058).toFixed(1).replace(/\.0$/, '')}평` : '', (x.ad || {}).dir || ''].filter(Boolean).join(' · ');
-      const st = x.status === 'done' ? '<span class="st gr">거래완료</span>' : x.status === 'hold' ? '<span class="st gr">보류 중</span>'
-        : lv ? `<span class="st ${d <= 7 ? 'ex' : 'on'}">${d <= 7 ? `만료 D-${d} · ` : '● 게시 중 · '}${ymd(x.pub.exp).slice(5)}까지</span>`
-        : isPub(x) && m.length ? `<span class="st nd">${esc(m.slice(0, 3).join('·'))}${m.length > 3 ? ' 등' : ''}이 비어 지도에 안 보임</span>`
-        : x.pub && x.pub.exp && x.pub.exp < now ? '<span class="st ex">게시 기간 끝남</span>' : '<span class="st gr">지도에 안 올림</span>';
-      const acts = x.status === 'done' || x.status === 'hold' ? `<button type="button" class="${x.status === 'hold' ? 'y' : ''}" data-ax="reopen" data-id="${x.id}">다시 진행</button>${x.status === 'hold' ? `<button type="button" data-ax="done" data-id="${x.id}">거래완료</button>` : ''}`
-        : lv ? `${d <= 7 ? `<button type="button" class="y" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="edit" data-id="${x.id}">수정 · 사진</button>${d > 7 ? `<button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="done" data-id="${x.id}">거래완료</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
-        : `<button type="button" class="y" data-ax="pub" data-id="${x.id}">${m.length ? '빈 칸 채워서 올리기' : '지도에 올리기'}</button><button type="button" data-ax="done" data-id="${x.id}">거래완료</button>`;
-      return `<div class="adc"><a class="ph"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}${lv ? ` href="/?pnu=${esc(x.pnu || p0.pnu)}&lst=1" target="_blank" rel="noopener" title="지도에서 손님이 보는 모습"` : ''}>${ph ? '' : '사진 없음'}</a>
+      const st = lv ? `<span class="st ${d <= 7 ? 'ex' : 'on'}">${d <= 7 ? `만료 D-${d} · ` : '● 게시 중 · '}${ymd(x.pub.exp).slice(5)}까지</span>` : `<span class="st gr">게시 기간 끝남 · ${ymd(x.pub.exp).slice(5)}</span>`;
+      const acts = lv ? `${d <= 7 ? `<button type="button" class="y" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="edit" data-id="${x.id}">수정 · 사진</button>${d > 7 ? `<button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="done" data-id="${x.id}">거래완료</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
+        : `<button type="button" class="y" data-ax="pub" data-id="${x.id}">다시 게시 (30일)</button><button type="button" data-ax="done" data-id="${x.id}">거래완료</button>`;
+      return `<div class="adc${lv ? '' : ' end'}"><a class="ph"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}${lv ? ` href="/?pnu=${esc(x.pnu || p0.pnu)}&lst=1" target="_blank" rel="noopener" title="지도에서 손님이 보는 모습"` : ''}>${ph ? '' : '사진 없음'}</a>
         <div class="tx"><b class="p"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${esc(priceText(x))}</b><div class="m">${esc(where)}${meta ? ' · ' + esc(meta) : ''}</div>${st}</div><div class="acts">${acts}</div></div>`;
     };
+    const g0 = gap[0], gm = g0 ? miss(g0) : [];
     box.innerHTML = `<div class="ads">
       <div class="adh"><span class="av">${b.photo ? `<img src="${esc(b.photo)}" alt="">` : esc(String(b.office || '리').trim().charAt(0))}</span>
         <div><b>${esc(b.office || '중개사무소 정보를 넣어 주세요')}</b>${b.verified ? '<span class="ver">등록번호 확인</span>' : ''}<small>${b.verified ? `소개 페이지 <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace(/^https?:\/\//, ''))}</a>` : '등록번호가 확인되면 소개 페이지가 생깁니다'}</small></div>
-        <div class="r">${b.verified ? '<button type="button" id="adCp">링크 복사</button>' : ''}<button type="button" id="adBk">${b.office ? '소개 · 사무소 정보 고치기' : '사무소 정보 넣기'}</button></div></div>
-      <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><div class="${gap ? 'yl' : ''}"><small>빈 칸 때문에 안 보임</small><b>${gap}</b></div><div><small>거래완료</small><b>${done.length}</b></div></div>
-      <div class="adb"><span class="seg">${[['live', '게시 중', live.length], ['off', '지도에 없음', off.length], ['done', '거래완료', done.length]].map(([k, t, n]) => `<button type="button" data-at="${k}" aria-pressed="${S.adTab === k}">${t} ${n}</button>`).join('')}</span><span class="sp"></span><a class="go" href="/?promo=1" target="_blank" rel="noopener">＋ 지도에서 매물 올리기</a></div>
-      ${list.length ? list.map(card).join('') : `<div class="ade">${S.adTab === 'live' ? '지금 지도에 올라 있는 매물이 없습니다. <b>[＋ 지도에서 매물 올리기]</b>를 눌러 필지를 고르고 [여기 매물 광고하기]를 눌러 주세요.' : S.adTab === 'off' ? '지도에 안 올린 매물이 없습니다.' : '거래완료한 매물이 없습니다.'}</div>`}
-      <div class="adf">카드의 사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·만기 알림·고객관리는 <button type="button" id="adBook">중개장부 열기</button>${b.home === 'ads' ? ' · <button type="button" id="adHome">처음 화면을 중개장부로</button>' : ' · <button type="button" id="adHome">처음 화면을 내 광고로</button>'}</div></div>`;
-    box.querySelectorAll('[data-at]').forEach(x => x.onclick = () => { S.adTab = x.dataset.at; drawAds(); });
+        <div class="r">${b.verified ? '<button type="button" id="adCp">링크 복사</button>' : ''}<button type="button" id="adBk">${b.office ? '소개 고치기' : '사무소 정보 넣기'}</button></div></div>
+      <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><span class="sp"></span><a class="go" href="/?promo=1" target="_blank" rel="noopener">＋ 지도에서 매물 올리기</a></div>
+      ${g0 ? `<div class="adw">⚠ ${gap.length}건이 빈 칸(${esc(gm.slice(0, 2).join('·'))}${gm.length > 2 ? ' 등' : ''}) 때문에 지도에서 안 보입니다<span class="sp"></span><button type="button" id="adGap">채우기</button></div>` : ''}
+      ${list.length ? list.map(card).join('') : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. <b>[＋ 지도에서 매물 올리기]</b>를 눌러 필지를 고르고 [여기 매물 광고하기]를 눌러 주세요.</div>'}
+      <div class="adf">사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·만기 알림·고객관리는 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
     if ($('adCp')) $('adCp').onclick = async () => { try { await navigator.clipboard.writeText(url); toast('소개 페이지 링크를 복사했습니다'); } catch { prompt('이 주소를 복사해 주세요', url); } };
     $('adBk').onclick = () => openBk(() => drawAds());
+    if ($('adGap')) $('adGap').onclick = () => pubSheet(g0, true);
     $('adBook').onclick = () => setMode('danji');
     $('adHome').onclick = async () => {
       const home = b.home === 'ads' ? 'book' : 'ads';
@@ -1038,11 +1036,10 @@
       if (a === 'edit') return pubSheet(it, true);
       if (a === 'pub') return pubSheet(it);
       if (a === 'renew') return pubOp(it.id, 'renew');
-      if (a === 'unpub') { if (confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물은 그대로 남아 [지도에 없음]에서 다시 올릴 수 있습니다)')) pubOp(it.id, 'unpub'); return; }
-      if (a === 'done' || a === 'reopen') {
-        const st = a === 'done' ? 'done' : 'on';
-        if (a === 'done' && !confirm('거래완료로 바꿀까요? 지도에서도 내려갑니다.')) return;
-        try { took(await api('/api/auth?action=listing', post({ op: 'status', id: it.id, status: st }))); draw(); toast(`'${STAT[st]}' 처리했습니다`); } catch (e) { if (e.code === 'readonly') return upsell(e.message); toast(e.message, 4000); }
+      if (a === 'unpub') { if (confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물은 중개장부에 그대로 남습니다)')) pubOp(it.id, 'unpub'); return; }
+      if (a === 'done') {
+        if (!confirm('거래완료로 바꿀까요? 지도에서 내려가고 이 목록에서도 빠집니다. (중개장부에는 남습니다)')) return;
+        try { took(await api('/api/auth?action=listing', post({ op: 'status', id: it.id, status: 'done' }))); draw(); toast("'거래완료' 처리했습니다"); } catch (e) { if (e.code === 'readonly') return upsell(e.message); toast(e.message, 4000); }
       }
     });
   }

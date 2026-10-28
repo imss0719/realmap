@@ -1836,12 +1836,15 @@
   function drawPromo() {
     const el = $('promo'); if (!el || !S.me.ready) return;
     const pro = !!(S.me.member && S.me.plan && S.me.plan.started);
-    el.innerHTML = `<button type="button" id="promoBtn" class="promo-b" aria-label="${pro ? '매물 올리기' : '중개사 매물 홍보'}"><i aria-hidden="true">${pro ? '＋' : '📣'}</i><span>${pro ? '매물 올리기' : '매물 홍보'}</span></button>
+    el.innerHTML = `<button type="button" id="promoBtn" class="promo-b" aria-label="${pro ? '매물 올리기' : '중개사 매물 홍보'}"><i aria-hidden="true">＋</i><span>${pro ? '매물 올리기' : '매물 홍보'}</span></button>
       <div class="promo-pop" id="promoPop" hidden>${pro
         ? '<b>지도에서 필지를 눌러 주세요</b><p>필지 정보 위의 <b>[여기 매물 광고하기]</b>를 누르면 가격·사진만 넣고 바로 올릴 수 있습니다. 면적·층·용도는 건축물대장에서 자동으로 채워집니다.</p><a class="y" href="/listings.html?mode=ads" target="_blank" rel="noopener">내 광고 관리 (연장·수정·내리기)</a><a href="/listings.html" target="_blank" rel="noopener">중개장부 열기</a>'
         : '<b>중개사이신가요?</b><p>내 매물을 리얼맵 지도에 올리고, 대표 사진·사무소 소개와 함께 손님에게 보여 주세요. <b>10건까지 무료</b>입니다.</p><a class="y" href="/promo.html?go=1">매물 홍보 시작하기</a><a href="/promo.html" target="_blank" rel="noopener">어떻게 보이는지 먼저 보기</a>'}</div>`;
     const P = $('promoPop');
-    $('promoBtn').onclick = e => { e.stopPropagation(); P.hidden = !P.hidden; };
+    $('promoBtn').onclick = e => { e.stopPropagation(); P.hidden = !P.hidden; try { localStorage.setItem('rm.promoTip', '1'); } catch { /* 무시 */ } const t = $('promoTip'); if (t) t.remove(); };
+    // 10/28 휴대폰: 노란 원 '+'만 보이므로 처음 한 번만 '중개사 매물 홍보' 말풍선 (3초)
+    if (!pro && matchMedia('(max-width:760px)').matches && !drawPromo.tip) { drawPromo.tip = true; let seen = false; try { seen = !!localStorage.getItem('rm.promoTip'); localStorage.setItem('rm.promoTip', '1'); } catch { /* 무시 */ }
+      if (!seen) { const t = document.createElement('span'); t.id = 'promoTip'; t.className = 'promo-tip'; t.textContent = '중개사 매물 홍보'; el.appendChild(t); setTimeout(() => t.remove(), 3200); } }
     if (!drawPromo.w) { drawPromo.w = true; document.addEventListener('mousedown', e => { const q = $('promoPop'); if (q && !q.hidden && !e.target.closest('#promo')) q.hidden = true; }); }
   }
   function drawAcct() {

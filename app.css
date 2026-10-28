@@ -696,7 +696,7 @@ a.favbtn{text-decoration:none}
 /* 10/28 왼쪽 위 작은 원형 버튼 '매물 홍보' · 매물 상세의 [중개사 소개 ▸] */
 .promo{position:relative;margin-left:4px}
 .promo-b{display:inline-flex;align-items:center;gap:5px;border:1px solid #E8D9A0;background:#FFF8DB;color:#7A5600;border-radius:999px;padding:2px 9px 2px 3px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
-.promo-b i{width:20px;height:20px;border-radius:50%;background:var(--gold,#F2B705);display:grid;place-items:center;font-style:normal;font-size:11px;color:#14212E;font-weight:900}
+.promo-b i{width:20px;height:20px;border-radius:50%;background:var(--gold,#F2B705);display:grid;place-items:center;font-style:normal;font-size:15px;line-height:1;color:#14212E;font-weight:900}
 .promo-pop{position:absolute;left:0;top:calc(100% + 8px);z-index:45;width:268px;background:var(--surface,#fff);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:13px;font-size:13px;line-height:1.55}
 .promo-pop b{font-size:14.5px}.promo-pop p{margin:6px 0 10px;color:var(--muted)}.promo-pop p b{font-size:inherit;color:var(--fg)}
 .promo-pop a{display:block;text-align:center;border:1px solid var(--line);border-radius:9px;padding:8px;margin-top:6px;font-weight:800;text-decoration:none;color:var(--fg)}.promo-pop a.y{background:var(--gold,#F2B705);border-color:var(--gold,#F2B705);color:#14212E}
@@ -704,8 +704,11 @@ a.favbtn{text-decoration:none}
 @media (max-width:760px){
   .promo{margin:0 8px 0 0}
   .promo-b{width:38px;height:38px;padding:0;justify-content:center;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.16)}
-  .promo-b span{display:none}.promo-b i{width:26px;height:26px;font-size:14px}
+  .promo-b{background:var(--gold,#F2B705);border-color:var(--gold,#F2B705)}.promo-b span{display:none}.promo-b i{width:auto;height:auto;background:none;font-size:24px;line-height:1}
   .promo-pop{left:auto;right:0;width:min(290px,86vw)}
 }
 /* 10/28 로고 이름은 한 줄 */
 .brand>b{white-space:nowrap}
+.promo-tip{position:absolute;right:-4px;top:calc(100% + 8px);background:#14212E;color:#fff;font-size:12px;font-weight:700;border-radius:8px;padding:5px 9px;white-space:nowrap;z-index:46;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:ptip .3s}
+.promo-tip:before{content:"";position:absolute;right:16px;top:-5px;border:5px solid transparent;border-top:0;border-bottom-color:#14212E}
+@keyframes ptip{from{opacity:0;transform:translateY(-4px)}}

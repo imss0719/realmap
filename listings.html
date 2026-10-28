@@ -1294,6 +1294,8 @@ body.cumode .top{padding-bottom:12px}
 .bd .rpanel .bdcu .dt-h{margin-bottom:4px}.bd .rpanel .bdcu .dt-h b{font-size:13px}.bd .rpanel .yl{color:var(--sale)}
 #bSpec{display:flex;flex-wrap:wrap;gap:5px}#bSpec button{border:1px solid #C9D2DC;background:#fff;border-radius:8px;padding:5px 10px;font:inherit;font-size:13px;font-weight:700;color:#5E6A77;cursor:pointer}#bSpec button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}
 /* 10/28 내 광고 (홍보만 하는 중개사용 단순 화면) */
+.adw{background:#FFF4D6;border:1px solid #F0D98A;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-weight:700;color:#7A5600;display:flex;align-items:center;gap:8px}.adw .sp{flex:1}.adw button{border:0;background:var(--gold);color:var(--navy);border-radius:8px;padding:7px 12px;font-weight:800;font-size:13px}
+.adc.end{opacity:.85}.adc.end .ph{filter:grayscale(.6)}
 #ad{position:absolute;inset:0;z-index:4;overflow:auto;background:var(--bg,#EEF1F4)}#ad[hidden]{display:none}
 .ads{max-width:1080px;margin:0 auto;padding:16px}
 .ads button{font:inherit;cursor:pointer}
@@ -1302,10 +1304,10 @@ body.cumode .top{padding-bottom:12px}
 .adh b{font-size:17px}.adh small{display:block;color:var(--muted);margin-top:3px;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.adh small a{color:var(--sale)}
 .adh .ver{font-size:11px;font-weight:800;background:#E7F6EC;color:#1F7A4D;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:2px}
 .adh .r{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.adh .r button,.adc .acts button{border:1px solid #C9D2DC;background:#fff;border-radius:8px;padding:7px 12px;font-weight:800;font-size:13px;white-space:nowrap;color:var(--fg)}
-.adk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.adk div{background:#fff;border-radius:12px;padding:12px 14px}.adk small{display:block;color:var(--muted);font-weight:700;font-size:12px}.adk small.u{display:inline;margin-left:4px}.adk b{font-size:22px}.adk .w{background:#FFF8DB}.adk .rd b{color:#C92A2A}.adk .yl b{color:#A16207}
+.adk{display:flex;gap:10px;margin:12px 0;align-items:center;flex-wrap:wrap}.adk>div{min-width:170px}.adk .sp{flex:1}.adk div{background:#fff;border-radius:12px;padding:12px 14px}.adk small{display:block;color:var(--muted);font-weight:700;font-size:12px}.adk small.u{display:inline;margin-left:4px}.adk b{font-size:22px}.adk .w{background:#FFF8DB}.adk .rd b{color:#C92A2A}.adk .yl b{color:#A16207}
 .adb{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}.adb .sp{flex:1}
 .adb .seg{display:inline-flex;border:1px solid #C9D2DC;border-radius:8px;overflow:hidden;background:#fff}.adb .seg button{border:0;border-right:1px solid #E3E8EE;background:#fff;padding:7px 13px;font-weight:700;font-size:13.5px;color:#3B4754}.adb .seg button:last-child{border:0}.adb .seg button[aria-pressed=true]{background:var(--gold);color:var(--navy)}
-.adb .go{background:var(--gold);color:var(--navy);border-radius:9px;padding:10px 16px;font-weight:800;font-size:14.5px;text-decoration:none}
+.adk .go,.adb .go{background:var(--gold);color:var(--navy);border-radius:9px;padding:10px 16px;font-weight:800;font-size:14.5px;text-decoration:none}
 .adc{background:#fff;border-radius:12px;display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:14px;padding:12px;margin-bottom:8px;align-items:center}
 .adc .ph{width:120px;height:86px;border-radius:9px;background:#DCE3EB center/cover no-repeat;display:grid;place-items:center;color:#9AA6B2;font-size:12px;text-decoration:none}
 .adc .p{font-size:19px}.adc .kd{font-size:11.5px;vertical-align:2px;margin-right:4px}.adc .m{color:var(--muted);margin-top:3px;font-size:13px}
@@ -1313,7 +1315,7 @@ body.cumode .top{padding-bottom:12px}
 .adc .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:360px}.adc .acts button.y{background:var(--gold);border-color:var(--gold)}.adc .acts button.r{color:#C92A2A;border-color:#F2B8B8}
 .ade{background:#fff;border-radius:12px;padding:28px 16px;text-align:center;color:var(--muted);line-height:1.7}
 .adf{text-align:center;color:var(--muted);font-size:13px;padding:10px 0}.adf button{border:0;background:none;color:var(--sale);font-weight:700;padding:0;text-decoration:underline;text-underline-offset:3px}
-@media(max-width:760px){.adh{grid-template-columns:44px minmax(0,1fr)}.adh .av{width:44px;height:44px}.adh .r{grid-column:1/-1;justify-content:flex-start}.adk{grid-template-columns:repeat(2,minmax(0,1fr))}.adb .go{width:100%;text-align:center}
+@media(max-width:760px){.adh{grid-template-columns:44px minmax(0,1fr)}.adh .av{width:44px;height:44px}.adh .r{grid-column:1/-1;justify-content:flex-start}.adk{grid-template-columns:repeat(2,minmax(0,1fr))}.adk .go,.adb .go{width:100%;text-align:center}
   .adc{grid-template-columns:84px minmax(0,1fr)}.adc .ph{width:84px;height:70px}.adc .acts{grid-column:1/-1;justify-content:flex-start;max-width:none}.adc .acts button{padding:9px 13px;font-size:14px}}
 </style>
 </head>
@@ -1321,7 +1323,7 @@ body.cumode .top{padding-bottom:12px}
 <div class="top">
   <a href="/" title="리얼맵 지도로" style="display:flex"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg></a>
   <h1>리얼맵 중개장부 <span class="pro">PRO</span></h1>
-  <span class="mtog" role="group" aria-label="화면"><button type="button" data-top="ls">매물<small data-cn="all"></small></button><button type="button" data-mode="ads">내 광고</button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button><button type="button" data-mode="set">설정</button></span>
+  <span class="mtog" role="group" aria-label="화면"><button type="button" data-top="ls">매물<small data-cn="all"></small></button><button type="button" data-mode="cust">고객<span class="lg">관리</span></button><button type="button" data-mode="ads">내 광고</button><button type="button" data-mode="set">설정</button></span>
   <span class="sp"></span>
   <span class="gs" id="gsBox"><input id="gsQ" type="search" autocomplete="off" placeholder="전체 검색 (주소·건물·연락처·메모)" aria-label="전체 매물 검색"><span class="gsr" id="gsRes" hidden></span></span>
   <a class="navl hlp" href="/pro-guide.html" target="_blank" rel="noopener" title="중개장부 사용 설명서">설명서 보기</a>
