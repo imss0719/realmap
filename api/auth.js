@@ -8,7 +8,7 @@
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
-import { ledger, dropLedger, dropLedgers, normD, impDay } from './_ledger.js';
+import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
 import { lsLoad, lsSave, lsMutate, lsDrop } from './_ls.js';
 import { officeOf, permOf, can, teamN, members, dropTeam, leave, staffApi, seatsOf, SEAT, ROLE } from './_staff.js';
@@ -291,6 +291,47 @@ export async function syncPub(uid, items, bk, P) {
 //   매물 방향을 새로 넣거나 바꾸면: 그 필지가 담긴 단지관리 단지의 라인 방향에도 저장 (단지관리 표기는 '남'처럼 '향' 없이)
 const AD_DIRS = ['남향', '남동향', '남서향', '동향', '서향', '북향', '북동향', '북서향'];
 const lineOf = ho => { const n = Number(String(ho || '').replace(/\D/g, '')); return n ? (n >= 100 ? n % 100 : n) : 0; };
+// ---------- 10/28 관리장부 ↔ 매물장: 아파트 호의 매물 상태·가격은 한 곳처럼 ----------
+//   호 장부(관리장부)에서 매물을 올리거나 가격·상태를 바꾸면 → 같은 동·호의 내 매물 카드도 맞춤 (내리면 카드는 보류 + 지도 광고 내림)
+//   매물 카드에서 가격·상태를 바꾸거나 거래완료·삭제하면 → 그 단지 장부의 그 호도 맞춤 (기록에 '매물 카드에서'로 남음)
+const lsKeyOf = p => `${p.pnu}|${normD(p.dong)}|${normH(p.ho)}`;
+const lsAt = (items, key) => items.find(x => x.status !== 'done' && x.kind !== 'presale' && (x.places || []).some(p => p.dong && p.ho && lsKeyOf(p) === key));
+async function lsFromLedger(uid, { key, st, pr }) {
+  if (st.src === 'other') return false;   // 타부동산 물건은 내 매물 카드가 아님
+  let hit = false;
+  const items = await lsMutate(redis, uid, ls => {
+    const x = lsAt(ls, key); if (!x) return false;
+    const was = JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status]);
+    if (!st.src) { if (x.status === 'on') x.status = 'hold'; }   // 매물장에서 내림 → 카드는 보류 (지도 광고는 syncPub이 내림)
+    else {
+      const k = st.k.includes(x.kind) ? x.kind : st.k[0] || x.kind;
+      if (k === 'sale' && pr.sale) Object.assign(x, { kind: 'sale', price: pr.sale });
+      else if (k === 'jeonse' && pr.jeonse) Object.assign(x, { kind: 'jeonse', deposit: pr.jeonse });
+      else if (k === 'wolse' && (pr.wd || pr.wr)) Object.assign(x, { kind: 'wolse', deposit: pr.wd || null, rent: pr.wr || null });
+      x.status = st.hold ? 'hold' : 'on';
+    }
+    if (JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status]) === was) return false;
+    x.up = new Date().toISOString(); hit = true;
+  });
+  if (hit) { const bk = await loadBk(uid), P = await planOf(uid); const it2 = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, it2); }
+  return hit;
+}
+async function ledgerFromLs(uid, op, x) {
+  if (!x || !Array.isArray(x.places) || x.kind === 'presale' || !['아파트', '오피스텔'].includes(tbase(x))) return false;
+  const p = x.places.find(q => q.dong && q.ho); if (!p) return false;
+  let d = null; try { const v = await redis(['GET', `realmap:cx:${uid}`]); d = v ? JSON.parse(v) : null; } catch { d = null; }
+  const c = d && Array.isArray(d.items) ? d.items.find(z => (z.places || []).some(q => q.pnu === p.pnu)) : null; if (!c) return false;
+  const key = lsKeyOf(p), gone = op === 'del' || x.status === 'done';
+  return ledgerPatch(redis, uid, c.id, key, rec => {
+    if (gone) { if (rec.st.src === 'mine') rec.st = { src: '', k: [], hold: false, office: '' }; return; }
+    const k = x.kind === 'sale' || x.kind === 'jeonse' || x.kind === 'wolse' ? x.kind : 'sale';
+    const ks = rec.st.src === 'mine' && rec.st.k.includes(k) ? rec.st.k : [k];
+    rec.st = { src: 'mine', k: ks, hold: x.status === 'hold', office: '' };
+    if (k === 'sale' && x.price) rec.pr.sale = x.price;
+    if (k === 'jeonse' && x.deposit) rec.pr.jeonse = x.deposit;
+    if (k === 'wolse') { if (x.deposit) rec.pr.wd = x.deposit; if (x.rent) rec.pr.wr = x.rent; }
+  }, op === 'del' ? '매물 카드 삭제' : x.status === 'done' ? '매물 카드에서 거래완료' : '매물 카드에서');
+}
 async function syncLineDir(uid, rec, prev, items) {
   const p0 = rec.places[0];
   if (rec.places.length !== 1 || !['아파트', '오피스텔'].includes(tbase(rec)) || !p0.dong || !p0.ho) return false;
@@ -661,7 +702,7 @@ export default async function (req, res) {
       if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
       if (req.method === 'POST') { const cid = String(req.query.id || body.id || ''); if (d.items.some(x => x.id === cid) && !cxOpen(d.items, P).has(cid)) return fail(res, 403, 'cxlock', `이 단지는 보기만 됩니다. ${cxFull(P)}`, { plan: planView(P) }); }
       if (body.op === 'wipe' && s.staff && !can(s, await permOf(redis, s.id), 'del')) return noPerm(res, '호 장부 지우기');
-      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null });
+      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null, onSt: ch => lsFromLedger(s.id, ch) });
     }
 
     // 지도에 게시된 매물 (누구나 볼 수 있음) — 1분 캐시
@@ -1101,7 +1142,7 @@ export default async function (req, res) {
         const x = items.find(i => i.id === id);
         if (x && x.pub) x.pub.on = false;
       } else if (body.op === 'del') {
-        const gone = items.find(x => x.id === id);
+        const gone = items.find(x => x.id === id); body._gone = gone;
         if (gone && gone.pub) { gone.pub.on = false; try { await redis(['HDEL', PUB_KEY, `${s.id}:${gone.id}`]); } catch { /* 무시 */ } }
         items = items.filter(x => x.id !== id);
         if (gone && gone.photos) await dropPhotos(gone.photos.map(p => p.url).filter(u => ownPhoto(u, s.id)));
@@ -1114,7 +1155,10 @@ export default async function (req, res) {
       }
       await save();
       try { await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); await save(); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
-      return send(res, 200, { ok: true, items, bk, canPub: canPub(s.id) && can(s, tm && tm.perm || {}, 'pub'), warn, plan: planView(P), ...(tm ? { team: tm } : {}), ...(cxDirty ? { cxDirty: true } : {}), ...(body.imported ? { imported: body.imported } : {}), ...(body.unimported != null ? { unimported: body.unimported } : {}) });
+      // 10/28 아파트 매물 카드 → 같은 동·호의 관리장부도 맞춤
+      let ledDirty = false;
+      if (['save', 'status', 'del'].includes(body.op)) { try { ledDirty = await ledgerFromLs(s.id, body.op, body.op === 'del' ? body._gone : items.find(i => i.id === (id || (items[0] && items[0].id)))); } catch { /* 장부는 다음에 */ } }
+      return send(res, 200, { ok: true, items, bk, ...(ledDirty ? { ledDirty: true } : {}), canPub: canPub(s.id) && can(s, tm && tm.perm || {}, 'pub'), warn, plan: planView(P), ...(tm ? { team: tm } : {}), ...(cxDirty ? { cxDirty: true } : {}), ...(body.imported ? { imported: body.imported } : {}), ...(body.unimported != null ? { unimported: body.unimported } : {}) });
     }
 
     // 직원 관리 · 초대 참여 (10/28) → api/_staff.js

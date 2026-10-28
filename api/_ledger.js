@@ -117,7 +117,8 @@ function legacyMemo(t, up) {
 // ---------- 요청 처리 ----------
 // ctx: { redis, uid, cx (단지 장부 JSON), saveCx(), send, fail, req, res }
 // who (10/28): 직원이 있는 사무소면 { id, n } — 기록마다 누가 했는지(w) 남기고, 다른 사람이 먼저 고친 호는 덮어쓰지 않음
-export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, body = {}, who = null }) {
+// onSt (10/28): 매물 상태·가격이 바뀌면 불림 → 같은 동·호의 매물 카드도 맞춤 (auth.js) · 돌려준 값이 true면 응답에 lsDirty
+export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, body = {}, who = null, onSt = null }) {
   if (!KEY) return fail(res, 503, 'nokey', '단지 장부 암호화 설정(LEDGER_KEY)이 아직 안 되어 있습니다. 운영자에게 알려 주세요.');
   const id = str(req.query.id || body.id, 20).replace(/[^\w-]/g, '');
   if (!cx.items.some(x => x.id === id)) return fail(res, 404, 'nocx', '단지를 찾지 못했습니다.');
@@ -148,6 +149,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   if (v && !read(v)) return fail(res, 500, 'decrypt', '장부를 읽지 못했습니다. 암호화 키가 바뀌었을 수 있습니다.');
   const rec = v ? read(v) : EMPTY();
   const now = new Date().toISOString();
+  const stp0 = JSON.stringify([rec.st, rec.pr]);
   // 예전 호별 메모가 있으면 이 기회에 장부 히스토리로 옮기고(암호화) 원래 메모는 지움
   const mk = `${id}|${key}`;
   let movedMemo = false;
@@ -236,7 +238,24 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   if (empty) await redis(['HDEL', H, key]);
   else { await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, id]); }
   if (movedMemo) await saveCx();
-  return send(res, 200, { ok: true, rec, ...(movedMemo ? { memos: cx.memos } : {}) });
+  let lsDirty = false;
+  if (onSt && JSON.stringify([rec.st, rec.pr]) !== stp0) { try { lsDirty = !!(await onSt({ key, st: rec.st, pr: rec.pr })); } catch { /* 매물 카드는 다음에 맞춤 */ } }
+  return send(res, 200, { ok: true, rec, ...(movedMemo ? { memos: cx.memos } : {}), ...(lsDirty ? { lsDirty: true } : {}) });
+}
+// 10/28 매물 카드(매물장)에서 바뀐 매물 상태·가격을 같은 동·호의 장부에 맞춤 — fn(rec)이 바꿨으면 기록 한 줄(why)
+export async function ledgerPatch(redis, uid, cxId, key, fn, why) {
+  if (!KEY || !okKey(key)) return false;
+  const H = `realmap:hj:${uid}:${cxId}`, v = await redis(['HGET', H, key]);
+  let rec; try { rec = v ? { ...EMPTY(), ...unseal(v) } : EMPTY(); } catch { return false; }
+  const before = JSON.stringify([rec.st, rec.pr]), snap0 = snap(rec);
+  fn(rec);
+  if (JSON.stringify([rec.st, rec.pr]) === before) return false;
+  rec.hist.forEach(h => { delete h.s; });
+  rec.hist.unshift({ t: new Date().toISOString(), e: 'edit', x: `${why} · ${stTxt(rec.st)}${rec.st.k.map(k => ' · ' + prTxt(k, rec.pr)).join('')}`, s: snap0 });
+  if (rec.hist.length > 300) rec.hist.length = 300;
+  rec.up = new Date().toISOString();
+  await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, cxId]);
+  return true;
 }
 
 // 단지 하나의 장부 지우기 / 회원의 장부 모두 지우기 (해지·탈퇴)
