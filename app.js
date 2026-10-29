@@ -2834,9 +2834,48 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       }).catch(() => { /* 다음에 */ });
     }
   }
+  // ---------- 10/30 미가입 중개사무소 (서울 공공데이터 · 회색 점) ----------
+  //   선배 결정: 다 찍지 않고 건물 일부만 고정 랜덤(자료 만들 때 고름) · 상호만(전화·대표자 X) · 회원 사무소는 등록번호로 빼서 노란 원만
+  //   레벨 3~4 작은 점 · 1~2 점 + 상호(+n) · 5~ 숨김 · 누르면 '리얼맵 미가입' 카드 + 무료 매물 올리기(/promo.html?go=1)
+  const GR = { ovs: new Map(), rows: null, busy: false };
+  const inSeoul = c => c.getLat() > 37.41 && c.getLat() < 37.72 && c.getLng() > 126.76 && c.getLng() < 127.19;
+  function drawGray() {
+    const K = kakao.maps, lv = S.map.getLevel();
+    const hide = () => GR.ovs.forEach(o => o.setMap(null));
+    if (lv > 4 || !inSeoul(S.map.getCenter())) return hide();
+    if (!GR.rows) { if (!GR.busy) { GR.busy = true; fetch('/data/offices-seoul.json').then(r => r.json()).then(j => { GR.rows = j.rows || []; drawGray(); }).catch(() => { GR.rows = []; }); } return; }
+    const mem = new Set(); for (const x of LS.all || []) { const r = String((x.bk && x.bk.regno) || '').replace(/\D/g, ''); if (r) mem.add(r); }
+    const b = S.map.getBounds(), named = lv <= 2, show = new Set();
+    GR.rows.forEach((g, i) => {
+      const ll = new K.LatLng(g[0], g[1]); if (!b.contain(ll)) return;
+      const ns = String(g[2]).split('|'), rs = String(g[3] || '').split('|'), L = ns.filter((n, k) => n && !mem.has(rs[k]));
+      if (!L.length) return;
+      const id = i + ':' + (named ? 'n' : 'd') + ':' + L.length; show.add(id);
+      let o = GR.ovs.get(id);
+      if (!o) {
+        const el = document.createElement('button'); el.type = 'button'; el.className = 'gof' + (named ? ' nm' : '');
+        el.title = L.join(', ') + ' · 리얼맵 미가입';
+        el.innerHTML = '<i></i>' + (named ? `<span>${esc(ofName({ office: L[0] }))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}` : '');
+        el.onclick = ev => { ev.stopPropagation(); grayCard(L); };
+        o = new K.CustomOverlay({ position: ll, content: el, xAnchor: named ? 0 : .5, yAnchor: .5, zIndex: 3, clickable: true });
+        { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(3); }
+        GR.ovs.set(id, o);
+      }
+      if (!o.getMap()) o.setMap(S.map);
+    });
+    GR.ovs.forEach((o, id) => { if (!show.has(id) && o.getMap()) o.setMap(null); });
+  }
+  function grayCard(L) {
+    const box = $('toast').parentElement;
+    let c = $('ofCard'); if (!c) { c = document.createElement('div'); c.id = 'ofCard'; box.appendChild(c); kakao.maps.event.addListener(S.map, 'click', () => { const z = $('ofCard'); if (z) z.hidden = true; }); }
+    c.innerHTML = `<div class="h"><div class="t">${L.map(n => `<b>${esc(n)}</b>`).join('')}<small class="gtag">리얼맵 미가입</small></div><button type="button" class="x" aria-label="닫기">×</button></div>
+      <a class="gjoin" href="/promo.html?go=1">이 사무소 사장님이세요? 무료로 매물 올리기</a><p class="gs">등록번호로 바로 연결 · 가입하면 사진과 매물이 함께 보입니다</p>`;
+    c.hidden = false; c.querySelector('.x').onclick = () => { c.hidden = true; };
+  }
   function drawOffices() {
     if (!S.map) return;
     const K = kakao.maps, lv = S.map.getLevel();
+    try { drawGray(); } catch { /* 회색 점은 없어도 됨 */ }
     if (!LS.items.length || lv > 5) { OF.ovs.forEach(o => o.setMap(null)); return; }   // 10/29 [매물]을 꺼도 사무소 핀은 그대로
     const b = S.map.getBounds(), proj = S.map.getProjection(), phone = innerWidth <= 760;
     const L = offices().filter(e => b.contain(new K.LatLng(e.bk.lat, e.bk.lng)));

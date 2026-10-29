@@ -755,3 +755,15 @@ a.favbtn{text-decoration:none}
 .ofp:hover .tp,.ofp:focus-visible .tp{display:block}
 .ofp.dot{z-index:1}
 .llabel small{font-size:10px;color:#7A8796}
+
+/* 10/30 미가입 중개사무소 회색 점 (서울 공공데이터 · 상호만) */
+.gof{display:flex;align-items:center;gap:4px;border:0;background:none;padding:0;font:inherit;cursor:pointer;white-space:nowrap}
+.gof i{width:8px;height:8px;border-radius:50%;background:#8C96A3;border:1.5px solid #fff;box-shadow:0 0 0 .5px rgba(0,0,0,.2);flex:none}
+.gof.nm i{width:10px;height:10px;border-width:2px}
+.gof span{font-size:11px;font-weight:600;color:#4A5563;background:rgba(255,255,255,.85);padding:0 3px;border-radius:3px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.gof b{background:#8C96A3;color:#fff;border-radius:999px;font-size:10px;padding:0 5px;line-height:15px;border:1.5px solid #fff}
+.gof:hover i{background:#5B6675}
+#ofCard .gtag{display:inline-block;margin-top:4px;font-size:11px;background:#EEF1F4;color:#5B6675;border-radius:5px;padding:1px 6px}
+#ofCard .t b+b{margin-top:2px;font-size:14px}
+#ofCard .gjoin{display:block;margin-top:12px;background:#F2B705;color:#14212E;text-align:center;font-weight:800;border-radius:9px;padding:10px;text-decoration:none}
+#ofCard .gs{margin:6px 0 0;font-size:11.5px;color:var(--muted);text-align:center}
