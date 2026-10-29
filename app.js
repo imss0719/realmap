@@ -99,7 +99,11 @@
 
   function start() {
     const K = kakao.maps;
-    S.map = new K.Map($('map'), { center: new K.LatLng(37.5563, 126.9236), level: 3 });
+    // 10/29 첫 화면: 마지막에 보던 자리·확대 그대로 (이 브라우저에만 저장) · 처음 오면 매물이 모인 아현역·마포래미안푸르지오 사이
+    let v0 = null; try { v0 = JSON.parse(localStorage.getItem('rm.view') || 'null'); } catch { /* 저장소 없음 */ }
+    const okV = v0 && v0.lat > 33 && v0.lat < 39 && v0.lng > 124 && v0.lng < 132 && v0.lv >= 1 && v0.lv <= 14;
+    S.map = new K.Map($('map'), { center: okV ? new K.LatLng(v0.lat, v0.lng) : new K.LatLng(37.5562, 126.9545), level: okV ? v0.lv : 4 });
+    { let t = 0; K.event.addListener(S.map, 'idle', () => { clearTimeout(t); t = setTimeout(() => { try { const c = S.map.getCenter(); localStorage.setItem('rm.view', JSON.stringify({ lat: +c.getLat().toFixed(6), lng: +c.getLng().toFixed(6), lv: S.map.getLevel() })); } catch { /* 저장 불가 */ } }, 800); }); }
     S.map.addControl(new K.ZoomControl(), K.ControlPosition.BOTTOMRIGHT);
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
