@@ -101,7 +101,7 @@ const r6 = n => Math.round(n * 1e6) / 1e6;
 const nd = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
 const nn = s => String(s || '').replace(/\s|\(.*?\)|아파트|APT|\d+단지$/gi, '');
 async function dongs(pnus, want, name) {
-  const key = 'dongr:v3:' + pnus.join(',') + (want.length ? ':' + want.join(',') : '') + (want.length && name ? ':' + name : '');
+  const key = 'dongr:v4:' + pnus.join(',') + (want.length ? ':' + want.join(',') : '') + (want.length && name ? ':' + name : '');
   try {
     return await cached(key, 24 * 3600e3, async () => { const r = await dongsNow(pnus, want, name); if (!r.ok || !r.total) throw Object.assign(new Error('empty'), { res: r }); return r; });
   } catch (e) { if (e.res) return e.res; throw e; }
@@ -146,6 +146,7 @@ async function dongsNow(pnus, want, name) {
       if (!d || !W.has(nd(d.dong))) return;
       const nm = base && bn && (nn(bn).includes(base) || base.includes(nn(bn))), dist = Math.hypot(c[0] - cx0, (c[1] - cy0) * 1.25);
       if (far && !nm && dist > 0.003) return;   // 넓게 찾을 때는 단지 이름이 같거나 가까운 것만
+      if (base && bn && !nm && !inside && !bySn) return;   // 10/29 필지 밖인데 이름이 다른 단지 건물은 버림 (마포 푸르지오 더 센트럴 102동이 옆 마포래미안푸르지오 102동에 찍히던 것)
       const score = (inside || bySn ? 0 : 2) + (nm ? 0 : 1) + dist;
       const k = nd(d.dong), cur = best.get(k);
       if (!cur || score < cur.score) best.set(k, { score, b });
