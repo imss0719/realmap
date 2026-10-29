@@ -2833,7 +2833,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function drawOffices() {
     if (!S.map) return;
     const K = kakao.maps, lv = S.map.getLevel();
-    if (!lsActive() || lv > 5) { OF.ovs.forEach(o => o.setMap(null)); return; }
+    if (!LS.items.length || lv > 5) { OF.ovs.forEach(o => o.setMap(null)); return; }   // 10/29 [매물]을 꺼도 사무소 핀은 그대로
     const b = S.map.getBounds(), proj = S.map.getProjection(), phone = innerWidth <= 760;
     const L = offices().filter(e => b.contain(new K.LatLng(e.bk.lat, e.bk.lng)));
     const big = new Set(), cells = new Set(), cs = phone ? 130 : 120;
@@ -2880,7 +2880,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     c.querySelector('.x').onclick = () => { c.hidden = true; };
     c.querySelectorAll('[data-cp]').forEach(t => t.onclick = () => { try { navigator.clipboard.writeText(t.dataset.cp); toast('번호를 복사했습니다'); } catch { /* 복사 안 됨 */ } });
     c.querySelectorAll('[data-i]').forEach(t => t.onclick = () => { const x = L[+t.dataset.i]; c.hidden = true; S.lstJump = true; pickPnu(x.pnu); });
-    c.querySelector('.all').onclick = () => { c.hidden = true; LS.ofc = r; ofcOn(); drawListings(); drawTrades(); };
+    c.querySelector('.all').onclick = () => { c.hidden = true; LS.ofc = r; if (!LS.on) { LS.on = true; $('mtLst').setAttribute('aria-pressed', true); lsSave(); } ofcOn(); drawListings(); drawTrades(); };
   }
   // 이 필지의 매물 (필지창 맨 위)
   function lsHere() { const p = S.sel; if (!p) return []; return LS.items.filter(x => x.pnu === p.pnu || (p.bldPnu && x.pnu === p.bldPnu)); }
