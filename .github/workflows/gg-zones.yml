@@ -1,0 +1,26 @@
+name: realmap-gg-zones
+# 경기데이터드림 정비사업 추진현황을 받아 저장소에 저장 (분기마다 + 수동 실행) — 경기 정비사업 페이지용 (10/30)
+on:
+  schedule:
+    - cron: '30 20 6 1,4,7,10 *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/gg-zones.mjs
+        env:
+          GG_OPENAPI_KEY: ${{ secrets.GG_OPENAPI_KEY }}
+      - name: 바뀐 자료 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/gg-zones-raw.json
+          git diff --cached --quiet || (git commit -m "경기 정비사업 자료 갱신" && git push)
