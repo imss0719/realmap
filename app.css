@@ -747,3 +747,11 @@ a.favbtn{text-decoration:none}
 #ofCard .all{display:block;width:100%;margin-top:10px;border:0;border-radius:10px;background:#14212E;color:#fff;font:inherit;font-weight:700;font-size:14px;padding:11px;cursor:pointer}
 /* 10/29 축소(레벨 6~)에서는 매물 수만 흰 동그라미 */
 .lbubble.lc{width:28px;height:28px;padding:0;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;line-height:1;border-width:2.5px}
+
+/* 10/29 마킹 줄이기: 사무소 동그라미 작게 · 이름은 마우스 올리면 */
+.ofp.circle .av{width:32px;height:32px;border-width:3px;font-size:12.5px}
+.ofp.circle em{background:#14212E;color:#FFD95A;right:-9px;top:-7px;font-size:10.5px;line-height:15px;padding:0 5px}
+.ofp .tp{display:none;position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:#14212E;color:#fff;font-size:12px;font-weight:700;border-radius:6px;padding:3px 8px;white-space:nowrap;pointer-events:none;z-index:2}
+.ofp:hover .tp,.ofp:focus-visible .tp{display:block}
+.ofp.dot{z-index:1}
+.llabel small{font-size:10px;color:#7A8796}

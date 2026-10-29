@@ -2767,7 +2767,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
           const x = e.list[0], el = document.createElement('button');
           el.type = 'button'; el.className = 'llabel';
           el.title = `${x.bname || x.addr}${e.dn ? ' ' + e.dn + '동' : ''} · 중개사 매물 ${e.list.length}건 (지금 나와 있는 물건)`;
-          el.innerHTML = `<i class="lk-${x.kind}">${LKIND[x.kind]}</i><span><b>${esc(lsPrice(x))}</b><small>${[e.dn ? esc(e.dn) + '동' : '', x.area ? Math.round(x.area) + '㎡' : '', x.flr ? esc(x.flr) : ''].filter(Boolean).join(' · ')}</small></span>${e.list.length > 1 ? `<em>${e.list.length}</em>` : ''}`;
+          el.innerHTML = `<i class="lk-${x.kind}">${LKIND[x.kind]}</i><span><b>${esc(lsPrice(x))}</b><small>${esc((x.ptype === '기타' && x.ptypeTx) || x.ptype || '')}</small></span>${e.list.length > 1 ? `<em>${e.list.length}</em>` : ''}`;
           el.onclick = ev => { ev.stopPropagation(); S.lstJump = true; pickPnu(e.pnu); };
           o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 5, clickable: true });
           LS.ovs.set(id, o);
@@ -2824,17 +2824,18 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const p = proj.containerPointFromCoords(new K.LatLng(e.bk.lat, e.bk.lng)), c = Math.floor(p.x / cs) + ':' + Math.floor(p.y / cs);
       if (!cells.has(c)) { cells.add(c); big.add(e.r); }
     }
-    const named = new Set(L.filter(e => big.has(e.r)).slice(0, phone ? 2 : 1e9).map(e => e.r));
+    // 10/29 마킹 줄이기: 사무소는 이름 없이 사진 동그라미 + 매물 수(이름은 마우스 올리면) · 매물 말풍선과 겹치면 작은 점
+    const lp = lsPoints(), hitLs = e => { const p = proj.containerPointFromCoords(new K.LatLng(e.bk.lat, e.bk.lng)); return lp.some(q => Math.abs(q.x - p.x) < 72 && Math.abs(q.y - p.y) < 44); };
     const show = new Set();
     for (const e of L) {
-      const mode = !big.has(e.r) ? 'dot' : lv <= 3 && named.has(e.r) ? 'pill' : 'circle';
+      const mode = !big.has(e.r) || hitLs(e) ? 'dot' : 'circle';
       const id = `${e.r}:${mode}:${e.list.length}`; show.add(id);
       let o = OF.ovs.get(id);
       if (!o) {
         const el = document.createElement('button'); el.type = 'button'; el.className = 'ofp ' + mode;
         const nm = ofName(e.bk), n = e.list.length;
         el.title = `${e.bk.office} · 게시 중 매물 ${n}건`;
-        el.innerHTML = mode === 'pill' ? `${ofAv(e.bk, 'av')}<span class="nm">${esc(nm)}</span><small>매물 ${n}</small>` : mode === 'circle' ? `${ofAv(e.bk, 'av')}<em>${n}</em>` : '';
+        el.innerHTML = mode === 'circle' ? `${ofAv(e.bk, 'av')}<em>${n}</em><span class="tp">${esc(nm)} · 매물 ${n}</span>` : `<span class="tp">${esc(nm)} · 매물 ${n}</span>`;
         el.onclick = ev => { ev.stopPropagation(); ofCard(e.r); };
         o = new K.CustomOverlay({ position: new K.LatLng(e.bk.lat, e.bk.lng), content: el, yAnchor: mode === 'dot' ? .5 : 1.2, zIndex: mode === 'dot' ? 4 : 7, clickable: true });
         OF.ovs.set(id, o);
