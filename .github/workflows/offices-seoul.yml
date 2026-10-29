@@ -1,0 +1,27 @@
+name: realmap-offices-seoul
+# 서울 미가입 중개사무소(지도 회색 점) 자료 만들기 (매달 + 수동 실행) — 10/30
+on:
+  schedule:
+    - cron: '17 19 3 * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/offices-seoul.mjs
+        env:
+          SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+      - name: 바뀐 자료 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/offices-seoul.json data/offices-seoul-memo.json
+          git diff --cached --quiet || (git commit -m "서울 중개사무소 점 자료 갱신" && git push)
