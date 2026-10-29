@@ -2858,7 +2858,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         el.title = `${e.bk.office} · 게시 중 매물 ${n}건`;
         el.innerHTML = mode === 'circle' ? `${ofAv(e.bk, 'av')}<em>${n}</em><span class="tp">${esc(nm)} · 매물 ${n}</span>` : `<span class="tp">${esc(nm)} · 매물 ${n}</span>`;
         el.onclick = ev => { ev.stopPropagation(); ofCard(e.r); };
-        const z0 = mode === 'dot' ? 3 : 4;   // 매물 말풍선(5) 아래
+        const z0 = mode === 'dot' ? 6 : 8;   // 10/29 선배 결정: 사무소가 매물 말풍선(5) 위 · 마우스 올리면 30
         o = new K.CustomOverlay({ position: new K.LatLng(e.bk.lat, e.bk.lng), content: el, yAnchor: mode === 'dot' ? .5 : 1.2, zIndex: z0, clickable: true });
         { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(z0); }
         OF.ovs.set(id, o);
