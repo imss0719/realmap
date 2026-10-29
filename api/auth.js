@@ -270,7 +270,7 @@ function pubSummary(uid, x, bk) {
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
-    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '', ...(bk.lat && bk.lng ? { lat: bk.lat, lng: bk.lng } : {}) },   // 10/29 lat·lng = 지도의 사무소 핀 자리
+    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '', ...(bk.lat && bk.lng ? { lat: bk.lat, lng: bk.lng, posv: bk.posv || 1 } : {}) },   // 10/29 lat·lng = 지도의 사무소 핀 자리
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
   };
 }
@@ -1010,14 +1010,20 @@ export default async function (req, res) {
       const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const lat = Math.round(Number(b.lat) * 1e6) / 1e6, lng = Math.round(Number(b.lng) * 1e6) / 1e6;
       if (!(lat > 33 && lat < 39 && lng > 124 && lng < 132)) return fail(res, 400, 'bad', '좌표가 올바르지 않습니다.');
-      const bk = await loadBk(s.id);
+      // 10/29 운영자가 지도를 보면 예전 방식 좌표(posv<3)인 사무소를 화면이 새 방식으로 다시 찾아 보냄 (regno) — 더 새 방식일 때만 바꿈
+      const opReg = b.regno ? digitsOf(b.regno) : '';
+      if (opReg && !(ADMIN_ID && (s.me || s.id) === ADMIN_ID)) return fail(res, 403, 'no', '운영자만 할 수 있습니다.');
+      const uid = opReg ? await redis(['HGET', 'realmap:regno', opReg]).catch(() => null) : s.id;
+      if (!uid) return fail(res, 404, 'none', '중개사무소를 찾지 못했습니다.');
+      const bk = await loadBk(uid);
       if (!bk || !bk.addr) return fail(res, 400, 'bad', '중개사무소 정보가 없습니다.');
-      const pv = Number(b.v) || 1;   // 10/29 v2 = 주소 근처에서 사무소 이름으로 다시 찾은 좌표 (예전 좌표는 한 번 다시 찾음)
+      const pv = Number(b.v) || 1;
+      if (opReg && (bk.posv || 1) >= pv) return send(res, 200, { ok: true, same: true });   // 10/29 v2 = 주소 근처에서 사무소 이름으로 다시 찾은 좌표 (예전 좌표는 한 번 다시 찾음)
       if (bk.lat === lat && bk.lng === lng && (bk.posv || 1) >= pv) return send(res, 200, { ok: true, bk });
       bk.lat = lat; bk.lng = lng; bk.posv = pv;
-      await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
-      try { const P = await planOf(s.id); await lsMutate(redis, s.id, ls => syncPub(s.id, ls, bk, P)); } catch { /* 다음 저장 때 */ }
-      return send(res, 200, { ok: true, bk });
+      await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]);
+      try { const P = await planOf(uid); await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); } catch { /* 다음 저장 때 */ }
+      return send(res, 200, { ok: true, ...(opReg ? {} : { bk }) });
     }
 
     // 중개사무소 정보 (매물 광고에 표시)
