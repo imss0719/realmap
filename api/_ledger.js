@@ -73,7 +73,7 @@ function clean(b) {
     ar: (n => Number.isFinite(n) && n > 5 && n < 1000 ? Math.round(n * 100) / 100 : 0)(Number(b.ar)),   // 직접 적은 전용면적(㎡) — 건축물대장 면적이 없을 때
     live: LV[b.live] ? b.live : '',
     exp: day(b.exp), moveIn: str(b.moveIn, 30), opt: str(b.opt, 200),
-    tels: (Array.isArray(b.tels) ? b.tels : []).slice(0, 4).map(t => ({ l: str(t && t.l, 10), n: str(t && t.n, 20).replace(/[^\d\-+ ]/g, '') })).filter(t => t.n || (t.l && !/^(소유자|소유주|세입자|임차인|연락처|집주인)$/.test(t.l))),   // 10/28 번호 없이 이름만 있어도 남김
+    tels: (Array.isArray(b.tels) ? b.tels : []).slice(0, 4).map(t => { const o = { l: str(t && t.l, 10), n: str(t && t.n, 20).replace(/[^\d\-+ ]/g, '') }, m = str(t && t.m, 20); return m ? { ...o, m } : o; }).filter(t => t.n || t.m || (t.l && !/^(소유자|소유주|세입자|임차인|연락처|집주인)$/.test(t.l))),   // 10/28 번호 없이 이름만 있어도 남김
     note: str(b.note, 300),
     imp: str(b.imp, 100), impd: impDay(b.imp),   // 꼭 챙길 것 (10/26) — 날짜가 있으면 알림
     cd: man(b.cd), cr: man(b.cr),                // 현상태: 지금 사는 사람의 보증금·차임(만원) (10/26)
