@@ -190,7 +190,32 @@
     const f = telFmt(el.value); if (f !== el.value) el.value = f;
   }, true);   // 먼저 고쳐 두면 칸마다 붙은 저장 처리는 고친 값을 씀
   // 10/29 금액 칸 공통: 만원 단위 숫자만 (data-won · 'neg'면 앞에 − 허용) → 칸 옆 .wonh 에 '21억 5,000만'처럼 읽어 줌
-  window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n = Number(t); if (!t || !Number.isFinite(n) || !n) return ''; const a = Math.abs(n), e = Math.floor(a / 10000), m = a % 10000; return (n < 0 ? '−' : '') + (e ? `${e}억` : '') + (m ? `${e ? ' ' : ''}${m.toLocaleString()}만` : ''); };
+  // 10/29 중개장부 입력창을 표 위에 띄운 창으로: 제목줄(.rp-h)을 잡고 끌어 옮김 · 자리는 이 브라우저에 기억 (아파트·다른 종류 같이)
+window.RpWin = (() => {
+  const K = 'rm.rpwin', W = () => innerWidth, Hh = () => innerHeight;
+  const get = () => { try { return JSON.parse(localStorage.getItem(K) || 'null'); } catch { return null; } };
+  const clamp = (P, x, y) => { const w = P.offsetWidth || 440; return [Math.max(4, Math.min(W() - w - 4, x)), Math.max(4, Math.min(Hh() - 80, y))]; };
+  function place(P) {
+    if (W() <= 1100) return;
+    const v = get(); const [x, y] = clamp(P, v ? v.x : W() - 470, v ? v.y : 96);
+    P.style.left = x + 'px'; P.style.top = y + 'px';
+  }
+  function drag(P) {
+    const h = P.querySelector('.rp-h'); if (!h || h._dg) return; h._dg = true;
+    h.addEventListener('pointerdown', e => {
+      if (W() <= 1100 || e.button !== 0 || e.target.closest('button,a,input,select')) return;
+      e.preventDefault();
+      const r = P.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+      document.body.classList.add('rzwin');
+      const mv = ev => { const [x, y] = clamp(P, ev.clientX - dx, ev.clientY - dy); P.style.left = x + 'px'; P.style.top = y + 'px'; };
+      const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); document.body.classList.remove('rzwin'); try { localStorage.setItem(K, JSON.stringify({ x: parseInt(P.style.left, 10), y: parseInt(P.style.top, 10) })); } catch { /* 이번만 */ } };
+      addEventListener('pointermove', mv); addEventListener('pointerup', up);
+    });
+  }
+  addEventListener('resize', () => document.querySelectorAll('.rpanel.rpwin').forEach(place));
+  return { place, drag };
+})();
+window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n = Number(t); if (!t || !Number.isFinite(n) || !n) return ''; const a = Math.abs(n), e = Math.floor(a / 10000), m = a % 10000; return (n < 0 ? '−' : '') + (e ? `${e}억` : '') + (m ? `${e ? ' ' : ''}${m.toLocaleString()}만` : ''); };
   document.addEventListener('input', e => {
     const el = e.target;
     if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-won')) return;

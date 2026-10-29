@@ -685,6 +685,7 @@ window.Danji = (() => {
     { id: 'pub', t: '리얼맵' }];
   // 관리장부 표: 단순한 시트 (매물 가격·거래는 오른쪽 입력창의 '매물' 칸에서)
   const LCOLS = [   // 10/28 [전체]·[매물만] 같은 칸 (매물만은 매물 아닌 줄만 빠짐) · 칸마다 따로 정렬 · 연락처는 한 칸(외 n ▾ 펼치기)
+    { id: 'mk0', t: '●' },   // 10/29 매물 표시: 누르면 매물 등록 · 다시 누르면 해제
     { id: 'cxn', t: '단지', all: 1 }, { id: 'dn', t: '동' }, { id: 'ho', t: '호' },
     { id: 'ar', t: '평형' }, { id: 'ty', t: '타입' }, { id: 'dir', t: '향' },
     { id: 'of', t: '받은 곳' }, { id: 'kd', t: '거래' },
@@ -762,7 +763,8 @@ window.Danji = (() => {
   function cellHtml(x, c) {
     const r = x.r || {}, s = x.st;
     switch (c.id) {
-      case 'cxn': return `<button type="button" class="cxn" data-gocx="${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
+      case 'mk0': { const on = !!s.src && !s.done; return `<button type="button" class="mkd${on ? ' on' : ''}" data-mkd="${esc(x.key)}" title="${on ? '매물입니다 · 누르면 매물에서 해제' : '누르면 매물로 등록'}" ${LOCK(x) ? 'disabled' : ''}>${on ? '●' : '○'}</button>`; }
+      case 'cxn': return `<button type="button" class="cxn" data-gocx=""${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
       case 'dn': return `<b>${esc(DN(x.dn).replace(/동$/, ''))}</b>`;
       case 'ho': return `<b>${esc(x.ho)}</b>`;
       case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : ''}>${p.v}</b>` : '<span class="mut">-</span>'; }
@@ -844,11 +846,11 @@ window.Danji = (() => {
     tbf.innerHTML = '';   // 10/28 단순화: 표시 색·호 추가 칸은 없앰 (호 추가는 표 아래)
     // 두 줄 머리: 묶음(의뢰가격·현상태)은 위에 한 칸, 나머지는 두 줄을 차지 + 아래 칸별 거르기 줄
     const vc = VC(); let h1 = '', h2 = '';
-    const leaf = (c, n, two) => `<th class="c-${c.id}${SORTC[c.id] ? ' srt' : ''}"${two ? ' rowspan="2"' : ''}${SORTC[c.id] ? ` data-srt="${SORTC[c.id]}" title="눌러서 정렬 (한 번 더 누르면 반대로)"` : ''}>${c.t}${SORTC[c.id] && F.sort === SORTC[c.id] && !(c.id === 'ho' || (c.id === 'dn' && ALL)) ? (F.dir === -1 ? ' ▼' : ' ▲') : ''}</th>`;
+    const leaf = (c, n, two) => `<th class="c-${c.id}${SORTC[c.id] ? ' srt' : ''}"${c.id === 'mk0' ? ' title="매물 · 누르면 등록, 다시 누르면 해제"' : ''}${two ? ' rowspan="2"' : ''}${SORTC[c.id] ? ` data-srt="${SORTC[c.id]}" title="눌러서 정렬 (한 번 더 누르면 반대로)"` : ''}>${c.t}${SORTC[c.id] && F.sort === SORTC[c.id] && !(c.id === 'ho' || (c.id === 'dn' && ALL)) ? (F.dir === -1 ? ' ▼' : ' ▲') : ''}</th>`;
     vc.forEach((c, n) => { if (c.g) { if (!vc[n - 1] || vc[n - 1].g !== c.g) h1 += `<th class="grp" colspan="${vc.filter(z => z.g === c.g).length}">${c.g}</th>`; h2 += leaf(c, n); } else h1 += leaf(c, n, true); });
     const fr = vc.map(c => { const on = F.cf && F.cf[c.id]; return `<th class="fc c-${c.id}">${DCF[c.id] ? `<button type="button" class="cfs${on ? ' on' : ''}" data-cf="${c.id}" title="골라서 보기">${on ? esc(on.join(', ')) : ''}</button>` : ''}</th>`; }).join('');
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt big${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr>${h2 ? `<tr>${h2}</tr>` : ''}</thead>
-      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물로 올린 호가 없습니다. [전체]에서 호를 누른 뒤 [매물로 올리기]를 눌러 주세요.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
+      <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물로 올린 호가 없습니다. [전체]에서 줄 맨 앞 ○를 누르면 매물이 됩니다.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       ${ro || ALL ? '' : '<div class="addho"><span>＋ 호 추가</span><input id="dj_addHo" class="hjin" placeholder="예) 103-1502 쓰고 Enter" autocomplete="off"></div>'}
       <p class="note">${rows.length}호</p>`;
     stickHead(box);
@@ -874,6 +876,7 @@ window.Danji = (() => {
     box.querySelectorAll('[data-telx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.telOpen = S.telOpen || new Set(); const k = b.dataset.telx; S.telOpen.has(k) ? S.telOpen.delete(k) : S.telOpen.add(k); redrawRow(cx.all ? (S.rows.find(z => z.key === k) || {}).cx || cx : cx, k); });   // 연락처 외 n ▾
     if ($('dj_cfclr')) $('dj_cfclr').onclick = () => { F.cf = null; redo(); };
     if ($('dj_addHo')) $('dj_addHo').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) addHo(cx, e.target.value); };
+    if (!S.kbd) { S.kbd = true; document.addEventListener('keydown', kbdNav); }
     wireLedRows(cx, box, ro);   // 10/28 두 장부 모두: 한 번 누르면 오른쪽 입력창 · 두 번 누르면 표에서 바로 고치기
     box.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
     wireTel(cx, box);
@@ -888,7 +891,7 @@ window.Danji = (() => {
   // 너비는 이 브라우저에 비율(%)로 기억 (단지 화면 / 모든 단지 따로). 경계선 더블클릭 = 처음 너비
   // 칸 너비: 표는 내용만큼 넓어지고(가로 스크롤), 경계선을 끌면 그 칸만 넓히거나 좁힘 (px로 이 브라우저에 기억 · 더블클릭 = 처음대로) — 10/26
   function colWidths(box, ALL) {
-    const KEY = ALL ? 'rm.djpxA2' : 'rm.djpx2', ths = [...box.querySelectorAll('table.xt thead th')].filter(t => !t.classList.contains('grp') && !t.classList.contains('fc'));
+    const KEY = ALL ? 'rm.djpxA3' : 'rm.djpx3', ths = [...box.querySelectorAll('table.xt thead th')].filter(t => !t.classList.contains('grp') && !t.classList.contains('fc'));
     let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { saved = null; }
     const ids = ths.map(t => [...t.classList].find(c => c.startsWith('c-')) || '');
     if (saved && typeof saved === 'object') ths.forEach((th, n) => { const w = saved[ids[n]]; if (w) { th.style.width = w + 'px'; th.style.minWidth = w + 'px'; } });
@@ -919,7 +922,7 @@ window.Danji = (() => {
       if (r2) [...r2.cells].forEach(c => { c.style.top = h1 + 'px'; });
       if (r3) [...r3.cells].forEach(c => { c.style.top = hAll + 'px'; });
       let left = 0;   // 왼쪽 고정 칸 위치는 표에 변수로 (줄을 다시 그려도 그대로)
-      ['cxn', 'dn', 'ho'].forEach(id => { const th = tb.querySelector(`thead th.c-${id}:not(.fc)`); if (!th) return; tb.style.setProperty('--l-' + id, left + 'px'); left += th.offsetWidth; });
+      ['mk0', 'cxn', 'dn', 'ho'].forEach(id => { const th = tb.querySelector(`thead th.c-${id}:not(.fc)`); if (!th) return; tb.style.setProperty('--l-' + id, left + 'px'); left += th.offsetWidth; });
     };
     put();
     if (window.ResizeObserver) { if (S.stRO) S.stRO.disconnect(); S.stRO = new ResizeObserver(() => put()); S.stRO.observe(tb.tHead); }
@@ -1293,14 +1296,52 @@ window.Danji = (() => {
   // 줄(칸)을 한 번 누르면 오른쪽 입력창 · 고칠 수 있는 칸을 두 번 누르면 예전처럼 표에서 바로 입력 · [매물장으로] = 입력창의 '매물' 칸을 열어 줌
   function wireLedRows(cx, root, ro) {
     root.querySelectorAll('td[data-c]').forEach(td => {
+      // 10/29 한 번 누르면 줄 선택만 · 두 번(더블클릭)이나 Enter = 입력창 · 손가락 화면은 한 번에 엶
+      td.onpointerup = e => { td._pt = e.pointerType; };
+      const rowX = () => { const tr = td.closest('tr[data-key]'); return tr && S.rows[+tr.dataset.i]; };
       td.onclick = e => {
         if (td.classList.contains('editing') || e.target.closest('a,button,input,select')) return;
-        const tr = td.closest('tr[data-key]'), x = tr && S.rows[+tr.dataset.i]; if (!x) return;
+        const x = rowX(); if (!x) return;
+        if (td._pt === 'touch') openPanel(x);
+      };
+      td.ondblclick = e => {
+        if (td.classList.contains('editing') || e.target.closest('a,button,input,select')) return;
+        const x = rowX(); if (!x) return; try { getSelection().removeAllRanges(); } catch { /* 무시 */ }
         openPanel(x);
       };
       // 10/28 단순화: 칸 두 번 눌러 바로 고치기는 없앰 — 고치는 길은 오른쪽 입력창 하나
     });
     root.querySelectorAll('[data-mkgo]').forEach(b => b.onclick = e => { e.stopPropagation(); const tr = b.closest('tr[data-key]'), x = tr && S.rows[+tr.dataset.i]; if (x) openPanel(x, true); });
+    root.querySelectorAll('[data-mkd]').forEach(b => { b.ondblclick = e => e.stopPropagation(); b.onclick = e => { e.stopPropagation(); const tr = b.closest('tr[data-key]'), x = tr && S.rows[+tr.dataset.i]; if (x) toggleMk(x); }; });
+  }
+  // 10/29 ● 매물 등록·해제 (매물로 올리기·내리기 버튼 대신) · 리얼맵에 게시 중이면 해제 전에 한 번 물음
+  function toggleMk(x) {
+    if (LOCK(x)) return toast('보기만 되는 단지입니다');
+    const cx = x.cx, s = x.st;
+    if (s.src && !s.done) {
+      const ls = (s.mine || []).find(z => z.status !== 'done'), live = ls && S.host.pubCell && /게시/.test(S.host.pubCell(ls.id) || '');
+      if (live && !confirm(`${UL(x)}를 매물에서 해제할까요?\n리얼맵 지도 광고도 함께 내려갑니다.`)) return;
+      saveRow(cx, x, D => { D.st = { src: '', k: [], hold: false, office: '' }; });
+      toast(live ? '매물에서 해제했습니다 (리얼맵 광고도 내림)' : '매물에서 해제했습니다');
+    } else {
+      saveRow(cx, x, D => { D.st = { src: 'mine', k: [D.live === 'tenant' ? 'sale' : 'jeonse'], hold: false, office: '' }; });
+      toast('매물로 등록했습니다');
+    }
+    if (S.pk && S.pk.key === x.key) setTimeout(() => drawPanel(true), 0);
+  }
+  // 10/29 표 키보드: ↑↓ 줄 옮기기 · Enter 입력창 (칸에 쓰는 중이 아닐 때)
+  function kbdNav(e) {
+    if (e.altKey || e.ctrlKey || e.metaKey || !S.rows || !S.rows.length) return;
+    const box = $('dj_tbl'); if (!box || !box.offsetParent) return;
+    const a = document.activeElement; if (a && (/INPUT|TEXTAREA|SELECT/.test(a.tagName) || a.isContentEditable)) return;
+    if (document.querySelector('.sheet:not([hidden]), .ppop, #djSh:not([hidden])')) return;
+    let i = S.rows.findIndex(z => z.key === S.selKey);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); i = i < 0 ? 0 : Math.max(0, Math.min(S.rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+      S.selKey = S.rows[i].key; box.querySelectorAll('tr.sel').forEach(z => z.classList.remove('sel'));
+      const tr = box.querySelector(`tr[data-i="${i}"]`); if (tr) { tr.classList.add('sel'); tr.scrollIntoView({ block: 'nearest' }); }
+    } else if (e.key === 'Enter' && i >= 0) { e.preventDefault(); openPanel(S.rows[i]); }
+    else if (e.key === 'Escape' && S.pk) { e.preventDefault(); closePanel(); }
   }
   const rowFor = pk => {
     if (!pk) return null;
@@ -1326,6 +1367,9 @@ window.Danji = (() => {
   function closePanel() { S.pk = null; S.pkRec = null; S.pkMk = false; const P = $('dj_rp'); if (P) P.remove(); const W = $('dj_wrap'); if (W) W.classList.remove('rpon'); document.querySelectorAll('#dj_tbl tr.pk').forEach(z => z.classList.remove('pk')); }
   // 입력 중이면(창 안에 커서) 다시 그리지 않음 — force: 고르기 버튼처럼 모양이 바뀌는 경우
   function pkRec(e) { const t = e.target, at = t && [...t.attributes].find(a => /^data-(tn|tm|tl|f)$/.test(a.name)); if (!at || !S.pk || !/INPUT|TEXTAREA/.test(t.tagName)) return; S.pkF = { key: S.pk.key, sel: `[${at.name}="${at.value}"]`, v: t.value, s: t.selectionStart, e: t.selectionEnd, t: Date.now() }; }
+  // 10/29 떠 있는 입력창: 제목줄을 잡고 끌어 옮김 · 자리는 이 브라우저에 기억 (중개장부 모든 종류 같이 씀: window.RpWin)
+  const winPlace = P => window.RpWin && window.RpWin.place(P);
+  const winDrag = P => window.RpWin && window.RpWin.drag(P);
   function drawPanel(force) {
     if (!S.pk) { const P0 = $('dj_rp'); if (P0) P0.remove(); const W0 = $('dj_wrap'); if (W0) W0.classList.remove('rpon'); return; }
     const x = rowFor(S.pk); if (!x) return closePanel();
@@ -1333,8 +1377,7 @@ window.Danji = (() => {
     // 10/29 칸에 쓰고 있는 동안에는 다시 그리지 않음 (Tab으로 다음 칸에 갈 때 커서가 사라지던 것) → 입력창 밖으로 나가면 그때 그림
     if (P && P.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { S.pkDirty = true; if (!P._fo) { P._fo = true; P.addEventListener('focusout', e => { setTimeout(() => { if (S.pkDirty && !(P.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) drawPanel(true); }, 0); }); } return; }
     S.pkDirty = false;
-    if (!P) { P = document.createElement('aside'); P.id = 'dj_rp'; P.className = 'rpanel'; ($('dj_wrap') || document.body).appendChild(P); }
-    $('dj_wrap') && $('dj_wrap').classList.add('rpon');
+    if (!P) { P = document.createElement('aside'); P.id = 'dj_rp'; P.className = 'rpanel rpwin'; ($('dj_wrap') || document.body).appendChild(P); winPlace(P); }   // 10/29 표 위에 떠 있는 창 (표는 넓은 그대로)
     const cx = x.cx, r = x.r || {}, s = x.st, ro = LOCK(x), R0 = S.pkRec, lt = x.lt || {};
     // 10/28 매물 카드로만 있던 호도 같은 입력칸으로 (카드 가격을 보여 주고, 고치면 장부로 옮겨 적음 → 카드도 따라 바뀜)
     const pr = s.fromLs ? { ...Object.fromEntries(Object.entries(s.lsp || {}).filter(([, v]) => v)), ...Object.fromEntries(Object.entries(r.pr || {}).filter(([, v]) => v)) } : r.pr || {};
@@ -1345,48 +1388,47 @@ window.Danji = (() => {
     // 매물 칸: 나와 있음 / 매물 카드(매물장)로만 있음 / 아직 아님(→ [매물장으로])
     const lsLive = (s.mine || []).find(z => z.status !== 'done');
     const row = (t, inner, cls = '') => `<div class="rpr ${cls}"><b>${t}</b><div class="rpv">${inner}</div></div>`;
-    // 10/29 매물 칸은 늘 맨 위에 펼쳐 둠 (매물이 아닌 호는 바로 넣고 [매물로 올리기]) · 금액은 만원 숫자만 + 옆에 '21억 5,000만'
-    if (S.pkDraft && S.pkDraft.key !== x.key) S.pkDraft = null;
-    const draft = !s.src && !s.done && !ro ? (S.pkDraft || (S.pkDraft = { key: x.key, src: 'mine', k: [r.live === 'tenant' ? 'sale' : 'jeonse'], office: '', vals: {} })) : null;
-    const W = (f, val, attr = '') => `<span class="wonw"><input class="rpi rpw" data-f="${f}" data-won value="${val ? esc(String(val)) : ''}" inputmode="numeric" ${attr} ${ro ? 'disabled' : ''}><i class="u">만원</i><i class="wonh">${esc(window.wonH ? window.wonH(val) : '')}</i></span>`;
-    const PV = draft ? draft.vals : pr;
-    const priceRows = ks => `${ks.includes('sale') ? row('매매가', W('ps', PV.sale), 'mk') : ''}${ks.includes('jeonse') ? row('전세가', W('pj', PV.jeonse), 'mk') : ''}${ks.includes('wolse') ? row('보증금', W('pwd', PV.wd), 'mk') + row('월세', W('pwr', PV.wr), 'mk') : ''}`;
+    // 10/29 띄운 입력창(서식형, 시안 4): 두 칸씩 한 줄 · 매물 등록·해제는 표 맨 앞 ● · 거래는 하나만 · 보류·되돌리기·통화 기록 없음 · 옵션은 늘
+    S.pkDraft = null;
+    const isMk = !!s.src && !s.done, dis = ro ? 'disabled' : '', mdis = ro || !isMk ? 'disabled' : '', k0 = isMk ? (s.k || [])[0] || '' : '';
+    const seg1 = (g, list, cur, d) => `<span class="rpseg" data-g="${g}">${list.map(([k, t]) => `<button type="button" data-v="${k}" aria-pressed="${cur === k}" ${d}>${t}</button>`).join('')}</span>`;
+    const W = (f, val, w = 74, d = dis) => `<span class="wonw"><input class="rpi rpw" data-f="${f}" data-won value="${val ? esc(String(val)) : ''}" inputmode="numeric" style="width:${w}px" ${d}><i class="wonh">${esc(window.wonH ? window.wonH(val) : '')}</i></span>`;
+    const F1 = (t, h, c = '') => `<div class="fr f1 ${c}"><b>${t}</b><div>${h}</div></div>`;
+    const F2 = (t1, h1, t2, h2, c = '') => `<div class="fr f2 ${c}"><b>${t1}</b><div>${h1}</div><b>${t2}</b><div>${h2}</div></div>`;
+    const prLb = { sale: '매매가', jeonse: '전세가', wolse: '보증·월세' }[k0] || '가격';
+    const prH = k0 === 'sale' ? W('ps', pr.sale) : k0 === 'jeonse' ? W('pj', pr.jeonse) : k0 === 'wolse' ? `${W('pwd', pr.wd, 62)}<i class="u">/</i><input class="rpi rpw" data-f="pwr" data-won value="${pr.wr || ''}" inputmode="numeric" style="width:40px" ${dis}>` : '<i class="u">● 등록 후</i>';
     const mvq = ['즉시입주', '협의'].includes(r.moveIn) ? r.moveIn : '';
-    const adRows = row('방·욕실', `<div class="rpf2"><i class="u">방</i><input class="rpi rpsm" data-f="rm" value="${r.rm || ''}" inputmode="numeric" maxlength="2" ${ro ? 'disabled' : ''}><i class="u">욕실</i><input class="rpi rpsm" data-f="bt" value="${r.bt || ''}" inputmode="numeric" maxlength="2" ${ro ? 'disabled' : ''}><i class="u" style="margin-left:6px">관리비</i>${W('mg', r.mg, 'style="width:60px"')}</div>`, 'mk')
-      + row('입주', `<div class="rpf2"><span class="rpseg" data-g="mvq">${[['즉시입주', '즉시'], ['협의', '협의']].map(([k, t]) => `<button type="button" data-v="${k}" aria-pressed="${mvq === k}" ${ro ? 'disabled' : ''}>${t}</button>`).join('')}</span><input class="rpi" data-f="mv" value="${mvq ? '' : esc(r.moveIn || '')}" maxlength="20" style="width:120px" ${ro ? 'disabled' : ''}><i class="u">또는 날짜</i></div>`, 'mk');
-    let mkHtml;
-    if (s.done) mkHtml = `<p class="rpn">계약됨 ✓ ${r.deal ? `${KN[r.deal.k]} ${r.deal.k === 'wolse' ? `${wonFull(r.deal.a)}/${r.deal.r}` : wonFull(r.deal.a)} · ${esc(String(r.deal.d).slice(2).replace(/-/g, '.'))}` : ''}</p>`;
-    else if (s.src) mkHtml = row('구분', `<div class="rpf2">${seg('msrc', [['mine', '내 물건'], ['other', '타부동산']], s.src)}${seg('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], s.k)}<label class="rpck"><input type="checkbox" data-hold ${s.hold ? 'checked' : ''} ${ro ? 'disabled' : ''}> 보류</label></div>`, 'mk on')
-        + (s.src === 'other' ? row('받은 곳', v('of', s.office || '', '', 'maxlength="30"'), 'mk on') : '')
-        + priceRows(s.k) + adRows + (ro ? '' : row('', '<button type="button" class="rplnk" data-toled>매물에서 내리기</button>', 'mk on'));   // 10/28 지도 광고는 표 맨 끝 [리얼맵 등록] 하나로
-    else if (draft) mkHtml = row('구분', `<div class="rpf2">${seg('dsrc', [['mine', '내 물건'], ['other', '타부동산']], draft.src)}${seg('dk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], draft.k)}</div>`, 'mk')
-        + (draft.src === 'other' ? row('받은 곳', `<input class="rpi" id="rp_dof" value="${esc(draft.office)}" maxlength="30">`, 'mk') : '')
-        + `<div id="rp_dpr">${priceRows(draft.k)}</div>` + adRows + row('', '<button type="button" class="rpb y sm" data-tomk>매물로 올리기</button>', 'mk');
-    else mkHtml = adRows;
-    const H = R0 && R0.hist ? R0.hist : (r.hist || []), canUndo = R0 && R0.hist && R0.hist[0] && Date.now() - Date.parse(R0.hist[0].t) < 10 * 60e3;
-    // 10/28 입력창 단순화: 설명 문구 없이, 왼쪽 이름표 한 줄씩 · 타입·평형·방향은 접어 둠(같은 라인 모두에) · 옵션은 메모로 (예전 옵션 값이 있으면 그 줄만 보임)
-    const meta = [sp ? sp.v + '평' : '', lt.t, x.dir].filter(Boolean).join(' · ');
+    const H = R0 && R0.hist ? R0.hist : (r.hist || []);
+    const meta = [sp ? sp.v + '평' : '', x.a ? (+x.a).toFixed(2) + '㎡' : ''].filter(Boolean).join(' · ');
+    const tels2 = (r.tels || []).length ? r.tels : [{ l: '소유자', n: '' }];
     // 10/29 저장 응답으로 입력창이 다시 그려져도(매물 카드와 이어진 호 등) 쓰고 있던 칸·글자·커서를 그대로 둠
     const ae = document.activeElement; let keep = null;
     if (P.contains(ae) && /INPUT|TEXTAREA/.test(ae.tagName)) { const at = [...ae.attributes].find(a => /^data-(tn|tm|tl|f)$/.test(a.name)); if (at) keep = { sel: `[${at.name}="${at.value}"]`, v: ae.value, s: ae.selectionStart, e: ae.selectionEnd }; }
-    P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${meta ? `<span class="rptg">${esc(meta)}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
+    P.innerHTML = `<div class="rp-h" title="잡고 끌면 창이 옮겨집니다"><span class="grip">⠿</span><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${meta ? `<span class="rptg">${esc(meta)}</span>` : ''}${isMk ? '<span class="mkb">● 매물</span>' : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">✕</button></div>
       ${ro ? `<p class="rpwarn">${S.L[cx.id] && S.L[cx.id].err ? esc(S.L[cx.id].err) : '요금제 단지 한도를 넘은 단지라 보기만 됩니다'}</p>` : ''}
       <div class="rpbody">
-      <div class="rpsec">매물${s.src || s.done ? '' : '<small>여기 채우면 리얼맵 등록 때 다시 묻지 않습니다 (향은 아래 호 정보)</small>'}</div>
-      ${s.done ? row('매물', mkHtml, 'mk') : mkHtml}
-      <div class="rpsec">호 정보</div>
-      ${row('타입·향', `<div class="rpf2"><i class="u">타입</i>${v('ty', lt.t || '', '', 'maxlength="8" style="width:64px" title="타입 (같은 라인 모두에)"')}<i class="u">평형</i>${v('py', lt.py || '', sp ? String(sp.v) : '', 'inputmode="numeric" maxlength="3" style="width:46px" title="평형 (같은 라인 모두에)"')}<i class="u">향</i><select class="rpi" data-f="dir" style="width:84px" title="방향 (같은 라인 모두에)" ${ro ? 'disabled' : ''}><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select></div>`)}
-      ${row('현상태', seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || ''))}
-      ${row('보증금', `<div class="rpf2">${W('cd', r.cd)}<i class="u" style="margin-left:4px">월세</i>${W('cr', r.cr, 'style="width:60px"')}</div>`)}
-      ${row('만기', v('exp', /^\d{4}-\d{2}-\d{2}$/.test(r.exp || '') ? r.exp : '', '', 'type="date"'))}
-      ${row('연락처', `<div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="구분" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tm="${i}" value="${esc(t.m || '')}" placeholder="이름" maxlength="20" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" data-phone value="${esc(t.n)}" placeholder="번호" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`)}
-      ${row('챙길 것', v('imp', r.imp || '', '', 'maxlength="100" title="앞에 날짜를 쓰면 알림 (예: 11/15 중도금)"'))}
-      ${r.opt ? row('옵션', v('opt', r.opt, '', 'maxlength="200"')) : ''}
-      ${row('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" ${ro ? 'disabled' : ''}>${esc(r.note || '')}</textarea>`)}
-      ${row('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
-      ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && i === 0 && canUndo && !ro ? '<button type="button" class="un" data-rpundo>되돌리기</button>' : ''}${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : ''}
+      <div class="rpsec">매물<small>${isMk ? '' : '표 맨 앞 ○ 를 누르면 매물로 등록됩니다'}</small></div>
+      <div class="fgrp mk${isMk ? '' : ' off'}">
+      ${F1('구분', `${seg1('msrc', [['mine', '내 물건'], ['other', '타부동산']], isMk ? s.src : '', mdis)}${isMk && s.src === 'other' ? ` <input class="rpi" data-f="of" value="${esc(s.office || '')}" maxlength="30" style="width:130px" ${dis}>` : ''}`)}
+      ${F2('거래', seg1('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], k0, mdis), prLb, prH)}
+      ${F2('방·욕실', `<input class="rpi rpsm" data-f="rm" value="${r.rm || ''}" inputmode="numeric" maxlength="2" ${dis}><i class="u">/</i><input class="rpi rpsm" data-f="bt" value="${r.bt || ''}" inputmode="numeric" maxlength="2" ${dis}>`, '관리비', `${W('mg', r.mg, 50)}<i class="u">만원</i>`)}
+      ${F1('입주', `${seg1('mvq', [['즉시입주', '즉시'], ['협의', '협의']], mvq, dis)} <input class="rpi" data-f="mv" value="${mvq ? '' : esc(r.moveIn || '')}" maxlength="20" placeholder="날짜" style="width:110px" ${dis}>`)}
       </div>
-      <div class="rp-f">${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체에서 보기</button>'}<button type="button" class="rpb y" id="rp_close">저장</button></div>`;
+      <div class="rpsec">호 정보</div>
+      <div class="fgrp">
+      ${F2('타입·평형', `${v('ty', lt.t || '', '', 'maxlength="8" style="width:44px" title="타입 (같은 라인 모두에)"')} ${v('py', lt.py || '', sp ? String(sp.v) : '', 'inputmode="numeric" maxlength="3" style="width:34px" title="평형 (같은 라인 모두에)"')}<i class="u">평</i>`, '향', `<select class="rpi" data-f="dir" style="width:72px" title="방향 (같은 라인 모두에)" ${dis}><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select>`)}
+      ${F2('현상태', seg1('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || '', dis), '만기', v('exp', /^\d{4}-\d{2}-\d{2}$/.test(r.exp || '') ? r.exp : '', '', 'type="date" style="width:118px"'))}
+      ${F2('보증금', `${W('cd', r.cd, 70)}<i class="u">만원</i>`, '월세', `${W('cr', r.cr, 46)}<i class="u">만원</i>`)}
+      ${F1('연락처', `<div class="rptels">${tels2.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="구분" maxlength="10" ${dis}><input class="rpi" data-tm="${i}" value="${esc(t.m || '')}" placeholder="이름" maxlength="20" ${dis}><input class="rpi" data-tn="${i}" data-phone value="${esc(t.n)}" placeholder="번호" inputmode="tel" maxlength="20" ${dis}>${ro ? '<span></span>' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">✕</button>`}</div>`).join('')}</div>${ro || tels2.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 연락처 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`, 'tl')}
+      ${F1('옵션', v('opt', r.opt || '', '', 'maxlength="200"'))}
+      ${F1('챙길 것', v('imp', r.imp || '', '', 'maxlength="100" title="앞에 날짜를 쓰면 알림 (예: 11/15 중도금)"'))}
+      ${F1('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" ${dis}>${esc(r.note || '')}</textarea>`)}
+      ${F1('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
+      </div>
+      ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${esc(fmtT(h.t).replace(new RegExp('^' + String(new Date().getFullYear()).slice(2) + '\\.'), ''))}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">✕</button>` : ''}</li>`).join('')}</ul>` : ''}
+      </div>
+      <div class="rp-f"><span class="svd">✓ 자동 저장됨</span><button type="button" class="rpb y" id="rp_close">저장</button></div>`;
+    winDrag(P);
     wirePanel(x, P, ro);
     if (!keep && S.pkF && S.pkF.key === x.key && Date.now() - S.pkF.t < 2500 && (!document.activeElement || document.activeElement === document.body)) keep = S.pkF;   // 표 전체가 다시 그려져 입력창이 새로 생긴 경우
     P.addEventListener('focusin', pkRec); P.addEventListener('input', pkRec);
@@ -1431,15 +1473,14 @@ window.Danji = (() => {
     P.querySelectorAll('[data-tm]').forEach(i => { i.oninput = () => { T[+i.dataset.tm].m = i.value; }; i.onchange = saveT; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } }; });   // 10/29 연락처 이름
     P.querySelectorAll('[data-tn]').forEach(i => { i.oninput = () => { T[+i.dataset.tn].n = i.value; }; i.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } }; });
     P.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { T.splice(+b.dataset.tdel, 1); saveT(); setTimeout(() => drawPanel(true), 0); });
-    if ($('rp_tadd')) $('rp_tadd').onclick = () => { const box = P.querySelector('.rptels'); box.insertAdjacentHTML('beforeend', `<div class="rptel"><input class="rpi lb" list="hj_tl2" data-tl="${T.length}" placeholder="구분" maxlength="10"><input class="rpi" data-tm="${T.length}" placeholder="이름" maxlength="20"><input class="rpi" data-tn="${T.length}" data-phone placeholder="번호" inputmode="tel" maxlength="20"><span></span><span></span></div>`); const row = box.lastElementChild, [l, m, n] = row.querySelectorAll('input'); T.push({ l: '', n: '' }); const i = T.length - 1; l.oninput = () => { T[i].l = l.value; }; m.oninput = () => { T[i].m = m.value; }; m.onchange = saveT; n.oninput = () => { T[i].n = n.value; }; n.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; l.focus(); };
+    if ($('rp_tadd')) $('rp_tadd').onclick = () => { const box = P.querySelector('.rptels'); box.insertAdjacentHTML('beforeend', `<div class="rptel"><input class="rpi lb" list="hj_tl2" data-tl="${T.length}" placeholder="구분" maxlength="10"><input class="rpi" data-tm="${T.length}" placeholder="이름" maxlength="20"><input class="rpi" data-tn="${T.length}" data-phone placeholder="번호" inputmode="tel" maxlength="20"><span></span></div>`); const row = box.lastElementChild, [l, m, n] = row.querySelectorAll('input'); T.push({ l: '', n: '' }); const i = T.length - 1; l.oninput = () => { T[i].l = l.value; }; m.oninput = () => { T[i].m = m.value; }; m.onchange = saveT; n.oninput = () => { T[i].n = n.value; }; n.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; l.focus(); };
     P.querySelectorAll('[data-rpcall]').forEach(a => a.onclick = () => { const t = T[+a.dataset.rpcall]; actRow(cx, x, 'call', { label: (t && t.l) || '연락처' }); });
     // 매물 (나와 있는 호)
     const NONE = { src: '', k: [], hold: false, office: '' }, ORD = ['sale', 'jeonse', 'wolse'];
     P.querySelectorAll('[data-g="msrc"] [data-v]').forEach(b => b.onclick = () => { save(D => { D.st = { ...D.st, src: b.dataset.v, office: b.dataset.v === 'other' ? D.st.office || '' : '' }; }); setTimeout(() => drawPanel(true), 0); });
-    P.querySelectorAll('[data-g="mk"] [data-v]').forEach(b => b.onclick = () => {
-      const k = b.dataset.v, cur = x.st.k || [], kk = cur.includes(k) ? cur.filter(z => z !== k) : [...cur, k].sort((a, z) => ORD.indexOf(a) - ORD.indexOf(z));
-      if (!kk.length) return toast('매매·전세·월세 중 하나는 있어야 합니다. 매물에서 빼려면 [매물에서 내리기]를 눌러 주세요', 4000);
-      save(D => { D.st = { ...D.st, k: kk }; }); setTimeout(() => drawPanel(true), 0);
+    P.querySelectorAll('[data-g="mk"] [data-v]').forEach(b => b.onclick = () => {   // 10/29 거래는 하나만
+      const k = b.dataset.v; if ((x.st.k || [])[0] === k && (x.st.k || []).length === 1) return;
+      save(D => { D.st = { ...D.st, k: [k] }; }); setTimeout(() => drawPanel(true), 0);
     });
     const hold = P.querySelector('[data-hold]'); if (hold) hold.onchange = () => save(D => { D.st = { ...D.st, hold: hold.checked }; });
     const toled = P.querySelector('[data-toled]'); if (toled) toled.onclick = () => { if (!confirm(`${UL(x)}를 매물에서 내릴까요?\n호 기록은 그대로 남고, 내린 기록도 남습니다.`)) return; save(D => { D.st = { ...NONE }; }); toast('매물에서 내렸습니다 (호 기록은 그대로)'); setTimeout(() => drawPanel(true), 0); };
