@@ -2770,6 +2770,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
           el.innerHTML = `<i class="lk-${x.kind}">${LKIND[x.kind]}</i><span><b>${esc(lsPrice(x))}</b><small>${esc((x.ptype === '기타' && x.ptypeTx) || x.ptype || '')}</small></span>${e.list.length > 1 ? `<em>${e.list.length}</em>` : ''}`;
           el.onclick = ev => { ev.stopPropagation(); S.lstJump = true; pickPnu(e.pnu); };
           o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 5, clickable: true });
+          { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(5); }   // 10/29 마우스 올리면 맨 위로
           LS.ovs.set(id, o);
         }
         if (!o.getMap()) o.setMap(S.map);
@@ -2842,10 +2843,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       if (!cells.has(c)) { cells.add(c); big.add(e.r); }
     }
     // 10/29 마킹 줄이기: 사무소는 이름 없이 사진 동그라미 + 매물 수(이름은 마우스 올리면) · 매물 말풍선과 겹치면 작은 점
-    const lp = lsPoints(), hitLs = e => { const p = proj.containerPointFromCoords(new K.LatLng(e.bk.lat, e.bk.lng)); return lp.some(q => Math.abs(q.x - p.x) < 72 && Math.abs(q.y - p.y) < 44); };
     const show = new Set();
     for (const e of L) {
-      const mode = !big.has(e.r) || hitLs(e) ? 'dot' : 'circle';
+      const mode = !big.has(e.r) ? 'dot' : 'circle';   // 10/29 겹쳐도 점으로 줄이지 않음 — 매물이 위, 마우스 올리면 맨 위로
       const id = `${e.r}:${mode}:${e.list.length}`; show.add(id);
       let o = OF.ovs.get(id);
       if (!o) {
@@ -2854,7 +2854,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         el.title = `${e.bk.office} · 게시 중 매물 ${n}건`;
         el.innerHTML = mode === 'circle' ? `${ofAv(e.bk, 'av')}<em>${n}</em><span class="tp">${esc(nm)} · 매물 ${n}</span>` : `<span class="tp">${esc(nm)} · 매물 ${n}</span>`;
         el.onclick = ev => { ev.stopPropagation(); ofCard(e.r); };
-        o = new K.CustomOverlay({ position: new K.LatLng(e.bk.lat, e.bk.lng), content: el, yAnchor: mode === 'dot' ? .5 : 1.2, zIndex: mode === 'dot' ? 4 : 7, clickable: true });
+        const z0 = mode === 'dot' ? 3 : 4;   // 매물 말풍선(5) 아래
+        o = new K.CustomOverlay({ position: new K.LatLng(e.bk.lat, e.bk.lng), content: el, yAnchor: mode === 'dot' ? .5 : 1.2, zIndex: z0, clickable: true });
+        { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(z0); }
         OF.ovs.set(id, o);
       }
       if (!o.getMap()) o.setMap(S.map);
