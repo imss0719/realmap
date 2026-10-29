@@ -270,7 +270,7 @@ function pubSummary(uid, x, bk) {
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
-    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '' },
+    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '', ...(bk.lat && bk.lng ? { lat: bk.lat, lng: bk.lng } : {}) },   // 10/29 lat·lng = 지도의 사무소 핀 자리
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
   };
 }
@@ -739,6 +739,24 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, office: o, items }, 60);
     }
 
+    // 10/29 홍보 페이지 '이용자 추이' 그래프: 최근 26주 주간 방문자(중복 제외)를 가장 많은 주 = 1로 나눈 비율만 공개 (실제 숫자는 내보내지 않음) · 6시간 캐시
+    if (action === 'growth') {
+      if (!R_URL || !R_TOKEN) return send(res, 200, { ok: true, w: [] }, 3600);
+      const hit = await redis(['GET', 'rm:growth']).catch(() => null);
+      if (hit) { try { return send(res, 200, JSON.parse(hit), 3600); } catch { /* 다시 셈 */ } }
+      const dayOf = i => new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, '');
+      const W = 26, cmds = [];
+      for (let w = 0; w < W; w++) cmds.push(['PFCOUNT', ...Array.from({ length: 7 }, (_, k) => `rm:st:${dayOf(1 + w * 7 + k)}:uv`)]);   // 어제까지 꽉 찬 7일씩
+      const r = await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) }).then(x => x.json()).catch(() => []);
+      let vals = cmds.map((_, w) => ({ s: dayOf(7 + w * 7), n: Number(r[w] && r[w].result) || 0 })).reverse();
+      while (vals.length && !vals[0].n) vals.shift();
+      const mx = Math.max(1, ...vals.map(v => v.n));
+      const out = { ok: true, w: vals.map(v => ({ s: v.s, v: Math.round(v.n / mx * 1000) / 1000 })) };
+      out.up = vals.length >= 4 && vals[vals.length - 1].n >= vals[0].n * 1.3;   // 실제로 늘었을 때만 화면에 보임
+      await redis(['SET', 'rm:growth', JSON.stringify(out), 'EX', '21600']).catch(() => {});
+      return send(res, 200, out, 3600);
+    }
+
     // 등록번호로 사무소 명칭·소재지 미리 채우기 (가입 화면) — GET ?action=bkfind&regno=
     if (action === 'bkfind') {
       res.setHeader('Cache-Control', 'no-store');
@@ -968,6 +986,23 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, plan: planView(await planOf(uid)) });
     }
 
+    // 10/29 사무소 좌표 저장 (중개장부 화면이 사무소 주소를 지도 좌표로 바꿔 보냄) — POST {lat,lng} · 지도의 중개사무소 핀에 씀
+    if (action === 'bkpos') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = await office(req);
+      if (!s || s.blocked || !R_URL || !R_TOKEN || req.method !== 'POST') return fail(res, 400, 'bad', '저장하지 못했습니다.');
+      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const lat = Math.round(Number(b.lat) * 1e6) / 1e6, lng = Math.round(Number(b.lng) * 1e6) / 1e6;
+      if (!(lat > 33 && lat < 39 && lng > 124 && lng < 132)) return fail(res, 400, 'bad', '좌표가 올바르지 않습니다.');
+      const bk = await loadBk(s.id);
+      if (!bk || !bk.addr) return fail(res, 400, 'bad', '중개사무소 정보가 없습니다.');
+      if (bk.lat === lat && bk.lng === lng) return send(res, 200, { ok: true, bk });
+      bk.lat = lat; bk.lng = lng;
+      await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
+      try { const P = await planOf(s.id); await lsMutate(redis, s.id, ls => syncPub(s.id, ls, bk, P)); } catch { /* 다음 저장 때 */ }
+      return send(res, 200, { ok: true, bk });
+    }
+
     // 중개사무소 정보 (매물 광고에 표시)
     if (action === 'bk') {
       res.setHeader('Cache-Control', 'no-store');
@@ -984,7 +1019,8 @@ export default async function (req, res) {
       if (!bk) return fail(res, 400, 'need', err);
       // 등록번호·대표자가 그대로면 확인 유지(명칭은 등록된 그대로), 바뀌면 국가 자료로 다시 확인
       const prevBk = await loadBk(s.id); let opWarn = '';
-      if (prevBk && prevBk.home) bk.home = prevBk.home;   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
+      if (prevBk && prevBk.home) bk.home = prevBk.home;
+      if (prevBk && prevBk.lat && prevBk.addr === bk.addr) { bk.lat = prevBk.lat; bk.lng = prevBk.lng; }   // 10/29 사무소 좌표는 주소가 그대로일 때만 유지 (바뀌면 화면이 다시 찾아 bkpos로 보냄)   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
       if (body.bk && ['ads', 'book'].includes(body.bk.home)) bk.home = body.bk.home;
       if (!P.op && !(await mobileOk(s.id, bk, prevBk))) return fail(res, 400, 'sms', SMS_NEED);
       if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
