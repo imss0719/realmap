@@ -949,7 +949,7 @@ window.Danji = (() => {
       ...(r.tels && r.tels.length ? { contacts: r.tels.map(t => ({ role: t.l || '소유자', name: t.m || '', phone: t.n })) } : {}) };
     if (!S.host.pubNew) { S.host.openAdd(x.pnu, x.dn, x.ho, pre); return; }
     const dir = x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', mi = r.moveIn ? (/^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.replace(/-/g, '.') : String(r.moveIn)) : '';
-    S.host.pubNew({ pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, ptype: cxType(x.cx), pre });
+    S.host.pubNew({ pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, rooms: r.rm || 0, baths: r.bt || 0, mgmt: r.mg || 0, ptype: cxType(x.cx), pre });
   }
   // 연락처 펼치기 · 번호를 누르면 전화 (통화 기록이 남음)
   function wireTel(cx, root) {
@@ -982,7 +982,7 @@ window.Danji = (() => {
   function queue(key, fn) { S.q = S.q || {}; const p = (S.q[key] || Promise.resolve()).then(fn, fn); S.q[key] = p.catch(() => {}); return p; }
   function putSum(cx, key, rec) {
     const L = S.L[cx.id]; if (!L || !L.units) return;
-    const empty = !rec.hist.length && !rec.st.src && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.imp && !rec.cd && !rec.cr && !rec.mk;
+    const empty = !rec.hist.length && !rec.st.src && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.imp && !rec.cd && !rec.cr && !rec.mk && !rec.rm && !rec.bt && !rec.mg;
     if (empty) delete L.units[key]; else L.units[key] = { ...rec, hist: rec.hist.slice(0, 3), histN: rec.hist.length };
   }
   // mutate는 '값을 정하는' 함수여야 함(두 번 적용돼도 같은 결과) — 화면에 먼저 반영하고 서버에 차례로 저장
@@ -1344,24 +1344,27 @@ window.Danji = (() => {
     const sp = supPy(x), tels = (r.tels || []).length ? r.tels : [{ l: '소유자', n: '' }];
     // 매물 칸: 나와 있음 / 매물 카드(매물장)로만 있음 / 아직 아님(→ [매물장으로])
     const lsLive = (s.mine || []).find(z => z.status !== 'done');
-    const draft = S.pkMk && !s.src ? (S.pkDraft || (S.pkDraft = { key: x.key, src: 'mine', k: [r.live === 'tenant' ? 'sale' : 'jeonse'], office: '' })) : null;
+    const row = (t, inner, cls = '') => `<div class="rpr ${cls}"><b>${t}</b><div class="rpv">${inner}</div></div>`;
+    // 10/29 매물 칸은 늘 맨 위에 펼쳐 둠 (매물이 아닌 호는 바로 넣고 [매물로 올리기]) · 금액은 만원 숫자만 + 옆에 '21억 5,000만'
     if (S.pkDraft && S.pkDraft.key !== x.key) S.pkDraft = null;
-    const mkKinds = draft ? draft.k : s.k || [];
-    const priceIns = ks => `${ks.includes('sale') ? fld('매매가', v('ps', manTxt(pr.sale), '예: 21억 5천')) : ''}${ks.includes('jeonse') ? fld('전세가', v('pj', manTxt(pr.jeonse), '예: 7억')) : ''}${ks.includes('wolse') ? fld('월세 보증금', v('pwd', manTxt(pr.wd), '예: 1억')) + fld('월세', v('pwr', pr.wr || '', '만원', 'inputmode="numeric"')) : ''}`;
+    const draft = !s.src && !s.done && !ro ? (S.pkDraft || (S.pkDraft = { key: x.key, src: 'mine', k: [r.live === 'tenant' ? 'sale' : 'jeonse'], office: '', vals: {} })) : null;
+    const W = (f, val, attr = '') => `<span class="wonw"><input class="rpi rpw" data-f="${f}" data-won value="${val ? esc(String(val)) : ''}" inputmode="numeric" ${attr} ${ro ? 'disabled' : ''}><i class="u">만원</i><i class="wonh">${esc(window.wonH ? window.wonH(val) : '')}</i></span>`;
+    const PV = draft ? draft.vals : pr;
+    const priceRows = ks => `${ks.includes('sale') ? row('매매가', W('ps', PV.sale), 'mk') : ''}${ks.includes('jeonse') ? row('전세가', W('pj', PV.jeonse), 'mk') : ''}${ks.includes('wolse') ? row('보증금', W('pwd', PV.wd), 'mk') + row('월세', W('pwr', PV.wr), 'mk') : ''}`;
+    const mvq = ['즉시입주', '협의'].includes(r.moveIn) ? r.moveIn : '';
+    const adRows = row('방·욕실', `<div class="rpf2"><i class="u">방</i><input class="rpi rpsm" data-f="rm" value="${r.rm || ''}" inputmode="numeric" maxlength="2" ${ro ? 'disabled' : ''}><i class="u">욕실</i><input class="rpi rpsm" data-f="bt" value="${r.bt || ''}" inputmode="numeric" maxlength="2" ${ro ? 'disabled' : ''}><i class="u" style="margin-left:6px">관리비</i>${W('mg', r.mg, 'style="width:60px"')}</div>`, 'mk')
+      + row('입주', `<div class="rpf2"><span class="rpseg" data-g="mvq">${[['즉시입주', '즉시'], ['협의', '협의']].map(([k, t]) => `<button type="button" data-v="${k}" aria-pressed="${mvq === k}" ${ro ? 'disabled' : ''}>${t}</button>`).join('')}</span><input class="rpi" data-f="mv" value="${mvq ? '' : esc(r.moveIn || '')}" maxlength="20" style="width:120px" ${ro ? 'disabled' : ''}><i class="u">또는 날짜</i></div>`, 'mk');
     let mkHtml;
     if (s.done) mkHtml = `<p class="rpn">계약됨 ✓ ${r.deal ? `${KN[r.deal.k]} ${r.deal.k === 'wolse' ? `${wonFull(r.deal.a)}/${r.deal.r}` : wonFull(r.deal.a)} · ${esc(String(r.deal.d).slice(2).replace(/-/g, '.'))}` : ''}</p>`;
-    else if (s.src) mkHtml = `<div class="rprow">${seg('msrc', [['mine', '내 물건'], ['other', '타부동산']], s.src)}${s.src === 'other' ? v('of', s.office || '', '어느 부동산? (예: ○○공인)', 'maxlength="30"') : ''}</div>
-        <div class="rprow">${seg('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], s.k)}<label class="rpck"><input type="checkbox" data-hold ${s.hold ? 'checked' : ''} ${ro ? 'disabled' : ''}> 보류</label></div>
-        <div class="rpg">${priceIns(s.k)}</div>
-        ${ro ? '' : '<div class="rpbtns"><button type="button" class="rpb" data-toled>매물에서 내리기</button></div>'}`;   // 10/28 광고 카드·매물 카드 버튼은 없앰 → 지도 광고는 표 맨 끝 [리얼맵 등록] 하나로
-    else if (draft) mkHtml = `<div class="rprow">${seg('dsrc', [['mine', '내 물건'], ['other', '타부동산']], draft.src)}${draft.src === 'other' ? `<input class="rpi" id="rp_dof" value="${esc(draft.office)}" placeholder="어느 부동산? (예: ○○공인)" maxlength="30">` : ''}</div>
-        <div class="rprow">${seg('dk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], draft.k)}</div>
-        <div class="rpg" id="rp_dpr">${priceIns(draft.k)}</div>
-        <div class="rpbtns"><button type="button" class="rpb y" data-tomk>매물로 올리기</button><button type="button" class="rpb" data-mkx>취소</button></div>`;
-    else mkHtml = `<div class="rpmk0"><span class="mut">아님</span>${ro ? '' : '<button type="button" class="rpb y" data-mkopen>매물로 올리기</button>'}</div>`;
+    else if (s.src) mkHtml = row('구분', `<div class="rpf2">${seg('msrc', [['mine', '내 물건'], ['other', '타부동산']], s.src)}${seg('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], s.k)}<label class="rpck"><input type="checkbox" data-hold ${s.hold ? 'checked' : ''} ${ro ? 'disabled' : ''}> 보류</label></div>`, 'mk on')
+        + (s.src === 'other' ? row('받은 곳', v('of', s.office || '', '', 'maxlength="30"'), 'mk on') : '')
+        + priceRows(s.k) + adRows + (ro ? '' : row('', '<button type="button" class="rplnk" data-toled>매물에서 내리기</button>', 'mk on'));   // 10/28 지도 광고는 표 맨 끝 [리얼맵 등록] 하나로
+    else if (draft) mkHtml = row('구분', `<div class="rpf2">${seg('dsrc', [['mine', '내 물건'], ['other', '타부동산']], draft.src)}${seg('dk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], draft.k)}</div>`, 'mk')
+        + (draft.src === 'other' ? row('받은 곳', `<input class="rpi" id="rp_dof" value="${esc(draft.office)}" maxlength="30">`, 'mk') : '')
+        + `<div id="rp_dpr">${priceRows(draft.k)}</div>` + adRows + row('', '<button type="button" class="rpb y sm" data-tomk>매물로 올리기</button>', 'mk');
+    else mkHtml = adRows;
     const H = R0 && R0.hist ? R0.hist : (r.hist || []), canUndo = R0 && R0.hist && R0.hist[0] && Date.now() - Date.parse(R0.hist[0].t) < 10 * 60e3;
     // 10/28 입력창 단순화: 설명 문구 없이, 왼쪽 이름표 한 줄씩 · 타입·평형·방향은 접어 둠(같은 라인 모두에) · 옵션은 메모로 (예전 옵션 값이 있으면 그 줄만 보임)
-    const row = (t, inner, cls = '') => `<div class="rpr ${cls}"><b>${t}</b><div class="rpv">${inner}</div></div>`;
     const meta = [sp ? sp.v + '평' : '', lt.t, x.dir].filter(Boolean).join(' · ');
     // 10/29 저장 응답으로 입력창이 다시 그려져도(매물 카드와 이어진 호 등) 쓰고 있던 칸·글자·커서를 그대로 둠
     const ae = document.activeElement; let keep = null;
@@ -1369,20 +1372,21 @@ window.Danji = (() => {
     P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${meta ? `<span class="rptg">${esc(meta)}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
       ${ro ? `<p class="rpwarn">${S.L[cx.id] && S.L[cx.id].err ? esc(S.L[cx.id].err) : '요금제 단지 한도를 넘은 단지라 보기만 됩니다'}</p>` : ''}
       <div class="rpbody">
-      ${row('타입 · 향', `<div class="rpg c3 rpty">${v('ty', lt.t || '', '타입 84B', 'maxlength="8" title="타입 (같은 라인 모두에)"')}${v('py', lt.py || '', sp ? sp.v + '평' : '평형', 'inputmode="numeric" maxlength="3" title="평형 (같은 라인 모두에)"')}<select class="rpi" data-f="dir" title="방향 (같은 라인 모두에)" ${ro ? 'disabled' : ''}><option value="">향</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select></div>`)}
+      <div class="rpsec">매물${s.src || s.done ? '' : '<small>여기 채우면 리얼맵 등록 때 다시 묻지 않습니다 (향은 아래 호 정보)</small>'}</div>
+      ${s.done ? row('매물', mkHtml, 'mk') : mkHtml}
+      <div class="rpsec">호 정보</div>
+      ${row('타입·향', `<div class="rpf2"><i class="u">타입</i>${v('ty', lt.t || '', '', 'maxlength="8" style="width:64px" title="타입 (같은 라인 모두에)"')}<i class="u">평형</i>${v('py', lt.py || '', sp ? String(sp.v) : '', 'inputmode="numeric" maxlength="3" style="width:46px" title="평형 (같은 라인 모두에)"')}<i class="u">향</i><select class="rpi" data-f="dir" style="width:84px" title="방향 (같은 라인 모두에)" ${ro ? 'disabled' : ''}><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select></div>`)}
       ${row('현상태', seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || ''))}
-      ${row('보증금', `<div class="rpin2">${v('cd', manTxt(r.cd), '예: 6.5억')}${v('cr', r.cr || '', '월세(만원)', 'inputmode="numeric"')}</div>`)}
+      ${row('보증금', `<div class="rpf2">${W('cd', r.cd)}<i class="u" style="margin-left:4px">월세</i>${W('cr', r.cr, 'style="width:60px"')}</div>`)}
       ${row('만기', v('exp', /^\d{4}-\d{2}-\d{2}$/.test(r.exp || '') ? r.exp : '', '', 'type="date"'))}
-      ${row('연락처', `<div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="소유자" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tm="${i}" value="${esc(t.m || '')}" placeholder="이름" maxlength="20" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" value="${esc(t.n)}" placeholder="010-0000-0000" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`)}
-      ${row('매물', mkHtml, `mk${s.src && !s.done ? ' on' : ''}`)}
-      ${row('챙길 것', v('imp', r.imp || '', '예: 11/15 중도금', 'maxlength="100"'))}
+      ${row('연락처', `<div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="구분" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tm="${i}" value="${esc(t.m || '')}" placeholder="이름" maxlength="20" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" data-phone value="${esc(t.n)}" placeholder="번호" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`)}
+      ${row('챙길 것', v('imp', r.imp || '', '', 'maxlength="100" title="앞에 날짜를 쓰면 알림 (예: 11/15 중도금)"'))}
       ${r.opt ? row('옵션', v('opt', r.opt, '', 'maxlength="200"')) : ''}
-      ${row('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" placeholder="옵션·수리·근저당 등" ${ro ? 'disabled' : ''}>${esc(r.note || '')}</textarea>`)}
-      ${row('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 남기기 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
+      ${row('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" ${ro ? 'disabled' : ''}>${esc(r.note || '')}</textarea>`)}
+      ${row('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
       ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && i === 0 && canUndo && !ro ? '<button type="button" class="un" data-rpundo>되돌리기</button>' : ''}${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : ''}
       </div>
       <div class="rp-f">${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체에서 보기</button>'}<button type="button" class="rpb y" id="rp_close">저장</button></div>`;
-    if (!LED()) { const mk = P.querySelector('.rpr.mk'), first = P.querySelector('.rpbody .rpr'); if (mk && first && mk !== first) first.parentNode.insertBefore(mk, first); }   // 매물장에서는 '매물' 칸이 맨 위
     wirePanel(x, P, ro);
     if (!keep && S.pkF && S.pkF.key === x.key && Date.now() - S.pkF.t < 2500 && (!document.activeElement || document.activeElement === document.body)) keep = S.pkF;   // 표 전체가 다시 그려져 입력창이 새로 생긴 경우
     P.addEventListener('focusin', pkRec); P.addEventListener('input', pkRec);
@@ -1404,9 +1408,11 @@ window.Danji = (() => {
       const go = () => {
         const val = el.value; if (val === el.dataset.last) return; el.dataset.last = val;
         if (f === 'ty' || f === 'py' || f === 'dir') return ltSave(cx, x, f, val, S.pkOne);
-        if (f === 'cd' || f === 'cr') { const n = f === 'cr' ? +(String(val).replace(/\D/g, '') || 0) : parseMan(val); if (Number.isNaN(n)) return toast('숫자로 적어 주세요 (예: 6.5억)'); return save(D => { D[f] = n || 0; if (n && !D.live) D.live = 'tenant'; }); }
+        if (f === 'cd' || f === 'cr') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; if (n && !D.live) D.live = 'tenant'; }); }
+        if (f === 'rm' || f === 'bt' || f === 'mg') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; }); }   // 10/29 방·욕실·관리비
+        if (f === 'mv') return save(D => { D.moveIn = val.trim(); });
         if (f === 'exp') return save(D => { D.exp = val; });
-        if (f === 'ps' || f === 'pj' || f === 'pwd' || f === 'pwr') { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[f], n = f === 'pwr' ? +(String(val).replace(/\D/g, '') || 0) : parseMan(val); if (Number.isNaN(n)) return toast('가격을 숫자로 적어 주세요 (예: 8억 5천)'); if (S.pkDraft) return; return save(D => { D.pr = { ...D.pr, [k]: n || 0 }; }); }
+        if (f === 'ps' || f === 'pj' || f === 'pwd' || f === 'pwr') { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[f], n = +(String(val).replace(/\D/g, '') || 0); if (S.pkDraft) { S.pkDraft.vals[k] = n || 0; return; } return save(D => { D.pr = { ...D.pr, [k]: n || 0 }; }); }
         if (f === 'of') return save(D => { if (D.st.src) D.st = { ...D.st, office: val.trim() }; });
         if (f === 'imp' || f === 'opt' || f === 'note') return save(D => { D[f] = val.trim(); });
       };
@@ -1414,6 +1420,8 @@ window.Danji = (() => {
       el.onchange = go;
       if (el.tagName === 'INPUT') el.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); go(); el.blur(); } };
     });
+    if (S.pkDraft) P.querySelectorAll('#rp_dpr [data-f]').forEach(i => i.addEventListener('input', () => { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[i.dataset.f]; S.pkDraft.vals[k] = +(i.value.replace(/\D/g, '') || 0); }));
+    P.querySelectorAll('[data-g="mvq"] [data-v]').forEach(b => b.onclick = () => { const v0 = b.dataset.v, nv = (r.moveIn || '') === v0 ? '' : v0; save(D => { D.moveIn = nv; }); setTimeout(() => drawPanel(true), 0); });   // 10/29 입주 즉시·협의
     // 거주
     P.querySelectorAll('[data-g="live"] [data-v]').forEach(b => b.onclick = () => { if ((r.live || '') === b.dataset.v) return; save(D => { D.live = b.dataset.v; }); setTimeout(() => drawPanel(true), 0); });   // 이미 고른 것을 다시 눌러도 그대로
     // 연락처: 고치면 바로 저장
@@ -1423,7 +1431,7 @@ window.Danji = (() => {
     P.querySelectorAll('[data-tm]').forEach(i => { i.oninput = () => { T[+i.dataset.tm].m = i.value; }; i.onchange = saveT; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } }; });   // 10/29 연락처 이름
     P.querySelectorAll('[data-tn]').forEach(i => { i.oninput = () => { T[+i.dataset.tn].n = i.value; }; i.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } }; });
     P.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { T.splice(+b.dataset.tdel, 1); saveT(); setTimeout(() => drawPanel(true), 0); });
-    if ($('rp_tadd')) $('rp_tadd').onclick = () => { const box = P.querySelector('.rptels'); box.insertAdjacentHTML('beforeend', `<div class="rptel"><input class="rpi lb" list="hj_tl2" data-tl="${T.length}" placeholder="세입자" maxlength="10"><input class="rpi" data-tm="${T.length}" placeholder="이름" maxlength="20"><input class="rpi" data-tn="${T.length}" placeholder="010-0000-0000" inputmode="tel" maxlength="20"><span></span><span></span></div>`); const row = box.lastElementChild, [l, m, n] = row.querySelectorAll('input'); T.push({ l: '', n: '' }); const i = T.length - 1; l.oninput = () => { T[i].l = l.value; }; m.oninput = () => { T[i].m = m.value; }; m.onchange = saveT; n.oninput = () => { T[i].n = n.value; }; n.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; l.focus(); };
+    if ($('rp_tadd')) $('rp_tadd').onclick = () => { const box = P.querySelector('.rptels'); box.insertAdjacentHTML('beforeend', `<div class="rptel"><input class="rpi lb" list="hj_tl2" data-tl="${T.length}" placeholder="구분" maxlength="10"><input class="rpi" data-tm="${T.length}" placeholder="이름" maxlength="20"><input class="rpi" data-tn="${T.length}" data-phone placeholder="번호" inputmode="tel" maxlength="20"><span></span><span></span></div>`); const row = box.lastElementChild, [l, m, n] = row.querySelectorAll('input'); T.push({ l: '', n: '' }); const i = T.length - 1; l.oninput = () => { T[i].l = l.value; }; m.oninput = () => { T[i].m = m.value; }; m.onchange = saveT; n.oninput = () => { T[i].n = n.value; }; n.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; l.focus(); };
     P.querySelectorAll('[data-rpcall]').forEach(a => a.onclick = () => { const t = T[+a.dataset.rpcall]; actRow(cx, x, 'call', { label: (t && t.l) || '연락처' }); });
     // 매물 (나와 있는 호)
     const NONE = { src: '', k: [], hold: false, office: '' }, ORD = ['sale', 'jeonse', 'wolse'];
@@ -1447,7 +1455,8 @@ window.Danji = (() => {
       const tm = P.querySelector('[data-tomk]'); if (tm) tm.onclick = () => {
         if (!dr.k.length) return toast('매매·전세·월세 중 하나를 골라 주세요');
         const vals = {}, M = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' };
-        for (const i of P.querySelectorAll('#rp_dpr [data-f]')) { const f = i.dataset.f, n = f === 'pwr' ? +(String(i.value).replace(/\D/g, '') || 0) : parseMan(i.value); if (Number.isNaN(n)) return toast('가격을 숫자로 적어 주세요 (예: 8억 5천)'); vals[M[f]] = n || 0; }
+        for (const i of P.querySelectorAll('#rp_dpr [data-f]')) vals[M[i.dataset.f]] = +(String(i.value).replace(/\D/g, '') || 0);
+        if (!Object.values(vals).some(Boolean)) return toast('가격을 넣어 주세요 (만원 단위 숫자)');
         const st = { src: dr.src, k: [...dr.k], hold: false, office: dr.src === 'other' ? (dr.office || '').trim() : '' };
         save(D => { D.st = st; D.pr = { ...D.pr, ...vals }; });
         S.pkMk = false; S.pkDraft = null; toast(`${UL(x)}를 매물로 올렸습니다`); setTimeout(() => drawPanel(true), 0);
@@ -1918,7 +1927,7 @@ window.Danji = (() => {
   // ---------- 호실 장부 공용 도구 ----------
   const DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
   const TLB = ['소유자', '배우자', '세입자', '가족', '관리인', '기타'];
-  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, hist: [] });
+  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, hist: [] });
   // '8억 5천' · '8억5000' · '8.5억' · '85000' · '5천' → 만원
   function parseMan(v) {
     const s = String(v || '').replace(/[,\s원]/g, '').replace(/만$/, '');
@@ -1933,7 +1942,7 @@ window.Danji = (() => {
   const fmtT = iso => { const d = new Date(Date.parse(iso) + 9 * 3600e3), p = n => String(n).padStart(2, '0'); return `${String(d.getUTCFullYear()).slice(2)}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
   const todayK = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const hjPost = body => api('/api/auth?action=hj', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, pr: r.pr, ar: r.ar || 0, live: r.live, exp: r.exp, moveIn: r.moveIn, opt: r.opt, tels: r.tels, note: r.note, imp: r.imp || '', cd: r.cd || 0, cr: r.cr || 0, mk: r.mk || '' }));
+  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, pr: r.pr, ar: r.ar || 0, live: r.live, exp: r.exp, moveIn: r.moveIn, rm: r.rm || 0, bt: r.bt || 0, mg: r.mg || 0, opt: r.opt, tels: r.tels, note: r.note, imp: r.imp || '', cd: r.cd || 0, cr: r.cr || 0, mk: r.mk || '' }));
 
   async function saveMemo(cx, key, text) {
     try {

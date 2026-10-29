@@ -56,13 +56,37 @@ window.Sett = (() => {
       '', isStaff() ? '<small>고치기는 대표만</small>' : B('stBk', '고치기 · 사진 · 휴대폰 인증', 'y'))}
       ${H.canPub() ? pn('리얼맵 지도 광고 표시', '공인중개사법 표시·광고 항목',
         rw('광고에 나가는 글', `<b>${esc(b.office || '')}</b> · 대표 ${esc(b.ceo || '')} · 등록번호 ${esc(b.regno || '')}<br>${esc(b.addr || '')}${b.tel ? ` · ☎ ${esc(b.tel)}` : ''}`) + rw('지금 게시 중', `${live}건`) + rw('고치기', '<small>왼쪽 [고치기]에서 바꾸면 광고에도 바로 반영됩니다</small>')) : ''}
-      ${b.verified ? pn('중개사 소개 페이지', '명함·블로그·카톡에 붙이는 링크 (10/28)',
+      ${b.verified ? pn('중개사 소개 페이지', '명함·블로그·카톡에 붙이는 링크',
         rw('주소', `<a href="${esc(ofUrl(b))}" target="_blank" rel="noopener">${esc(ofUrl(b).replace(/^https?:\/\//, ''))}</a>`, B('stOfCp', '링크 복사', 'n')) +
         rw('한 줄 소개', v(b.intro)) + rw('전문 분야', (b.spec || []).length ? esc(b.spec.join(' · ')) : v('')) + rw('활동 동네', v(b.area)),
-        '', isStaff() ? '' : B('stOfEd', '소개 고치기', 'y')) : ''}</div>`;
+        '', isStaff() ? '' : B('stOfEd', '소개 고치기', 'y')) : ''}
+      ${NRULE && NRULE !== 'loading' ? noRule() : ''}</div>`;
     if ($('stBk')) $('stBk').onclick = () => H.openBk();
     if ($('stOfEd')) $('stOfEd').onclick = () => H.openBk();
+    if (NRULE == null) { NRULE = 'loading'; H.api('/api/auth?action=norule').then(j => { NRULE = j.rule || {}; }).catch(() => { NRULE = {}; }).finally(() => { if (sec === 'office') draw(); }); }
+    wireNoRule();
     if ($('stOfCp')) $('stOfCp').onclick = async () => { try { await navigator.clipboard.writeText(ofUrl(b)); H.toast('소개 페이지 링크를 복사했습니다'); } catch { prompt('이 주소를 복사해 주세요', ofUrl(b)); } };
+  }
+
+  // 10/29 매물번호 규칙 (새로 등록하는 매물부터 · 이미 붙은 번호는 그대로)
+  let NRULE = null, NRD = null;
+  const NF = [['ym', '년월-순번'], ['seq', '순번만'], ['kind', '종류-순번']];
+  function noEx(r) { const d = new Date(Date.now() + 9 * 3600e3), ym = String(d.getUTCFullYear()).slice(2) + String(d.getUTCMonth() + 1).padStart(2, '0'); const p = r.p ? r.p + '-' : ''; return r.f === 'seq' ? p + '0013' : r.f === 'kind' ? `${p}아파트-007 · ${p}상가-012` : `${p}${ym}-013`; }
+  function noRule() {
+    const r = NRD || { p: NRULE.p || '', f: NRULE.f || 'ym' }, ro = isStaff();
+    return pn('매물번호 규칙', '새로 등록하는 매물부터 · 이미 붙은 번호는 그대로',
+      rw('앞 글자', `<input class="si" id="stNoP" value="${esc(r.p)}" maxlength="6" placeholder="선택 · 예: RW" style="width:140px" ${ro ? 'disabled' : ''}>`) +
+      rw('방식', `<span class="sseg">${NF.map(([k, t]) => `<button type="button" data-nf="${k}" aria-pressed="${r.f === k}" ${ro ? 'disabled' : ''}>${t}</button>`).join('')}</span>`) +
+      rw('예시', `<b id="stNoEx">${esc(noEx(r))}</b>`), '', ro ? '<small>바꾸기는 대표만</small>' : B('stNoSave', '저장', 'y'));
+  }
+  function wireNoRule() {
+    if (!$('stNoP')) return;
+    const cur = () => NRD || (NRD = { p: NRULE.p || '', f: NRULE.f || 'ym' });
+    $('stNoP').oninput = e => { cur().p = e.target.value.replace(/[^0-9A-Za-z가-힣]/g, ''); $('stNoEx').textContent = noEx(cur()); };
+    document.querySelectorAll('[data-nf]').forEach(b => b.onclick = () => { cur().f = b.dataset.nf; document.querySelectorAll('[data-nf]').forEach(z => z.setAttribute('aria-pressed', z === b)); $('stNoEx').textContent = noEx(cur()); });
+    if ($('stNoSave')) $('stNoSave').onclick = async () => {
+      try { const j = await H.api('/api/auth?action=norule', H.post(cur())); NRULE = j.rule; NRD = null; H.toast('매물번호 규칙을 저장했습니다. 새로 등록하는 매물부터 적용됩니다', 3500); draw(); } catch (e) { H.toast(e.message, 4000); }
+    };
   }
 
   // ---------- 엑셀 ----------

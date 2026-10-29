@@ -189,6 +189,15 @@
     if (/^delete/.test(e.inputType || '') || !/^[\d\s-]*$/.test(el.value) || el.selectionStart !== el.value.length) return;   // 숫자 아닌 글자가 있거나 중간을 고치는 중이면 그대로
     const f = telFmt(el.value); if (f !== el.value) el.value = f;
   }, true);   // 먼저 고쳐 두면 칸마다 붙은 저장 처리는 고친 값을 씀
+  // 10/29 금액 칸 공통: 만원 단위 숫자만 (data-won · 'neg'면 앞에 − 허용) → 칸 옆 .wonh 에 '21억 5,000만'처럼 읽어 줌
+  window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n = Number(t); if (!t || !Number.isFinite(n) || !n) return ''; const a = Math.abs(n), e = Math.floor(a / 10000), m = a % 10000; return (n < 0 ? '−' : '') + (e ? `${e}억` : '') + (m ? `${e ? ' ' : ''}${m.toLocaleString()}만` : ''); };
+  document.addEventListener('input', e => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-won')) return;
+    let v = el.value.replace(el.dataset.won === 'neg' ? /[^\d-]/g : /\D/g, ''); if (el.dataset.won === 'neg') v = v.replace(/(?!^)-/g, '');
+    if (v !== el.value) el.value = v;
+    const w = el.closest('.wonw'), h = w && w.querySelector('.wonh'); if (h) h.textContent = window.wonH(v);
+  }, true);
   // ---------- 전체 검색 (위 막대) — 모든 종류 매물에서 찾고, 누르면 그 탭의 그 줄로 ----------
   function gsWire() {
     const q = $('gsQ'), box = $('gsRes'); if (!q) return;
@@ -772,7 +781,7 @@
       ${F.adding || !n ? searchBox(F) : '<button type="button" class="btn sub" id="addPlace" style="width:100%;margin-top:10px">＋ 주소 추가 <small style="font-weight:500;color:var(--muted)">(상가 여러 칸 · 토지 여러 필지)</small></button>'}`;
     const MF = moneyOf(it);
     const rentRows = it.rents.map((r, i) => `<div class="rrow">${r.fl || r.use || r.area || r.exp ? `<small class="rfl">${esc([r.fl, r.use, r.area ? r.area + '㎡' : '', r.exp ? '만기 ' + r.exp : ''].filter(Boolean).join(' · '))}</small>` : ''}
-        <input class="in" id="r${i}_label" value="${esc(r.label || '')}" maxlength="30" placeholder="1층 / 101호" aria-label="구분">
+        <input class="in" id="r${i}_label" value="${esc(r.label || '')}" maxlength="30" placeholder="" aria-label="구분">
         <div class="unit"><input class="in" id="r${i}_deposit" inputmode="numeric" value="${r.deposit || ''}" placeholder="보증금" aria-label="보증금"><span>만</span></div>
         <div class="unit"><input class="in" id="r${i}_rent" inputmode="numeric" value="${r.rent || ''}" placeholder="월세" aria-label="월세"><span>만</span></div>
         <button type="button" class="xbtn" data-rdel="${i}" aria-label="이 줄 빼기">×</button>
@@ -794,16 +803,16 @@
         <div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn sub" id="addRent" style="flex:1">＋ 세부 임대료 추가</button>${it.rents.length ? '<button type="button" class="btn dark" id="sumRent">합계 반영</button>' : ''}</div>
         ${it.rents.length ? `<div class="meta" style="margin-top:6px">세부 금액은 자동으로 더해지지 않습니다. '합계 반영'을 누르면 합계를 보여 드리고, 확인하시면 위 ${it.kind === 'sale' ? '기보증금·기월세' : '보증금·월세'}에 넣습니다.</div>` : ''}</div>` : ''}
       <div class="fld"><span class="lb">매물 유형</span><div class="seg" id="fType">${PTYPES.map(v => `<button type="button" data-v="${v}" aria-pressed="${it.ptype === v}">${v}</button>`).join('')}</div>
-        ${it.ptype === '기타' ? `<input class="in" id="f_ptypeTx" value="${esc(it.ptypeTx || '')}" maxlength="20" placeholder="예) 주유소, 종교시설, 주차장" style="margin-top:8px">` : ''}
+        ${it.ptype === '기타' ? `<input class="in" id="f_ptypeTx" value="${esc(it.ptypeTx || '')}" maxlength="20" placeholder="" style="margin-top:8px">` : ''}
         ${it.ptype === '재개발' || it.ptype === '재건축' ? `<div class="sl" style="margin-top:8px">물건 형태 <small>지금 어떤 물건인지</small></div><div class="seg" id="fForm">${FORMS.map(v => `<button type="button" data-v="${v}" aria-pressed="${(it.ad || {}).form === v}">${v}</button>`).join('')}</div>` : ''}</div>
-      <div class="two"><div class="fld"><label for="f_no">매물번호<small>비우면 자동</small></label><input class="in" id="f_no" value="${esc(it.no || '')}" maxlength="20" placeholder="${F.edit ? '' : '자동 (예: 2610-001)'}"></div>
+      <div class="two"><div class="fld"><label for="f_no">매물번호<small>비우면 자동</small></label><input class="in" id="f_no" value="${esc(it.no || '')}" maxlength="20" placeholder="${F.edit ? '' : '자동'}"></div>
         <div class="fld"><label for="f_bname">매물 이름<small>선택</small></label><input class="in" id="f_bname" value="${esc(it.bname || '')}" maxlength="40"></div></div>
       ${adBlock(F)}
       <div class="fld"><span class="lb">연락처<small>소유자·임차인·관리인 등 여러 명 가능</small></span>
         ${it.contacts.map((c, i) => `<div class="crow">
           <select class="in" id="c${i}_role" aria-label="관계">${ROLES.map(r => `<option ${c.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
           <input class="in" id="c${i}_name" value="${esc(c.name || '')}" maxlength="20" placeholder="이름" aria-label="이름">
-          <input class="in" id="c${i}_phone" data-phone type="tel" inputmode="tel" value="${esc(c.phone || '')}" maxlength="20" placeholder="010-0000-0000" aria-label="연락처">
+          <input class="in" id="c${i}_phone" data-phone type="tel" inputmode="tel" value="${esc(c.phone || '')}" maxlength="20" placeholder="번호" aria-label="연락처">
           ${it.contacts.length > 1 ? `<button type="button" class="xbtn" data-cdel="${i}" aria-label="이 연락처 빼기">×</button>` : '<span></span>'}</div>`).join('')}
         <button type="button" class="btn sub" id="addContact" style="width:100%;margin-top:8px">＋ 연락처 추가</button></div>
       <div class="fld"><label for="f_memo">메모 기록<small>입주 가능일, 비밀번호, 통화 내용 등 · 쓸 때마다 날짜·시간이 붙어 쌓입니다</small></label>
@@ -961,29 +970,29 @@
       : miss.length ? `<div class="meta">아직 빈 항목: ${esc(miss.join(', '))}</div>` : `<div class="meta" style="color:#1F7A4D;font-weight:700">필수 항목을 모두 채웠습니다</div>`;
     let body;
     if (land) {
-      body = `<div class="two" style="margin-top:8px">${inp('use', '지목', '대 / 전 / 임야', 'maxlength="20"')}${inp('zone', '용도지역', '제2종일반주거지역', 'maxlength="40"', ' <small>선택</small>')}</div>`;
+      body = `<div class="two" style="margin-top:8px">${inp('use', '지목', '', 'maxlength="20"')}${inp('zone', '용도지역', '', 'maxlength="40"', ' <small>선택</small>')}</div>`;
     } else {
-      body = `<div class="two" style="margin-top:8px">${inp('use', '건축물 용도', '공동주택(아파트) / 제2종근린생활시설', 'maxlength="40"', pre ? ' <small>선택</small>' : '')}${inp('appr', '사용승인일', '2014.09.30', 'maxlength="10"', pre ? ' <small>입주 전이면 비움</small>' : '')}</div>
+      body = `<div class="two" style="margin-top:8px">${inp('use', '건축물 용도', '', 'maxlength="40"', pre ? ' <small>선택</small>' : '')}${inp('appr', '사용승인일', '연.월.일', 'maxlength="10"', pre ? ' <small>입주 전이면 비움</small>' : '')}</div>
       <label class="ck2 adck"><input type="checkbox" id="a_viol" ${a.viol ? 'checked' : ''}>위반건축물${au('viol')} <small class="meta">(건축물대장에 표시된 경우 반드시 체크)</small></label>
-      <div class="two" style="margin-top:8px">${inp('fl', '해당 층', isWhole(it) ? '전체' : '12 (지하는 B1)', 'maxlength="8"')}${inp('tfl', '총 층수', '25', 'inputmode="numeric" maxlength="3"')}</div>
+      <div class="two" style="margin-top:8px">${inp('fl', '해당 층', isWhole(it) ? '전체' : '지하는 B1', 'maxlength="8"')}${inp('tfl', '총 층수', '', 'inputmode="numeric" maxlength="3"')}</div>
       ${res ? `<div class="seg" style="margin-top:8px"><button type="button" data-flx="exact" aria-pressed="${a.flx !== 'lmh'}">층 그대로 공개</button><button type="button" data-flx="lmh" aria-pressed="${a.flx === 'lmh'}">저·중·고층으로 공개</button></div>` : ''}
       <div class="two" style="margin-top:8px"><div><label class="sl" for="a_dir">방향 <small>${res ? '주실(거실) 기준' : '주된 출입구 기준'}</small></label><select class="in" id="a_dir"><option value="">선택</option>${DIRS.map(d => `<option ${a.dir === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
-        ${inp('movein', pre ? '입주 예정일' : '입주 가능일', '즉시입주 / 2026.12 중순', 'maxlength="20" list="mvList"')}</div>
+        ${inp('movein', pre ? '입주 예정일' : '입주 가능일', '', 'maxlength="20" list="mvList"')}</div>
       <datalist id="mvList"><option value="즉시입주"><option value="협의"><option value="${new Date().getFullYear()}.${new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2} 초순"><option value="${new Date().getFullYear()}.${new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2} 하순"></datalist>
-      ${res ? `<div class="two" style="margin-top:8px">${inp('rooms', '방 수', '3', 'inputmode="numeric" maxlength="2"')}${inp('baths', '욕실 수', '2', 'inputmode="numeric" maxlength="2"')}</div>` : ''}
-      ${pre ? '' : `<div style="margin-top:8px">${inp('park', '주차 대수', '총 120대 (세대당 1.2대)', 'maxlength="30"', ' <small>총 대수 또는 세대당</small>')}</div>`}
+      ${res ? `<div class="two" style="margin-top:8px">${inp('rooms', '방 수', '', 'inputmode="numeric" maxlength="2"')}${inp('baths', '욕실 수', '', 'inputmode="numeric" maxlength="2"')}</div>` : ''}
+      ${pre ? '' : `<div style="margin-top:8px">${inp('park', '주차 대수', '', 'maxlength="30"', ' <small>총 대수 또는 세대당</small>')}</div>`}
       ${res ? `<div class="mgbox"><div class="sl">관리비 <small>월 금액은 위 '관리비' 칸에 · ${it.mgmt ? `월 ${it.mgmt}만원` : '미입력'}</small></div>
         <div class="seg" style="margin-top:6px"><button type="button" data-mgt="avg" aria-pressed="${a.mgmtT !== 'fix'}">실비·월평균</button><button type="button" data-mgt="fix" aria-pressed="${a.mgmtT === 'fix'}">정액 (매달 같은 금액)</button></div>
         ${a.mgmtT === 'fix' ? `<div class="meta" style="margin-top:6px">정액 월 10만원 이상이면 포함 항목을 표시해야 합니다</div><div class="mgi">${MGI.map(([k, t]) => `<label class="ck2"><input type="checkbox" data-mgi="${k}" ${(a.mgmtInc || []).includes(k) ? 'checked' : ''}>${t}</label>`).join('')}</div>
-          ${inp('mgmtTx', '항목별 금액', '공용 7만 · 수도 1만 · 인터넷 2만', 'maxlength="60"', ' <small>선택 · 의뢰인이 안 알려주면 생략 가능</small>')}` : ''}
+          ${inp('mgmtTx', '항목별 금액', '', 'maxlength="60"', ' <small>선택 · 의뢰인이 안 알려주면 생략 가능</small>')}` : ''}
         <label class="ck2 adck"><input type="checkbox" id="a_nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>` : ''}
-      ${shop ? `<div class="two" style="margin-top:8px">${inp('biz', pt === '상가' ? '현재 업종' : '현재 용도', pt === '상가' ? '카페 / 공실' : '사무실 / 공실', 'maxlength="30"', ' <small>선택</small>')}<div><label class="sl" for="a_wc">화장실 <small>선택</small></label><select class="in" id="a_wc"><option value="">선택</option>${WCS.map(w => `<option ${a.wc === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div></div>` : ''}
-      ${fac ? `<div style="margin-top:8px">${inp('facx', '공장·창고 정보', '전력 50kW · 호이스트 2.8t · 층고 7m · 대형차 진입', 'maxlength="80"', ' <small>선택</small>')}</div>` : ''}`;
+      ${shop ? `<div class="two" style="margin-top:8px">${inp('biz', pt === '상가' ? '현재 업종' : '현재 용도', '업종 또는 공실', 'maxlength="30"', ' <small>선택</small>')}<div><label class="sl" for="a_wc">화장실 <small>선택</small></label><select class="in" id="a_wc"><option value="">선택</option>${WCS.map(w => `<option ${a.wc === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div></div>` : ''}
+      ${fac ? `<div style="margin-top:8px">${inp('facx', '공장·창고 정보', '', 'maxlength="80"', ' <small>선택</small>')}</div>` : ''}`;
     }
     return `<div class="fld adsec${F.missing ? ' need' : ''}" id="adSec"><span class="lb">리얼맵 광고 정보<small>지도에 올릴 때 필요 · 매물장에만 둘 거면 비워도 됩니다</small></span>
       ${head}${body}
       ${info.length ? `<div class="meta" style="margin-top:8px">자동으로 함께 표시: ${esc(info.join(' · '))}</div>` : ''}
-      <div style="margin-top:8px"><label class="sl" for="a_desc">광고 소개글 <small>지도에 공개 · 선택</small></label><textarea class="in" id="a_desc" rows="2" maxlength="300" placeholder="예) 남향 로열층, 올수리, 역 도보 5분">${esc(a.desc || '')}</textarea></div>
+      <div style="margin-top:8px"><label class="sl" for="a_desc">광고 소개글 <small>지도에 공개 · 선택</small></label><textarea class="in" id="a_desc" rows="2" maxlength="300" placeholder="">${esc(a.desc || '')}</textarea></div>
       <div class="meta" style="margin-top:6px">호수·소유자 연락처·메모는 지도에 공개되지 않습니다. '자동' 표시는 건축물대장·토지대장에서 가져온 값입니다.</div></div>`;
   }
   function pubBtn(x) {
@@ -1151,16 +1160,16 @@
     const inp = (key, v, ph, ex = '') => `<input class="pin2" data-pk="${key}" value="${esc(v ?? '')}" placeholder="${ph}" ${ex}>`;
     switch (k) {
       case 'dir': return chips('dir', DIRS, a.dir);
-      case 'movein': return `${chips('movein', ['즉시입주', '협의'], a.movein)}${inp('movein', ['즉시입주', '협의'].includes(a.movein) ? '' : a.movein, '또는 날짜 (예: 2026.12 초순)', 'maxlength="20"')}`;
-      case 'rb': return `<div class="prow">방 ${inp('rooms', a.rooms, '예 3', 'inputmode="numeric" maxlength="2" style="width:70px"')} 욕실 ${inp('baths', a.baths, '예 2', 'inputmode="numeric" maxlength="2" style="width:70px"')}</div>`;
-      case 'mgmt': return `<div class="prow">월 ${inp('$mgmt', x.mgmt, '예 25', 'inputmode="numeric" style="width:90px"')} 만원 ${chips('mgmtT', ['실비', '정액'], a.mgmtT === 'fix' ? '정액' : '실비')}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>${a.mgmtT === 'fix' && x.mgmt >= 10 ? `<div class="pchips">${MGI.map(([m, t]) => `<label class="pck"><input type="checkbox" data-mgi2="${m}" ${(a.mgmtInc || []).includes(m) ? 'checked' : ''}>${t}</label>`).join('')}</div><small class="pmeta">정액 10만원 이상이면 포함 항목을 표시해야 합니다</small>` : ''}`;
-      case 'fl': return `<div class="prow">${inp('fl', a.fl, isWhole(x) ? '전체' : '12 (지하 B1)', 'maxlength="8" style="width:110px"')} 층 / 총 ${inp('tfl', a.tfl, '25', 'inputmode="numeric" maxlength="3" style="width:80px"')} 층</div>`;
-      case 'use': return inp('use', a.use, tbase(x) === '토지' ? '대 / 전 / 임야' : '공동주택(아파트) / 제2종근린생활시설', 'maxlength="40"');
-      case 'appr': return inp('appr', a.appr, '2014.09.30', 'maxlength="10"');
-      case 'park': return inp('park', a.park, '총 120대 (세대당 1.2대)', 'maxlength="30"');
-      case 'biz': return inp('biz', a.biz, '카페 / 공실', 'maxlength="30"');
+      case 'movein': return `${chips('movein', ['즉시입주', '협의'], a.movein)}${inp('movein', ['즉시입주', '협의'].includes(a.movein) ? '' : a.movein, '또는 날짜', 'maxlength="20"')}`;
+      case 'rb': return `<div class="prow">방 ${inp('rooms', a.rooms, '', 'inputmode="numeric" maxlength="2" style="width:70px"')} 욕실 ${inp('baths', a.baths, '', 'inputmode="numeric" maxlength="2" style="width:70px"')}</div>`;
+      case 'mgmt': return `<div class="prow">월 ${inp('$mgmt', x.mgmt, '', 'inputmode="numeric" style="width:90px"')} 만원 ${chips('mgmtT', ['실비', '정액'], a.mgmtT === 'fix' ? '정액' : '실비')}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>${a.mgmtT === 'fix' && x.mgmt >= 10 ? `<div class="pchips">${MGI.map(([m, t]) => `<label class="pck"><input type="checkbox" data-mgi2="${m}" ${(a.mgmtInc || []).includes(m) ? 'checked' : ''}>${t}</label>`).join('')}</div><small class="pmeta">정액 10만원 이상이면 포함 항목을 표시해야 합니다</small>` : ''}`;
+      case 'fl': return `<div class="prow">${inp('fl', a.fl, isWhole(x) ? '전체' : '', 'maxlength="8" style="width:110px"')} 층 / 총 ${inp('tfl', a.tfl, '', 'inputmode="numeric" maxlength="3" style="width:80px"')} 층</div>`;
+      case 'use': return inp('use', a.use, '', 'maxlength="40"');
+      case 'appr': return inp('appr', a.appr, '연.월.일', 'maxlength="10"');
+      case 'park': return inp('park', a.park, '', 'maxlength="30"');
+      case 'biz': return inp('biz', a.biz, '업종 또는 공실', 'maxlength="30"');
       case 'wc': return chips('wc', WCS, a.wc);
-      case 'zone': return inp('zone', a.zone, '제2종일반주거지역', 'maxlength="40"');
+      case 'zone': return inp('zone', a.zone, '', 'maxlength="40"');
       case 'area': return `<div class="prow">${inp('$area', x.area, '84.97', 'inputmode="decimal" style="width:120px"')} ㎡</div>`;
       case 'ptype': return chips('ptype', PTYPES.filter(t => t !== '기타'), x.ptype);
       case 'price': { const M = (MONEY[x.kind] || MONEY.sale).filter(m => m[2] || (x.kind === 'wolse' && m[0] === 'deposit'));   /* 10/28 월세는 보증금도 */ return `${x.id ? '' : `<div class="pchips">${['sale', 'jeonse', 'wolse'].map(k => `<button type="button" data-pkind="${k}" aria-pressed="${x.kind === k}">${KIND[k]}</button>`).join('')}</div>`}<div class="prow">${M.map(([mk, lb]) => `${lb} ${inp('$' + mk, x[mk], '만원', 'inputmode="numeric" style="width:120px"')}`).join(' ')} 만원</div>`; }
@@ -1192,7 +1201,7 @@
       <div class="ps-auto"><h4>채워진 항목 <small>틀린 것만 눌러서 고치기</small></h4>
         ${filled.map(k => P.open.has(k) ? `<div class="pf op"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`
           : `<button type="button" class="pa" data-po="${k}"><span>${PS_LB[k]}</span><b>${esc(psVal(x, k)) || '<i>비어 있음 · 선택</i>'}</b>${AUTOK.includes(k) && psVal(x, k) ? '<u>자동</u>' : ''}</button>`).join('')}</div>
-      <details class="ps-opt"${a.desc ? ' open' : ''}><summary>광고 소개글 · 선택</summary><textarea class="pin2" data-pk="desc" rows="2" maxlength="300" placeholder="예) 남향 로열층, 올수리, 역 도보 5분">${esc(a.desc || '')}</textarea></details>
+      <details class="ps-opt"${a.desc ? ' open' : ''}><summary>광고 소개글 · 선택</summary><textarea class="pin2" data-pk="desc" rows="2" maxlength="300" placeholder="">${esc(a.desc || '')}</textarea></details>
       <div class="ps-go"><button type="button" class="btn main" id="psGo">${P.edit ? '저장하기' : isPub(x) ? '다시 게시 (30일)' : '리얼맵 지도에 올리기 (30일)'}</button>
         <p>${esc(S.bk ? S.bk.office : '')} 정보와 함께 표시됩니다${P.edit ? ' · 필수 항목이 비면 지도에서 내려갑니다' : ''}</p></div></div>`;
     const F = $('form');

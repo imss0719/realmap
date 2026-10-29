@@ -988,6 +988,7 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 .dj .rps{padding:8px 12px 10px;border-bottom:1px solid #EEF1F5}.dj .rps h4{margin:0 0 6px;font-size:11.5px;color:#64748B;display:flex;align-items:center;gap:6px}.dj .rps h4 small{font-weight:600;color:#94A0AD}
 .dj .rps.mk.on{background:#FFFBEB}.dj .rpst-on{font-size:11px;font-weight:800;color:#fff;background:#F08C00;border-radius:5px;padding:0 6px;line-height:18px;margin-left:auto}.dj .rpst-off{font-size:11px;font-weight:700;color:#94A0AD;margin-left:auto}
 .dj .rpg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 8px}.dj .rpg.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.dj .rpst{display:flex;align-items:center;gap:8px}.dj .rpno{margin-left:auto;border:0;background:none;font:inherit;font-size:11.5px;color:#8A96A3;cursor:pointer;padding:2px 0;white-space:nowrap}.dj button.rpno:hover{color:var(--sale);text-decoration:underline}.dj .rpnoi{margin-left:auto;width:120px;padding:3px 6px;font-size:12.5px}
 .dj .rpinfo .rpv{display:grid;gap:6px}.dj .rpinfo>b{align-self:start;padding-top:6px}.dj .rpleft{display:block;width:max-content;margin-top:4px;font-style:normal;font-size:11px;font-weight:800;background:#FFF1C2;color:#8A5300;border-radius:999px;padding:0 7px}
 .dj .rpi.nd{border-color:#E8C55A;background:#FFF8DB}.dj .rpi.nd::placeholder{color:#A16207;font-weight:700}
 .dj .rpmv{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center}
@@ -1334,6 +1335,22 @@ body.cumode .top{padding-bottom:12px}
   .adc{grid-template-columns:84px minmax(0,1fr)}.adc .ph{width:84px;height:70px}.adc .acts{grid-column:1/-1;justify-content:flex-start;max-width:none}.adc .acts button{padding:9px 13px;font-size:14px}}
 .dj .empty .eoth{margin:14px 0 0;font-size:14px;color:var(--muted)}.dj .empty .eoth button{border:1px solid var(--gold);background:#FFF8DB;color:#7A5600;border-radius:8px;padding:6px 12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;margin:4px 3px 0}
 .dj .rp-f #rp_close{margin-left:auto;min-width:72px}.bd .rpanel #bdrp_close{min-width:72px}
+
+/* 10/29 입력창을 표처럼 촘촘하게 (아파트·다른 종류 같음) · 금액 숫자만 + 옆에 읽어 주기 */
+.dj .rpr{grid-template-columns:58px minmax(0,1fr);gap:6px;padding:3px 10px;border-bottom:1px solid #EEF1F5;min-height:34px}
+.dj .rpr>b{font-size:12px;color:#3B4754;font-weight:700}
+.dj .rpi{padding:3px 6px;font-size:13px;border-radius:5px;min-height:28px}.dj textarea.rpi{min-height:44px}
+.dj .rpi::placeholder{color:#C3CBD4;font-weight:500}
+.dj .rpseg button{padding:3px 9px}
+.dj .rpf2{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.dj .rpsm{width:42px}
+.dj .u{font-style:normal;font-size:11.5px;color:#7A8796;white-space:nowrap}
+.wonw{display:inline-flex;align-items:center;gap:4px}.wonw .rpw{width:96px}.wonw .u{font-style:normal;font-size:11.5px;color:#7A8796}.wonh{font-style:normal;font-size:12px;font-weight:800;color:#1E5EDB;white-space:nowrap}
+.dj .rpsec{background:#14212E;color:#fff;font-size:12px;font-weight:800;padding:4px 10px}.dj .rpsec small{color:#C9D3DE;font-weight:600;margin-left:6px;font-size:11px}
+.dj .rpr.mk{background:#FFFBEA}.dj .rpr.mk>b{color:#8A5300}
+.dj .rpb.sm{padding:4px 12px;font-size:12.5px}
+.dj .rpr .rptel{margin-bottom:3px;gap:3px}.dj .rptels+.rplnk{padding:0}
+.bd .dr2 i.u{font-style:normal;font-size:12px;color:#7A8796;font-weight:600}.dj .rpr .rpi{font-size:13px}.dj .rpr .rpf2>.rpi,.dj .rpr .rpf2>select.rpi{width:auto}.dj .rpr .rpf2>.rpsm{width:40px;text-align:center}.dj .rpr .wonw .rpw{width:96px;text-align:right}
 </style>
 </head>
 <body>
