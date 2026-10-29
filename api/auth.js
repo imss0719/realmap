@@ -301,12 +301,14 @@ const lineOf = ho => { const n = Number(String(ho || '').replace(/\D/g, '')); re
 const lsKeyOf = p => `${p.pnu}|${normD(p.dong)}|${normH(p.ho)}`;
 // 10/28 오피스텔: 매물 카드에 동을 안 적은 경우 → 같은 필지·같은 호면 그 카드
 const lsAt = (items, key) => { const [pn, , h] = key.split('|'); return items.find(x => x.status !== 'done' && x.kind !== 'presale' && (x.places || []).some(p => p.ho && (lsKeyOf(p) === key || (!normD(p.dong) && p.pnu === pn && normH(p.ho) === h)))); };
-async function lsFromLedger(uid, { key, st, pr }) {
+async function lsFromLedger(uid, { key, st, pr, rm = 0, bt = 0, mg = 0, mv = '' }) {
   if (st.src === 'other') return false;   // 타부동산 물건은 내 매물 카드가 아님
   let hit = false;
   const items = await lsMutate(redis, uid, ls => {
     const x = lsAt(ls, key); if (!x) return false;
-    const was = JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status]);
+    const was = JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.ad]);
+    // 10/29 장부 매물 칸의 방·욕실·관리비·입주도 카드(리얼맵 광고)에 — 장부에 값이 있을 때만 덮어씀
+    { const a = x.ad = { ...(x.ad || {}) }; if (rm) a.rooms = rm; if (bt) a.baths = bt; if (mv) a.movein = /^\d{4}-\d{2}-\d{2}$/.test(mv) ? mv.replace(/-/g, '.') : mv; if (mg) { x.mgmt = mg; a.nomgmt = false; } }
     if (!st.src) { if (x.status === 'on') x.status = 'hold'; }   // 매물장에서 내림 → 카드는 보류 (지도 광고는 syncPub이 내림)
     else {
       const k = st.k.includes(x.kind) ? x.kind : st.k[0] || x.kind;
@@ -315,7 +317,7 @@ async function lsFromLedger(uid, { key, st, pr }) {
       else if (k === 'wolse' && (pr.wd || pr.wr)) Object.assign(x, { kind: 'wolse', deposit: pr.wd || null, rent: pr.wr || null });
       x.status = st.hold ? 'hold' : 'on';
     }
-    if (JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status]) === was) return false;
+    if (JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.ad]) === was) return false;
     x.up = new Date().toISOString(); hit = true;
   });
   if (hit) { const bk = await loadBk(uid), P = await planOf(uid); const it2 = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, it2); }
@@ -986,6 +988,20 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, plan: planView(await planOf(uid)) });
     }
 
+    // 10/29 매물번호 규칙 — GET 보기 · POST {p, f} 저장 (대표만)
+    if (action === 'norule') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = await office(req);
+      if (!s || s.blocked || !R_URL || !R_TOKEN) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      const k = `realmap:norule:${s.id}`;
+      if (req.method !== 'POST') { const v = await redis(['GET', k]).catch(() => null); let r = {}; try { r = JSON.parse(v) || {}; } catch { /* 없음 */ } return send(res, 200, { ok: true, rule: r }); }
+      if (s.staff) return noStaff(res, s, '매물번호 규칙은');
+      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const rule = { p: String(b.p || '').replace(/[^0-9A-Za-z가-힣]/g, '').slice(0, 6), f: ['ym', 'seq', 'kind'].includes(b.f) ? b.f : 'ym' };
+      await redis(['SET', k, JSON.stringify(rule)]);
+      return send(res, 200, { ok: true, rule });
+    }
+
     // 10/29 사무소 좌표 저장 (중개장부 화면이 사무소 주소를 지도 좌표로 바꿔 보냄) — POST {lat,lng} · 지도의 중개사무소 핀에 씀
     if (action === 'bkpos') {
       res.setHeader('Cache-Control', 'no-store');
@@ -1070,9 +1086,12 @@ export default async function (req, res) {
       let items = L.items;
       // 매물번호: 비워 두면 '등록한 해·월-순번' (예: 2610-001)으로 자동으로 붙입니다
       const ym = iso => { const d = new Date(new Date(iso || Date.now()).getTime() + 9 * 3600e3); return String(d.getUTCFullYear()).slice(2) + String(d.getUTCMonth() + 1).padStart(2, '0'); };
-      const nextNo = (list, iso) => { const p = ym(iso) + '-'; const max = list.reduce((m, x) => { const k = String(x.no || ''); return k.startsWith(p) ? Math.max(m, Number(k.slice(p.length)) || 0) : m; }, 0); return p + String(max + 1).padStart(3, '0'); };
+      // 10/29 설정 → 우리 사무소 '매물번호 규칙' (realmap:norule:<대표id> {p: 앞 글자, f: 'ym' 년월-순번 | 'seq' 순번만 | 'kind' 종류-순번}) — 새로 붙이는 번호부터
+      const NR = await redis(['GET', `realmap:norule:${s.id}`]).then(v => { try { return JSON.parse(v) || {}; } catch { return {}; } }).catch(() => ({}));
+      const nextNo = (list, iso, x) => { const f = ['ym', 'seq', 'kind'].includes(NR.f) ? NR.f : 'ym', body = f === 'seq' ? '' : f === 'kind' ? String((x && x.ptype) || '매물').replace(/\s/g, '').slice(0, 5) + '-' : ym(iso) + '-', p = (NR.p ? NR.p + '-' : '') + body, w = f === 'seq' ? 4 : 3;
+        const max = list.reduce((m, y) => { const k = String(y.no || ''), r = k.startsWith(p) ? k.slice(p.length) : ''; return /^\d+$/.test(r) ? Math.max(m, Number(r)) : m; }, 0); return p + String(max + 1).padStart(w, '0'); };
       if (items.some(x => !x.no)) { // 예전에 등록한 매물은 등록일 순서대로 번호를 붙여 둡니다
-        [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
+        [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at, x); });
         await save();
       }
       // 직원이 있으면: 화면 위에 '누구로 쓰는 중인지' · 권한 · 60초마다 새 내용 확인 (team)
@@ -1125,7 +1144,7 @@ export default async function (req, res) {
         const p0 = places[0], c0 = contacts[0] || {};
         let no = str(it.no, 20);
         if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) { if (!imp) return { err: ['dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`] }; no = ''; }   // 엑셀 불러오기: 겹치면 새 번호
-        if (!no) no = prev && prev.no ? prev.no : nextNo(items, now);
+        if (!no) no = prev && prev.no ? prev.no : nextNo(items, now, it);
         const areaSum = places.reduce((a, p) => a + (p.area || 0), 0);
         const rec = {
           id: prev ? prev.id : Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), no,

@@ -47,7 +47,7 @@ const ymd = d => d ? d.slice(2).replace(/-/g, '.') : '';
 const plus2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); const t = new Date(Date.UTC(y + 2, m - 1, dd)); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
 const add2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(y + 2, m - 1, dd)).toISOString().slice(0, 10); };
 
-const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, called: '', hist: [] });
+const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, called: '', hist: [] });
 // 꼭 챙길 것 글에서 첫 날짜를 찾음: '11/15 중도금' · '11.15까지' · '11월 15일' · '2026-11-15' · '26.11.15' → 'YYYY-MM-DD' (지난 지 60일이 넘은 월·일은 내년으로)
 export function impDay(t, now = new Date(Date.now() + 9 * 3600e3)) {
   const s = String(t || '');
@@ -73,6 +73,7 @@ function clean(b) {
     ar: (n => Number.isFinite(n) && n > 5 && n < 1000 ? Math.round(n * 100) / 100 : 0)(Number(b.ar)),   // 직접 적은 전용면적(㎡) — 건축물대장 면적이 없을 때
     live: LV[b.live] ? b.live : '',
     exp: day(b.exp), moveIn: str(b.moveIn, 30), opt: str(b.opt, 200),
+    rm: (n => Number.isInteger(n) && n > 0 && n < 30 ? n : 0)(Number(b.rm)), bt: (n => Number.isInteger(n) && n > 0 && n < 30 ? n : 0)(Number(b.bt)), mg: man(b.mg),   // 10/29 매물 칸: 방·욕실·관리비(만원) — 리얼맵 광고 필수
     tels: (Array.isArray(b.tels) ? b.tels : []).slice(0, 4).map(t => { const o = { l: str(t && t.l, 10), n: str(t && t.n, 20).replace(/[^\d\-+ ]/g, '') }, m = str(t && t.m, 20); return m ? { ...o, m } : o; }).filter(t => t.n || t.m || (t.l && !/^(소유자|소유주|세입자|임차인|연락처|집주인)$/.test(t.l))),   // 10/28 번호 없이 이름만 있어도 남김
     note: str(b.note, 300),
     imp: str(b.imp, 100), impd: impDay(b.imp),   // 꼭 챙길 것 (10/26) — 날짜가 있으면 알림
@@ -80,7 +81,7 @@ function clean(b) {
     mk: ['y', 'r'].includes(b.mk) ? b.mk : '',  // 줄 표시: 노랑·빨강 (10/26)
   };
 }
-const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'opt', 'tels', 'note', 'imp', 'impd', 'cd', 'cr', 'mk', 'deal'];
+const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'rm', 'bt', 'mg', 'opt', 'tels', 'note', 'imp', 'impd', 'cd', 'cr', 'mk', 'deal'];
 const snap = r => JSON.parse(JSON.stringify(Object.fromEntries(FIELDS.map(k => [k, r[k]]))));
 export const stTxt = st => !st.src ? '상태 없음' : `${st.src === 'mine' ? '내 매물' : '타부동산' + (st.office ? `(${st.office})` : '')}${st.k.length ? ' ' + st.k.map(k => KN[k]).join('·') : ''}${st.hold ? ' · 보류' : ''}`;
 const prTxt = (k, pr) => k === 'sale' ? `매매 ${won(pr.sale)}` : k === 'jeonse' ? `전세 ${won(pr.jeonse)}` : `월세 ${won(pr.wd)}/${pr.wr || 0}`;
@@ -97,6 +98,8 @@ function diff(a, b) {
   if (a.live !== b.live) out.push(b.live ? LV[b.live] : '거주 정보 지움');
   if (a.exp !== b.exp) out.push(b.exp ? `만기 ${ymd(b.exp)}` : '만기 지움');
   if (a.moveIn !== b.moveIn) out.push(b.moveIn ? `입주 ${day(b.moveIn) ? ymd(b.moveIn) : b.moveIn}` : '입주 지움');
+  if ((a.rm || 0) !== (b.rm || 0) || (a.bt || 0) !== (b.bt || 0)) out.push(`방 ${b.rm || '-'} · 욕실 ${b.bt || '-'}`);
+  if ((a.mg || 0) !== (b.mg || 0)) out.push(b.mg ? `관리비 ${b.mg}만` : '관리비 지움');
   if (a.opt !== b.opt) out.push('옵션 수정');
   if (JSON.stringify(a.tels) !== JSON.stringify(b.tels)) out.push('연락처 수정');      // 번호는 히스토리에 남기지 않음
   if (a.note !== b.note) out.push(b.note ? `메모: ${b.note.slice(0, 60)}` : '메모 지움');
@@ -150,7 +153,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   if (v && !read(v)) return fail(res, 500, 'decrypt', '장부를 읽지 못했습니다. 암호화 키가 바뀌었을 수 있습니다.');
   const rec = v ? read(v) : EMPTY();
   const now = new Date().toISOString();
-  const stp0 = JSON.stringify([rec.st, rec.pr]);
+  const stp0 = JSON.stringify([rec.st, rec.pr, rec.rm || 0, rec.bt || 0, rec.mg || 0, rec.moveIn || '']);
   // 예전 호별 메모가 있으면 이 기회에 장부 히스토리로 옮기고(암호화) 원래 메모는 지움
   const mk = `${id}|${key}`;
   let movedMemo = false;
@@ -235,12 +238,12 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
 
   rec.up = now;
   if (who) { rec.by = who.id; rec.byn = who.n; }
-  const empty = !rec.hist.length && !rec.st.src && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn;
+  const empty = !rec.hist.length && !rec.st.src && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.rm && !rec.bt && !rec.mg;
   if (empty) await redis(['HDEL', H, key]);
   else { await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, id]); }
   if (movedMemo) await saveCx();
   let lsDirty = false;
-  if (onSt && JSON.stringify([rec.st, rec.pr]) !== stp0) { try { lsDirty = !!(await onSt({ key, st: rec.st, pr: rec.pr })); } catch { /* 매물 카드는 다음에 맞춤 */ } }
+  if (onSt && JSON.stringify([rec.st, rec.pr, rec.rm || 0, rec.bt || 0, rec.mg || 0, rec.moveIn || '']) !== stp0) { try { lsDirty = !!(await onSt({ key, st: rec.st, pr: rec.pr, rm: rec.rm || 0, bt: rec.bt || 0, mg: rec.mg || 0, mv: rec.moveIn || '' })); } catch { /* 매물 카드는 다음에 맞춤 */ } }
   return send(res, 200, { ok: true, rec, ...(movedMemo ? { memos: cx.memos } : {}), ...(lsDirty ? { lsDirty: true } : {}) });
 }
 // 10/28 매물 카드(매물장)에서 바뀐 매물 상태·가격을 같은 동·호의 장부에 맞춤 — fn(rec)이 바꿨으면 기록 한 줄(why)
