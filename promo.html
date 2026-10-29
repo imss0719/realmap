@@ -64,6 +64,13 @@ a{color:inherit}
 .ls{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.ls div{border:1px solid var(--line);border-radius:10px;overflow:hidden}.ls i{display:block;height:54px;background:#DCE3EB}.ls b{display:block;padding:5px 7px 0;font-size:13.5px}.ls small{display:block;padding:0 7px 6px;color:var(--muted);font-size:11.5px}
 .k{display:inline-block;border-radius:4px;padding:0 5px;font-size:10.5px;font-weight:800;color:#fff;background:var(--sale);margin-right:3px;vertical-align:1px}.k.w{background:var(--wolse)}.k.j{background:var(--jeonse)}
 /* 비교 · 질문 */
+.gd{font-style:normal;color:#C98A00}
+.fr{display:flex;justify-content:center}.fc{width:100%;max-width:520px;background:linear-gradient(160deg,#FFF6D1,#FFE9A3);border:2px solid var(--gold);border-radius:20px;padding:30px 30px 26px;text-align:center;box-shadow:0 14px 34px rgba(242,183,5,.22)}
+.fc small{display:inline-block;background:#14212E;color:#FFD95A;font-weight:800;font-size:13px;border-radius:999px;padding:3px 12px}.fc .big{display:block;font-size:72px;line-height:1.1;margin:10px 0 2px;letter-spacing:-.04em;color:#14212E}.fc .u{font-size:20px;font-weight:700}.fc .u strong{font-size:26px}
+.fc ul{list-style:none;padding:0;margin:16px 0 20px;font-size:15.5px;line-height:1.9;color:#3B4754}.fc li:before{content:"✓ ";color:#C98A00;font-weight:900}
+.pc{margin-top:56px;display:flex;align-items:center;gap:20px;background:#14212E;color:#fff;border-radius:18px;padding:24px 28px}.pc .l{flex:1}.pc small{color:#9FB0C2;font-size:13px;font-weight:700}.pc .l b{display:block;font-size:24px;margin:4px 0 6px}.pc .l b strong{color:var(--gold)}.pc p{margin:0;color:#C9D3DE;font-size:15.5px}.pc p strong{color:#fff}
+.pc .r{text-align:center;background:var(--gold);color:#14212E;border-radius:14px;padding:12px 22px;min-width:140px}.pc .r span{font-size:13px;font-weight:800}.pc .r b{display:block;font-size:48px;line-height:1;letter-spacing:-.03em}.pc .r b i{font-style:normal;font-size:20px;margin-left:2px}.pc .r small{color:#5B4A00;font-size:11.5px}
+@media(max-width:560px){.fc{padding:24px 18px}.fc .big{font-size:56px}.pc{flex-direction:column;align-items:stretch;padding:20px}.pc .l b{font-size:20px}}
 .cmp{width:100%;border-collapse:collapse;font-size:15.5px;background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 .cmp th,.cmp td{border-bottom:1px solid var(--line);padding:14px 16px;text-align:center}.cmp th{background:#F4F6F9}.cmp td:first-child,.cmp th:first-child{text-align:left}.cmp .hl{background:#FFF8DB;font-weight:800}
 .faq details{border-bottom:1px solid var(--line);padding:16px 0}.faq summary{font-weight:800;font-size:17px;cursor:pointer;list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:"+";float:right;color:var(--muted)}.faq details[open] summary:after{content:"−"}
@@ -101,7 +108,7 @@ a{color:inherit}
     <p>집과 땅을 보러 온 손님이 보는 바로 그 지도에 대표님 매물이 뜹니다.<br>필지를 누르고 가격·사진만 넣으면 1분, 나머지는 건축물대장에서 자동으로 채워집니다.</p>
     <div class="stt"><div><b>약 1,000명</b><span>최근 10일 방문자</span></div><div><b>600회+</b><span>하루 필지 조회 (최대)</span></div><div><b>10건 무료</b><span>매물 광고 · 카드 등록 없음</span></div></div>
     <div class="b"><a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a><a class="btn g" href="#profile">소개 페이지 미리 보기</a></div>
-    <div class="free">매물 광고 10건까지 무료 · 장부를 안 써도 됩니다 · 등록번호가 확인된 중개사무소만</div>
+    <div class="free">매물 광고 10건까지 무료 · 카드 등록 없음 · 등록번호가 확인된 중개사무소만</div>
   </div>
   <div class="mv"><span class="pin" style="left:40px;top:46px"><s></s>21.5억</span><span class="pin w" style="left:170px;top:120px"><s></s>월 320</span><span class="pin j" style="left:70px;top:190px"><s></s>7억</span>
     <div class="mc"><b>매매 21.5억</b><small>○○아파트 101동 · 34평 · 남향 · 고층</small><div class="of"><s></s>○○공인중개사<u>중개사 소개 ▸</u></div></div></div>
@@ -134,18 +141,19 @@ a{color:inherit}
       <div class="ls" style="margin-top:8px"><div><i></i><b><span class="k">매매</span>21.5억</b><small>○○아파트 34평</small></div><div><i></i><b><span class="k w">월세</span>5000/320</b><small>1층 상가 14평</small></div><div><i></i><b><span class="k j">전세</span>7억</b><small>○○아파트 25평</small></div></div></div></div>
 </div></div>
 
-<div class="alt"><div class="sec"><h2>광고만 해도, 장부까지 써도</h2><p class="lead">같은 계정입니다. 광고만 쓰다가 언제든 중개장부를 열면 올린 매물이 그대로 들어 있습니다.</p>
-  <table class="cmp"><tr><th></th><th class="hl">매물 홍보 (광고만)</th><th>중개장부</th></tr>
-    <tr><td>리얼맵 지도 광고 · 중개사 소개 페이지</td><td class="hl">✓</td><td>✓</td></tr>
-    <tr><td>아파트 단지 장부 · 만기 알림 · 고객관리</td><td>—</td><td>✓</td></tr>
-    <tr><td>무료</td><td class="hl">광고 10건</td><td>매물 10건 · 광고 10건</td></tr>
-    <tr><td>더 많이 올릴 때</td><td class="hl">Basic 월 9,900원 · 광고 300건</td><td>Basic 월 9,900원 (장부 포함)</td></tr></table>
-  <p style="margin-top:14px;color:var(--muted);font-size:14px">요금은 부가세 포함입니다. 자세한 요금제는 <a href="/pro.html#price">중개장부 요금 안내</a>를 봐 주세요.</p></div></div>
+<div class="alt"><div class="sec"><h2>광고는 <em class="gd">무료</em>로 시작하세요</h2><p class="lead">카드 등록 없이, 등록번호 확인만 하면 바로 지도에 올라갑니다.</p>
+  <div class="fr">
+    <div class="fc"><small>지금 바로</small><b class="big">무료</b><span class="u">매물 광고 <strong>10건</strong></span>
+      <ul><li>리얼맵 지도 광고</li><li>나만의 중개사 소개 페이지 · QR</li><li>등록번호 확인 배지</li></ul>
+      <a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a></div>
+  </div>
+  <div class="pc"><div class="l"><small>더 많이 올릴 때</small><b>광고 <strong>300건</strong> · 월 9,900원</b><p>포털 매물 광고 <strong>5건 값도 안 되는 돈</strong>으로 300건을 올립니다.</p></div>
+    <div class="r"><span>건당</span><b>33<i>원</i></b><small>월 9,900원 ÷ 300건</small></div></div>
+  <p style="margin-top:14px;color:var(--muted);font-size:14px">요금은 부가세 포함입니다. 자세한 요금은 <a href="/pro.html#price">요금 안내</a>를 봐 주세요.</p></div></div>
 
 <div class="sec faq"><h2>자주 묻는 질문</h2>
   <details><summary>중개사가 아니어도 올릴 수 있나요?</summary><p>아니요. 공인중개사법의 표시·광고 규정에 따라 국가 자료로 등록번호가 확인된 중개사무소만 올릴 수 있습니다. 광고마다 사무소 명칭·소재지·등록번호·대표자·연락처가 함께 표시됩니다.</p></details>
   <details><summary>다른 광고 사이트에 올린 매물도 같이 올려도 되나요?</summary><p>네. 의뢰받은 매물이라면 여러 곳에 함께 올리셔도 됩니다. 리얼맵은 30일마다 [연장]을 눌러 거래 가능 여부를 다시 확인받습니다.</p></details>
-  <details><summary>중개장부를 꼭 써야 하나요?</summary><p>아니요. 매물 홍보만 쓰셔도 됩니다. 나중에 중개장부를 열면 올린 매물이 그대로 들어 있어서, 언제든 넘어가실 수 있습니다.</p></details>
   <details><summary>사진은 몇 장까지 올릴 수 있나요?</summary><p>매물 하나에 30장까지 올릴 수 있고, 첫 번째 사진이 대표 사진으로 지도 카드에 보입니다.</p></details>
   <details><summary>소개 페이지는 어디서 고치나요?</summary><p>중개장부 → 설정 → 우리 사무소에서 대표 사진·한 줄 소개·전문 분야·활동 동네를 고치고, 링크를 복사할 수 있습니다.</p></details>
 </div>
