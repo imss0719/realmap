@@ -2748,7 +2748,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const lsActive = () => LS.on && LS.items.length && S.map.getLevel() <= 10;
   // 실거래 라벨이 비켜 갈 자리 (매물 라벨이 먼저)
   function lsPoints() {
-    if (!lsActive() || S.map.getLevel() > 6) return [];
+    if (!lsActive() || S.map.getLevel() > 5) return [];
     const K = kakao.maps, b = S.map.getBounds(), proj = S.map.getProjection();
     return lsGroups().map(e => new K.LatLng(e.lat, e.lng)).filter(ll => b.contain(ll)).map(ll => proj.containerPointFromCoords(ll));
   }
@@ -2758,7 +2758,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     drawOffices();
     if (!lsActive()) { LS.ovs.forEach(o => o.setMap(null)); return; }
     const lv = S.map.getLevel(), b = S.map.getBounds(), show = new Set();
-    if (lv <= 6) {
+    if (lv <= 5) {   // 10/29 평당가가 보이는 단계(6~)부터는 매물 수 흰 동그라미만 (실거래를 꺼도 같음)
       for (const e of lsGroups()) {
         const ll = new K.LatLng(e.lat, e.lng); if (!b.contain(ll)) continue;
         const id = 'b' + e.pnu + (e.dn ? '|' + e.dn : '') + ':' + e.list.length + ':' + e.list.map(x => x.k + lsMain(x)).join(); show.add(id);
@@ -2779,11 +2779,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       for (const x of LS.items) { const k = String(x.pnu).slice(0, 10); const e = d.get(k) || d.set(k, { k, la: 0, ln: 0, c: 0, nm: '', of: new Set() }).get(k); e.la += x.lat; e.ln += x.lng; e.c++; if (x.bk && x.bk.verified) e.of.add(String(x.bk.regno || '').replace(/\D/g, '')); if (!e.nm) e.nm = (String(x.addr).split(' ').find(w => /(동|가|리|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w)) || ''); }
       for (const e of d.values()) {
         const ll = new K.LatLng(e.la / e.c, e.ln / e.c); if (!b.contain(ll)) continue;
-        const id = 'd' + e.k + ':' + e.c + ':' + e.of.size; show.add(id);
+        const id = 'd' + e.k + ':' + e.c; show.add(id);
         let o = LS.ovs.get(id);
         if (!o) {
           const el = document.createElement('button'); el.type = 'button'; el.className = 'lbubble';
-          el.innerHTML = `${esc(e.nm)} 매물 <b>${e.c}</b>${e.of.size ? `<span class="lbo">중개사 ${e.of.size}</span>` : ''}`;   // 10/29 멀리서는 사무소 핀 대신 동네 묶음에 '중개사 n'
+          el.className = 'lbubble lc'; el.textContent = e.c > 99 ? '99+' : e.c; el.title = `${e.nm ? e.nm + ' ' : ''}매물 ${e.c}건 · 누르면 확대`;   // 10/29 숫자만 흰 동그라미 (동 이름·시세 글자를 덜 가리게)
           el.onclick = ev => { ev.stopPropagation(); S.map.setLevel(5, { anchor: ll }); S.map.setCenter(ll); };
           o = new K.CustomOverlay({ position: ll, content: el, yAnchor: .5, zIndex: 6, clickable: true });
           LS.ovs.set(id, o);
@@ -2815,7 +2815,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function drawOffices() {
     if (!S.map) return;
     const K = kakao.maps, lv = S.map.getLevel();
-    if (!lsActive() || lv > 6) { OF.ovs.forEach(o => o.setMap(null)); return; }
+    if (!lsActive() || lv > 5) { OF.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), proj = S.map.getProjection(), phone = innerWidth <= 760;
     const L = offices().filter(e => b.contain(new K.LatLng(e.bk.lat, e.bk.lng)));
     const big = new Set(), cells = new Set(), cs = phone ? 130 : 120;

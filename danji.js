@@ -142,6 +142,14 @@ window.Danji = (() => {
       let L = main.filter(t => t.dong && /\d/.test(t.dong) && !/상가|관리|경로|어린이|커뮤니티|주민|근린/.test(t.dong + (t.use || '')));
       // 10/28 오피스텔·주상복합: 동 번호가 없는 건물(동 이름이 비었거나 'A동'·'○○빌딩') → 호가 있는 주건축물을 그대로
       if (!L.length) L = main.filter(t => (+t.ho || +t.hhld) > 0 && !/관리|경로|어린이|커뮤니티|주민/.test(String(t.dong || '')));
+      // 10/29 단지 전체가 건물 하나로 등록되고 호 이름에 동이 붙은 경우('101동 1801') → 서버가 나눠 준 동(101동·102동…)을 그대로 동으로
+      if (L.length && L.every(t => !/\d/.test(String(t.dong || '')))) {
+        try {
+          const u = (await api(`/api/units?pnu=${pnu}`)).units || [], t0 = L[0], cnt = new Map();
+          u.forEach(z => { const d = String(z.dong || '').trim(); if (/^\d/.test(d)) cnt.set(d, (cnt.get(d) || 0) + 1); });
+          if (cnt.size) return [...cnt.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko', { numeric: true })).map(([d, n]) => ({ pnu, dong: d, grnd: t0.grnd, ho: n, hhld: n, use: t0.use, apr: t0.useApr }));
+        } catch { /* 건물 하나로 */ }
+      }
       return L.map(t => ({ pnu, dong: String(t.dong || '').trim(), grnd: t.grnd, ho: t.ho, hhld: t.hhld, use: t.use, apr: t.useApr }));
     } catch { return []; }
   }
@@ -740,7 +748,7 @@ window.Danji = (() => {
   const plainL = l => /^(소유자|소유주|세입자|임차인|연락처)?$/.test(String(l || '').trim());
   function telsHtml(x, ten) {
     const t = ((x.r && x.r.tels) || []).map((z, i) => ({ ...z, i })).filter(z => isTen(z) === ten); if (!t.length) return '<span class="mut">-</span>';
-    const one = z => z.n ? `<a class="tl" href="tel:${esc(String(z.n).replace(/[^\d+]/g, ''))}" data-tcall="${z.i}">${plainL(z.l) ? '' : esc(z.l) + ' '}${esc(z.n)}</a>` : `<span class="tl">${esc(z.l)}</span>`;   // 번호 없이 이름만 (엑셀)
+    const one = z => z.n ? `<a class="tl" href="tel:${esc(String(z.n).replace(/[^\d+]/g, ''))}" data-tcall="${z.i}">${z.m ? esc(z.m) + ' ' : plainL(z.l) ? '' : esc(z.l) + ' '}${esc(z.n)}</a>` : `<span class="tl">${esc(z.m || z.l)}</span>`;   // 번호 없이 이름만 (엑셀)
     return one(t[0]) + (t.length > 1 ? ` <small>외 ${t.length - 1}</small>` : '');
   }
   // 의뢰가격 칸 하나: 그 거래가 걸려 있을 때만 (장부엔 없고 매물관리에만 있는 매물은 그 가격)
@@ -778,7 +786,7 @@ window.Danji = (() => {
       case 'bm': { const m = r.cd ? cw(r.cd) + (r.cr ? '/' + r.cr : '') : '', e = r.exp ? `<span class="${s.exp ? 'dd' : ''}">${esc(r.exp.slice(2, 7).replace('-', '.'))}${s.exp ? ` · ${s.dl >= 0 ? 'D-' + s.dl : '지남'}` : ''}</span>` : ''; return m || e ? [m, e].filter(Boolean).join(' · ') : '<span class="mut">-</span>'; }
       case 'tel': {
         const t = (r.tels || []).map((z, i) => ({ ...z, i })); if (!t.length) return '<span class="mut">-</span>';
-        const one = (z, lbOn) => { const lb = String(z.l || '').replace(/^소유(자|주)$/, '소유').replace(/^(세입자|임차인)$/, '세입'); return z.n ? `<a class="tl" href="tel:${esc(String(z.n).replace(/[^\d+]/g, ''))}" data-tcall="${z.i}" title="${esc(lb)}">${lbOn ? `<small>${esc(lb)}</small> ` : ''}${esc(z.n)}</a>` : `<span class="tl">${esc(lb)}</span>`; };   // 10/28 칸 폭: 번호만 (펼치면 이름표도)
+        const one = (z, lbOn) => { const lb = String(z.l || '').replace(/^소유(자|주)$/, '소유').replace(/^(세입자|임차인)$/, '세입'); return z.n ? `<a class="tl" href="tel:${esc(String(z.n).replace(/[^\d+]/g, ''))}" data-tcall="${z.i}" title="${esc([lb, z.m].filter(Boolean).join(' '))}">${lbOn ? `<small>${esc([lb, z.m].filter(Boolean).join(' '))}</small> ` : ''}${esc(z.n)}</a>` : `<span class="tl">${esc(z.m || lb)}</span>`; };   // 10/28 칸 폭: 번호만 (펼치면 이름표도)
         const op = S.telOpen && S.telOpen.has(x.key);
         if (t.length === 1) return one(t[0]);
         return op ? `<div class="tels">${t.map(z => `<div>${one(z, true)}</div>`).join('')}<button type="button" class="telx" data-telx="${esc(x.key)}">접기 ▴</button></div>` : `${one(t[0])} <button type="button" class="telx" data-telx="${esc(x.key)}" title="연락처 ${t.length}명 모두 보기">+${t.length - 1}</button>`;
@@ -932,13 +940,13 @@ window.Danji = (() => {
     n.querySelectorAll('[data-telx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.telOpen = S.telOpen || new Set(); const k = b.dataset.telx; S.telOpen.has(k) ? S.telOpen.delete(k) : S.telOpen.add(k); redrawRow(cx, k); });
     n.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
     wireTel(cx, n);
-    if (S.pk && S.pk.key === key) drawPanel();
+    if (S.pk && S.pk.key === key) setTimeout(() => drawPanel(), 0);   // 10/29 칸을 벗어나는 순간(change)에 바로 그리면 Tab으로 간 다음 칸 커서가 사라짐 → 포커스가 옮겨진 뒤 판단
   }
   // 장부 내용으로 매물 카드(사진·광고 항목·리얼맵 지도) 만들기 — 표의 [리얼맵 등록] · 관리장부 입력창의 [광고 카드 만들기]
   function cardFrom(x) {
     const r = x.r || {}, pr = r.pr || {}, k = (x.st.k || [])[0] || 'sale';
     const pre = { kind: k, ...(k === 'sale' ? { price: pr.sale || 0 } : k === 'jeonse' ? { deposit: pr.jeonse || 0 } : { deposit: pr.wd || 0, rent: pr.wr || 0 }),
-      ...(r.tels && r.tels.length ? { contacts: r.tels.map(t => ({ role: t.l || '소유자', name: '', phone: t.n })) } : {}) };
+      ...(r.tels && r.tels.length ? { contacts: r.tels.map(t => ({ role: t.l || '소유자', name: t.m || '', phone: t.n })) } : {}) };
     if (!S.host.pubNew) { S.host.openAdd(x.pnu, x.dn, x.ho, pre); return; }
     const dir = x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', mi = r.moveIn ? (/^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.replace(/-/g, '.') : String(r.moveIn)) : '';
     S.host.pubNew({ pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, ptype: cxType(x.cx), pre });
@@ -998,7 +1006,7 @@ window.Danji = (() => {
         if (j.memos) S.cx.memos = j.memos;
         if (j.lsDirty && S.host.refreshItems) S.host.refreshItems();   // 같은 호의 매물 카드도 바뀜
         putSum(cx, x.key, { ...EMPTY_REC(), ...j.rec });
-        if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...j.rec }; drawPanel(); }
+        if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...j.rec }; setTimeout(() => drawPanel(), 0); }
       } catch (e) { if (e.code === 'conflict' && e.data && e.data.rec) { putSum(cx, x.key, { ...EMPTY_REC(), ...e.data.rec }); if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...e.data.rec }; setTimeout(() => drawPanel(true), 0); } } toast(e.message, e.code === 'conflict' ? 6000 : 4000); }
       redrawRow(cx, x.key); refreshDongs(cx);
     });
@@ -1317,11 +1325,14 @@ window.Danji = (() => {
   }
   function closePanel() { S.pk = null; S.pkRec = null; S.pkMk = false; const P = $('dj_rp'); if (P) P.remove(); const W = $('dj_wrap'); if (W) W.classList.remove('rpon'); document.querySelectorAll('#dj_tbl tr.pk').forEach(z => z.classList.remove('pk')); }
   // 입력 중이면(창 안에 커서) 다시 그리지 않음 — force: 고르기 버튼처럼 모양이 바뀌는 경우
+  function pkRec(e) { const t = e.target, at = t && [...t.attributes].find(a => /^data-(tn|tm|tl|f)$/.test(a.name)); if (!at || !S.pk || !/INPUT|TEXTAREA/.test(t.tagName)) return; S.pkF = { key: S.pk.key, sel: `[${at.name}="${at.value}"]`, v: t.value, s: t.selectionStart, e: t.selectionEnd, t: Date.now() }; }
   function drawPanel(force) {
     if (!S.pk) { const P0 = $('dj_rp'); if (P0) P0.remove(); const W0 = $('dj_wrap'); if (W0) W0.classList.remove('rpon'); return; }
     const x = rowFor(S.pk); if (!x) return closePanel();
     let P = $('dj_rp');
-    if (P && !force && P.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    // 10/29 칸에 쓰고 있는 동안에는 다시 그리지 않음 (Tab으로 다음 칸에 갈 때 커서가 사라지던 것) → 입력창 밖으로 나가면 그때 그림
+    if (P && P.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { S.pkDirty = true; if (!P._fo) { P._fo = true; P.addEventListener('focusout', e => { setTimeout(() => { if (S.pkDirty && !(P.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) drawPanel(true); }, 0); }); } return; }
+    S.pkDirty = false;
     if (!P) { P = document.createElement('aside'); P.id = 'dj_rp'; P.className = 'rpanel'; ($('dj_wrap') || document.body).appendChild(P); }
     $('dj_wrap') && $('dj_wrap').classList.add('rpon');
     const cx = x.cx, r = x.r || {}, s = x.st, ro = LOCK(x), R0 = S.pkRec, lt = x.lt || {};
@@ -1352,6 +1363,9 @@ window.Danji = (() => {
     // 10/28 입력창 단순화: 설명 문구 없이, 왼쪽 이름표 한 줄씩 · 타입·평형·방향은 접어 둠(같은 라인 모두에) · 옵션은 메모로 (예전 옵션 값이 있으면 그 줄만 보임)
     const row = (t, inner, cls = '') => `<div class="rpr ${cls}"><b>${t}</b><div class="rpv">${inner}</div></div>`;
     const meta = [sp ? sp.v + '평' : '', lt.t, x.dir].filter(Boolean).join(' · ');
+    // 10/29 저장 응답으로 입력창이 다시 그려져도(매물 카드와 이어진 호 등) 쓰고 있던 칸·글자·커서를 그대로 둠
+    const ae = document.activeElement; let keep = null;
+    if (P.contains(ae) && /INPUT|TEXTAREA/.test(ae.tagName)) { const at = [...ae.attributes].find(a => /^data-(tn|tm|tl|f)$/.test(a.name)); if (at) keep = { sel: `[${at.name}="${at.value}"]`, v: ae.value, s: ae.selectionStart, e: ae.selectionEnd }; }
     P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${meta ? `<span class="rptg">${esc(meta)}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
       ${ro ? `<p class="rpwarn">${S.L[cx.id] && S.L[cx.id].err ? esc(S.L[cx.id].err) : '요금제 단지 한도를 넘은 단지라 보기만 됩니다'}</p>` : ''}
       <div class="rpbody">
@@ -1359,7 +1373,7 @@ window.Danji = (() => {
       ${row('현상태', seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || ''))}
       ${row('보증금', `<div class="rpin2">${v('cd', manTxt(r.cd), '예: 6.5억')}${v('cr', r.cr || '', '월세(만원)', 'inputmode="numeric"')}</div>`)}
       ${row('만기', v('exp', /^\d{4}-\d{2}-\d{2}$/.test(r.exp || '') ? r.exp : '', '', 'type="date"'))}
-      ${row('연락처', `<div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="소유자" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" value="${esc(t.n)}" placeholder="010-0000-0000" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`)}
+      ${row('연락처', `<div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="소유자" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tm="${i}" value="${esc(t.m || '')}" placeholder="이름" maxlength="20" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" value="${esc(t.n)}" placeholder="010-0000-0000" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`)}
       ${row('매물', mkHtml, `mk${s.src && !s.done ? ' on' : ''}`)}
       ${row('챙길 것', v('imp', r.imp || '', '예: 11/15 중도금', 'maxlength="100"'))}
       ${r.opt ? row('옵션', v('opt', r.opt, '', 'maxlength="200"')) : ''}
@@ -1370,6 +1384,9 @@ window.Danji = (() => {
       <div class="rp-f">${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체에서 보기</button>'}<button type="button" class="rpb y" id="rp_close">저장</button></div>`;
     if (!LED()) { const mk = P.querySelector('.rpr.mk'), first = P.querySelector('.rpbody .rpr'); if (mk && first && mk !== first) first.parentNode.insertBefore(mk, first); }   // 매물장에서는 '매물' 칸이 맨 위
     wirePanel(x, P, ro);
+    if (!keep && S.pkF && S.pkF.key === x.key && Date.now() - S.pkF.t < 2500 && (!document.activeElement || document.activeElement === document.body)) keep = S.pkF;   // 표 전체가 다시 그려져 입력창이 새로 생긴 경우
+    P.addEventListener('focusin', pkRec); P.addEventListener('input', pkRec);
+    if (keep) { const n = P.querySelector(keep.sel); if (n) { if (n.value !== keep.v) { n.value = keep.v; n.dispatchEvent(new Event('input')); } n.focus(); try { n.setSelectionRange(keep.s, keep.e); } catch { /* 날짜 칸 등 */ } } }
   }
   function wirePanel(x, P, ro) {
     const cx = x.cx, r = x.r || {};
@@ -1401,11 +1418,12 @@ window.Danji = (() => {
     P.querySelectorAll('[data-g="live"] [data-v]').forEach(b => b.onclick = () => { if ((r.live || '') === b.dataset.v) return; save(D => { D.live = b.dataset.v; }); setTimeout(() => drawPanel(true), 0); });   // 이미 고른 것을 다시 눌러도 그대로
     // 연락처: 고치면 바로 저장
     const T = JSON.parse(JSON.stringify((r.tels || []).length ? r.tels : [{ l: '소유자', n: '' }]));
-    const saveT = () => { const tels = T.map(t => ({ l: String(t.l || '').trim(), n: String(t.n || '').trim() })).filter(t => t.n || (t.l && !plainL(t.l))); save(D => { D.tels = tels; }); };
+    const saveT = () => { const tels = T.map(t => ({ l: String(t.l || '').trim(), m: String(t.m || '').trim(), n: String(t.n || '').trim() })).map(t => t.m ? t : { l: t.l, n: t.n }).filter(t => t.n || t.m || (t.l && !plainL(t.l))); save(D => { D.tels = tels; }); };
     P.querySelectorAll('[data-tl]').forEach(i => { i.oninput = () => { T[+i.dataset.tl].l = i.value; }; i.onchange = saveT; });
+    P.querySelectorAll('[data-tm]').forEach(i => { i.oninput = () => { T[+i.dataset.tm].m = i.value; }; i.onchange = saveT; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } }; });   // 10/29 연락처 이름
     P.querySelectorAll('[data-tn]').forEach(i => { i.oninput = () => { T[+i.dataset.tn].n = i.value; }; i.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } }; });
     P.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { T.splice(+b.dataset.tdel, 1); saveT(); setTimeout(() => drawPanel(true), 0); });
-    if ($('rp_tadd')) $('rp_tadd').onclick = () => { const box = P.querySelector('.rptels'); box.insertAdjacentHTML('beforeend', `<div class="rptel"><input class="rpi lb" list="hj_tl2" placeholder="세입자" maxlength="10"><input class="rpi" placeholder="010-0000-0000" inputmode="tel" maxlength="20"><span></span><span></span></div>`); const row = box.lastElementChild, [l, n] = row.querySelectorAll('input'); T.push({ l: '', n: '' }); const i = T.length - 1; l.oninput = () => { T[i].l = l.value; }; n.oninput = () => { T[i].n = n.value; }; n.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; l.focus(); };
+    if ($('rp_tadd')) $('rp_tadd').onclick = () => { const box = P.querySelector('.rptels'); box.insertAdjacentHTML('beforeend', `<div class="rptel"><input class="rpi lb" list="hj_tl2" data-tl="${T.length}" placeholder="세입자" maxlength="10"><input class="rpi" data-tm="${T.length}" placeholder="이름" maxlength="20"><input class="rpi" data-tn="${T.length}" placeholder="010-0000-0000" inputmode="tel" maxlength="20"><span></span><span></span></div>`); const row = box.lastElementChild, [l, m, n] = row.querySelectorAll('input'); T.push({ l: '', n: '' }); const i = T.length - 1; l.oninput = () => { T[i].l = l.value; }; m.oninput = () => { T[i].m = m.value; }; m.onchange = saveT; n.oninput = () => { T[i].n = n.value; }; n.onchange = () => { saveT(); setTimeout(() => drawPanel(true), 0); }; l.focus(); };
     P.querySelectorAll('[data-rpcall]').forEach(a => a.onclick = () => { const t = T[+a.dataset.rpcall]; actRow(cx, x, 'call', { label: (t && t.l) || '연락처' }); });
     // 매물 (나와 있는 호)
     const NONE = { src: '', k: [], hold: false, office: '' }, ORD = ['sale', 'jeonse', 'wolse'];
