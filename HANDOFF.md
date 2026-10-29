@@ -661,4 +661,4 @@
 - 10/30 미가입 중개사무소 회색 점(서울): scripts/offices-seoul.mjs + .github/workflows/offices-seoul.yml(매달 3일 + 수동, 비밀값 SEOUL_KEY·KAKAO_REST_KEY) → data/offices-seoul.json {rows:[위도,경도,'상호|…','등록번호|…']} + 좌표 기억 offices-seoul-memo.json.
   - 서울 열린데이터 「서울시 부동산 중개업소 정보」 서비스 이름은 짐작(landBizInfo, 환경변수 SERVICE로 바꿈) · 영문 항목도 값 모양으로 짐작해 Actions 기록에 남김. 영업 중만 · 건물(지번)별 묶음 · 고정 랜덤 30%(RATE) · 동마다 최대 12건물(PER_DONG).
   - 선배 결정: 다 찍지 말고 랜덤으로 적당히 · 카드에 상호만(전화번호·대표자 X). app.js drawGray/grayCard(drawOffices 맨 앞에서 부름): 서울 안 · 레벨 3~4 작은 점, 1~2 점+상호(+n), 5~ 숨김, zIndex 3(매물 5·회원 8 아래). 회원(LS.all의 bk.regno)과 같은 등록번호는 뺌. 카드 = '리얼맵 미가입' + [무료로 매물 올리기] → /promo.html?go=1. CSS app.css 끝 '.gof'.
-  - 10/30 점이 카카오 지도 점과 구분 안 돼 시안 8개 → 선배 G형 선택: 레벨 1~4 회색 알약 '(중) ○○부동산' (+n) · 이름은 ofName 7자까지 + '부동산'. 회원 사무소는 사진 없으면 상호 두 글자(.av.two).
+  - 10/30 점이 카카오 지도 점과 구분 안 돼 시안 8개 → 선배 G형 선택: 레벨 1~4 회색 알약 '○○부동산' (+n · '중' 표시는 선배 요청으로 뺌) · 이름은 ofName 7자까지 + '부동산'. 회원 사무소는 사진 없으면 상호 두 글자(.av.two).

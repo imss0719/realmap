@@ -2836,7 +2836,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   // ---------- 10/30 미가입 중개사무소 (서울 공공데이터 · 회색 점) ----------
   //   선배 결정: 다 찍지 않고 건물 일부만 고정 랜덤(자료 만들 때 고름) · 상호만(전화·대표자 X) · 회원 사무소는 등록번호로 빼서 노란 원만
-  //   레벨 1~4 '중 ○○부동산' 회색 알약(+n) · 5~ 숨김 · 누르면 '리얼맵 미가입' 카드 + 무료 매물 올리기(/promo.html?go=1)
+  //   레벨 1~4 '○○부동산' 회색 알약(+n) · 5~ 숨김 · 누르면 '리얼맵 미가입' 카드 + 무료 매물 올리기(/promo.html?go=1)
   const GR = { ovs: new Map(), rows: null, busy: false };
   const inSeoul = c => c.getLat() > 37.41 && c.getLat() < 37.72 && c.getLng() > 126.76 && c.getLng() < 127.19;
   function drawGray() {
@@ -2845,7 +2845,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (lv > 4 || !inSeoul(S.map.getCenter())) return hide();
     if (!GR.rows) { if (!GR.busy) { GR.busy = true; fetch('/data/offices-seoul.json').then(r => r.json()).then(j => { GR.rows = j.rows || []; drawGray(); }).catch(() => { GR.rows = []; }); } return; }
     const mem = new Set(); for (const x of LS.all || []) { const r = String((x.bk && x.bk.regno) || '').replace(/\D/g, ''); if (r) mem.add(r); }
-    const b = S.map.getBounds(), named = true, show = new Set();   // 10/30 선배 결정: G형 '중 ○○부동산' 알약 (레벨 1~4)
+    const b = S.map.getBounds(), named = true, show = new Set();   // 10/30 선배 결정: G형 '○○부동산' 알약 (레벨 1~4 · '중' 표시는 뺌)
     GR.rows.forEach((g, i) => {
       const ll = new K.LatLng(g[0], g[1]); if (!b.contain(ll)) return;
       const ns = String(g[2]).split('|'), rs = String(g[3] || '').split('|'), L = ns.filter((n, k) => n && !mem.has(rs[k]));
@@ -2856,7 +2856,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         const el = document.createElement('button'); el.type = 'button'; el.className = 'gof' + (named ? ' nm' : '');
         el.title = L.join(', ') + ' · 리얼맵 미가입';
         const sn = ofName({ office: L[0] }).replace(/\s*\d{2,4}-\d{3,4}-\d{4}.*$/, '').replace(/[·,].*$/, '').trim();
-        el.innerHTML = `<i>중</i><span>${esc(sn.length > 7 ? sn.slice(0, 7) + '…' : sn + (/부동산$/.test(sn) ? '' : '부동산'))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}`;
+        el.innerHTML = `<span>${esc(sn.length > 7 ? sn.slice(0, 7) + '…' : sn + (/부동산$/.test(sn) ? '' : '부동산'))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}`;
         el.onclick = ev => { ev.stopPropagation(); grayCard(L); };
         o = new K.CustomOverlay({ position: ll, content: el, xAnchor: .5, yAnchor: .5, zIndex: 3, clickable: true });
         { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(3); }

@@ -756,9 +756,8 @@ a.favbtn{text-decoration:none}
 .ofp.dot{z-index:1}
 .llabel small{font-size:10px;color:#7A8796}
 
-/* 10/30 미가입 중개사무소 — G형 회색 알약 '중 ○○부동산' (서울 공공데이터 · 상호만) */
-.gof{display:flex;align-items:center;gap:3px;background:#5B6675;color:#fff;border:1.5px solid #fff;border-radius:999px;padding:1px 6px 1px 2px;font:inherit;font-size:10.5px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.35);white-space:nowrap;cursor:pointer;line-height:15px}
-.gof i{width:13px;height:13px;border-radius:50%;background:#fff;color:#5B6675;font-style:normal;font-size:8.5px;font-weight:900;display:grid;place-items:center;flex:none;line-height:1}
+/* 10/30 미가입 중개사무소 — G형 회색 알약 '○○부동산' (서울 공공데이터 · 상호만) */
+.gof{display:flex;align-items:center;gap:3px;background:#5B6675;color:#fff;border:1.5px solid #fff;border-radius:999px;padding:1px 7px;font:inherit;font-size:10.5px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.35);white-space:nowrap;cursor:pointer;line-height:15px}
 .gof span{max-width:96px;overflow:hidden;text-overflow:ellipsis}
 .gof b{background:#fff;color:#5B6675;border-radius:999px;font-size:9.5px;padding:0 4px;line-height:13px;margin-right:-3px}
 .gof:hover{background:#14212E}
