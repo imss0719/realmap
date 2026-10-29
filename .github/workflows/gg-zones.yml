@@ -1,5 +1,6 @@
 name: realmap-gg-zones
-# 경기데이터드림 정비사업 추진현황을 받아 저장소에 저장 (분기마다 + 수동 실행) — 경기 정비사업 페이지용 (10/30)
+# 경기 정비사업: 경기데이터드림 자료 받기 → 좌표·경계 → 경기 페이지(gyeonggi/) 만들기 (분기마다 + 수동 실행) — 10/30
+#   서울 페이지 위쪽 줄에 '경기' 링크가 들어가도록 서울 페이지도 같이 다시 만듦 (자료는 그대로)
 on:
   schedule:
     - cron: '30 20 6 1,4,7,10 *'
@@ -9,7 +10,7 @@ permissions:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,9 +19,17 @@ jobs:
       - run: node scripts/gg-zones.mjs
         env:
           GG_OPENAPI_KEY: ${{ secrets.GG_OPENAPI_KEY }}
+      - name: 좌표·경계 붙이기
+        run: node scripts/gg-zones-build.mjs
+        env:
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+      - name: 경기 페이지 만들기
+        run: node scripts/gg-pages.mjs
+      - name: 서울 페이지 다시 만들기 (위쪽 줄 '경기' 링크)
+        run: node scripts/seoul-pages.mjs
       - name: 바뀐 자료 저장
         run: |
           git config user.name "realmap-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/gg-zones-raw.json
-          git diff --cached --quiet || (git commit -m "경기 정비사업 자료 갱신" && git push)
+          git add data/gg-zones-raw.json data/gg-zones.json data/gg-geo-memo.json gyeonggi seoul sitemap.xml sitemap-gg.xml robots.txt
+          git diff --cached --quiet || (git commit -m "경기 정비사업 자료·페이지 갱신" && git push)
