@@ -82,7 +82,7 @@
     th(); addEventListener('resize', th);
     if (window.ResizeObserver) new ResizeObserver(th).observe(document.querySelector('.top'));   // 고객관리에서는 종류 줄이 숨어 높이가 바뀜
     loadMap();
-    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; S.team = j.team || null; if (j.plan) S.plan = S.asPlan || j.plan; if (!S.vwSet) { setVw(S.items.length ? 'basic' : 'dense', true); S.vwSet = true; } } catch (e) {
+    try { const j = await api('/api/auth?action=listings'); S.items = j.items || []; S.bk = j.bk || null; S.canPub = !!j.canPub; S.team = j.team || null; if (j.plan) S.plan = S.asPlan || j.plan; if (!S.vwSet) { setVw(S.items.length ? 'basic' : 'dense', true); S.vwSet = true; } ensurePos(); } catch (e) {
       if (e.code === 'start') return location.replace('/pro.html?go=1');
       // 중개사무소 확인이 안 된 계정: 정보를 등록증과 같게 고치면 바로 열림
       if (e.code === 'verify') { S.bk = (e.data && e.data.bk) || null; draw(); return openBk(() => location.reload(), e.message); }
@@ -314,6 +314,15 @@
   }
   function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); if ((j.cxDirty || j.ledDirty) && window.Danji && Danji.reloadCx) Danji.reloadCx(!!j.ledDirty); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if ('team' in j) S.team = j.team || null; if (j.items) S.seen = sig(j.items); if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
+  // 10/29 리얼맵 지도의 '중개사무소 핀' 자리: 확인된 사무소 주소를 좌표로 바꿔 한 번만 저장 (주소가 바뀌면 서버가 좌표를 지우고 다시 찾음)
+  function ensurePos() {
+    const b = S.bk; if (!S.kakao || !b || !b.verified || !b.addr || b.lat || S.posTry === b.addr) return;
+    S.posTry = b.addr;
+    new kakao.maps.services.Geocoder().addressSearch(b.addr, async (r, st) => {
+      if (st !== 'OK' || !r || !r[0]) return;
+      try { const j = await api('/api/auth?action=bkpos', post({ lat: +r[0].y, lng: +r[0].x })); if (j.bk) S.bk = j.bk; } catch { /* 다음에 다시 */ }
+    });
+  }
   // ---------- 지도 ----------
   async function loadMap() {
     try {
@@ -322,7 +331,7 @@
       const sc = document.createElement('script');
       sc.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(cfg.kakaoKey)}&libraries=services&autoload=false`;
       sc.onload = () => kakao.maps.load(() => {
-        S.kakao = true;
+        S.kakao = true; ensurePos();
         S.map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5563, 126.9236), level: 6 });
         S.map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
         drawPins(true);
@@ -1436,7 +1445,7 @@
       const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile', 'intro', 'area'].map(k => [k, $('b_' + k).value.trim()]));
       bk.photo = photo; bk.spec = [...$('bSpec').querySelectorAll('[aria-pressed=true]')].map(x => x.dataset.sp);
       $('bSave').disabled = true;
-      try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; S.bkTmp = (S.bkTmp || []).filter(u => u !== j.bk.photo); closeForm(); draw(); toast(j.warn || '중개사무소 정보를 저장했습니다', j.warn ? 8000 : 2600); if (then) then(); }
+      try { const j = await api('/api/auth?action=bk', post({ bk })); S.bk = j.bk; S.canPub = !!j.canPub; S.bkTmp = (S.bkTmp || []).filter(u => u !== j.bk.photo); closeForm(); draw(); ensurePos(); toast(j.warn || '중개사무소 정보를 저장했습니다', j.warn ? 8000 : 2600); if (then) then(); }
       catch (e) { toast(e.message, 4000); $('bSave').disabled = false; }
     };
   }

@@ -2755,6 +2755,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function drawListings() {
     if (!S.map) return;
     const K = kakao.maps;
+    drawOffices();
     if (!lsActive()) { LS.ovs.forEach(o => o.setMap(null)); return; }
     const lv = S.map.getLevel(), b = S.map.getBounds(), show = new Set();
     if (lv <= 6) {
@@ -2775,14 +2776,14 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       }
     } else { // 동별 건수
       const d = new Map();
-      for (const x of LS.items) { const k = String(x.pnu).slice(0, 10); const e = d.get(k) || d.set(k, { k, la: 0, ln: 0, c: 0, nm: '' }).get(k); e.la += x.lat; e.ln += x.lng; e.c++; if (!e.nm) e.nm = (String(x.addr).split(' ').find(w => /(동|가|리|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w)) || ''); }
+      for (const x of LS.items) { const k = String(x.pnu).slice(0, 10); const e = d.get(k) || d.set(k, { k, la: 0, ln: 0, c: 0, nm: '', of: new Set() }).get(k); e.la += x.lat; e.ln += x.lng; e.c++; if (x.bk && x.bk.verified) e.of.add(String(x.bk.regno || '').replace(/\D/g, '')); if (!e.nm) e.nm = (String(x.addr).split(' ').find(w => /(동|가|리|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w)) || ''); }
       for (const e of d.values()) {
         const ll = new K.LatLng(e.la / e.c, e.ln / e.c); if (!b.contain(ll)) continue;
-        const id = 'd' + e.k + ':' + e.c; show.add(id);
+        const id = 'd' + e.k + ':' + e.c + ':' + e.of.size; show.add(id);
         let o = LS.ovs.get(id);
         if (!o) {
           const el = document.createElement('button'); el.type = 'button'; el.className = 'lbubble';
-          el.innerHTML = `${esc(e.nm)} 매물 <b>${e.c}</b>`;
+          el.innerHTML = `${esc(e.nm)} 매물 <b>${e.c}</b>${e.of.size ? `<span class="lbo">중개사 ${e.of.size}</span>` : ''}`;   // 10/29 멀리서는 사무소 핀 대신 동네 묶음에 '중개사 n'
           el.onclick = ev => { ev.stopPropagation(); S.map.setLevel(5, { anchor: ll }); S.map.setCenter(ll); };
           o = new K.CustomOverlay({ position: ll, content: el, yAnchor: .5, zIndex: 6, clickable: true });
           LS.ovs.set(id, o);
@@ -2791,6 +2792,73 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       }
     }
     LS.ovs.forEach((o, id) => { if (!show.has(id) && o.getMap()) o.setMap(null); });
+  }
+  // ---------- 10/29 지도 위 중개사무소 (광고가 있는 확인된 사무소만 · 사무소 주소 자리) ----------
+  //   가까이(레벨 1~3) 사진+상호+매물 수 알약 · 중간(4~6) 사진 동그라미+숫자 · 멀리(7~)는 숨기고 동네 묶음에 '중개사 n'
+  //   사무소가 많으면(OF_MANY 넘으면) 화면을 칸으로 나눠 칸마다 점수 1등만 크게, 나머지는 점 · 휴대폰 가까이에서는 이름은 점수 위 2곳만
+  //   점수 = 게시 매물 수(30건까지) + 최근 30일 활동 5 + 사진 3
+  const OF = { ovs: new Map() }, OF_MANY = 25;
+  const ofName = b => String(b.office || '').replace(/^(주식회사|\(주\)|㈜)\s*/, '').trim();
+  const ofAv = (b, cls) => { const n = ofName(b); let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 997; return b.photo ? `<span class="${cls}" style="background-image:url('${esc(b.photo)}')"></span>` : `<span class="${cls} oc${h % 5}">${esc(n.charAt(0) || '중')}</span>`; };
+  function offices() {
+    const m = new Map(), now = Date.now();
+    for (const x of LS.items) {
+      const b = x.bk || {}, r = String(b.regno || '').replace(/\D/g, '');
+      if (!b.verified || !(b.lat > 33) || !(b.lng > 124) || !r) continue;
+      const e = m.get(r) || m.set(r, { r, bk: b, list: [], last: '' }).get(r); e.list.push(x);
+      const t = String(x.chk || x.at || ''); if (t > e.last) e.last = t;
+    }
+    for (const e of m.values()) e.score = Math.min(e.list.length, 30) + (now - Date.parse(e.last || 0) < 30 * 864e5 ? 5 : 0) + (e.bk.photo ? 3 : 0);
+    return [...m.values()].sort((a, b) => b.score - a.score);
+  }
+  function drawOffices() {
+    if (!S.map) return;
+    const K = kakao.maps, lv = S.map.getLevel();
+    if (!lsActive() || lv > 6) { OF.ovs.forEach(o => o.setMap(null)); return; }
+    const b = S.map.getBounds(), proj = S.map.getProjection(), phone = innerWidth <= 760;
+    const L = offices().filter(e => b.contain(new K.LatLng(e.bk.lat, e.bk.lng)));
+    const big = new Set(), cells = new Set(), cs = phone ? 130 : 120;
+    for (const e of L) {   // 점수 높은 순서 → 칸마다 처음 온 사무소만 크게
+      if (L.length <= OF_MANY) { big.add(e.r); continue; }
+      const p = proj.containerPointFromCoords(new K.LatLng(e.bk.lat, e.bk.lng)), c = Math.floor(p.x / cs) + ':' + Math.floor(p.y / cs);
+      if (!cells.has(c)) { cells.add(c); big.add(e.r); }
+    }
+    const named = new Set(L.filter(e => big.has(e.r)).slice(0, phone ? 2 : 1e9).map(e => e.r));
+    const show = new Set();
+    for (const e of L) {
+      const mode = !big.has(e.r) ? 'dot' : lv <= 3 && named.has(e.r) ? 'pill' : 'circle';
+      const id = `${e.r}:${mode}:${e.list.length}`; show.add(id);
+      let o = OF.ovs.get(id);
+      if (!o) {
+        const el = document.createElement('button'); el.type = 'button'; el.className = 'ofp ' + mode;
+        const nm = ofName(e.bk), n = e.list.length;
+        el.title = `${e.bk.office} · 게시 중 매물 ${n}건`;
+        el.innerHTML = mode === 'pill' ? `${ofAv(e.bk, 'av')}<span class="nm">${esc(nm)}</span><small>매물 ${n}</small>` : mode === 'circle' ? `${ofAv(e.bk, 'av')}<em>${n}</em>` : '';
+        el.onclick = ev => { ev.stopPropagation(); ofCard(e.r); };
+        o = new K.CustomOverlay({ position: new K.LatLng(e.bk.lat, e.bk.lng), content: el, yAnchor: mode === 'dot' ? .5 : 1.2, zIndex: mode === 'dot' ? 4 : 7, clickable: true });
+        OF.ovs.set(id, o);
+      }
+      if (!o.getMap()) o.setMap(S.map);
+    }
+    OF.ovs.forEach((o, id) => { if (!show.has(id) && o.getMap()) o.setMap(null); });
+  }
+  // 사무소를 누르면: 전화번호 그대로 · 매물 3건 사진 · [이 중개사 매물 n건 모두 보기]
+  function ofCard(r) {
+    const e = offices().find(z => z.r === r); if (!e) return;
+    const b = e.bk, box = $('toast').parentElement;
+    let c = $('ofCard'); if (!c) { c = document.createElement('div'); c.id = 'ofCard'; box.appendChild(c); kakao.maps.event.addListener(S.map, 'click', () => { const z = $('ofCard'); if (z) z.hidden = true; }); }
+    const tel = s => { const d = String(s || '').replace(/\D/g, ''); return !d ? '' : IS_PHONE ? `<a class="tl" href="tel:${d}">${/^01/.test(d) ? '📱' : '☎'} ${esc(s)}</a>` : `<button type="button" class="tl" data-cp="${esc(s)}">${/^01/.test(d) ? '📱' : '☎'} ${esc(s)}</button>`; };
+    const L = [...e.list].sort((a, z) => String(z.at || '').localeCompare(String(a.at || ''))), n = L.length;
+    const gu = (String(b.addr || '').split(' ').find(w => /(동|가|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w))) || '';
+    c.innerHTML = `<div class="h">${ofAv(b, 'av')}<div class="t"><b>${esc(b.office)}<span class="ver">등록번호 확인</span></b><small>대표 ${esc(b.ceo || '')}${gu ? ' · ' + esc(gu) : ''}</small></div><a class="ofi" href="/office.html?r=${r}">소개 ›</a><button type="button" class="x" aria-label="닫기">×</button></div>
+      <div class="tels">${tel(b.tel)}${b.mobile && String(b.mobile).replace(/\D/g, '') !== String(b.tel || '').replace(/\D/g, '') ? tel(b.mobile) : ''}</div>
+      <div class="ms">${L.slice(0, 3).map((x, i) => `<button type="button" data-i="${i}"><i${x.photos && x.photos[0] ? ` style="background-image:url('${esc(x.photos[0])}')"` : ''}>${x.photos && x.photos[0] ? '' : '사진 없음'}</i><b><em class="lk-${x.kind}">${LKIND[x.kind]}</em>${esc(lsPrice(x))}</b><small>${esc([x.bname || String(x.addr || '').split(' ').slice(-1)[0], x.dong ? x.dong + '동' : ''].filter(Boolean).join(' '))}</small></button>`).join('')}</div>
+      <button type="button" class="all">이 중개사 매물 ${n}건 모두 보기 ›</button>`;
+    c.hidden = false;
+    c.querySelector('.x').onclick = () => { c.hidden = true; };
+    c.querySelectorAll('[data-cp]').forEach(t => t.onclick = () => { try { navigator.clipboard.writeText(t.dataset.cp); toast('번호를 복사했습니다'); } catch { /* 복사 안 됨 */ } });
+    c.querySelectorAll('[data-i]').forEach(t => t.onclick = () => { const x = L[+t.dataset.i]; c.hidden = true; S.lstJump = true; pickPnu(x.pnu); });
+    c.querySelector('.all').onclick = () => { c.hidden = true; LS.ofc = r; ofcOn(); drawListings(); drawTrades(); };
   }
   // 이 필지의 매물 (필지창 맨 위)
   function lsHere() { const p = S.sel; if (!p) return []; return LS.items.filter(x => x.pnu === p.pnu || (p.bldPnu && x.pnu === p.bldPnu)); }

@@ -719,3 +719,29 @@ a.favbtn{text-decoration:none}
 #ofcBar a{background:rgba(255,255,255,.14);color:inherit}#ofcBar button{background:#F2B705;color:#14212E}
 .ofc-on .toast{top:104px}
 @media (max-width:760px){#ofcBar{top:auto;bottom:calc(18px + env(safe-area-inset-bottom));font-size:12.5px}#ofcBar i{display:none}.ofc-on .toast{top:118px}}
+/* 10/29 지도 위 중개사무소 (app.js drawOffices · ofCard) */
+.ofp{position:relative;border:0;font:inherit;cursor:pointer;padding:0;background:none}
+.ofp .av{display:grid;place-items:center;border-radius:50%;background:#CFD8E3 center/cover no-repeat;color:#5B6675;font-weight:800;flex:none;overflow:hidden}
+.ofp .oc0,#ofCard .oc0{background-color:#FCE7C8;color:#A15C07}.ofp .oc1,#ofCard .oc1{background-color:#D6ECFF;color:#1D5FA8}.ofp .oc2,#ofCard .oc2{background-color:#E3F4E1;color:#2B7A3D}.ofp .oc3,#ofCard .oc3{background-color:#F3DDF3;color:#8A3A8A}.ofp .oc4,#ofCard .oc4{background-color:#E6E1F7;color:#5B48A8}
+.ofp.pill{display:flex;align-items:center;gap:6px;background:#14212E;color:#fff;border-radius:999px;padding:3px 11px 3px 3px;box-shadow:0 4px 12px rgba(0,0,0,.3);font-weight:700;font-size:13px;white-space:nowrap}
+.ofp.pill .av{width:28px;height:28px;border:2px solid #fff;font-size:12px}.ofp.pill small{color:#FFD95A;font-weight:700;font-size:12px}.ofp.pill .nm{max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.ofp.pill:after{content:"";position:absolute;left:16px;bottom:-6px;border:6px solid transparent;border-top-color:#14212E;border-bottom:0}
+.ofp.circle .av{width:40px;height:40px;border:3px solid #14212E;box-shadow:0 4px 10px rgba(0,0,0,.3);font-size:15px}
+.ofp.circle:after{content:"";position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);border:6px solid transparent;border-top-color:#14212E;border-bottom:0}
+.ofp.circle em{position:absolute;right:-8px;top:-6px;background:#F2B705;color:#14212E;font-style:normal;font-size:11px;font-weight:800;border-radius:999px;padding:0 6px;border:2px solid #fff;line-height:16px}
+.ofp.dot{width:12px;height:12px;border-radius:50%;background:#14212E;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.lbubble .lbo{margin-left:6px;padding-left:7px;border-left:1px solid #E1E6EB;color:#14212E;font-weight:700}
+#ofCard{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:12;width:min(370px,calc(100% - 24px));background:var(--surface);color:var(--fg);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:14px}
+#ofCard .h{display:flex;gap:10px;align-items:center}#ofCard .h .av{width:46px;height:46px;border-radius:50%;background:#CFD8E3 center/cover no-repeat;display:grid;place-items:center;font-weight:800;font-size:17px;flex:none}
+#ofCard .t{flex:1;min-width:0}#ofCard .t b{display:block;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#ofCard .t small{color:var(--muted);font-size:12.5px}
+#ofCard .ver{display:inline-block;font-size:10.5px;font-weight:700;background:#E7F6EC;color:#1F7A4D;border-radius:5px;padding:0 6px;margin-left:5px;vertical-align:2px}
+#ofCard .ofi{display:block;padding:0;align-self:flex-start;font-size:12.5px;font-weight:700;color:#1E5EDB;text-decoration:none;white-space:nowrap}
+#ofCard .x{align-self:flex-start;border:0;background:none;font-size:20px;line-height:1;color:var(--muted);cursor:pointer;padding:0 2px}
+#ofCard .tels{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:6px;margin-top:10px}
+#ofCard .tl{display:block;text-align:center;background:#FFF8DB;border:1px solid #F2D77A;border-radius:9px;padding:8px 4px;font:inherit;font-weight:700;font-size:14px;color:#14212E;text-decoration:none;cursor:pointer;white-space:nowrap}
+#ofCard .ms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px}
+#ofCard .ms button{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface);color:var(--fg);padding:0;text-align:left;font:inherit;cursor:pointer}
+#ofCard .ms i{display:grid;place-items:center;height:56px;background:#DCE3EB center/cover no-repeat;font-style:normal;font-size:11px;color:#7A8796}
+#ofCard .ms b{display:block;font-size:12.5px;padding:4px 6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#ofCard .ms b em{background:#1E5EDB;font-style:normal;font-size:10px;color:#fff;border-radius:4px;padding:0 3px;margin-right:3px}
+#ofCard .ms small{display:block;font-size:11px;color:var(--muted);padding:0 6px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ofCard .all{display:block;width:100%;margin-top:10px;border:0;border-radius:10px;background:#14212E;color:#fff;font:inherit;font-weight:700;font-size:14px;padding:11px;cursor:pointer}
