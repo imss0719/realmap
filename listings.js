@@ -318,10 +318,16 @@
   function ensurePos() {
     const b = S.bk; if (!S.kakao || !b || !b.verified || !b.addr || b.lat || S.posTry === b.addr) return;
     S.posTry = b.addr;
-    new kakao.maps.services.Geocoder().addressSearch(b.addr, async (r, st) => {
-      if (st !== 'OK' || !r || !r[0]) return;
-      try { const j = await api('/api/auth?action=bkpos', post({ lat: +r[0].y, lng: +r[0].x })); if (j.bk) S.bk = j.bk; } catch { /* 다음에 다시 */ }
-    });
+    // 사무소 주소엔 '2층 201호' '(노고산동)' 같은 말이 붙어 있어 주소 검색이 실패할 수 있음 → 도로명·지번 번지까지만 잘라 차례로 시도, 마지막은 장소 검색
+    const a0 = String(b.addr).replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+    const cut = (a0.match(/^.*?(?:로|길)\s+\d+(?:-\d+)?/) || a0.match(/^.*?(?:동|가|리)\s+(?:산\s*)?\d+(?:-\d+)?/) || [a0])[0];
+    const tries = [...new Set([b.addr, a0, cut])], G = new kakao.maps.services.Geocoder();
+    const save = async (lat, lng) => { try { const j = await api('/api/auth?action=bkpos', post({ lat, lng })); if (j.bk) S.bk = j.bk; } catch { /* 다음에 다시 */ } };
+    const next = i => {
+      if (i >= tries.length) return new kakao.maps.services.Places().keywordSearch(cut, (r, st) => { if (st === 'OK' && r && r[0]) save(+r[0].y, +r[0].x); });
+      G.addressSearch(tries[i], (r, st) => { if (st === 'OK' && r && r[0]) save(+r[0].y, +r[0].x); else next(i + 1); });
+    };
+    next(0);
   }
   // ---------- 지도 ----------
   async function loadMap() {

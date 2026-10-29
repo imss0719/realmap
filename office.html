@@ -76,6 +76,7 @@ a{color:inherit}
   const py = a => a ? (a / 3.3058).toFixed(1).replace(/\.0$/, '') + '평' : '';
   const toast = t => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); };
   const phone = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  const telFmt = v => { const d = String(v || '').replace(/\D/g, ''); if (/^02/.test(d)) return d.length === 9 ? d.replace(/^(02)(\d{3})(\d{4})$/, '$1-$2-$3') : d.replace(/^(02)(\d{4})(\d{4})$/, '$1-$2-$3'); if (/^(15|16|18)\d{6}$/.test(d)) return d.replace(/^(\d{4})(\d{4})$/, '$1-$2'); if (/^0505/.test(d) && d.length === 12) return d.replace(/^(\d{4})(\d{4})(\d{4})$/, '$1-$2-$3'); if (d.length === 11) return d.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3'); if (d.length === 10) return d.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3'); return String(v || ''); };   // 10/29 번호에 '-'
   if (!r) { $('app').innerHTML = '<div class="msg">중개사무소 주소가 올바르지 않습니다.</div>'; return; }
   Promise.all([
     fetch('/api/auth?action=office&r=' + r).then(x => x.json()),
@@ -88,7 +89,7 @@ a{color:inherit}
     const sms = `[리얼맵] ${o.office} 소개 페이지를 보고 문의드립니다.`;
     const callBtns = phone
       ? `<a class="y" href="tel:${tel || mob}">전화</a>${mob ? `<a href="sms:${mob}${/iPhone|iPad/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(sms)}">문자</a>` : '<span></span>'}`
-      : `<button type="button" class="y" data-copy="${esc(o.tel)}">☎ ${esc(o.tel)}</button>${o.mobile ? `<button type="button" data-copy="${esc(o.mobile)}">📱 ${esc(o.mobile)}</button>` : '<span></span>'}`;
+      : `<button type="button" class="y" data-copy="${esc(telFmt(o.tel))}">☎ ${esc(telFmt(o.tel))}</button>${o.mobile ? `<button type="button" data-copy="${esc(telFmt(o.mobile))}">📱 ${esc(telFmt(o.mobile))}</button>` : '<span></span>'}`;
     const isMine = me && me.plan && me.plan.started && me.member;   // 로그인한 중개사 본인일 수도 있음 → 수정 안내 (본인 확인은 설정 화면에서)
     $('app').innerHTML = `<div class="card">
       <div class="hd"><span class="av">${o.photo ? `<img src="${esc(o.photo)}" alt="">` : esc(String(o.office || '').trim().charAt(0))}</span>
@@ -102,7 +103,7 @@ a{color:inherit}
         ${L.length ? `<a class="onmap" href="/?office=${r}">🗺 이 중개사 매물만 지도에서 보기 ›</a>` : ''}
         ${L.length ? `<div class="ls">${L.map(x => `<a href="/?pnu=${esc(x.pnu)}&lst=1" target="_blank" rel="noopener"><span class="ph"${x.photos && x.photos[0] ? ` style="background-image:url('${esc(x.photos[0])}')"` : ''}>${x.photos && x.photos[0] ? '' : '사진 없음'}</span><b><span class="k ${esc(x.kind)}">${KIND[x.kind] || ''}</span>${esc(price(x))}</b><small>${esc([x.bname || String(x.addr || '').split(' ').slice(-2).join(' '), x.dong ? x.dong + '동' : ''].filter(Boolean).join(' '))}<br>${esc([x.ptypeTx || x.ptype, py(x.area), x.flr].filter(Boolean).join(' · '))}</small></a>`).join('')}</div>` : '<div class="none">지금 지도에 올라 있는 매물이 없습니다.</div>'}
       </div>
-      <div class="ft">${esc(o.office)} · 대표 ${esc(o.ceo)} · 등록번호 ${esc(o.regno)} · ${esc(o.addr)} · ☎ ${esc(o.tel)}<br>리얼맵은 국가 자료(브이월드)로 중개사무소 등록번호를 확인한 중개사만 매물을 올릴 수 있습니다.
+      <div class="ft">${esc(o.office)} · 대표 ${esc(o.ceo)} · 등록번호 ${esc(o.regno)} · ${esc(o.addr)} · ☎ ${esc(telFmt(o.tel))}<br>리얼맵은 국가 자료(브이월드)로 중개사무소 등록번호를 확인한 중개사만 매물을 올릴 수 있습니다.
         <div class="share"><button type="button" id="cpy">링크 복사</button><button type="button" id="qrb">QR 코드</button></div></div>
     </div>
     ${isMine ? '<p class="none" style="text-align:center;margin-top:12px">내 사무소라면 소개 글·전문 분야는 <a href="/listings.html?mode=set">중개장부 → 설정 → 우리 사무소</a>에서 고칩니다.</p>' : ''}`;

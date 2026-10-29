@@ -2798,7 +2798,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   //   사무소가 많으면(OF_MANY 넘으면) 화면을 칸으로 나눠 칸마다 점수 1등만 크게, 나머지는 점 · 휴대폰 가까이에서는 이름은 점수 위 2곳만
   //   점수 = 게시 매물 수(30건까지) + 최근 30일 활동 5 + 사진 3
   const OF = { ovs: new Map() }, OF_MANY = 25;
-  const ofName = b => String(b.office || '').replace(/^(주식회사|\(주\)|㈜)\s*/, '').trim();
+  // 지도 핀 이름은 짧게: '주식회사' '공인중개사사무소' '부동산' 같은 말은 뺌 (카드에는 등록된 이름 그대로)
+  const ofName = b => { const o = String(b.office || '').trim(), n = o.replace(/^(주식회사|\(주\)|㈜)\s*/, '').replace(/\s*(\(주\)|㈜|주식회사)$/, '').replace(/\s*(공인\s*중개사\s*사무소|공인\s*중개사|중개사\s*사무소|중개\s*법인|부동산\s*중개|부동산\s*사무소|부동산)\s*$/, '').trim(); return n || o; };
   const ofAv = (b, cls) => { const n = ofName(b); let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 997; return b.photo ? `<span class="${cls}" style="background-image:url('${esc(b.photo)}')"></span>` : `<span class="${cls} oc${h % 5}">${esc(n.charAt(0) || '중')}</span>`; };
   function offices() {
     const m = new Map(), now = Date.now();
@@ -2847,7 +2848,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const e = offices().find(z => z.r === r); if (!e) return;
     const b = e.bk, box = $('toast').parentElement;
     let c = $('ofCard'); if (!c) { c = document.createElement('div'); c.id = 'ofCard'; box.appendChild(c); kakao.maps.event.addListener(S.map, 'click', () => { const z = $('ofCard'); if (z) z.hidden = true; }); }
-    const tel = s => { const d = String(s || '').replace(/\D/g, ''); return !d ? '' : IS_PHONE ? `<a class="tl" href="tel:${d}">${/^01/.test(d) ? '📱' : '☎'} ${esc(s)}</a>` : `<button type="button" class="tl" data-cp="${esc(s)}">${/^01/.test(d) ? '📱' : '☎'} ${esc(s)}</button>`; };
+    const telFmt = v => { const d = String(v || '').replace(/\D/g, ''); if (/^02/.test(d)) return d.length === 9 ? d.replace(/^(02)(\d{3})(\d{4})$/, '$1-$2-$3') : d.replace(/^(02)(\d{4})(\d{4})$/, '$1-$2-$3'); if (/^(15|16|18)\d{6}$/.test(d)) return d.replace(/^(\d{4})(\d{4})$/, '$1-$2'); if (/^0505/.test(d) && d.length === 12) return d.replace(/^(\d{4})(\d{4})(\d{4})$/, '$1-$2-$3'); if (d.length === 11) return d.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3'); if (d.length === 10) return d.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3'); return String(v || ''); };
+    const tel = s => { const d = String(s || '').replace(/\D/g, ''), t = telFmt(s); return !d ? '' : IS_PHONE ? `<a class="tl" href="tel:${d}">${/^01/.test(d) ? '📱' : '☎'} ${esc(t)}</a>` : `<button type="button" class="tl" data-cp="${esc(t)}">${/^01/.test(d) ? '📱' : '☎'} ${esc(t)}</button>`; };   // 10/29 번호에 '-'
     const L = [...e.list].sort((a, z) => String(z.at || '').localeCompare(String(a.at || ''))), n = L.length;
     const gu = (String(b.addr || '').split(' ').find(w => /(동|가|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w))) || '';
     c.innerHTML = `<div class="h">${ofAv(b, 'av')}<div class="t"><b>${esc(b.office)}<span class="ver">등록번호 확인</span></b><small>대표 ${esc(b.ceo || '')}${gu ? ' · ' + esc(gu) : ''}</small></div><a class="ofi" href="/office.html?r=${r}">소개 ›</a><button type="button" class="x" aria-label="닫기">×</button></div>
