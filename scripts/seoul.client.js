@@ -5,6 +5,9 @@
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const SLUG = { '종로구': 'jongno', '중구': 'jung', '용산구': 'yongsan', '성동구': 'seongdong', '광진구': 'gwangjin', '동대문구': 'dongdaemun', '중랑구': 'jungnang', '성북구': 'seongbuk', '강북구': 'gangbuk', '도봉구': 'dobong', '노원구': 'nowon', '은평구': 'eunpyeong', '서대문구': 'seodaemun', '마포구': 'mapo', '양천구': 'yangcheon', '강서구': 'gangseo', '구로구': 'guro', '금천구': 'geumcheon', '영등포구': 'yeongdeungpo', '동작구': 'dongjak', '관악구': 'gwanak', '서초구': 'seocho', '강남구': 'gangnam', '송파구': 'songpa', '강동구': 'gangdong' };
+  const GGS = { '수원시': 'suwon', '성남시': 'seongnam', '고양시': 'goyang', '용인시': 'yongin', '부천시': 'bucheon', '안산시': 'ansan', '안양시': 'anyang', '남양주시': 'namyangju', '화성시': 'hwaseong', '평택시': 'pyeongtaek', '의정부시': 'uijeongbu', '시흥시': 'siheung', '파주시': 'paju', '김포시': 'gimpo', '광명시': 'gwangmyeong', '광주시': 'gwangju', '군포시': 'gunpo', '하남시': 'hanam', '오산시': 'osan', '이천시': 'icheon', '안성시': 'anseong', '의왕시': 'uiwang', '양주시': 'yangju', '포천시': 'pocheon', '여주시': 'yeoju', '과천시': 'gwacheon', '구리시': 'guri', '동두천시': 'dongducheon', '가평군': 'gapyeong', '양평군': 'yangpyeong', '연천군': 'yeoncheon' };
+  // 10/30 관심 구역 링크: 경기 구역 번호는 41로 시작하는 8자리 (gu 자리에 시 이름)
+  const zhref = x => /^41\d{6}$/.test(String(x.id)) && GGS[x.gu] ? `/gyeonggi/${GGS[x.gu]}/${x.id}.html` : `/seoul/${SLUG[x.gu] || ''}/${x.id}.html`;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------- 방문 통계 (리얼맵과 같은 임의 번호, 개인정보 없음 · 운영자 기기는 세지 않음) ----------
@@ -12,8 +15,8 @@
     let v = '', op = false;
     try { op = localStorage.getItem('rm.op') === '1'; v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
     if (op) return;
-    const m = location.pathname.match(/^\/seoul\/(?:([a-z]+)(?:\/(\d+|[a-z]+))?\.html)?$/);
-    const pg = !m ? 'idx' : m[2] ? `${m[1]}/${m[2]}` : m[1] || 'idx';   // 테마 페이지는 t/big 처럼
+    const m = location.pathname.match(/^\/(?:seoul|(gyeonggi))\/(?:([a-z]+)(?:\/(\d+|[a-z]+))?\.html)?$/);
+    const pg = (m && m[1] ? 'gg/' : '') + (!m ? 'idx' : m[3] ? `${m[2]}/${m[3]}` : m[2] || 'idx');   // 테마 페이지는 t/big 처럼 · 10/30 경기는 gg/ 를 앞에
     let src = '';
     try { if (!sessionStorage.getItem('rm.ssrc')) {
       const ua = navigator.userAgent || ''; let h = ''; try { h = document.referrer ? new URL(document.referrer).hostname : ''; } catch { /* 없음 */ }
@@ -127,7 +130,7 @@
     box.hidden = false;
     const list = $('.my-list', box);
     list.innerHTML = st.items.length ? st.items.map(x => `<li data-z data-id="${esc(x.id)}" data-n="${esc(x.n)}" data-gu="${esc(x.gu)}" data-st="${esc(x.st)}">
-        <a href="/seoul/${SLUG[x.gu] || ''}/${esc(x.id)}.html"><b>${esc(x.n)}</b> <span>${esc(x.gu)} · ${esc(x.st || '')}</span></a>
+        <a href="${zhref(x)}"><b>${esc(x.n)}</b> <span>${esc(x.gu)} · ${esc(x.st || '')}</span></a>
         <button data-act="alert" class="zb sm${x.alert ? ' on' : ''}">${x.alert ? '🔔 알림 받는 중' : '🔔 추진 알림 받기'}</button></li>`).join('')
       : '<li class="empty">아직 담은 구역이 없습니다. 아래 목록이나 구별 페이지에서 ☆ 관심 구역을 눌러 담아 보세요.</li>';
     $('.my-mail', box).innerHTML = st.email ? `알림 이메일: <b>${esc(st.email)}</b> · <button class="lnk" id="myMailOff">이메일 알림 모두 해제</button>` : '추진 알림은 이메일로 보내 드립니다. 구역의 🔔 버튼을 누르면 이메일을 남기실 수 있습니다.';
@@ -180,17 +183,19 @@
   //   리얼맵 지도 광고(/api/auth?action=pubs) 중 구역 경계(국토부 경계 = data/jeongbi-seoul.json, 서울시 행의 jb) 안에 있는 매물
   //   중개사무소 = 이 구역에 매물을 올린 곳 + 사무소가 구역에서 700m 안인 곳 · 비어 있으면 [내 물건 등록하기]/[내 사무실 등록하기] → 홍보 페이지
   (async function zoneAds() {
-    const act = $('section.pn.act[data-z]'); if (!act || !/^\/seoul\/[a-z]+\/\d+\.html$/.test(location.pathname)) return;
+    const act = $('section.pn.act[data-z]'); if (!act || !/^\/(seoul|gyeonggi)\/[a-z]+\/\d+\.html$/.test(location.pathname)) return;
+    const ZR = (() => { try { const t = $('#zrow'); return t ? JSON.parse(t.textContent) : null; } catch { return null; } })();   // 10/30 경기: 페이지 안에 구역 자료
     const css = document.createElement('style');
     css.textContent = `.za .zl li{grid-template-columns:auto minmax(0,1fr) auto}.za .kd{font-size:11px;font-weight:800;color:#fff;border-radius:5px;padding:2px 6px}.za .k-sale{background:#C92A2A}.za .k-jeonse{background:#1C64C8}.za .k-wolse{background:#2B8A3E}.za .k-presale{background:#7048E8}
 .za .pr{font-weight:900}.za .zl small{grid-column:2/-1}.za .of{display:flex;align-items:center;gap:8px}.za .av{width:30px;height:30px;border-radius:50%;background:#CFD8E3 center/cover no-repeat;flex:none;display:grid;place-items:center;font-size:12px;font-weight:800;color:#5B6675}
 .za .em{padding:12px;text-align:center}.za .em p{margin:0 0 8px;font-size:13px;color:var(--muted)}.za .go{display:inline-block;background:var(--accent);color:#14212E;font-weight:800;text-decoration:none;border-radius:7px;padding:8px 14px;font-size:13.5px}.za .mo{display:block;padding:7px 12px;font-size:12px;color:var(--muted);text-decoration:none;border-top:1px solid var(--line)}.za .mo:hover{text-decoration:underline}.za .tel{font-size:12px;font-weight:800;text-decoration:none;color:var(--fg);white-space:nowrap}`;
     document.head.appendChild(css);
     const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
-    const [Z, J, P, PA, PB] = await Promise.all([get('/data/seoul-zones.json'), get('/data/jeongbi-seoul.json'), get('/api/auth?action=pubs'), get('/data/price-11.json'), get('/data/price2-11.json')]);
-    const row = Z && (Z.rows || []).find(r => String(r.id) === act.dataset.id); if (!row) return;
-    const rings = [];
-    for (const f of (J && J.features) || []) if ((row.jb || []).includes(f.properties && f.properties.id)) { const g = f.geometry || {}; (g.type === 'MultiPolygon' ? g.coordinates : g.type === 'Polygon' ? [g.coordinates] : []).forEach(p => p[0] && rings.push(p[0])); }
+    const SD = ZR ? '41' : '11';
+    const [Z, J, P, PA, PB] = await Promise.all([ZR ? null : get('/data/seoul-zones.json'), ZR ? null : get('/data/jeongbi-seoul.json'), get('/api/auth?action=pubs'), get(`/data/price-${SD}.json`), get(`/data/price2-${SD}.json`)]);
+    const row = ZR || (Z && (Z.rows || []).find(r => String(r.id) === act.dataset.id)); if (!row) return;
+    const rings = ZR ? (ZR.ring || []).slice() : [];
+    if (!ZR) for (const f of (J && J.features) || []) if ((row.jb || []).includes(f.properties && f.properties.id)) { const g = f.geometry || {}; (g.type === 'MultiPolygon' ? g.coordinates : g.type === 'Polygon' ? [g.coordinates] : []).forEach(p => p[0] && rings.push(p[0])); }
     const inRing = (x, y, R) => { let c = false; for (let i = 0, j = R.length - 1; i < R.length; j = i++) { const [xi, yi] = R[i], [xj, yj] = R[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
     const dist = (a, b, c, d) => Math.hypot((a - c) * 111000, (b - d) * 88000);   // 서울 위도 기준 m
     let cy = row.lat, cx = row.lng;
@@ -230,23 +235,33 @@
   function calc(row, PA, PB, act, offBox) {
     const anchor = $$('.gm section.pn').find(x => /사업 개요/.test(($('h2', x) || {}).textContent || '')); if (!anchor) return;
     const AP = 0.75, SP = 0.6, SIG = 0.6;
-    const dongN = String(row.a || '').split(/\s+/)[0], gu = row.gu;
-    const gk = PA && PA.g ? Object.keys(PA.g).find(k => PA.g[k].n === gu) : '';
-    const pick = (F, key) => {   // [중간값, 건수, 전 기간 중간값, 건수] → 동 → 구
+    const dongN = String(row.a || '').split(/\s+/)[0], gu = row.gu, BC = String(row.bcode || '');
+    let gk = BC.length >= 5 ? BC.slice(0, 5) : PA && PA.g ? Object.keys(PA.g).find(k => PA.g[k].n === gu) : '';   // 10/30 경기: 법정동코드로 바로
+    if (!gk && PA && PA.g && PA.d && dongN) {   // 경기 좌표가 아직 없을 때: '부천시' → '부천시 ○○구' 중 그 동이 있는 곳
+      const cand = Object.keys(PA.g).filter(k => PA.g[k].n === gu || String(PA.g[k].n).startsWith(gu + ' '));
+      const dk0 = Object.keys(PA.d).find(k => cand.includes(k.slice(0, 5)) && PA.d[k].n === dongN);
+      gk = dk0 ? dk0.slice(0, 5) : cand[0] || '';
+    }
+    const pick = (F, key) => {   // [중간값, 건수, 전 기간 중간값, 건수] → 동 → 구(시)
       const val = a => !a ? 0 : a[1] >= 3 ? a[0] : a[2] || a[0] || 0;
-      const dk = F && F.d && gk ? Object.keys(F.d).find(k => k.startsWith(gk) && F.d[k].n === dongN) : '';
-      const v1 = dk ? val(F.d[dk][key]) : 0; if (v1) return { v: v1, w: dongN };
-      const v2 = F && F.g && gk && F.g[gk] ? val(F.g[gk][key]) : 0; return { v: v2, w: v2 ? gu + ' 평균' : '' };
+      const dk = F && F.d ? (BC.length >= 8 && F.d[BC.slice(0, 8)] ? BC.slice(0, 8) : gk ? Object.keys(F.d).find(k => k.startsWith(gk) && F.d[k].n === dongN) : '') : '';
+      const v1 = dk ? val(F.d[dk][key]) : 0; if (v1) return { v: v1, w: F.d[dk].n || dongN };
+      const gn = F && F.g && gk && F.g[gk] ? F.g[gk].n || gu : gu;
+      const v2 = F && F.g && gk && F.g[gk] ? val(F.g[gk][key]) : 0; return { v: v2, w: v2 ? gn + ' 평균' : '' };
     };
     const APT = pick(PA, 'apt'), RH = pick(PA, 'rh'), SH = pick(PB, 'sh'), LD = pick(PB, 'land'), BASE = SH.v ? SH : LD.v ? LD : RH;
     const fact = $$('dt', anchor).find(x => x.textContent.trim() === '계획 세대수'), ft = fact ? fact.nextElementSibling.textContent : '';
     const nn = re => { const m = ft.match(re); return m ? +m[1].replace(/,/g, '') : 0; };
-    const HH = row.hh || nn(/^([\d,]+)세대/), SALE = nn(/분양 ([\d,]+)/) || Math.round(HH * 0.8), RENT = nn(/임대 ([\d,]+)/) || Math.max(0, HH - SALE);
-    const late = /관리처분|이주|철거|착공|준공|이전고시/.test(row.st || '');
+    const HH = row.hh || nn(/^([\d,]+)세대/), SALE = row.sale || nn(/분양 ([\d,]+)/) || Math.round(HH * 0.8), RENT = nn(/임대 ([\d,]+)/) || Math.max(0, HH - SALE);
+    const late = row.late || /관리처분|이주|철거|착공|준공|이전고시|청산/.test(row.st || '');
     const KIND = { rh: ['빌라', '전용면적', RH], sh: ['단독·다가구', '대지면적', SH], ld: ['토지', '토지면적', LD], sg: ['상가', '전용면적', { v: 0, w: '' }] };
     const PY = { 59: 25, 84: 34, 114: 43 };
     const S = { k: 'rh', ar: 49, ap: null, py: 84, sp: null, rt: 100, mem: Math.round(SALE * 0.5), c: { 114: Math.round(SALE * 0.1), 84: Math.round(SALE * 0.5), 59: 0 } };
     S.c[59] = Math.max(0, SALE - S.c[114] - S.c[84]);
+    // 10/30 경기: 조합원 수 · 평형별 분양 세대(40이하+40~60 → 59 · 60~85 → 84 · 85 초과 → 114)는 경기도 자료 실제 값
+    const REAL = { mem: !!row.mem, mix: !!(row.mix && row.mix.s && row.mix.s.some(Boolean)) };
+    if (REAL.mem) S.mem = row.mem;
+    if (REAL.mix) { const m = row.mix.s; S.c = { 59: (m[0] || 0) + (m[1] || 0), 84: m[2] || 0, 114: (m[3] || 0) + (m[4] || 0) }; }
     const won = v => { v = Math.round(+v || 0); const neg = v < 0; v = Math.abs(v); const e = Math.floor(v / 10000), m = v % 10000; return (neg ? '−' : '') + (e ? e + '억' : '') + (m ? (e ? ' ' : '') + m.toLocaleString() + '만' : e ? '' : '0'); };
     const autoAp = () => { const K = KIND[S.k][2]; return K.v ? Math.round(K.v * S.ar * AP / 100) * 100 : 0; };
     const autoSp = () => APT.v ? Math.round(APT.v * S.py * SP / 100) * 100 : 0;
@@ -300,11 +315,11 @@ ${late ? '<p class="warn">이 구역은 관리처분인가 이후 단계라 조�
 <p class="note">감정가는 동네 실거래 시세의 ${AP * 100}%, 조합원 분양가는 동네 아파트 시세의 ${SP * 100}%로 처음 계산했습니다. 실제 분담금은 감정평가와 관리처분계획으로 정해집니다. 숫자를 고치면 바로 다시 계산됩니다.</p>
 </div></div>
 <div class="s2"><h3>내가 받을 평형 순서 <small>권리가액이 큰 순서대로 큰 평형을 먼저 고르는 방식으로 추정</small></h3>
-<div class="fx"><div><span class="u">계획 세대</span><b>${HH ? HH.toLocaleString() : '-'}</b></div><div><span class="u">분양 / 임대</span><b>${SALE.toLocaleString()} / ${RENT.toLocaleString()}</b></div><div><span class="u">조합원 수</span><b><input class="n" data-f="mem" inputmode="numeric" value="${S.mem}">${S.memSet ? '' : '<i class="auto">자동</i>'}</b></div><div><span class="u">내 권리가액 순위</span><b>${rank ? `약 ${rank.toLocaleString()}등` : '-'}</b></div></div>
+<div class="fx"><div><span class="u">계획 세대</span><b>${HH ? HH.toLocaleString() : '-'}</b></div><div><span class="u">분양 / 임대</span><b>${SALE.toLocaleString()} / ${RENT.toLocaleString()}</b></div><div><span class="u">조합원 수</span><b><input class="n" data-f="mem" inputmode="numeric" value="${S.mem}">${S.memSet ? '' : REAL.mem ? '<i class="auto">실제</i>' : '<i class="auto">자동</i>'}</b></div><div><span class="u">내 권리가액 순위</span><b>${rank ? `약 ${rank.toLocaleString()}등` : '-'}</b></div></div>
 ${rank ? `<div class="bar">${seg.filter(x => x.to >= x.from).map(x => `<i style="width:${((x.to - x.from + 1) / M * 100).toFixed(2)}%;background:${COL[x.k]}" title="${x.k}㎡ ${x.from}~${x.to}등"></i>`).join('')}<span class="mk" style="left:calc(${((rank - 0.5) / M * 100).toFixed(2)}% - 1px)"><span>▼ 약 ${rank.toLocaleString()}등 (상위 ${Math.max(1, Math.round(rank / M * 100))}%)</span></span></div><div class="lx"><span>1등 (권리가액 큰 쪽)</span><span>조합원 ${M.toLocaleString()}등</span></div>` : '<p class="note">동네 시세 자료가 없어 순위는 계산하지 못했습니다.</p>'}
 <div class="rk">${seg.map(x => `<div class="${mine === x.k ? 'me' : ''}"><b>${x.k}㎡ (${PY[x.k]}평)</b><span><input class="n" data-c="${x.k}" inputmode="numeric" value="${x.c}"> 세대 · ${x.to >= x.from ? `${x.from.toLocaleString()}~${x.to.toLocaleString()}등` : '조합원 몫 없음 (일반분양)'}</span></div>`).join('')}</div>
 ${mine && S.py > mine ? `<p class="warn">원하는 ${S.py}㎡보다 순서가 뒤라 ${mine}㎡ 배정 가능성이 높아 보입니다.</p>` : ''}
-<p class="note">조합원 수(분양 세대의 50%)·평형별 세대수(59:84:114 = 40:50:10)·권리가액 분포는 서울시 자료에 없어 가정한 값입니다. 아시는 숫자로 고쳐 넣어 주세요.</p></div>
+<p class="note">${REAL.mem || REAL.mix ? `${[REAL.mem ? '조합원 수' : '', REAL.mix ? '평형별 분양 세대수' : ''].filter(Boolean).join('·')}는 경기도 자료의 실제 값입니다(평형별은 조합원·일반분양 합계). ${!REAL.mem ? '조합원 수(분양 세대의 50%)와 ' : !REAL.mix ? '평형 비율(59:84:114 = 40:50:10)과 ' : ''}권리가액 분포는 가정한 값입니다.` : '조합원 수(분양 세대의 50%)·평형별 세대수(59:84:114 = 40:50:10)·권리가액 분포는 서울시 자료에 없어 가정한 값입니다.'} 아시는 숫자로 고쳐 넣어 주세요.</p></div>
 <div class="ctx">이 구역 계획 <b>${HH ? HH.toLocaleString() + '세대' : '-'}</b>${SALE ? ` (분양 ${SALE.toLocaleString()} · 임대 ${RENT.toLocaleString()})` : ''}${row.far ? ` · 용적률 <b>${row.far}%</b>` : ''}${row.fl ? ` · 지상 ${String(row.fl).split('/')[1] || ''}층` : ''}${row.st ? ` · ${esc(row.st)} 단계` : ''}</div>
 <div class="cta3"><a class="a" href="${esc(mapHref)}">이 구역 매물 보기</a><a class="b" href="#" data-goof>이 구역 중개사에게 상담하기</a></div>`;
     }
