@@ -2805,7 +2805,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const OF = { ovs: new Map() }, OF_MANY = 25;
   // 지도 핀 이름은 짧게: '주식회사' '공인중개사사무소' '부동산' 같은 말은 뺌 (카드에는 등록된 이름 그대로)
   const ofName = b => { const o = String(b.office || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim(), n = o.replace(/^(주식회사|\(주\)|㈜)\s*/, '').replace(/\s*(\(주\)|㈜|주식회사)$/, '').replace(/\s*(공인\s*중개사\s*사무소|공인\s*중개사|중개사\s*사무소|중개\s*법인|부동산\s*중개|부동산\s*사무소|부동산)\s*$/, '').replace(/\s*(공인\s*중개사\s*사무소|공인\s*중개사|부동산)\s*$/, '').trim(); return n || o; };   // 10/29 '…부동산공인중개사사무소'처럼 두 번 붙은 것도
-  const ofAv = (b, cls) => { const n = ofName(b); let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 997; return b.photo ? `<span class="${cls}" style="background-image:url('${esc(b.photo)}')"></span>` : `<span class="${cls} oc${h % 5}">${esc(n.charAt(0) || '중')}</span>`; };
+  const ofAv = (b, cls) => { const n = ofName(b); let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 997; return b.photo ? `<span class="${cls}" style="background-image:url('${esc(b.photo)}')"></span>` : `<span class="${cls} oc${h % 5}${n.replace(/\s/g, '').length > 1 ? ' two' : ''}">${esc(n.replace(/\s/g, '').slice(0, 2) || '중')}</span>`; };
   function offices() {
     const m = new Map(), now = Date.now();
     for (const x of LS.items) {
@@ -2836,7 +2836,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   // ---------- 10/30 미가입 중개사무소 (서울 공공데이터 · 회색 점) ----------
   //   선배 결정: 다 찍지 않고 건물 일부만 고정 랜덤(자료 만들 때 고름) · 상호만(전화·대표자 X) · 회원 사무소는 등록번호로 빼서 노란 원만
-  //   레벨 3~4 작은 점 · 1~2 점 + 상호(+n) · 5~ 숨김 · 누르면 '리얼맵 미가입' 카드 + 무료 매물 올리기(/promo.html?go=1)
+  //   레벨 1~4 '중 ○○부동산' 회색 알약(+n) · 5~ 숨김 · 누르면 '리얼맵 미가입' 카드 + 무료 매물 올리기(/promo.html?go=1)
   const GR = { ovs: new Map(), rows: null, busy: false };
   const inSeoul = c => c.getLat() > 37.41 && c.getLat() < 37.72 && c.getLng() > 126.76 && c.getLng() < 127.19;
   function drawGray() {
@@ -2845,7 +2845,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (lv > 4 || !inSeoul(S.map.getCenter())) return hide();
     if (!GR.rows) { if (!GR.busy) { GR.busy = true; fetch('/data/offices-seoul.json').then(r => r.json()).then(j => { GR.rows = j.rows || []; drawGray(); }).catch(() => { GR.rows = []; }); } return; }
     const mem = new Set(); for (const x of LS.all || []) { const r = String((x.bk && x.bk.regno) || '').replace(/\D/g, ''); if (r) mem.add(r); }
-    const b = S.map.getBounds(), named = lv <= 2, show = new Set();
+    const b = S.map.getBounds(), named = true, show = new Set();   // 10/30 선배 결정: G형 '중 ○○부동산' 알약 (레벨 1~4)
     GR.rows.forEach((g, i) => {
       const ll = new K.LatLng(g[0], g[1]); if (!b.contain(ll)) return;
       const ns = String(g[2]).split('|'), rs = String(g[3] || '').split('|'), L = ns.filter((n, k) => n && !mem.has(rs[k]));
@@ -2855,9 +2855,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       if (!o) {
         const el = document.createElement('button'); el.type = 'button'; el.className = 'gof' + (named ? ' nm' : '');
         el.title = L.join(', ') + ' · 리얼맵 미가입';
-        el.innerHTML = '<i></i>' + (named ? `<span>${esc(ofName({ office: L[0] }))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}` : '');
+        const sn = ofName({ office: L[0] }).replace(/\s*\d{2,4}-\d{3,4}-\d{4}.*$/, '').replace(/[·,].*$/, '').trim();
+        el.innerHTML = `<i>중</i><span>${esc(sn.length > 7 ? sn.slice(0, 7) + '…' : sn + (/부동산$/.test(sn) ? '' : '부동산'))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}`;
         el.onclick = ev => { ev.stopPropagation(); grayCard(L); };
-        o = new K.CustomOverlay({ position: ll, content: el, xAnchor: named ? 0 : .5, yAnchor: .5, zIndex: 3, clickable: true });
+        o = new K.CustomOverlay({ position: ll, content: el, xAnchor: .5, yAnchor: .5, zIndex: 3, clickable: true });
         { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(3); }
         GR.ovs.set(id, o);
       }
