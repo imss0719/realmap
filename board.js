@@ -239,8 +239,7 @@ window.Board = (() => {
     base.forEach(x => { const h = topOf(x); top[h] = (top[h] || 0) + 1; if (!flat && x.bname) { const s = sub[h] || (sub[h] = {}); s[x.bname] = (s[x.bname] || 0) + 1; } });
     const node = (cls, attrs, label, n, on) => `<button type="button" class="tn ${cls}${on ? ' on' : ''}" ${attrs}>${label}<span class="ct">${n || ''}</span></button>`;
     const byN = o => Object.entries(o).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko', { numeric: true }));
-    const stName = B.fs.length === 1 ? { on: '진행 중', hold: '보류', done: '거래완료' }[B.fs[0]] : B.fs.length ? '고른 상태' : '모든';
-    T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b><small>${stName} 매물 · ${B.cat === 'redev' ? '구역별' : flat ? '단지·건물' : '동네 → 건물'}</small></div>
+    T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b></div>
       ${node('all', 'data-thd=""', '<i></i>전체', base.length, !tr.hd)}
       ${byN(top).map(([h, n]) => { const s = sub[h], open = s && tr.hd === h; return node('', `data-thd="${esc(h)}"`, `<span class="ar">${s ? (open ? '▾' : '▸') : ''}</span><i></i>${esc(h)}`, n, tr.hd === h && !tr.bn) + (open ? byN(s).map(([b, c]) => node('d', `data-thd="${esc(h)}" data-tbn="${esc(b)}"`, `<i></i>${esc(b)}`, c, tr.bn === b)).join('') : ''); }).join('')}`;   // 10/28 보류·거래완료는 위 [진행 중 · 보류 · 거래완료]에서만    const go = () => { keep(); B.fitNext = true; refresh(); };
     T.querySelectorAll('[data-thd]').forEach(b => b.onclick = () => { const h = b.dataset.thd, bn = b.dataset.tbn; B.tr = !h ? null : (tr.hd === h && !bn && !tr.bn && sub[h]) ? null : { hd: h, ...(bn ? { bn } : {}) }; go(); });   // 펼친 동네를 다시 누르면 접힘
@@ -670,7 +669,7 @@ window.Board = (() => {
     if (k === 'whole') {
       const R0 = x.rents || [], R = [...R0, ...Array(B.blank.get(id) || 0).fill({})], s = rentSum(x), y = yields(x, s.d, s.r);
       const ri = (i, kk, v, ph) => `<input class="rpi" data-fk="r:${id}:${i}:${kk}" data-ri="${i}" data-rk="${kk}" value="${esc(v ?? '')}" placeholder="${ph}" ${dis}>`;
-      body += `<div class="rps"><h4>층별 현황 <small>층·용도·면적은 건축물대장 자동</small>${RO ? '' : `<button type="button" class="rplnk" data-a="floors" style="margin-left:auto">${R0.length ? '다시 깔기' : '건축물대장에서 불러오기'}</button>`}</h4>
+      body += `<div class="rps"><h4>층별 현황${RO ? '' : `<button type="button" class="rplnk" data-a="floors" style="margin-left:auto">${R0.length ? '다시 깔기' : '건축물대장에서 불러오기'}</button>`}</h4>
         ${R.length ? `<div class="rpfl"><div class="fh"><span>층</span><span>임차인 · 업종</span><span>보증금</span><span>월세</span><span>만기</span><span></span></div>${R.map((r, i) => `<div class="fr${/공실/.test(r.label || '') ? ' vac' : ''}" title="${esc([r.use, r.area ? m2t(r.area) : ''].filter(Boolean).join(' · '))}">${ri(i, 'fl', r.fl, '1F')}${ri(i, 'label', r.label, '공실')}${ri(i, 'deposit', manTx(r.deposit), '만원')}${ri(i, 'rent', r.rent ? r.rent.toLocaleString() : '', '만원')}${ri(i, 'exp', r.exp, 'YY.MM')}${RO ? '<span></span>' : `<button type="button" class="rpdel" data-rdel="${i}" aria-label="이 줄 지우기">×</button>`}</div>`).join('')}</div>` : '<p class="rpn">아직 층별 현황이 없습니다.</p>'}
         ${RO ? '' : '<button type="button" class="rplnk" data-a="radd">＋ 줄 추가</button>'}
         <p class="rpn">보증금 <b>${s.d ? sw(s.d) : '0'}</b> · 월세 <b>${s.r ? s.r.toLocaleString() : '0'}</b> · 공실 <b>${s.v}개 층</b>${y ? ` · 수익률 <b class="yl">${y.y.toFixed(2)}%</b>${y.y2 != null ? ` (융자 반영 ${y.y2.toFixed(2)}%)` : ''}` : ''}</p></div>`;
@@ -679,7 +678,7 @@ window.Board = (() => {
     if (k === 'land') {
       const pl = places(x), tot = pl.reduce((s0, p) => s0 + (p.area || 0), 0);
       pl.forEach(p => { if (p.pnu && !B.L[p.pnu]) landOf(p.pnu); });
-      body += `<div class="rps"><h4>필지 <small>지목·용도지역은 토지대장 자동</small></h4>
+      body += `<div class="rps"><h4>필지</h4>
         <div class="rppl">${pl.map((p, i) => { const c = B.L[p.pnu]; return `<div class="pr"><span><b>${esc(shortAddr(p.addr))}</b> <small>${esc(c && c !== 'loading' ? [c.jimok, zoneS([c.zone1, c.zone2].filter(Boolean).join(' · '))].filter(Boolean).join(' · ') : '')}</small></span><input class="rpi" data-fk="pa:${id}:${i}" data-pa="${i}" value="${p.area || ''}" placeholder="㎡" ${dis}>${pl.length > 1 && !RO ? `<button type="button" class="rpdel" data-pdel="${i}" aria-label="이 필지 빼기">×</button>` : '<span></span>'}</div>`; }).join('')}</div>
         ${RO ? '' : `<input class="rpi" data-fk="pq:${id}" data-pq="${id}" placeholder="＋ 필지 추가: 지번을 치고 Enter" style="margin-top:6px"><div class="pres" data-pres="${id}">${B.add.pres && B.add.pres.id === id ? presHtml(B.add.pres.res) : ''}</div>`}
         <p class="rpn">합계 <b>${m2t(Math.round(tot * 100) / 100)}</b> (${pyt(tot)})${x.kind === 'sale' && x.price && tot ? ` · 평당 <b>${sw(x.price / (tot / PY))}</b>` : ''}</p></div>`;
@@ -688,14 +687,14 @@ window.Board = (() => {
     const cs = [...(x.contacts || []), ...Array(B.cblank.get(id) || 0).fill({ role: '소유자' })];
     body += row('연락처', `<div class="rptels">${cs.map((c, i) => `<div class="rptel"><select class="rpi lb" data-ci="${i}" data-cf="role" ${dis}>${H.roles.map(r => `<option ${c.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select><input class="rpi" data-fk="c:${id}:${i}:name" data-ci="${i}" data-cf="name" value="${esc(c.name || '')}" placeholder="이름" ${dis}><input class="rpi" data-fk="c:${id}:${i}:phone" data-ci="${i}" data-cf="phone" value="${esc(c.phone || '')}" placeholder="010-0000-0000" inputmode="tel" ${dis}>${c.phone ? `<a class="rpcall" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}" data-call="${id}:${i}">전화</a>` : '<span></span>'}${RO ? '' : `<button type="button" class="rpdel" data-cdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${RO ? '' : '<button type="button" class="rplnk" data-a="cadd">＋ 추가</button>'}`);
     body += row('챙길 것', inp('imp', x.imp, '예: 11/15 계약', 'maxlength="100"'));
-    body += `<details class="rpmore" id="bdrp_more"${B.pkMore ? ' open' : ''}><summary>${k === 'land' ? '토지 정보' : '건물 정보'} · 면적·층·용도·방향·주차 <small>(대장 자동 · 고칠 때만)</small></summary>${infoHtml(x, RO)}</details>`;
+    body += panelInfo(x, RO);   // 10/29 접지 않음: 직접 넣는 칸만 칸으로, 대장 자동값은 한 줄 글자 + [자동입력사항 고치기]
     // 기록
     const L = X.memoParse(x.memo);
     body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="통화 내용 남기기 · Enter" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
     body += L.length ? `<ul class="rph">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `<span>${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button></span>`}</li>`; }).join('')}</ul>` : '';
     const cu = H.custFor && (H.custFor(x) || []).length ? custBox(x) : '';   // 맞는 고객이 있을 때만
     W.innerHTML = `<aside class="rpanel" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
-      ${RO ? '' : `<div class="rptyl" id="bdrp_tyl" hidden><small>바꿀 유형을 고르세요 · 종류가 달라지면 그 탭으로 옮겨집니다</small><div>${X.PTYPES.map(t => `<button type="button" data-rty="${t}" aria-pressed="${x.ptype === t}">${t}</button>`).join('')}</div></div>`}
+      ${RO ? '' : `<div class="rptyl" id="bdrp_tyl" hidden><div>${X.PTYPES.map(t => `<button type="button" data-rty="${t}" aria-pressed="${x.ptype === t}">${t}</button>`).join('')}</div></div>`}
       ${RO ? '<p class="rpwarn">요금제 한도를 넘은 매물이라 보기만 됩니다</p>' : ''}
       <div class="rpbody">${body}${cu ? `<div class="rps bdcu">${cu}</div>` : ''}</div>
       <div class="rp-f"><button type="button" class="rpb" data-a="brief">브리핑</button><a class="rpb" href="/?pnu=${esc(x.pnu || P0.pnu)}" target="_blank" rel="noopener">필지 정보 ↗</a><span></span>${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpb del" data-a="del">삭제</button>'}<button type="button" class="rpb y" id="bdrp_close">저장</button></div></aside>`;
@@ -709,7 +708,8 @@ window.Board = (() => {
     // 10/29 [저장]: 칸은 고칠 때마다 저장되지만, 쓰던 칸을 마저 저장하고 '저장했습니다'를 보여 준 뒤 닫음
     { let done = false; const sv = e => { if (e && e.type === 'pointerdown') e.preventDefault(); if (done) return; done = true; const a = document.activeElement; if (a && P.contains(a) && a.blur) a.blur(); setTimeout(() => { closePanel(); H.toast('저장했습니다'); }, 150); }; $('bdrp_close').onpointerdown = sv; $('bdrp_close').onclick = sv; }
     P.onkeydown = e => { if (e.key === 'Escape' && !e.target.closest('.rph textarea')) { e.preventDefault(); closePanel(); } };
-    const m = $('bdrp_more'); if (m) m.ontoggle = () => { B.pkMore = m.open; };
+    if ($('bdrp_auto')) $('bdrp_auto').onclick = () => { B.pkMore = !B.pkMore; refresh(); };
+    P.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const i = P.querySelector('[data-fd="movein"]'); if (!i) return; i.value = i.value === b.dataset.mv ? '' : b.dataset.mv; i.dispatchEvent(new Event('change')); });
     P.querySelectorAll('a[data-call]').forEach(a => a.onclick = () => callLog(a.dataset.call));
     wireDetail(P, x);   // 연락처 · 층별 · 필지 · 건물 정보 칸 · 브리핑 · 삭제 (예전 상세와 같은 저장)
     if (RO) return;
@@ -812,11 +812,46 @@ window.Board = (() => {
       ${y ? `<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b> <small>(매매가 − 기보증금 ${sw(y.inv)} 기준)</small></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>` : ''}
       <datalist id="bdMv"><option value="즉시입주"><option value="협의"></datalist>`;
   }
+  // 10/29 입력창 '정보' 칸 (시안 '정보칸_시안'): 직접 넣는 칸만 칸으로 · 대장에서 자동으로 채운 값은 회색 한 줄 + [자동입력사항 고치기]
+  function panelInfo(x, RO) {
+    const a = x.ad || {}, dis = RO ? 'disabled' : '', id = x.id, k = detKind(x);
+    const miss = H.canPub() && x.status === 'on' && !X.pubLive(x) ? X.adMissing(x, BKOK) : [];
+    const need = new Set(miss.map(m => MKEY[m]).filter(Boolean));
+    const F = fieldsOf(x).filter(([key]) => key[0] !== '#'), has = key => F.some(f => f[0] === key);
+    const val = key => key === '$area' ? (x.area || '') : key === 'flt' ? [a.fl, a.tfl].filter(v => v != null && v !== '').join(' / ') : (a[key] ?? '');
+    const SH = { '$area': '전용 ㎡', flt: '층 / 총층', dir: '향', rooms: '방', baths: '욕실', biz: '업종', wc: '화장실', movein: '입주 가능일', use: '용도', tfl: '총 층수', appr: '사용승인일', park: '주차', zone: '용도지역' };
+    const lb = key => SH[key] || (F.find(f => f[0] === key) || [, key])[1];
+    const cls = key => need.has(key) ? 'nd' : '';
+    const ph = key => need.has(key) ? '입력' : '';
+    const ctl = key => key === 'dir' ? `<select class="rpi ${cls(key)}" data-fd="dir" ${dis}><option value="">-</option>${H.dirs.map(d => `<option ${a.dir === d ? 'selected' : ''}>${d}</option>`).join('')}</select>`
+      : key === 'wc' ? `<select class="rpi ${cls(key)}" data-fd="wc" ${dis}><option value="">-</option>${H.wcs.map(d => `<option ${a.wc === d ? 'selected' : ''}>${d}</option>`).join('')}</select>`
+      : `<input class="rpi ${cls(key)}" data-fk="f:${id}:${key}" data-fd="${key}" value="${esc(val(key))}" placeholder="${ph(key)}" ${['rooms', 'baths'].includes(key) ? 'inputmode="numeric" maxlength="2"' : ''} ${dis}>`;
+    const fld = key => `<label class="rpf"><span>${lb(key)}</span>${ctl(key)}</label>`;
+    const auto = F.map(f => f[0]).filter(key => AUTOK.includes(key));
+    const own = F.map(f => f[0]).filter(key => !AUTOK.includes(key) && key !== 'movein' && !(key === 'biz' && k === 'unit' && catOf(x) === 'shop'));   // 상가 업종은 위 '현상태'에 있음
+    const rows = [];
+    const g2 = ['$area', 'flt'].filter(has); if (g2.length) rows.push(`<div class="rpg">${g2.map(fld).join('')}</div>`);
+    const rest = own.filter(key => !g2.includes(key));
+    for (let i = 0; i < rest.length; i += 3) rows.push(`<div class="rpg c3">${rest.slice(i, i + 3).map(fld).join('')}</div>`);
+    if (has('movein')) { const mv = a.movein || ''; rows.push(`<label class="rpf"><span>입주 가능일</span><div class="rpmv"><span class="rpseg">${['즉시입주', '협의'].map(t => `<button type="button" data-mv="${t}" aria-pressed="${mv === t}" ${dis}>${t === '즉시입주' ? '즉시' : t}</button>`).join('')}</span><input class="rpi ${cls('movein')}" data-fk="f:${id}:movein" data-fd="movein" value="${esc(['즉시입주', '협의'].includes(mv) ? '' : mv)}" placeholder="${need.has('movein') ? '또는 날짜 (입력)' : '또는 날짜'}" ${dis}></div></label>`); }
+    if (k === 'unit' && /아파트|빌라|오피스텔|주택/.test(tb(x) || '')) rows.push(`<label class="rpck"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 관리비 없음</label>`);
+    // 대장 자동값 한 줄
+    const fmt = key => { const v = val(key); if (v === '' || v == null) return ''; return key === 'appr' ? `사용승인 ${v}` : key === 'park' ? `주차 ${v}` : key === 'tfl' ? `지상 ${v}층` : String(v); };
+    const txt = auto.map(fmt).filter(Boolean).join(' · ');
+    const autoMiss = auto.some(key => need.has(key));
+    const canFill = !RO && miss.some(m => ['건축물 용도', '사용승인일', '주차 대수', '총 층수', '지목'].includes(m));
+    if (auto.length) rows.push(B.pkMore ? `<div class="rpauto op"><div class="rpg">${auto.map(fld).join('')}</div><button type="button" class="rplnk" id="bdrp_auto">접기</button></div>`
+      : `<div class="rpauto${autoMiss ? ' nd' : ''}">${esc(txt || '자동으로 채운 값이 없습니다')}${canFill ? ' <button type="button" class="rplnk" data-a="autofill">대장에서 채우기</button>' : ''} <button type="button" class="rplnk" id="bdrp_auto">자동입력사항 고치기</button></div>`);
+    const y = k === 'unit' ? yields(x, x.curDep, x.curRent) : null;
+    if (y) rows.push(`<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>`);
+    const left = need.size ? `<em class="rpleft">${need.size}칸 남음</em>` : '';
+    return `<div class="rpr rpinfo"><b>${k === 'land' ? '토지' : '정보'}${left}</b><div class="rpv">${rows.join('')}</div></div>`;
+  }
   // 이 매물에 맞는 고객 (고객관리에서 찾는 중인 고객)
   function custBox(x) {
     const L = H.custFor ? H.custFor(x) : null;
     if (L == null) return '';
-    return `<div class="dt-h" style="margin-top:12px"><b>맞는 고객 ${L.length}명</b><small>고객관리의 찾는 중 고객 중 조건에 맞는 분</small></div>
+    return `<div class="dt-h" style="margin-top:12px"><b>맞는 고객 ${L.length}명</b></div>
       ${L.length ? `<div class="cmx">${L.slice(0, 5).map(c => `<div><b>${esc(c.name)}</b><small>${esc(c.line)}${c.g === 'over' ? ` · <em>예산 +${sw(c.over)}</em>` : ''}</small>${c.phone ? `<a class="tl" href="tel:${esc(String(c.phone).replace(/\D/g, ''))}" title="전화">☎</a>` : ''}<button type="button" class="b2" data-gcu="${c.id}">이동</button></div>`).join('')}${L.length > 5 ? `<div class="meta">외 ${L.length - 5}명</div>` : ''}</div>` : '<div class="meta">아직 맞는 고객이 없습니다</div>'}`;
   }
   function contactsHtml(x, RO) {
@@ -846,7 +881,7 @@ window.Board = (() => {
     const pl = places(x), tot = pl.reduce((a, p) => a + (p.area || 0), 0);
     pl.forEach(p => { if (p.pnu && !B.L[p.pnu]) landOf(p.pnu); });
     const lpSum = pl.reduce((a, p) => { const c = B.L[p.pnu]; return a + (c && c.price && p.area ? c.price * p.area : 0); }, 0);
-    return `<div class="dt-h"><b>필지</b><small>필지를 붙이면 면적·공시지가가 합산됩니다 · 지목·용도지역·공시지가는 토지대장 자동</small></div>
+    return `<div class="dt-h"><b>필지</b></div>
       <table class="ft"><thead><tr><th>지번</th><th>지목</th><th class="r">면적㎡</th><th>용도지역</th><th class="r">공시지가 ㎡당</th><th>도로</th><th>형상</th><th></th></tr></thead><tbody>
       ${pl.map((p, i) => { const c = B.L[p.pnu]; const v = c === 'loading' ? '<span class="meta">불러오는 중…</span>' : null; return `<tr><td>${esc(shortAddr(p.addr))}</td><td>${v || esc(c && c.jimok || '')}</td>
         <td class="r"><input class="ci r w7" data-fk="pa:${x.id}:${i}" data-pa="${i}" value="${p.area || ''}" ${RO ? 'disabled' : ''}></td><td>${v ? '' : esc(c && [c.zone1, c.zone2].filter(Boolean).join(' · ') || '')}</td>

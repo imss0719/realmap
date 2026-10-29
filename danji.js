@@ -842,7 +842,7 @@ window.Danji = (() => {
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt big${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr>${h2 ? `<tr>${h2}</tr>` : ''}</thead>
       <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물로 올린 호가 없습니다. [전체]에서 호를 누른 뒤 [매물로 올리기]를 눌러 주세요.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       ${ro || ALL ? '' : '<div class="addho"><span>＋ 호 추가</span><input id="dj_addHo" class="hjin" placeholder="예) 103-1502 쓰고 Enter" autocomplete="off"></div>'}
-      <p class="note">${LED() ? '줄을 누르면 오른쪽에 입력창이 열립니다 · 칸 머리를 누르면 정렬' : '매물(보류 포함)로 올린 호만 보입니다 · 줄을 누르면 오른쪽에 입력창이 열립니다'} · ${rows.length}호</p>`;
+      <p class="note">${rows.length}호</p>`;
     stickHead(box);
     const redo = () => { drawTable(cx); if (!ALL) drawCxMap(cx, MM); };
     tbf.querySelectorAll('[data-fg]').forEach(el => { const go = () => { const g = el.dataset.fg, v = g === 'a' ? +el.dataset.v : el.dataset.v; F[g] = F[g].includes(v) ? F[g].filter(z => z !== v) : [...F[g], v]; redo(); }; if (el.tagName === 'INPUT') el.onchange = go; else el.onclick = go; });
@@ -1355,7 +1355,8 @@ window.Danji = (() => {
     P.innerHTML = `<div class="rp-h"><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${meta ? `<span class="rptg">${esc(meta)}</span>` : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">×</button></div>
       ${ro ? `<p class="rpwarn">${S.L[cx.id] && S.L[cx.id].err ? esc(S.L[cx.id].err) : '요금제 단지 한도를 넘은 단지라 보기만 됩니다'}</p>` : ''}
       <div class="rpbody">
-      ${row('거주', seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || ''))}
+      ${row('타입 · 향', `<div class="rpg c3 rpty">${v('ty', lt.t || '', '타입 84B', 'maxlength="8" title="타입 (같은 라인 모두에)"')}${v('py', lt.py || '', sp ? sp.v + '평' : '평형', 'inputmode="numeric" maxlength="3" title="평형 (같은 라인 모두에)"')}<select class="rpi" data-f="dir" title="방향 (같은 라인 모두에)" ${ro ? 'disabled' : ''}><option value="">향</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select></div>`)}
+      ${row('현상태', seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], r.live || ''))}
       ${row('보증금', `<div class="rpin2">${v('cd', manTxt(r.cd), '예: 6.5억')}${v('cr', r.cr || '', '월세(만원)', 'inputmode="numeric"')}</div>`)}
       ${row('만기', v('exp', /^\d{4}-\d{2}-\d{2}$/.test(r.exp || '') ? r.exp : '', '', 'type="date"'))}
       ${row('연락처', `<div class="rptels">${tels.map((t, i) => `<div class="rptel"><input class="rpi lb" data-tl="${i}" list="hj_tl2" value="${esc(t.l)}" placeholder="소유자" maxlength="10" ${ro ? 'disabled' : ''}><input class="rpi" data-tn="${i}" value="${esc(t.n)}" placeholder="010-0000-0000" inputmode="tel" maxlength="20" ${ro ? 'disabled' : ''}>${t.n ? `<a class="rpcall" href="tel:${esc(String(t.n).replace(/[^\d+]/g, ''))}" data-rpcall="${i}">전화</a>` : '<span></span>'}${ro ? '' : `<button type="button" class="rpdel" data-tdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${ro || tels.length >= 4 ? '' : '<button type="button" class="rplnk" id="rp_tadd">＋ 추가</button>'}<datalist id="hj_tl2">${TLB.map(t => `<option value="${t}">`).join('')}</datalist>`)}
@@ -1363,12 +1364,10 @@ window.Danji = (() => {
       ${row('챙길 것', v('imp', r.imp || '', '예: 11/15 중도금', 'maxlength="100"'))}
       ${r.opt ? row('옵션', v('opt', r.opt, '', 'maxlength="200"')) : ''}
       ${row('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" placeholder="옵션·수리·근저당 등" ${ro ? 'disabled' : ''}>${esc(r.note || '')}</textarea>`)}
-      <details class="rpmore" id="rp_more"${S.pkMore ? ' open' : ''}><summary>타입 · 평형 · 방향 고치기</summary><div class="rpg c3">${fld('타입', v('ty', lt.t || '', '예: 84B', 'maxlength="8"'))}${fld('평형', v('py', lt.py || '', sp ? sp.v + '평' : '예: 34', 'inputmode="numeric" maxlength="3"'))}${fld('방향', `<select class="rpi" data-f="dir" ${ro ? 'disabled' : ''}><option value="">-</option>${DIRS.map(d => `<option${x.dir === d ? ' selected' : ''}>${d}</option>`).join('')}</select>`)}</div></details>
       ${row('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 남기기 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
       ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && i === 0 && canUndo && !ro ? '<button type="button" class="un" data-rpundo>되돌리기</button>' : ''}${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : ''}
       </div>
       <div class="rp-f">${LED() ? '' : '<button type="button" class="rpb" id="rp_toled">전체에서 보기</button>'}<button type="button" class="rpb y" id="rp_close">저장</button></div>`;
-    { const m = $('rp_more'); if (m) m.ontoggle = () => { S.pkMore = m.open; }; }
     if (!LED()) { const mk = P.querySelector('.rpr.mk'), first = P.querySelector('.rpbody .rpr'); if (mk && first && mk !== first) first.parentNode.insertBefore(mk, first); }   // 매물장에서는 '매물' 칸이 맨 위
     wirePanel(x, P, ro);
   }
