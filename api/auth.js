@@ -1012,8 +1012,9 @@ export default async function (req, res) {
       if (!(lat > 33 && lat < 39 && lng > 124 && lng < 132)) return fail(res, 400, 'bad', '좌표가 올바르지 않습니다.');
       const bk = await loadBk(s.id);
       if (!bk || !bk.addr) return fail(res, 400, 'bad', '중개사무소 정보가 없습니다.');
-      if (bk.lat === lat && bk.lng === lng) return send(res, 200, { ok: true, bk });
-      bk.lat = lat; bk.lng = lng;
+      const pv = Number(b.v) || 1;   // 10/29 v2 = 주소 근처에서 사무소 이름으로 다시 찾은 좌표 (예전 좌표는 한 번 다시 찾음)
+      if (bk.lat === lat && bk.lng === lng && (bk.posv || 1) >= pv) return send(res, 200, { ok: true, bk });
+      bk.lat = lat; bk.lng = lng; bk.posv = pv;
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       try { const P = await planOf(s.id); await lsMutate(redis, s.id, ls => syncPub(s.id, ls, bk, P)); } catch { /* 다음 저장 때 */ }
       return send(res, 200, { ok: true, bk });
@@ -1036,7 +1037,7 @@ export default async function (req, res) {
       // 등록번호·대표자가 그대로면 확인 유지(명칭은 등록된 그대로), 바뀌면 국가 자료로 다시 확인
       const prevBk = await loadBk(s.id); let opWarn = '';
       if (prevBk && prevBk.home) bk.home = prevBk.home;
-      if (prevBk && prevBk.lat && prevBk.addr === bk.addr) { bk.lat = prevBk.lat; bk.lng = prevBk.lng; }   // 10/29 사무소 좌표는 주소가 그대로일 때만 유지 (바뀌면 화면이 다시 찾아 bkpos로 보냄)   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
+      if (prevBk && prevBk.lat && prevBk.addr === bk.addr) { bk.lat = prevBk.lat; bk.lng = prevBk.lng; if (prevBk.posv) bk.posv = prevBk.posv; }   // 10/29 사무소 좌표는 주소가 그대로일 때만 유지 (바뀌면 화면이 다시 찾아 bkpos로 보냄)   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
       if (body.bk && ['ads', 'book'].includes(body.bk.home)) bk.home = body.bk.home;
       if (!P.op && !(await mobileOk(s.id, bk, prevBk))) return fail(res, 400, 'sms', SMS_NEED);
       if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
