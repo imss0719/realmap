@@ -324,34 +324,10 @@
   function took(j) { if (j.items && window.Alarm && Alarm.soft) Alarm.soft(); if ((j.cxDirty || j.ledDirty) && window.Danji && Danji.reloadCx) Danji.reloadCx(!!j.ledDirty); S.items = j.items || S.items; if (j.plan) S.plan = S.asPlan || j.plan; if ('bk' in j) S.bk = j.bk; if ('canPub' in j) S.canPub = !!j.canPub; if ('team' in j) S.team = j.team || null; if (j.items) S.seen = sig(j.items); if (j.warn) setTimeout(() => toast(j.warn, 6000), 400); return j; }
 
   // 10/29 리얼맵 지도의 '중개사무소 핀' 자리: 확인된 사무소 주소를 좌표로 바꿔 한 번만 저장 (주소가 바뀌면 서버가 좌표를 지우고 다시 찾음)
-  function ensurePos() {
-    const b = S.bk; if (!S.kakao || !b || !b.verified || !b.addr || (b.lat && b.posv >= 2) || S.posTry === b.addr) return;
+  function ensurePos() {   // 10/29 v3: 지번 필지(동 번호가 있으면 그 동) 자리 → 근처 같은 이름 중개업소 (dongpos.js OfficePos)
+    const b = S.bk; if (!S.kakao || !window.OfficePos || !b || !b.verified || !b.addr || (b.lat && b.posv >= 3) || S.posTry === b.addr) return;
     S.posTry = b.addr;
-    // 사무소 주소엔 '2층 201호' '(노고산동)' 같은 말이 붙어 있어 주소 검색이 실패할 수 있음 → 도로명·지번 번지까지만 잘라 차례로 시도, 마지막은 장소 검색
-    const a0 = String(b.addr).replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
-    const cut = (a0.match(/^.*?(?:로|길)\s+\d+(?:-\d+)?/) || a0.match(/^.*?(?:동|가|리)\s+(?:산\s*)?\d+(?:-\d+)?/) || [a0])[0];
-    const tries = [...new Set([b.addr, a0, cut])], G = new kakao.maps.services.Geocoder(), PL = new kakao.maps.services.Places();
-    const save = async (lat, lng) => { try { const j = await api('/api/auth?action=bkpos', post({ lat, lng, v: 2 })); if (j.bk) S.bk = j.bk; } catch { /* 다음에 다시 */ } };
-    // 10/29 아파트 단지처럼 주소 하나에 건물이 여럿이면 주소 좌표가 단지 한가운데(다른 동)에 찍힘 → 주소 근처(1.5km)에서 카카오에 등록된 '이 사무소'(중개업소, 이름 같음)를 찾아 그 자리로
-    const nm = t => String(t || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, '').replace(/^(주식회사|㈜)/, '').replace(/(공인중개사사무소|공인중개사|중개사사무소|중개법인|부동산중개|부동산사무소|부동산)+$/g, '').replace(/(공인중개사사무소|공인중개사|부동산)+$/g, '');
-    const me = nm(b.office);
-    const near = (lat, lng) => {
-      if (!me) return save(lat, lng);
-      const qs = [...new Set([String(b.office).replace(/\([^)]*\)/g, '').trim(), me + '부동산', me + '공인중개사'])];
-      const go = i => {
-        if (i >= qs.length) return save(lat, lng);
-        PL.keywordSearch(qs[i], (r, st) => {
-          const hit = st === 'OK' && (r || []).find(z => z.category_group_code === 'AG2' && nm(z.place_name).includes(me) && +z.distance <= 1500);
-          if (hit) save(+hit.y, +hit.x); else go(i + 1);
-        }, { location: new kakao.maps.LatLng(lat, lng), radius: 1500, sort: kakao.maps.services.SortBy.DISTANCE });
-      };
-      go(0);
-    };
-    const next = i => {
-      if (i >= tries.length) return PL.keywordSearch(cut, (r, st) => { if (st === 'OK' && r && r[0]) near(+r[0].y, +r[0].x); });
-      G.addressSearch(tries[i], (r, st) => { if (st === 'OK' && r && r[0]) near(+r[0].y, +r[0].x); else next(i + 1); });
-    };
-    next(0);
+    OfficePos(b).then(async pt => { if (!pt) return; try { const j = await api('/api/auth?action=bkpos', post({ lat: pt.lat, lng: pt.lng, v: 3 })); if (j.bk) S.bk = j.bk; } catch { /* 다음에 다시 */ } });
   }
   // ---------- 지도 ----------
   async function loadMap() {

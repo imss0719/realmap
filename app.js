@@ -1799,7 +1799,7 @@
       setTimeout(() => toast(lg === 'ok' ? '로그인되었습니다. 입지정보를 계속 무료로 이용하실 수 있습니다' : lg === 'cancel' ? '로그인을 취소했습니다' : '로그인하지 못했습니다. 잠시 후 다시 시도해 주세요', 3600), 600);
     }
     try { S.me = await api('/api/auth?action=me'); } catch { /* 회원 기능 꺼짐 */ }
-    try { if (S.me.op) localStorage.setItem('rm.op', '1'); } catch { /* 무시 */ }
+    try { if (S.me.op) { localStorage.setItem('rm.op', '1'); if (LS.loaded) setTimeout(opFixPos, 1500); } } catch { /* 무시 */ }
     drawAcct();
     loadFavs();
     proTicker();
@@ -2712,7 +2712,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     kakao.maps.event.addListener(S.map, 'idle', drawListings);
     const ofc = String(new URLSearchParams(location.search).get('office') || '').replace(/\D/g, '');
     if (ofc) { LS.on = true; LS.ofc = ofc; $('mtLst').setAttribute('aria-pressed', true); }
-    api('/api/auth?action=pubs').then(j => { LS.all = (j.items || []).filter(x => x.lat && x.lng); LS.items = LS.all; LS.loaded = true; if (LS.ofc) ofcOn(); drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
+    api('/api/auth?action=pubs').then(j => { LS.all = (j.items || []).filter(x => x.lat && x.lng); LS.items = LS.all; LS.loaded = true; setTimeout(opFixPos, 1500); if (LS.ofc) ofcOn(); drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
   }
   // 10/29 중개사 소개 페이지 [지도에서 모아 보기] → /?office=등록번호숫자 : 그 중개사 매물만 지도에 + 위에 '모두 보기' 띠
   function ofcOn() {
@@ -2811,6 +2811,23 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     }
     for (const e of m.values()) e.score = Math.min(e.list.length, 30) + (now - Date.parse(e.last || 0) < 30 * 864e5 ? 5 : 0) + (e.bk.photo ? 3 : 0);
     return [...m.values()].sort((a, b) => b.score - a.score);
+  }
+  // 10/29 운영자가 지도를 열면: 예전 방식 좌표(posv<3)인 사무소 자리를 새 방식(OfficePos)으로 한 번 다시 찾아 저장 — 손으로 옮기는 게 아니라 같은 자동 규칙
+  function opFixPos() {
+    if (!S.me || !S.me.op || !window.OfficePos || !window.kakao) return;
+    OF.fix = OF.fix || new Set();
+    for (const e of offices()) {
+      if ((e.bk.posv || 1) >= 3 || OF.fix.has(e.r)) continue;
+      OF.fix.add(e.r);
+      OfficePos(e.bk).then(pt => {
+        if (!pt || (Math.abs(pt.lat - e.bk.lat) < 1e-6 && Math.abs(pt.lng - e.bk.lng) < 1e-6)) return;
+        return fetch('/api/auth?action=bkpos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ regno: e.r, lat: pt.lat, lng: pt.lng, v: 3 }) }).then(r => r.json()).then(j => {
+          if (!j.ok || j.same) return;
+          LS.all.forEach(x => { if (x.bk && String(x.bk.regno || '').replace(/\D/g, '') === e.r) Object.assign(x.bk, { lat: pt.lat, lng: pt.lng, posv: 3 }); });
+          OF.ovs.forEach(o => o.setMap(null)); OF.ovs.clear(); drawOffices(); toast(`사무소 위치를 다시 찾았습니다: ${e.bk.office}`);
+        });
+      }).catch(() => { /* 다음에 */ });
+    }
   }
   function drawOffices() {
     if (!S.map) return;
