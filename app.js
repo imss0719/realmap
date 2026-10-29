@@ -2799,7 +2799,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   //   점수 = 게시 매물 수(30건까지) + 최근 30일 활동 5 + 사진 3
   const OF = { ovs: new Map() }, OF_MANY = 25;
   // 지도 핀 이름은 짧게: '주식회사' '공인중개사사무소' '부동산' 같은 말은 뺌 (카드에는 등록된 이름 그대로)
-  const ofName = b => { const o = String(b.office || '').trim(), n = o.replace(/^(주식회사|\(주\)|㈜)\s*/, '').replace(/\s*(\(주\)|㈜|주식회사)$/, '').replace(/\s*(공인\s*중개사\s*사무소|공인\s*중개사|중개사\s*사무소|중개\s*법인|부동산\s*중개|부동산\s*사무소|부동산)\s*$/, '').trim(); return n || o; };
+  const ofName = b => { const o = String(b.office || '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim(), n = o.replace(/^(주식회사|\(주\)|㈜)\s*/, '').replace(/\s*(\(주\)|㈜|주식회사)$/, '').replace(/\s*(공인\s*중개사\s*사무소|공인\s*중개사|중개사\s*사무소|중개\s*법인|부동산\s*중개|부동산\s*사무소|부동산)\s*$/, '').replace(/\s*(공인\s*중개사\s*사무소|공인\s*중개사|부동산)\s*$/, '').trim(); return n || o; };   // 10/29 '…부동산공인중개사사무소'처럼 두 번 붙은 것도
   const ofAv = (b, cls) => { const n = ofName(b); let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 997; return b.photo ? `<span class="${cls}" style="background-image:url('${esc(b.photo)}')"></span>` : `<span class="${cls} oc${h % 5}">${esc(n.charAt(0) || '중')}</span>`; };
   function offices() {
     const m = new Map(), now = Date.now();
