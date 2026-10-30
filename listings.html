@@ -1454,6 +1454,14 @@ body.cumode .top{padding-bottom:12px}
 .dj .rpwin .fr>div{padding:2px 4px;display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0}
 .dj .rpwin .mk .fr>b{background:#FFF7DC;color:#8A5300}.dj .rpwin .mk .fr>div{background:#FFFCF0}
 .dj .rpwin .rpi{height:20px;min-height:0;padding:0 4px;font-size:12px;border-radius:3px;font-weight:600}.dj .rpwin textarea.rpi{height:auto;min-height:34px;padding:2px 4px}.dj .rpwin select.rpi{padding:0 2px}
+/* 10/30 주거용 관리비 세분화 (mgmt.js) — 아파트 입력창(.fr.mgr) · 매물 입력창(.rpr.mgw) · 올리기 창·매물카드(.mgrow) */
+.dj .rpr.mgw .rpmg,.dj .fr.mgr>div{flex-wrap:wrap;white-space:normal;gap:3px 6px}
+.dj .rpr.mgw.nd>b,.dj .rpwin .mk .fr.mgr.nd>b,.mgrow.nd>span{background:#FFE58F!important;color:#7A4B00}
+.mgsel{max-width:250px}.mginc{display:inline-flex;flex-wrap:wrap;gap:2px 9px;width:100%}.mginc label{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:#3B4754;cursor:pointer;white-space:nowrap}
+.mgit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 12px;width:100%}.mgit>span{display:flex;align-items:center;gap:3px}.mgit em{font-style:normal;width:54px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.04em;font-size:11.5px;color:#3B4754;font-weight:600}
+.rpseg.sm{flex:none}.rpseg.sm button{padding:0 5px!important;font-size:11px!important;white-space:nowrap;line-height:18px}.mgit>span{white-space:nowrap;min-width:0}.mgsum{font-size:12px;margin-left:auto}
+.mgbox .mgrow{display:grid;grid-template-columns:64px minmax(0,1fr);gap:6px;align-items:start;padding:4px 0;border-top:1px solid #EEF1F5}.mgbox .mgrow>span{font-size:12px;font-weight:700;color:#5E6A77;padding:4px 4px;border-radius:4px}.mgbox .mgrow>div{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.mgbox .rpseg{display:inline-flex;border:1px solid #C9D2DC;border-radius:6px;overflow:hidden}.mgbox .rpseg button{border:0;background:#fff;padding:3px 8px;font-size:12px;font-weight:700;color:#5E6A77;cursor:pointer}.mgbox .rpseg button+button{border-left:1px solid #C9D2DC}.mgbox .rpseg button[aria-pressed=true]{background:#14212E;color:#fff}.mgbox .rpi{border:1px solid #C9D2DC;border-radius:4px;height:24px;padding:0 6px;font:inherit;font-size:12.5px}
 .dj .rpwin .rpw{text-align:right}.dj .rpwin .rpsm{width:30px!important;text-align:center}
 .dj .rpmg{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;white-space:nowrap}.dj .rpwin .rpmg .rpseg button{padding:0 5px;letter-spacing:-.05em}.dj .rpmg .rpck{flex:none}.dj .rpno{font-size:12px;color:#64748B;font-weight:700}   /* 10/30 관리비 부과 방식·없음 / 융자 없음 */
 .dj .rpwin .rpseg{border-radius:3px}.dj .rpwin .rpseg button{padding:0 7px;line-height:18px;font-size:11.5px}
@@ -1517,6 +1525,7 @@ table td,table tr{touch-action:manipulation}
 </div>
 <div class="toast" id="toast" hidden></div>
 <script src="dongpos.js"></script>
+<script src="mgmt.js"></script>
 <script src="danji.js"></script>
 <script src="board.js"></script>
 <script src="sms.js"></script>

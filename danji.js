@@ -1045,7 +1045,7 @@ window.Danji = (() => {
   function queue(key, fn) { S.q = S.q || {}; const p = (S.q[key] || Promise.resolve()).then(fn, fn); S.q[key] = p.catch(() => {}); return p; }
   function putSum(cx, key, rec) {
     const L = S.L[cx.id]; if (!L || !L.units) return;
-    const empty = !rec.hist.length && !rec.st.src && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.imp && !rec.cd && !rec.cr && !rec.mk && !rec.rm && !rec.bt && !rec.mg;
+    const empty = !rec.hist.length && !rec.st.src && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.imp && !rec.cd && !rec.cr && !rec.mk && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
     if (empty) delete L.units[key]; else L.units[key] = { ...rec, hist: rec.hist.slice(0, 3), histN: rec.hist.length };
   }
   // mutate는 '값을 정하는' 함수여야 함(두 번 적용돼도 같은 결과) — 화면에 먼저 반영하고 서버에 차례로 저장
@@ -1474,7 +1474,9 @@ window.Danji = (() => {
       <div class="fgrp mk${isMk ? '' : ' off'}">
       ${F1('구분', `${seg1('msrc', [['mine', '내 물건'], ['other', '타부동산']], isMk ? s.src : '', mdis)}${isMk && s.src === 'other' ? ` <input class="rpi" data-f="of" value="${esc(s.office || '')}" maxlength="30" style="width:130px" ${dis}>` : ''}`)}
       ${F2('거래', seg1('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], k0, mdis), prLb, prH)}
-      ${F2('방·욕실', `<input class="rpi rpsm" data-f="rm" value="${r.rm || ''}" inputmode="numeric" maxlength="2" ${dis}><i class="u">/</i><input class="rpi rpsm" data-f="bt" value="${r.bt || ''}" inputmode="numeric" maxlength="2" ${dis}>`, '관리비', `${W('mg', r.mg, 50)}<i class="u">만원</i>`)}
+      ${F1('방·욕실', `<input class="rpi rpsm" data-f="rm" value="${r.rm || ''}" inputmode="numeric" maxlength="2" ${dis}><i class="u">/</i><input class="rpi rpsm" data-f="bt" value="${r.bt || ''}" inputmode="numeric" maxlength="2" ${dis}>`)}
+      ${window.Mg ? Mg.rows({ mg2: r.mgd }, `${W('mg', r.mg, 50)}<i class="u">만원</i>`, { dis, nd: isMk && s.src === 'mine' ? Mg.miss({ mg2: r.mgd }, r.mg) : [], row: (t, h, c) => F1(t, h, 'mgr' + c) }) : F1('관리비', `${W('mg', r.mg, 50)}<i class="u">만원</i>`)}
+      ${k0 === 'sale' ? F1('융자', `${W('ln', r.ln, 70)}<i class="u">만원</i> ${seg1('lnr', [['hide', '표시 안 함'], ['none', '없음'], ['lt30', '시세 30% 미만'], ['ge30', '30% 이상']], r.lnr || 'hide', dis)}`) : ''}
       ${F1('입주', `${seg1('mvq', [['즉시입주', '즉시'], ['협의', '협의']], mvP.q, dis)} <input class="rpi" data-f="mv" value="${esc(mvP.date)}" maxlength="20" placeholder="날짜" style="width:110px" ${dis}>`)}
       </div>
       <div class="rpsec">호 정보</div>
@@ -1514,7 +1516,7 @@ window.Danji = (() => {
         const val = el.value; if (val === el.dataset.last) return; el.dataset.last = val;
         if (f === 'ty' || f === 'py' || f === 'dir') return ltSave(cx, x, f, val, S.pkOne);
         if (f === 'cd' || f === 'cr') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; if (n && !D.live) D.live = 'tenant'; }); }
-        if (f === 'rm' || f === 'bt' || f === 'mg') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; }); }   // 10/29 방·욕실·관리비
+        if (f === 'rm' || f === 'bt' || f === 'mg' || f === 'ln') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; }); }   // 10/29 방·욕실·관리비 · 10/30 융자
         if (f === 'mv') return save(D => { const m = mvParse(val), q0 = mvParse(D.moveIn).q; D.moveIn = mvJoin(m.date, m.q || q0); });
         if (f === 'exp') return save(D => { D.exp = val; });
         if (f === 'ps' || f === 'pj' || f === 'pwd' || f === 'pwr') { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[f], n = +(String(val).replace(/\D/g, '') || 0); if (S.pkDraft) { S.pkDraft.vals[k] = n || 0; return; } return save(D => { D.pr = { ...D.pr, [k]: n || 0 }; }); }
@@ -1527,6 +1529,9 @@ window.Danji = (() => {
     });
     if (S.pkDraft) P.querySelectorAll('#rp_dpr [data-f]').forEach(i => i.addEventListener('input', () => { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[i.dataset.f]; S.pkDraft.vals[k] = +(i.value.replace(/\D/g, '') || 0); }));
     P.querySelectorAll('[data-g="mvq"] [data-v]').forEach(b => b.onclick = () => { const v0 = b.dataset.v, nq = mvParse(r.moveIn).q === v0 ? '' : v0; save(D => { D.moveIn = mvJoin(mvParse(D.moveIn).date, nq); }); setTimeout(() => drawPanel(true), 0); });   // 10/29 입주 즉시·협의 · 10/30 협의는 날짜와 같이 · 10/30 고침: 켜기/끄기를 누르기 전에 정함 (saveRow가 두 번 적용해 도로 풀리던 것)
+    // 10/30 관리비 세분화 (mgmt.js) · 융자 표시 방법
+    if (window.Mg) Mg.wire(P, () => ({ mg2: r.mgd }), (mg, sm) => { save(D => { D.mgd = mg; if (sm != null) D.mg = sm || 0; }); setTimeout(() => drawPanel(true), 0); });
+    P.querySelectorAll('[data-g="lnr"] [data-v]').forEach(b => b.onclick = () => { const v0 = b.dataset.v; save(D => { D.lnr = v0; }); setTimeout(() => drawPanel(true), 0); });
     // 거주
     P.querySelectorAll('[data-g="live"] [data-v]').forEach(b => b.onclick = () => { if ((r.live || '') === b.dataset.v) return; save(D => { D.live = b.dataset.v; }); setTimeout(() => drawPanel(true), 0); });   // 이미 고른 것을 다시 눌러도 그대로
     // 연락처: 고치면 바로 저장
@@ -2035,7 +2040,7 @@ window.Danji = (() => {
   // 10/30 선배: 입주 = [즉시·협의 버튼] 따로 + [날짜] 따로 (서로 지우지 않음) · 저장은 한 칸에 '27년12월초 협의'처럼
   const mvParse = v => { v = String(v || '').trim(); const m = v.match(/^(.*?)\s*(즉시입주|즉시|협의)$/); const q = m ? (m[2] === '즉시' ? '즉시입주' : m[2]) : ''; return { q, date: (m ? m[1] : v).trim() }; };
   const mvJoin = (d, q) => [d, q].filter(Boolean).join(' ');
-  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, hist: [] });
+  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, mgd: null, ln: 0, lnr: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, hist: [] });
   // '8억 5천' · '8억5000' · '8.5억' · '85000' · '5천' → 만원
   function parseMan(v) {
     const s = String(v || '').replace(/[,\s원]/g, '').replace(/만$/, '');
@@ -2050,7 +2055,7 @@ window.Danji = (() => {
   const fmtT = iso => { const d = new Date(Date.parse(iso) + 9 * 3600e3), p = n => String(n).padStart(2, '0'); return `${String(d.getUTCFullYear()).slice(2)}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
   const todayK = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const hjPost = body => api('/api/auth?action=hj', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, pr: r.pr, ar: r.ar || 0, live: r.live, exp: r.exp, moveIn: r.moveIn, rm: r.rm || 0, bt: r.bt || 0, mg: r.mg || 0, opt: r.opt, tels: r.tels, note: r.note, imp: r.imp || '', cd: r.cd || 0, cr: r.cr || 0, mk: r.mk || '' }));
+  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, pr: r.pr, ar: r.ar || 0, live: r.live, exp: r.exp, moveIn: r.moveIn, rm: r.rm || 0, bt: r.bt || 0, mg: r.mg || 0, mgd: r.mgd || null, ln: r.ln || 0, lnr: r.lnr || '', opt: r.opt, tels: r.tels, note: r.note, imp: r.imp || '', cd: r.cd || 0, cr: r.cr || 0, mk: r.mk || '' }));
 
   async function saveMemo(cx, key, text) {
     try {

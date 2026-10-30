@@ -891,7 +891,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     $('addContact').onclick = () => { collect(); F.it.contacts.push({ role: '임차인', name: '', phone: '' }); renderForm(true); };
     on('[data-cdel]', b => b.onclick = () => { collect(); F.it.contacts.splice(+b.dataset.cdel, 1); renderForm(true); });
     on('[data-flx]', b => b.onclick = () => { collect(); F.it.ad.flx = b.dataset.flx; renderForm(true); });
-    on('[data-mgt]', b => b.onclick = () => { collect(); F.it.ad.mgmtT = b.dataset.mgt; renderForm(true); });
+    if (window.Mg && $('fMg')) Mg.wire($('fMg'), () => F.it.ad, (mg, sm) => { collect(); F.it.ad.mg2 = mg; F.it.ad.nomgmt = mg.t === 'na' && mg.na === 'none'; if (sm != null) F.it.mgmt = sm || null; renderForm(true); });   // 10/30 관리비 세분화
     if (F.scrollAd && $('adSec')) { F.scrollAd = false; setTimeout(() => $('adSec').scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); }
     $('fSave').onclick = save;
     if ($('fDel')) $('fDel').onclick = del;
@@ -909,7 +909,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     ['bname', 'no'].forEach(k => { const x = v('f_' + k); if (x !== undefined) it[k] = x.trim(); });
     { const md = v('f_memo'); if (md !== undefined) F.memoDraft = md; } // 메모는 [추가]로 기록에 쌓이고, 입력칸에 남은 글은 저장할 때 자동으로 추가
     it.ad = it.ad || {};
-    ['fl', 'tfl', 'dir', 'rooms', 'baths', 'movein', 'park', 'appr', 'desc', 'use', 'zone', 'biz', 'wc', 'facx', 'mgmtTx'].forEach(k => { const x = v('a_' + k); if (x !== undefined) { if (F.auto && F.auto.has(k) && x.trim() !== String(it.ad[k] ?? '')) F.auto.delete(k); it.ad[k] = x.trim(); } });
+    ['fl', 'tfl', 'dir', 'rooms', 'baths', 'movein', 'park', 'appr', 'desc', 'use', 'zone', 'biz', 'wc', 'wcn', 'facx', 'mgmtTx'].forEach(k => { const x = v('a_' + k); if (x !== undefined) { if (F.auto && F.auto.has(k) && x.trim() !== String(it.ad[k] ?? '')) F.auto.delete(k); it.ad[k] = x.trim(); } });
     if ($('a_nomgmt')) it.ad.nomgmt = $('a_nomgmt').checked;
     if ($('a_viol')) { if (F.auto && F.auto.has('viol') && $('a_viol').checked !== !!it.ad.viol) F.auto.delete('viol'); it.ad.viol = $('a_viol').checked; }
     if (document.querySelector('[data-mgi]')) it.ad.mgmtInc = [...document.querySelectorAll('[data-mgi]:checked')].map(c => c.dataset.mgi);
@@ -973,8 +973,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     if (RESID.includes(tbase(x))) {
       if (a.rooms == null || a.rooms === '') miss.push('방 수');
       if (a.baths == null || a.baths === '') miss.push('욕실 수');
-      if (!x.mgmt && !a.nomgmt) miss.push('관리비');
-      if (x.mgmt >= 10 && a.mgmtT === 'fix' && !(a.mgmtInc && a.mgmtInc.length)) miss.push('관리비 포함 항목');
+      if (window.Mg) miss.push(...Mg.miss(a, x.mgmt)); else if (!x.mgmt && !a.nomgmt) miss.push('관리비');   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 비주거는 관리비 필수 아님
     }
     return miss;
   }
@@ -1003,12 +1002,8 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       <datalist id="mvList"><option value="즉시입주"><option value="협의"><option value="${new Date().getFullYear()}.${new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2} 초순"><option value="${new Date().getFullYear()}.${new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2} 하순"></datalist>
       ${res ? `<div class="two" style="margin-top:8px">${inp('rooms', '방 수', '', 'inputmode="numeric" maxlength="2"')}${inp('baths', '욕실 수', '', 'inputmode="numeric" maxlength="2"')}</div>` : ''}
       ${pre ? '' : `<div style="margin-top:8px">${inp('park', '주차 대수', '', 'maxlength="30"', ' <small>총 대수 또는 세대당</small>')}</div>`}
-      ${res ? `<div class="mgbox"><div class="sl">관리비 <small>월 금액은 위 '관리비' 칸에 · ${it.mgmt ? `월 ${it.mgmt}만원` : '미입력'}</small></div>
-        <div class="seg" style="margin-top:6px"><button type="button" data-mgt="avg" aria-pressed="${a.mgmtT !== 'fix'}">실비·월평균</button><button type="button" data-mgt="fix" aria-pressed="${a.mgmtT === 'fix'}">정액 (매달 같은 금액)</button></div>
-        ${a.mgmtT === 'fix' ? `<div class="meta" style="margin-top:6px">정액 월 10만원 이상이면 포함 항목을 표시해야 합니다</div><div class="mgi">${MGI.map(([k, t]) => `<label class="ck2"><input type="checkbox" data-mgi="${k}" ${(a.mgmtInc || []).includes(k) ? 'checked' : ''}>${t}</label>`).join('')}</div>
-          ${inp('mgmtTx', '항목별 금액', '', 'maxlength="60"', ' <small>선택 · 의뢰인이 안 알려주면 생략 가능</small>')}` : ''}
-        <label class="ck2 adck"><input type="checkbox" id="a_nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>` : ''}
-      ${shop ? `<div class="two" style="margin-top:8px">${inp('biz', pt === '상가' ? '현재 업종' : '현재 용도', '업종 또는 공실', 'maxlength="30"', ' <small>선택</small>')}<div><label class="sl" for="a_wc">화장실 <small>선택</small></label><select class="in" id="a_wc"><option value="">선택</option>${WCS.map(w => `<option ${a.wc === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div></div>` : ''}
+      ${res && window.Mg ? `<div class="mgbox" id="fMg"><div class="sl">관리비 <small>국토부 세분화 표시 (2024.5.30~)</small></div>${Mg.rows(a, `<i class="u">월 금액은 위 '관리비' 칸 (${it.mgmt ? `월 ${it.mgmt}만원` : '미입력'})</i>`, { row: (t, h, c) => `<div class="mgrow${c}"><span>${t}</span><div>${h}</div></div>` })}</div>` : ''}
+      ${shop ? `<div class="two" style="margin-top:8px">${inp('biz', pt === '상가' ? '현재 업종' : '현재 용도', '업종 또는 공실', 'maxlength="30"', ' <small>선택</small>')}<div><label class="sl" for="a_wc">화장실 <small>선택</small></label><select class="in" id="a_wc"><option value="">선택</option>${WCS.map(w => `<option ${a.wc === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div></div><div style="margin-top:8px">${inp('wcn', '화장실 수', '', 'inputmode="numeric" maxlength="2"', ' <small>매물 안에 화장실이 있으면 꼭 적어 주세요</small>')}</div>` : ''}
       ${fac ? `<div style="margin-top:8px">${inp('facx', '공장·창고 정보', '', 'maxlength="80"', ' <small>선택</small>')}</div>` : ''}`;
     }
     return `<div class="fld adsec${F.missing ? ' need' : ''}" id="adSec"><span class="lb">리얼맵 광고 정보<small>지도에 올릴 때 필요 · 매물장에만 둘 거면 비워도 됩니다</small></span>
@@ -1163,7 +1158,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
   // 맨 위 요약 → 비어 있는 필수 항목만 노란 칸 → 자동·입력된 항목은 한 줄씩(눌러서 고침) → [리얼맵 지도에 올리기]
   // x에 id가 없으면 아직 매물장에 없는 매물(단지 장부에서 바로 올리기): 올릴 때 매물장 저장 + 게시를 한 번에
   const AUTOK = ['use', 'tfl', 'appr', 'park', 'zone', 'road', 'lp', 'hhld', 'elev'];
-  const MISS_KEY = { '방향': 'dir', '입주 가능일': 'movein', '방 수': 'rb', '욕실 수': 'rb', '관리비': 'mgmt', '관리비 포함 항목': 'mgmt', '건축물 용도': 'use', '지목': 'use', '총 층수': 'fl', '해당 층': 'fl', '사용승인일': 'appr', '주차 대수': 'park', '면적': 'area', '가격': 'price', '매물 종류': 'ptype' };
+  const MISS_KEY = { '방향': 'dir', '입주 가능일': 'movein', '방 수': 'rb', '욕실 수': 'rb', '관리비': 'mgmt', '관리비 부과기준': 'mgmt', '관리비 세부내역': 'mgmt', '건축물 용도': 'use', '지목': 'use', '총 층수': 'fl', '해당 층': 'fl', '사용승인일': 'appr', '주차 대수': 'park', '면적': 'area', '가격': 'price', '매물 종류': 'ptype' };
   const PS_LB = { dir: '방향', movein: '입주 가능일', rb: '방 · 욕실', mgmt: '관리비', use: '건축물 용도', fl: '해당 층 / 총층', appr: '사용승인일', park: '주차', area: '면적', price: '가격', ptype: '매물 종류', biz: '현재 업종', wc: '화장실', zone: '용도지역' };
   function pubBody(it) {
     const keys = moneyOf(it).map(m => m[0]);
@@ -1192,7 +1187,9 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
         const a = x.ad || (x.ad = {});
         if ((a.rooms == null || a.rooms === '') && r.rm) a.rooms = r.rm;
         if ((a.baths == null || a.baths === '') && r.bt) a.baths = r.bt;
-        if (!x.mgmt && !a.nomgmt && r.mg) x.mgmt = r.mg;
+        if (r.mg && !(r.mgd && r.mgd.t === 'na')) x.mgmt = r.mg;
+        if (r.mgd) { a.mg2 = r.mgd; a.nomgmt = r.mgd.t === 'na' && r.mgd.na === 'none'; }   // 10/30 관리비 세분화·융자
+        if (r.lnr) a.loanR = r.lnr; if (r.ln) x.loan = r.ln;   // 아파트는 장부 입력창이 원본
         if (!a.movein && r.moveIn) a.movein = /^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.replace(/-/g, '.') : r.moveIn;
       }
     }
@@ -1221,7 +1218,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       case 'area': return x.area ? `${x.area}㎡ (${(x.area / 3.3058).toFixed(1)}평)` : '';
       case 'fl': return a.fl || a.tfl ? `${a.fl || '?'}${/^\d+$/.test(a.fl || '') ? '층' : ''} / ${a.tfl ? a.tfl + '층' : '?'}` : '';
       case 'rb': return a.rooms != null && a.rooms !== '' ? `방 ${a.rooms} · 욕실 ${a.baths ?? '?'}` : '';
-      case 'mgmt': return a.nomgmt ? '없음' : x.mgmt ? `월 ${x.mgmt}만원${({ fix: '정액', avg: '실비', use: '사용량에 따라', rule: '관리규약에 따라', unk: '부과 방식 모름' })[a.mgmtT] ? ' · ' + ({ fix: '정액', avg: '실비', use: '사용량에 따라', rule: '관리규약에 따라', unk: '부과 방식 모름' })[a.mgmtT] : ''}` : '';
+      case 'mgmt': { if (window.Mg && RESID.includes(tbase(x))) { const m = Mg.norm(a); return m.t === 'na' ? `확인불가 · ${Mg.NA[m.na] || ''}` : `${m.t === 'fix' ? `월 ${Mg.sum(m) || '-'}만원` : x.mgmt ? `월 ${x.mgmt}만원` : ''} · ${Mg.T[m.t]}`; } return a.nomgmt ? '없음' : x.mgmt ? `월 ${x.mgmt}만원` : ''; }   // 10/30 관리비 세분화
       case 'zone': return a.zone || '';
       default: return a[k] == null ? '' : String(a[k]);
     }
@@ -1233,7 +1230,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       case 'dir': return chips('dir', DIRS, a.dir);
       case 'movein': return `${chips('movein', ['즉시입주', '협의'], a.movein)}${inp('movein', ['즉시입주', '협의'].includes(a.movein) ? '' : a.movein, '또는 날짜', 'maxlength="20"')}`;
       case 'rb': return `<div class="prow">방 ${inp('rooms', a.rooms, '', 'inputmode="numeric" maxlength="2" style="width:70px"')} 욕실 ${inp('baths', a.baths, '', 'inputmode="numeric" maxlength="2" style="width:70px"')}</div>`;
-      case 'mgmt': return `<div class="prow"><span class="wonw">월 ${inp('$mgmt', x.mgmt, '', 'inputmode="numeric" data-won style="width:90px"')} 만원 <i class="wonh">${esc(window.wonH(x.mgmt))}</i></span> ${chips('mgmtT', ['사용량에 따라', '관리규약에 따라', '모름'], ({ use: '사용량에 따라', rule: '관리규약에 따라', unk: '모름' })[a.mgmtT] || '')}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>${a.mgmtT === 'fix' && x.mgmt >= 10 ? `<div class="pchips">${MGI.map(([m, t]) => `<label class="pck"><input type="checkbox" data-mgi2="${m}" ${(a.mgmtInc || []).includes(m) ? 'checked' : ''}>${t}</label>`).join('')}</div><small class="pmeta">정액 10만원 이상이면 포함 항목을 표시해야 합니다</small>` : ''}`;
+      case 'mgmt': { const amt = `<span class="wonw">월 ${inp('$mgmt', x.mgmt, '', 'inputmode="numeric" data-won style="width:90px"')} 만원 <i class="wonh">${esc(window.wonH(x.mgmt))}</i></span>`; if (window.Mg && RESID.includes(tbase(x))) return `<div class="mgbox ps">${Mg.rows(a, amt, { row: (t, h, c) => `<div class="mgrow${c}"><span>${t}</span><div>${h}</div></div>` })}</div>`; return `<div class="prow">${amt}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>`; }   // 10/30 주거용 = 세분화 · 비주거 = 월평균 금액 하나
       case 'fl': return `<div class="prow">${inp('fl', a.fl, isWhole(x) ? '전체' : '', 'maxlength="8" style="width:110px"')} 층 / 총 ${inp('tfl', a.tfl, '', 'inputmode="numeric" maxlength="3" style="width:80px"')} 층</div>`;
       case 'use': return inp('use', a.use, '', 'maxlength="40"');
       case 'appr': return inp('appr', a.appr, '연.월.일', 'maxlength="10"');
@@ -1296,6 +1293,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     F.querySelectorAll('[data-pkind]').forEach(b => b.onclick = () => { set(); x.kind = b.dataset.pkind; drawPubSheet(); const i = F.querySelector('[data-pk^="$"]'); if (i) i.focus(); });   // 10/28 주소·지도로 새로 올릴 때 거래 종류
     F.querySelectorAll('[data-pb]').forEach(c => c.onchange = () => { set(); x.ad[c.dataset.pb] = c.checked; drawPubSheet(); });
     F.querySelectorAll('[data-mgi2]').forEach(c => c.onchange = () => { x.ad.mgmtInc = [...F.querySelectorAll('[data-mgi2]:checked')].map(z => z.dataset.mgi2); });
+    if (window.Mg) Mg.wire(F, () => x.ad, (mg, sm) => { set(); x.ad.mg2 = mg; x.ad.nomgmt = mg.t === 'na' && mg.na === 'none'; if (sm != null) x.mgmt = sm || null; drawPubSheet(); });   // 10/30 관리비 세분화
     F.querySelectorAll('[data-po]').forEach(b => b.onclick = () => { set(); P.open.add(b.dataset.po); drawPubSheet(); const n = F.querySelector(`.pf.op [data-pk]`); if (n) n.focus(); });
     const psF = $('psPhF'); if (psF) psF.onchange = () => { set(); const fs = [...psF.files]; psF.value = ''; psUpload(P, fs); };
     F.querySelectorAll('[data-psx]').forEach(b => b.onclick = () => { set(); x.photos.splice(+b.dataset.psx, 1); drawPubSheet(); });

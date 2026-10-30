@@ -715,8 +715,13 @@ window.Board = (() => {
     const all = kinds.length > 1 ? [['거래', seg('kind', kinds, x.kind)], ...cells] : cells;
     for (let i = 0; i < all.length; i += 2) body += pair(all[i], all[i + 1]);
     // 10/30 선배: 관리비 = 금액 + 부과 방식(사용량에 따라 · 관리규약에 따라 · 모름) + 없음 / 융자 = 금액 + 없음 — 한 줄씩
-    if (x.kind !== 'presale' && k !== 'land') body += `<div class="rpr mk"><b>관리비</b><div class="rpv rpmg">${a.nomgmt ? '<span class="rpno">관리비 없음</span>' : won2('$mgmt', x.mgmt)}${a.nomgmt ? '' : `<span class="rpseg">${[['use', '사용량에 따라'], ['rule', '관리규약에 따라'], ['unk', '모름']].map(([v, t]) => `<button type="button" data-mgt="${v}" aria-pressed="${a.mgmtT === v}" ${dis}>${t}</button>`).join('')}</span>`}<label class="rpck"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 없음</label></div></div>`;
-    if (x.kind === 'sale' && k !== 'unit') body += `<div class="rpr mk"><b>융자</b><div class="rpv rpmg">${a.noloan ? '<span class="rpno">융자 없음</span>' : won2('$loan', x.loan)}<label class="rpck"><input type="checkbox" data-fb="noloan" ${a.noloan ? 'checked' : ''} ${dis}> 없음</label><label class="rpck" title="손님에게 보여 주는 자료에 융자를 넣지 않음"><input type="checkbox" data-fb="loanHide" ${a.loanHide ? 'checked' : ''} ${dis}> 표시 안 함</label></div></div>`;
+    // 10/30 선배 1단계: 주거용 = 관리비 세분화 3줄 (mgmt.js) · 비주거 = 월평균 관리비 금액 하나 (지산·공장은 선택) · 토지·분양권은 관리비 없음
+    if (x.kind !== 'presale' && k !== 'land') {
+      if (window.Mg && Mg.isRes(tb(x))) body += Mg.rows(a, won2('$mgmt', x.mgmt), { dis, nd: missP, row: (t, h, c) => `<div class="rpr mk mgw${c}"><b>${t}</b><div class="rpv rpmg">${h}</div></div>` });
+      else body += `<div class="rpr mk"><b>관리비</b><div class="rpv rpmg"><i class="u">월평균</i>${a.nomgmt ? '<span class="rpno">관리비 없음</span>' : won2('$mgmt', x.mgmt)}<label class="rpck"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 없음</label>${['ofc', 'fac'].includes(cat) ? '<i class="u">선택</i>' : ''}</div></div>`;
+    }
+    // 10/30 융자: 금액 + 표시 방법 (표시 안 함 · 없음 · 시세 30% 미만 · 이상) — 매매면 모든 종류
+    if (x.kind === 'sale') { const lr = a.loanR || (a.noloan ? 'none' : 'hide'); body += `<div class="rpr mk"><b>융자</b><div class="rpv rpmg">${lr === 'none' ? '<span class="rpno">융자 없음</span>' : won2('$loan', x.loan)}<span class="rpseg">${[['hide', '표시 안 함'], ['none', '없음'], ['lt30', '시세 30% 미만'], ['ge30', '30% 이상']].map(([v, t]) => `<button type="button" data-lnr="${v}" aria-pressed="${lr === v}" ${dis}>${t}</button>`).join('')}</span></div></div>`; }
     body += panelInfo(x, RO);   // 10/30 선배: 정보는 융자 바로 아래 → 층별 현황·현상태 → 연락처 → 챙길 것 → 기록
     // 재개발·재건축
     if (cat === 'redev') {
@@ -863,7 +868,7 @@ window.Board = (() => {
   }
   // 정보 칸 (바로 수정) — 회색 = 건축물대장 자동 · 노란색 = 리얼맵 필수인데 빔 · 점선 = 직접 입력
   const AUTOK = ['use', 'tfl', 'appr', 'park', 'zone'];
-  const MKEY = { '방향': 'dir', '입주 가능일': 'movein', '방 수': 'rooms', '욕실 수': 'baths', '관리비': '#mgmt', '관리비 포함 항목': '#mgmt', '건축물 용도': 'use', '지목': 'use', '총 층수': 'flt', '해당 층': 'flt', '사용승인일': 'appr', '주차 대수': 'park', '면적': '$area' };
+  const MKEY = { '방향': 'dir', '입주 가능일': 'movein', '방 수': 'rooms', '욕실 수': 'baths', '관리비': '#mgmt', '관리비 부과기준': '#mgmt', '관리비 세부내역': '#mgmt', '건축물 용도': 'use', '지목': 'use', '총 층수': 'flt', '해당 층': 'flt', '사용승인일': 'appr', '주차 대수': 'park', '면적': '$area' };
   const BKOK = { office: 1, addr: 1, regno: 1, ceo: 1, tel: 1 };
   function fieldsOf(x) {
     const k = detKind(x), pt = tb(x), res = /아파트|빌라|오피스텔|주택/.test(pt || ''), shop = pt === '상가' || pt === '사무실';
@@ -873,7 +878,8 @@ window.Board = (() => {
     const f = k === 'whole' ? [['use', '건축물 용도'], ['tfl', '총 층수 (지상)'], ['appr', '사용승인일'], ['dir', '방향 (출입구)'], ['movein', '입주 가능일'], ['park', '주차']]
       : [['$area', '전용면적 ㎡'], ['flt', '층 / 총층'], ['use', '건축물 용도'], ['dir', res ? '방향 (거실)' : '방향 (출입구)'], ['movein', '입주 가능일'], ['park', '주차'], ['appr', '사용승인일']];
     if (res && k !== 'whole') f.push(['rooms', '방 수'], ['baths', '욕실 수']);
-    if (shop) f.push(['biz', '현재 업종'], ['wc', '화장실']);
+    if (shop) f.push(['biz', '현재 업종']);
+    if (!res && x.kind !== 'presale') f.push(['wc', '화장실'], ['wcn', '화장실 수']);   // 10/30 화장실 개수 (미기입 시 과태료 대상) — 비주거 모두
     ['#mgmt', '#premium', ...(k === 'whole' ? [] : ['#curDep', '#curRent', '#loan']), '#paid'].forEach(key => { if (M.includes(key.slice(1)) && !(k === 'whole' && key === '#loan')) f.push([key, LB[key]]); });
     return f;
   }
@@ -907,13 +913,13 @@ window.Board = (() => {
     const need = new Set(miss.map(m => MKEY[m]).filter(Boolean));
     const F = fieldsOf(x).filter(([key]) => key[0] !== '#'), has = key => F.some(f => f[0] === key);
     const val = key => key === '$area' ? (x.area || '') : key === 'flt' ? [a.fl, a.tfl].filter(v => v != null && v !== '').join(' / ') : (a[key] ?? '');
-    const SH = { '$area': '전용 ㎡', flt: '층 / 총층', dir: '향', rooms: '방', baths: '욕실', biz: '업종', wc: '화장실', movein: '입주 가능일', use: '용도', tfl: '총 층수', appr: '사용승인일', park: '주차', zone: '용도지역' };
+    const SH = { '$area': '전용 ㎡', flt: '층 / 총층', dir: '향', rooms: '방', baths: '욕실', biz: '업종', wc: '화장실', wcn: '화장실 수', movein: '입주 가능일', use: '용도', tfl: '총 층수', appr: '사용승인일', park: '주차', zone: '용도지역' };
     const lb = key => SH[key] || (F.find(f => f[0] === key) || [, key])[1];
     const cls = key => need.has(key) ? 'nd' : '';
     const ph = key => need.has(key) ? '입력' : '';
     const ctl = key => key === 'dir' ? `<select class="rpi ${cls(key)}" data-fd="dir" ${dis}><option value="">-</option>${H.dirs.map(d => `<option ${a.dir === d ? 'selected' : ''}>${d}</option>`).join('')}</select>`
       : key === 'wc' ? `<select class="rpi ${cls(key)}" data-fd="wc" ${dis}><option value="">-</option>${H.wcs.map(d => `<option ${a.wc === d ? 'selected' : ''}>${d}</option>`).join('')}</select>`
-      : `<input class="rpi ${cls(key)}" data-fk="f:${id}:${key}" data-fd="${key}" value="${esc(val(key))}" placeholder="${ph(key)}" ${['rooms', 'baths'].includes(key) ? 'inputmode="numeric" maxlength="2"' : ''} ${dis}>`;
+      : `<input class="rpi ${cls(key)}" data-fk="f:${id}:${key}" data-fd="${key}" value="${esc(val(key))}" placeholder="${ph(key)}" ${['rooms', 'baths', 'wcn'].includes(key) ? 'inputmode="numeric" maxlength="2"' : ''} ${dis}>`;
     const fld = key => `<label class="rpf"><span>${lb(key)}</span>${ctl(key)}</label>`;
     const auto = F.map(f => f[0]).filter(key => AUTOK.includes(key));
     const own = F.map(f => f[0]).filter(key => !AUTOK.includes(key) && key !== 'movein' && !(key === 'biz' && k === 'unit' && catOf(x) === 'shop'));   // 상가 업종은 위 '현상태'에 있음
@@ -1019,11 +1025,13 @@ window.Board = (() => {
         if (key === '$area') { const n = parseFloat(v.replace(/[^\d.]/g, '')) || null; return saveItem(id, it => { if (it.places.length === 1) it.places[0].area = n; it.area = n; }); }
         if (key[0] === '#') { const n = man(v); if (Number.isNaN(n)) return H.toast('금액을 확인해 주세요 (예: 3000, 1억)'); return saveItem(id, it => { it[key.slice(1)] = n; }); }
         if (key === 'flt') { const [f, t] = v.split('/').map(z => z.trim()); return saveItem(id, it => { it.ad = { ...(it.ad || {}), fl: (f || '').replace(/층$/, '').replace(/^지하\s*/, 'B').replace(/f$/i, ''), tfl: t ? parseInt(t, 10) || null : (it.ad || {}).tfl ?? null }; }); }
-        saveItem(id, it => { it.ad = { ...(it.ad || {}), [key]: ['tfl', 'rooms', 'baths'].includes(key) ? (v === '' ? null : parseInt(v, 10)) : v }; });
+        saveItem(id, it => { it.ad = { ...(it.ad || {}), [key]: ['tfl', 'rooms', 'baths', 'wcn'].includes(key) ? (v === '' ? null : parseInt(v, 10)) : v }; });
       }, 0);
     });
     r.querySelectorAll('[data-fb]').forEach(c => c.onchange = () => saveItem(id, it => { it.ad = { ...(it.ad || {}), [c.dataset.fb]: c.checked }; }));
-    r.querySelectorAll('[data-mgt]').forEach(b => b.onclick = () => { const v = b.dataset.mgt; saveItem(id, it => { const a0 = it.ad || {}; it.ad = { ...a0, mgmtT: a0.mgmtT === v ? '' : v }; }); });   // 10/30 관리비 부과 방식
+    // 10/30 주거용 관리비 세분화 (mgmt.js) · 융자 표시 방법
+    if (window.Mg) Mg.wire(r, () => (H.items().find(i => i.id === id) || {}).ad, (mg, sm) => saveItem(id, it => { it.ad = { ...(it.ad || {}), mg2: mg, nomgmt: mg.t === 'na' && mg.na === 'none' }; if (sm != null) it.mgmt = sm || null; }));
+    r.querySelectorAll('[data-lnr]').forEach(b => b.onclick = () => { const v = b.dataset.lnr; saveItem(id, it => { it.ad = { ...(it.ad || {}), loanR: v, noloan: v === 'none', loanHide: v === 'hide' }; if (v === 'none') it.loan = null; }); });
     r.querySelectorAll('[data-ci]').forEach(i => {
       i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } };
       i.onchange = () => setTimeout(() => {

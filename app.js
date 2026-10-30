@@ -2957,7 +2957,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
 
   function lsDetail(x) {
     const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
-    const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${({ fix: ' (정액)', use: ' (사용량에 따라 부과)', rule: ' (관리규약에 따라 부과)' })[x.mgmtT] || ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
+    const mgL = x.mg && window.Mg ? Mg.pubLines(x.mg, x.mgmt ? n(x.mgmt) : '') : null;   // 10/30 주거용 관리비 세분화 (서버 mgPub)
+    const mg = mgL ? '' : x.mgmt ? `월 ${n(x.mgmt)}만원${({ fix: ' (정액)', use: ' (사용량에 따라 부과)', rule: ' (관리규약에 따라 부과)' })[x.mgmtT] || ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
     const land = (x.pbase || x.ptype) === '토지';
     const f = [
       x.area && [x.ak === 'land' ? '토지면적' : x.ak === 'tot' ? '연면적' : '전용면적', `${n(x.area, 2)}㎡ (${(x.area / 3.305785).toFixed(1)}평)`],
@@ -2968,10 +2969,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       (x.flr || x.tfl) && ['층', `${x.flr || '-'}${x.tfl ? ' / 총 ' + x.tfl + '층' : ''}`],
       x.dir && ['방향', `${x.dir} (${x.dirB || '주실 기준'})`],
       (x.rooms != null || x.baths != null) && ['방·욕실', `방 ${x.rooms ?? '-'} · 욕실 ${x.baths ?? '-'}`],
-      mg && ['관리비', mg],
+      mg && ['관리비', mg], ...(mgL || []),
       x.premium && ['권리금', won(x.premium)],
       x.biz && [(x.pbase || x.ptype) === '상가' ? '현재 업종' : '현재 용도', x.biz],
-      x.wc && ['화장실', x.wc],
+      (x.wc || x.wcn != null) && ['화장실', [x.wc, x.wcn != null ? `${x.wcn}개` : ''].filter(Boolean).join(' · ')],
+      x.loanTx && ['융자', x.loanTx],   // 10/30
       x.facx && ['시설', x.facx],
       x.movein && ['입주 가능일', x.movein],
       x.park && ['주차', x.park],
