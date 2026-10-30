@@ -199,8 +199,9 @@ window.Board = (() => {
       <div class="bd-t" id="bdT"></div>
       </div></div>
       <div class="bd-pop" id="bdPop" hidden></div>
-      <div class="dj" id="bd_rpw"></div>
     </div>`;
+    // 10/30 입력창은 매물 화면 밖(body)에 둠 — 아파트 화면의 '개별매물'에서도 화면을 바꾸지 않고 같은 입력창을 띄우려고 (openWin)
+    if (!$('bd_rpw')) { const h = document.createElement('div'); h.className = 'lv-wrap bd'; h.id = 'bd_rpwHost'; h.innerHTML = '<div class="dj" id="bd_rpw"></div>'; document.body.appendChild(h); }
     const q = $('bdQ');
     q.onkeydown = e => {
       if (e.isComposing) return;
@@ -1409,5 +1410,8 @@ window.Board = (() => {
   // 위 탭에서 종류를 고름 (listings.js) — 탭을 바꾸면 거르기는 처음대로(상태만 유지)
   function setCat(c) { if (B.allApt) { B.allApt = false; if (c === B.cat) refresh(); } if (!CATS[c] || c === B.cat) return; B.cat = c; B.tr = null; B.cf = null; B.fx = []; B.fk = []; B.fc = []; B.ed = null; B.sel = null; B.hist = null; B.add.D = null; B.pk = null; B.fs = []; keep(); B.fitNext = true; refresh(); }
   const counts = () => { const o = {}; (H ? H.items() : []).forEach(x => { if (x.status === 'on') { const c = catOf(x); o[c] = (o[c] || 0) + 1; } }); return o; };
-  return { init, mount, refresh, focus, reveal, autoItem, setCat, cat: () => B.cat, catOf, counts, CATNAME, autoLines, _man: man };
+  // 10/30 다른 화면(아파트 화면의 개별매물)에서 이 매물 입력창만 띄우기 · 닫기
+  const openWin = id => { if (!H.items().some(i => i.id === id)) return; B.pk = id; B.hl = id; refresh(); };
+  const closeWin = () => { if (B.pk) closePanel(); };
+  return { init, mount, refresh, focus, reveal, autoItem, setCat, openWin, closeWin, cat: () => B.cat, catOf, counts, CATNAME, autoLines, _man: man };
 })();

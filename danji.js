@@ -117,6 +117,7 @@ window.Danji = (() => {
     // 넓은 화면: 왼쪽 단지 목록(폴더) + 오른쪽 내용 · 좁은 화면: 위쪽 단지 버튼 (10/26)
     // 10/26: 단지 고르기는 왼쪽 목록 + 머리의 드롭메뉴로. 위쪽 단지 버튼 줄은 단지 추가 화면에서만
     const lay = inner => `<div class="djlay${S.cx.items.length ? ' hastree' : ''}"><aside class="djtree" id="dj_tree"></aside><div class="djmain">${S.adding || !S.cx.items.length ? chips : ''}${inner}</div></div>`;
+    if (S.cur === '__orph' && !S.adding) { W.innerHTML = lay(`<div id="dj_cxBody"></div>`); wireChips(); drawTree(); return drawOrph(); }   // 10/30 개별매물도 아파트 화면 안에서 (탐색기 그대로)
     if (S.adding || !S.cx.items.length) {
       W.innerHTML = lay(addBox(S.adding === 'place' ? S.cur : null) + (S.cx.items.length ? '' : `<div class="empty"><b>자주 보는 단지를 담아 보세요</b>동별로 층과 라인을 펼쳐 놓고, 내 매물·호별 메모·층별 실거래를 한 장에서 봅니다.${otherHint()}</div>`));
       wireChips(); drawTree(); const q = $('dj_aq'); q.onkeydown = e => { if (e.key === 'Enter') search(q.value.trim()); }; q.focus(); drawAdd();
@@ -407,7 +408,7 @@ window.Danji = (() => {
     const dm = T.querySelector('[data-tdm]'); if (dm) dm.onclick = () => { S.delMode = !S.delMode; drawTree(); };
     wireBook();   // 10/30 탐색기 머리의 [전체 · 매물만]
     T.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { const c = S.cx.items.find(z => z.id === b.dataset.tdel); if (c) delCx(c); });
-    const orph = T.querySelector('[data-torph]'); if (orph) { orph.closest('.torph').classList.toggle('on', inO); orph.onclick = () => { if (!inO) S.host.goAptList(); }; }   // 10/26 매물 화면 아파트 탭(10/30 단지 없는 매물만)으로
+    const orph = T.querySelector('[data-torph]'); if (orph) { orph.closest('.torph').classList.toggle('on', inO || S.cur === '__orph'); orph.onclick = () => { if (inO) return; S.multi.clear(); saveMulti(); S.cur = '__orph'; S.adding = false; S.hist = null; draw(); }; }   // 10/30 화면을 바꾸지 않고 아파트 화면 안에서   // 10/26 매물 화면 아파트 탭(10/30 단지 없는 매물만)으로
     const nx = T.querySelector('[data-tnx]'); if (nx) nx.onclick = () => { S.host.goAptList(); setTimeout(() => { const q = document.getElementById('bdQ'); if (q) { q.focus(); q.placeholder = '단지없이 추가: 아파트·오피스텔 주소나 건물명을 치고 Enter (예: ○○오피스텔 807호)'; } }, 120); };   // 10/30 선배: [＋단지][−단지][＋단지없이 추가]
   }
   // 10/28 단지 빼기: 확인창 한 번 (이름 입력 없음) · 왼쪽 목록 [단지 빼기]와 ⋯ 메뉴가 같이 씀
@@ -427,8 +428,23 @@ window.Danji = (() => {
     }
     return L;
   }
-  const redrawView = () => { if (S.cur === '__all') return drawAll(); const c = S.cx.items.find(z => z.id === S.cur); if (c) drawComplex(c); };
+  const redrawView = () => { if (S.cur === '__all') return drawAll(); if (S.cur === '__orph') return drawOrph(); const c = S.cx.items.find(z => z.id === S.cur); if (c) drawComplex(c); };
   // ---------- 모든 단지: 등록한 단지들의 장부를 한 표로 (바로 수정도 됨) ----------
+  // 10/30 선배: 개별매물 = 아파트 화면 안의 한 보기 (화면을 바꾸지 않음) · 표는 모든 단지와 같은 칸 · 줄 두 번 = 매물 입력창(host.openOrph)
+  const OX = { id: '__orph', name: '개별매물', all: true, orphV: true, places: [], dir: {} };
+  function drawOrph() {
+    S.lastCx = null;
+    if (!$('dj_cxBody')) return;
+    if (S.ed) { S.redraw = true; return; }
+    const rows = orphRows(), K = kpi(rows);
+    $('dj_cxBody').innerHTML = `
+      <div class="card hdc hd1"><div class="h1r"><b class="orphtt">개별매물</b>
+        <span class="hm">${rows.length}건 · 매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span>${bookTog()}<span class="sp"></span></div></div>
+      <div class="card gcard"><div class="djfrow"><div class="tbf" id="dj_tbf"></div></div><div id="dj_tbl"></div>
+      ${rows.length ? '' : '<p class="hjwarn">단지에 담지 않은 아파트·오피스텔 매물이 없습니다. 왼쪽 [＋단지없이 추가]로 올릴 수 있습니다.</p>'}</div>`;
+    wireBook();
+    drawTable(OX);
+  }
   function drawAll() {
     S.lastCx = null;
     if (!$('dj_cxBody')) return;
@@ -718,7 +734,7 @@ window.Danji = (() => {
   // 매물장 표: 관리용 칸(만기·연락처·옵션·메모)은 빼고 거래·가격 중심 (연락처·만기는 오른쪽 입력창에서)
   const MHIDE = new Set(['exp', 'own', 'ten', 'opt', 'note']);
   const MCOLS = COLS.filter(c => !MHIDE.has(c.id)).map(c => c.id === 'of' ? { ...c, t: '받은 곳' } : c);
-  const VC = () => { const cs = LCOLS; return S.cur === '__all' ? cs : cs.filter(c => !c.all); };
+  const VC = () => { const cs = LCOLS; return S.cur === '__all' || S.cur === '__orph' ? cs : cs.filter(c => !c.all); };   // 10/30 개별매물도 단지 칸
   const SORTC = { bm: 'exp', cxn: 'dh', dn: 'dh', ho: 'dh', ar: 'py', ps: 'ps', pj: 'pj', pwd: 'pwd', gap: 'gap', imp: 'imp', cd: 'cur', exp: 'exp', h: 'up' };   // 칸 머리 정렬
   const NAV = ['ar', 'ty', 'dir', 'ps', 'pj', 'pwd', 'pwr', 'imp', 'live', 'cd', 'cr', 'exp', 'own', 'ten', 'opt', 'note'];   // Tab 순서 (부동산명·거래는 눌러서)
   const LIVE = { owner: '입주', tenant: '임차', empty: '공실' };   // 10/28 두 글자로 통일
@@ -785,7 +801,7 @@ window.Danji = (() => {
     const r = x.r || {}, s = x.st;
     switch (c.id) {
       case 'mk0': { const on = !!s.src && !s.done; return `<button type="button" class="mkd${on ? ' on' : ''}" data-mkd="${esc(x.key)}" title="${on ? '매물입니다 · 누르면 매물에서 해제' : '누르면 매물로 등록'}" ${LOCK(x) && !x.cx.orph ? 'disabled' : ''}>${on ? '●' : '○'}</button>`; }
-      case 'cxn': return x.cx.orph ? `<button type="button" class="cxn" data-goorph="${esc(x.cx.orph)}" title="개별매물 · 누르면 개별매물 화면">${esc(x.cx.name)} <small class="mut">개별</small></button>` : `<button type="button" class="cxn" data-gocx="${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
+      case 'cxn': return x.cx.orph ? `<button type="button" class="cxn" data-goorph="${esc(x.cx.orph)}" title="개별매물 · 누르면 입력창">${esc(x.cx.name)} <small class="mut">${S.cur === '__orph' ? '' : '개별·'}${esc(((x.st.mine || [])[0] || {}).ptype || '')}</small></button>` : `<button type="button" class="cxn" data-gocx="${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
       case 'dn': return `<b>${esc(DN(x.dn).replace(/동$/, ''))}</b>`;
       case 'ho': return `<b>${esc(x.ho)}</b>`;
       case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : ''}>${p.v}</b>` : '<span class="mut">-</span>'; }
@@ -845,7 +861,7 @@ window.Danji = (() => {
     const F = TF(), MM = ALL ? null : mineMap(cx);
     Object.assign(F, { k: [], c: [], t: [], a: [], s: LED() ? [] : ['on', 'hold'] });   // 10/28 체크 거르기 없앰 → 장부마다 고정
     let rows;
-    if (ALL) rows = [...allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))), ...(multiOn() ? [] : orphRows())].filter(x => pass(x, F));   // 10/30 개별매물도 함께
+    if (ALL) rows = (cx.orphV ? orphRows() : [...allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))), ...(multiOn() ? [] : orphRows())]).filter(x => pass(x, F));   // 10/30 개별매물도 함께
     else if (C.view === 'dong') {
       rows = rowsDong(cx, C, MM);
       if (!rows) { box.innerHTML = '<div class="loading">이 동의 호 목록을 받는 중입니다…</div>'; return; }
@@ -902,7 +918,7 @@ window.Danji = (() => {
     box.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
     wireTel(cx, box);
     box.querySelectorAll('[data-gocx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.multi.clear(); saveMulti(); S.cur = b.dataset.gocx; S.hist = null; draw(); });
-    box.querySelectorAll('[data-goorph]').forEach(b => b.onclick = e => { e.stopPropagation(); S.host.goAptList(); });   // 10/30 개별매물 → 개별매물 화면
+    box.querySelectorAll('[data-goorph]').forEach(b => { b.ondblclick = e => e.stopPropagation(); b.onclick = e => { e.stopPropagation(); if (S.host.openOrph) S.host.openOrph(b.dataset.goorph); }; });   // 10/30 개별매물 이름을 눌러도(한 번·두 번) 바로 그 매물 입력창 (예전: 화면만 바뀌고 창이 안 뜸)
     drawPanel();
     // 누른 줄은 진한 파랑으로 남겨 둠 (상세·기록을 보는 동안 어느 호인지 놓치지 않게)
     box.querySelectorAll('tbody tr[data-key]').forEach(tr => tr.addEventListener('pointerdown', () => { S.selKey = tr.dataset.key; box.querySelectorAll('tr.sel').forEach(z => { if (z !== tr) z.classList.remove('sel'); }); tr.classList.add('sel'); }));
@@ -1053,7 +1069,8 @@ window.Danji = (() => {
   const putK = K => { [K.m + K.o, K.e, K.d].forEach((v, i) => { const b = $('dj_k' + i); if (b) { b.textContent = v; if (i === 1) b.classList.toggle('r', !!v); } }); };
   // 동 버튼 숫자와 위 요약 숫자만 고침
   function refreshDongs(cx) {
-    if (S.cur === '__all') { putK(kpi(allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))))); drawTree(); return; }
+    if (S.cur === '__all') { putK(kpi([...allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))), ...(multiOn() ? [] : orphRows())])); drawTree(); return; }
+    if (S.cur === '__orph') { putK(kpi(orphRows())); drawTree(); return; }
     const C = S.C[cx.id]; if (!C) return;
     const MM = mineMap(cx);
     document.querySelectorAll('#dj_dongs [data-dong]').forEach(b => {

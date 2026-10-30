@@ -129,7 +129,7 @@
   // ---------- 지도 모드 / 단지 모드 (오른쪽 매물 목록은 그대로, 왼쪽 화면만 바뀜) ----------
   const DJ_HOST = {
     items: () => S.items, goAptList: () => setMode('list', 'apt'), goDanji: () => setMode('danji'),
-    openOrph: id => { setMode('list', 'apt'); setTimeout(() => window.Board && Board.reveal(id), 60); },   // 10/30 모든 단지 표의 개별매물 줄 → 개별매물 화면 입력창
+    openOrph: id => { if (!window.Board) return; if (!S.bdInit) { S.bdInit = true; Board.init(bdHost()); } if (!S.bdMounted) { S.bdMounted = true; Board.mount($('lv'), bdHost()); } Board.openWin(id); },   // 10/30 아파트 화면을 그대로 두고 그 매물 입력창만 띄움
     lsStatus: async (id, st) => { try { took(await api('/api/auth?action=listing', post({ op: 'status', id, status: st }))); draw(); if (window.Danji) Danji.refresh(); toast(st === 'on' ? '매물로 등록했습니다' : '매물에서 해제했습니다'); } catch (e) { toast(e.message, 3500); } },   // 10/30 '단지 없는 매물' 화면의 단지 탐색기를 누르면 아파트 화면으로 counts: () => (window.Board && S.bdInit ? Board.counts() : null), catName: k => (window.Board ? Board.CATNAME[k] : k), goCat: k => setMode('list', k), xlGate: fn => xlGate(fn),
     openAdd: (pnu, dong, ho, pre) => openForm(null, pnu, { dong, ho, ...(pre || {}) }),   // pre: 단지 장부에서 채워 오는 거래 종류·가격·연락처
     openEdit: id => { const x = S.items.find(i => i.id === id); if (x) { focusItem(id, true); openForm(x); } },
@@ -153,6 +153,7 @@
   const adv = () => !S.plan || S.plan.adv;
   // 지도+리스트(list) 모드: 표가 기본, [지도로 보기]를 켜면 오른쪽에 지도 · 단지(danji) 모드는 Basic부터
   function setMode(m, cat) {
+    if (window.Board && Board.closeWin && S.bdMounted) Board.closeWin();   // 10/30 매물 입력창은 body에 떠 있으므로 화면·탭을 바꾸면 닫음
     S.mode = m === 'danji' || m === 'cust' || m === 'set' || m === 'ads' ? m : 'list';
     if (S.mode === 'list' && cat && window.Board) Board.setCat(cat);   // 10/26 종류별 탭
     try { localStorage.setItem('rm.lsmode', S.mode); if (S.mode !== 'cust' && S.mode !== 'set' && S.mode !== 'ads') localStorage.setItem('rm.lslast', S.mode);   /* 10/29 '내 광고'는 [매물]의 마지막 화면으로 기억하지 않음 */ } catch { /* 무시 */ }
