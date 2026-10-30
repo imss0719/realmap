@@ -205,7 +205,9 @@
     document.head.appendChild(css);
     const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
     const SD = ZR ? ZR.sido || '41' : '11';   // 10/30 인천은 zrow에 sido '28'
-    const [Z, J, P, PA, PB] = await Promise.all([ZR ? null : get('/data/seoul-zones.json'), ZR ? null : get('/data/jeongbi-seoul.json'), get('/api/auth?action=pubs'), get(`/data/price-${SD}.json`), get(`/data/price2-${SD}.json`)]);
+    // 10/30 매물은 이 구역 근처 것만 받음 (구역 경계 + 700m 상자 · 예전: 전국 광고 전체)
+    const bbq = (() => { if (!ZR) return ''; const ps = (ZR.ring || []).flat(); if (!ps.length && ZR.lat) ps.push([ZR.lng, ZR.lat]); if (!ps.length) return ''; const xs = ps.map(p => p[0]), ys = ps.map(p => p[1]); return `&bb=${(Math.min(...ys) - 0.008).toFixed(3)},${(Math.min(...xs) - 0.01).toFixed(3)},${(Math.max(...ys) + 0.008).toFixed(3)},${(Math.max(...xs) + 0.01).toFixed(3)}`; })();
+    const [Z, J, P, PA, PB] = await Promise.all([ZR ? null : get('/data/seoul-zones.json'), ZR ? null : get('/data/jeongbi-seoul.json'), get('/api/auth?action=pubs' + bbq), get(`/data/price-${SD}.json`), get(`/data/price2-${SD}.json`)]);
     const row = ZR || (Z && (Z.rows || []).find(r => String(r.id) === act.dataset.id)); if (!row) return;
     const rings = ZR ? (ZR.ring || []).slice() : [];
     if (!ZR) for (const f of (J && J.features) || []) if ((row.jb || []).includes(f.properties && f.properties.id)) { const g = f.geometry || {}; (g.type === 'MultiPolygon' ? g.coordinates : g.type === 'Polygon' ? [g.coordinates] : []).forEach(p => p[0] && rings.push(p[0])); }

@@ -9,6 +9,10 @@ const sz = await readJson('data/seoul-zones.json');
 const raw = new Map(((await readJson('data/seoul-raw/vnBsnsNmtn.json')).rows || []).map(r => [r.BASIC_INFO_SEQ, r]));
 const JBF = (await readJson('data/jeongbi-seoul.json')).features || [];
 const jb = new Map(JBF.map(f => [f.properties.id, f.properties]));
+// 10/30 구역 페이지에 그 구역 자료만 넣음 (예전: 화면이 서울 전체 구역 266KB + 경계 1MB를 통째로 받아서 골라 씀) — 경기 페이지와 같은 방식
+const JBG = new Map(JBF.map(f => [f.properties.id, f.geometry]));
+const thinR = R => { const step = Math.max(1, Math.ceil(R.length / 160)); return R.filter((_, i) => i % step === 0 || i === R.length - 1).map(([x, y]) => [+(+x).toFixed(6), +(+y).toFixed(6)]); };
+const ringsOf = ids => (ids || []).flatMap(id => { const g = JBG.get(id) || {}; return (g.type === 'MultiPolygon' ? g.coordinates : g.type === 'Polygon' ? [g.coordinates] : []).filter(p => p && p[0]).map(p => thinR(p[0])); });
 const UPDATED = sz.updated || new Date().toISOString().slice(0, 10);
 
 // ---------- 기본 도우미 ----------
@@ -131,7 +135,7 @@ const viewNav = cur => `<nav class="vw" aria-label="보는 방법"><div class="v
   <details class="vd"><summary${cur === 'gu' ? ' class="on"' : ''}>25개 구 ▾</summary><div class="vdm">${GU_ORDER.filter(g => byGu.get(g).length).map(g => `<a href="/seoul/${GU[g]}.html">${g}<small>${byGu.get(g).length}</small></a>`).join('')}</div></details>
   ${TG.map(g => `<span class="vs">${g}</span>${THEMES.filter(t => t.g === g && t.list.length).map(t => `<a href="${themeUrl(t)}"${cur === t.slug ? ' aria-current="page"' : ''}>${esc(t.short)}</a>`).join('')}`).join('')}
 </div></nav>`;
-function page({ path, title, desc, crumbs, h1, sub = '', body, faq = [], cur = '' }) {
+function page({ path, title, desc, crumbs, h1, sub = '', body, faq = [], cur = '', zrow = null }) {
   const url = SITE + path;
   const ld = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c[0], item: SITE + c[1] })) }];
   if (faq.length) ld.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
@@ -150,7 +154,7 @@ function page({ path, title, desc, crumbs, h1, sub = '', body, faq = [], cur = '
 <link rel="stylesheet" href="/seoul/seoul.css?v=${UPDATED}">
 <script>document.documentElement.classList.add('js')</script>
 <script src="/seoul/seoul.js?v=${UPDATED}" defer></script>
-${ld.map(x => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, '\\u003c')}</script>`).join('\n')}
+${zrow ? `<script type="application/json" id="zrow">${JSON.stringify(zrow).replace(/</g, '\\u003c')}</script>\n` : ''}${ld.map(x => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, '\\u003c')}</script>`).join('\n')}
 </head><body>
 <header class="top"><a class="brand" href="/">${LOGO}<b>리얼맵</b></a><nav class="crumb" aria-label="현재 위치">${crumbs.slice(1).map((c, i, a) => i < a.length - 1 ? `<a href="${c[1]}">${esc(c[0])}</a>` : `<span>${esc(c[0])}</span>`).join('<i>›</i>')}</nav>
 <span class="sp"></span><span class="upd">${esc(ymdUpd)} 기준 · 분기 갱신</span><a class="mapbtn" href="/?from=seoul">지도에서 보기</a></header>
@@ -256,6 +260,7 @@ ${near.length ? `<section class="pn"><h2>가까운 정비사업</h2>${zlist(near
       path: zoneUrl(r), title: `${r.title} ${K.s} 추진 단계·계획 세대수 (${r.gu} ${r.dong}) | 리얼맵`, desc,
       h1: `${esc(r.title)} ${kchip(r.k)} ${pill(r)}`, sub: `서울특별시 ${esc(r.gu)} ${esc(r.addr)} 일대`,
       crumbs: [['리얼맵', '/'], ['서울 정비사업', '/seoul/'], [r.gu, `/seoul/${r.slug}.html`], [r.title, zoneUrl(r)]], body, faq, cur: 'gu',
+      zrow: { id: r.id, sido: '11', n: r.title, gu: r.gu, a: r.a || r.dong || '', st: r.st || '', ar: r.ar || 0, hh: r.hh || 0, far: r.far || 0, lat: r.lat || 0, lng: r.lng || 0, ring: ringsOf(r.jb), late: /관리처분|이주|철거|착공|준공|이전고시|청산/.test(r.st || '') },
     }));
     urls.push([zoneUrl(r), 0.6]);
   }
