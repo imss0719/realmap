@@ -1398,7 +1398,7 @@ window.Danji = (() => {
     const F2 = (t1, h1, t2, h2, c = '') => `<div class="fr f2 ${c}"><b>${t1}</b><div>${h1}</div><b>${t2}</b><div>${h2}</div></div>`;
     const prLb = { sale: '매매가', jeonse: '전세가', wolse: '보증·월세' }[k0] || '가격';
     const prH = k0 === 'sale' ? W('ps', pr.sale) : k0 === 'jeonse' ? W('pj', pr.jeonse) : k0 === 'wolse' ? `${W('pwd', pr.wd, 62)}<i class="u">/</i><input class="rpi rpw" data-f="pwr" data-won value="${pr.wr || ''}" inputmode="numeric" style="width:40px" ${dis}>` : '<i class="u">● 등록 후</i>';
-    const mvq = ['즉시입주', '협의'].includes(r.moveIn) ? r.moveIn : '';
+    const mvP = mvParse(r.moveIn);   // 10/30 버튼(즉시·협의)과 날짜는 따로
     const H = R0 && R0.hist ? R0.hist : (r.hist || []);
     const meta = [sp ? sp.v + '평' : '', x.a ? (+x.a).toFixed(2) + '㎡' : ''].filter(Boolean).join(' · ');
     const tels2 = (r.tels || []).length ? r.tels : [{ l: '소유자', n: '' }];
@@ -1413,7 +1413,7 @@ window.Danji = (() => {
       ${F1('구분', `${seg1('msrc', [['mine', '내 물건'], ['other', '타부동산']], isMk ? s.src : '', mdis)}${isMk && s.src === 'other' ? ` <input class="rpi" data-f="of" value="${esc(s.office || '')}" maxlength="30" style="width:130px" ${dis}>` : ''}`)}
       ${F2('거래', seg1('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], k0, mdis), prLb, prH)}
       ${F2('방·욕실', `<input class="rpi rpsm" data-f="rm" value="${r.rm || ''}" inputmode="numeric" maxlength="2" ${dis}><i class="u">/</i><input class="rpi rpsm" data-f="bt" value="${r.bt || ''}" inputmode="numeric" maxlength="2" ${dis}>`, '관리비', `${W('mg', r.mg, 50)}<i class="u">만원</i>`)}
-      ${F1('입주', `${seg1('mvq', [['즉시입주', '즉시'], ['협의', '협의']], mvq, dis)} <input class="rpi" data-f="mv" value="${mvq ? '' : esc(r.moveIn || '')}" maxlength="20" placeholder="날짜" style="width:110px" ${dis}>`)}
+      ${F1('입주', `${seg1('mvq', [['즉시입주', '즉시'], ['협의', '협의']], mvP.q, dis)} <input class="rpi" data-f="mv" value="${esc(mvP.date)}" maxlength="20" placeholder="날짜" style="width:110px" ${dis}>`)}
       </div>
       <div class="rpsec">호 정보</div>
       <div class="fgrp">
@@ -1424,7 +1424,7 @@ window.Danji = (() => {
       ${F1('옵션', v('opt', r.opt || '', '', 'maxlength="200"'))}
       ${F1('챙길 것', v('imp', r.imp || '', '', 'maxlength="100" title="앞에 날짜를 쓰면 알림 (예: 11/15 중도금)"'))}
       ${F1('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" ${dis}>${esc(r.note || '')}</textarea>`)}
-      ${F1('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="기록 내용을 쓰고 [추가]" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
+      ${F1('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="기록 내용 쓰고 Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
       </div>
       ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${esc(fmtT(h.t).replace(new RegExp('^' + String(new Date().getFullYear()).slice(2) + '\\.'), ''))}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">✕</button>` : ''}</li>`).join('')}</ul>` : ''}
       </div>
@@ -1453,7 +1453,7 @@ window.Danji = (() => {
         if (f === 'ty' || f === 'py' || f === 'dir') return ltSave(cx, x, f, val, S.pkOne);
         if (f === 'cd' || f === 'cr') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; if (n && !D.live) D.live = 'tenant'; }); }
         if (f === 'rm' || f === 'bt' || f === 'mg') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; }); }   // 10/29 방·욕실·관리비
-        if (f === 'mv') return save(D => { D.moveIn = val.trim(); });
+        if (f === 'mv') return save(D => { const m = mvParse(val), q0 = mvParse(D.moveIn).q; D.moveIn = mvJoin(m.date, m.q || q0); });
         if (f === 'exp') return save(D => { D.exp = val; });
         if (f === 'ps' || f === 'pj' || f === 'pwd' || f === 'pwr') { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[f], n = +(String(val).replace(/\D/g, '') || 0); if (S.pkDraft) { S.pkDraft.vals[k] = n || 0; return; } return save(D => { D.pr = { ...D.pr, [k]: n || 0 }; }); }
         if (f === 'of') return save(D => { if (D.st.src) D.st = { ...D.st, office: val.trim() }; });
@@ -1464,7 +1464,7 @@ window.Danji = (() => {
       if (el.tagName === 'INPUT') el.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); go(); el.blur(); } };
     });
     if (S.pkDraft) P.querySelectorAll('#rp_dpr [data-f]').forEach(i => i.addEventListener('input', () => { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[i.dataset.f]; S.pkDraft.vals[k] = +(i.value.replace(/\D/g, '') || 0); }));
-    P.querySelectorAll('[data-g="mvq"] [data-v]').forEach(b => b.onclick = () => { const v0 = b.dataset.v, nv = (r.moveIn || '') === v0 ? '' : v0; save(D => { D.moveIn = nv; }); setTimeout(() => drawPanel(true), 0); });   // 10/29 입주 즉시·협의
+    P.querySelectorAll('[data-g="mvq"] [data-v]').forEach(b => b.onclick = () => { const v0 = b.dataset.v; save(D => { const m = mvParse(D.moveIn); D.moveIn = mvJoin(m.date, m.q === v0 ? '' : v0); }); setTimeout(() => drawPanel(true), 0); });   // 10/29 입주 즉시·협의 · 10/30 협의는 날짜와 같이
     // 거주
     P.querySelectorAll('[data-g="live"] [data-v]').forEach(b => b.onclick = () => { if ((r.live || '') === b.dataset.v) return; save(D => { D.live = b.dataset.v; }); setTimeout(() => drawPanel(true), 0); });   // 이미 고른 것을 다시 눌러도 그대로
     // 연락처: 고치면 바로 저장
@@ -1506,7 +1506,7 @@ window.Danji = (() => {
     }
     // 상담 기록
     const add = () => { const t = $('rp_hin').value.trim(); if (!t) return $('rp_hin').focus(); $('rp_hin').value = ''; actRow(cx, x, 'memo', { text: t }); };
-    if ($('rp_hadd')) { $('rp_hadd').onclick = add; $('rp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); }; }   // 10/30 선배: 기록은 [추가]를 눌렀을 때만
+    if ($('rp_hadd')) { $('rp_hadd').onclick = add; $('rp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }; }   // 10/30 기록 = 직접 쓰고 Enter 또는 [추가]
     P.querySelectorAll('[data-rpundo]').forEach(b => b.onclick = () => { if (confirm('가장 최근 기록을 되돌릴까요? 그 전 상태로 돌아갑니다.')) actRow(cx, x, 'undo', {}); });
     P.querySelectorAll('[data-rpmdel]').forEach(b => b.onclick = () => { if (confirm('이 기록을 지울까요?')) actRow(cx, x, 'mdel', { i: +b.dataset.rpmdel }); });
   }
@@ -1542,7 +1542,7 @@ window.Danji = (() => {
     const oldMemo = S.cx.memos[memoKey(x.cx, x.pnu, x.dn, x.ho)];
     const ro = !!(S.L[x.cx.id] && S.L[x.cx.id].err);
     return `<div class="hbox">
-      ${ro ? '' : `<div class="hjmemo"><input class="hjin sm" id="hr_in" placeholder="기록 남기기 (예: 집주인 통화 — 3월에 결정) 쓰고 [추가]" maxlength="500"><button type="button" class="btn dark sm" id="hr_add">추가</button></div>`}
+      ${ro ? '' : `<div class="hjmemo"><input class="hjin sm" id="hr_in" placeholder="기록 남기기 (예: 집주인 통화 — 3월에 결정) · Enter" maxlength="500"><button type="button" class="btn dark sm" id="hr_add">추가</button></div>`}
       ${!R ? '<div class="loading">기록을 불러오는 중…</div>' : R.hist.length ? `<ul class="hjhist">${R.hist.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx" data-hi="${i}">${esc(h.x)}${h.w ? ` <small class="ed">· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small class="ed">(수정됨 ${fmtT(h.ed)})</small>` : ''}</span>${i === 0 && canUndo && !ro ? '<button type="button" class="un" data-undo>되돌리기</button>' : ''}${h.e === 'memo' && !ro ? `<button type="button" class="un" data-medit="${i}">고치기</button><button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : '<p class="note">아직 기록이 없습니다.</p>'}
       ${oldMemo ? `<p class="note">예전 메모 (이 호를 처음 저장할 때 기록으로 옮겨집니다)</p>${memoListHtml(oldMemo.t, String(oldMemo.up).slice(2, 10).replace(/-/g, '.'), '')}` : ''}
       ${R && R.deal ? `<p class="note">최근 계약: ${KN[R.deal.k]} ${R.deal.k === 'wolse' ? `${wonFull(R.deal.a)}/${R.deal.r}` : wonFull(R.deal.a)} · ${esc(String(R.deal.d).slice(2).replace(/-/g, '.'))}${R.deal.by === 'other' ? ' · 타사' : ' · 내 계약'}</p>` : ''}
@@ -1566,7 +1566,7 @@ window.Danji = (() => {
     const x = S.rows.find(z => z.key === S.hist); if (!x) return;
     cx = x.cx || cx;
     const add = () => { const t = $('hr_in').value.trim(); if (!t) return $('hr_in').focus(); actRow(cx, x, 'memo', { text: t }); };
-    if ($('hr_add')) { $('hr_add').onclick = add; $('hr_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); }; }   // 10/30 [추가]만
+    if ($('hr_add')) { $('hr_add').onclick = add; $('hr_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) add(); }; }
     document.querySelectorAll('#dj_hp [data-undo]').forEach(b => b.onclick = () => { if (confirm('가장 최근 기록을 되돌릴까요? 그 전 상태로 돌아갑니다.')) actRow(cx, x, 'undo', {}); });
     document.querySelectorAll('#dj_hp [data-mdel]').forEach(b => b.onclick = () => { if (confirm('이 기록을 지울까요?')) actRow(cx, x, 'mdel', { i: +b.dataset.mdel }); });
     // 상담 기록 고치기 (직접 쓴 기록만 · 고친 시각이 붙음) — 10/26
@@ -1969,6 +1969,9 @@ window.Danji = (() => {
   // ---------- 호실 장부 공용 도구 ----------
   const DIRS = ['남', '남동', '남서', '동', '서', '북', '북동', '북서'];
   const TLB = ['소유자', '배우자', '세입자', '가족', '관리인', '기타'];
+  // 10/30 선배: 입주 = [즉시·협의 버튼] 따로 + [날짜] 따로 (서로 지우지 않음) · 저장은 한 칸에 '27년12월초 협의'처럼
+  const mvParse = v => { v = String(v || '').trim(); const m = v.match(/^(.*?)\s*(즉시입주|즉시|협의)$/); const q = m ? (m[2] === '즉시' ? '즉시입주' : m[2]) : ''; return { q, date: (m ? m[1] : v).trim() }; };
+  const mvJoin = (d, q) => [d, q].filter(Boolean).join(' ');
   const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, hist: [] });
   // '8억 5천' · '8억5000' · '8.5억' · '85000' · '5천' → 만원
   function parseMan(v) {

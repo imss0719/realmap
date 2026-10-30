@@ -107,8 +107,14 @@ window.Sett = (() => {
         rw('아파트 단지 장부', `<span id="stCx">${cxl}</span>`, B('stDlHj', '받기', 'n', cxs && cxs.length ? '' : 'disabled')) +
         rw('고객 목록', cus ? cus.err ? `<small>${esc(cus.err)}</small>` : `${cus.length.toLocaleString()}명` : '<small>불러오는 중…</small>', B('stDlCu', '받기', 'n', Array.isArray(cus) && cus.length ? '' : 'disabled')))}
       ${pn('불러온 기록', '최근 30건 · 나중에도 되돌리기', !log ? '<p class="sp-e">불러오는 중…</p>' : tb(['날짜', '파일', '넣은 곳', '건수', ''], im.map(e => `<tr><td>${ymdhm(e.at)}</td><td class="ell" title="${esc(e.file)}">${esc(e.file)}</td><td class="ell" title="${e.to === 'hj' ? esc(e.names || '') : ''}">${e.to === 'hj' ? `단지 · ${esc(e.names || '')}` : '매물장'}</td><td>${e.n.toLocaleString()}${e.to === 'hj' ? '호' : '건'}</td><td>${e.undone ? '<span class="tg gr">되돌림</span>' : B('', '되돌리기', 'r', `data-undo="${esc(e.id)}"`)}</td></tr>`), '아직 불러온 적이 없습니다'))}
-      ${pn('내려받은 기록', '최근 100건 보관', !log ? '' : tb(['날짜', '받은 것', '건수', '인증 번호'], dl.slice(0, 30).map(e => `<tr><td>${ymdhm(e.at)}</td><td class="ell">${esc(e.what)}</td><td>${e.n.toLocaleString()}</td><td>${esc(e.ph)}</td></tr>`), '아직 내려받은 적이 없습니다'))}</div>`;
+      ${pn('내려받은 기록', '최근 100건 보관', !log ? '' : tb(['날짜', '받은 것', '건수', '인증 번호'], dl.slice(0, 30).map(e => `<tr><td>${ymdhm(e.at)}</td><td class="ell">${esc(e.what)}</td><td>${e.n.toLocaleString()}</td><td>${esc(e.ph)}</td></tr>`), '아직 내려받은 적이 없습니다'))}
+      ${isStaff() ? '' : pn('기록 정리', '10/30 · 대표만', rw('지금까지의 기록', '매물 기록 · 아파트 호 기록을 모두 지웁니다 <small>(가격·연락처·메모 칸은 그대로 · 되돌릴 수 없음)</small>', B('stHc', '모두 지우기', 'n')))}</div>`;
     $('stIm').onclick = () => H.importXl();
+    if ($('stHc')) $('stHc').onclick = async () => {   // 10/30 선배 요청: 지금까지의 기록 모두 지우기 (앞으로는 직접 쓴 기록만 남음)
+      if (!confirm('지금까지 쌓인 기록을 모두 지울까요?\n\n· 매물(상가·건물 등) 입력창의 기록\n· 아파트 단지 장부 호마다의 기록\n\n가격·연락처·메모·챙길 것 칸은 그대로 남습니다.\n지운 기록은 되돌릴 수 없습니다.')) return;
+      try { const j = await H.api('/api/auth?action=listing', H.post({ op: 'histclear' })); H.toast(`기록을 지웠습니다 (매물 ${j.cleared.ls}건 · 아파트 호 기록 ${j.cleared.hj}개). 화면을 새로 고칩니다.`, 3000); setTimeout(() => location.reload(), 1600); }
+      catch (e) { H.toast(e.message, 4000); }
+    };
     m.querySelectorAll('[data-tpl]').forEach(b => b.onclick = () => tpl(b.dataset.tpl));
     m.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => undo(b.dataset.undo));
     $('stDlLs').onclick = () => H.xlGate({ what: '매물장 전체', n: H.items().length }, () => { H.exportLs(); after(); });

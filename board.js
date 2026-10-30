@@ -545,14 +545,14 @@ window.Board = (() => {
     const pr = mainP(x) ? `${X.KIND[x.kind]} ${x.kind === 'wolse' ? `${cw(x.deposit) || 0}/${x.rent || '-'}` : cw(mainP(x))}` : X.KIND[x.kind];
     P.innerHTML = `<div class="hp-h"><b>${esc(title)}</b><span>${esc(chip(x))} · ${esc(pr)} · ${esc(X.STAT[x.status])}</span><button type="button" class="hp-x" id="bdhp_x" aria-label="닫기">×</button></div>
       ${cs.length ? `<div class="hp-tel">${cs.map((c, i) => `<a class="tl" href="tel:${esc(String(c.phone || '').replace(/[^\d+]/g, ''))}" data-call="${x.id}:${i}">☎ ${esc([c.role, c.name].filter(Boolean).join(' '))} ${esc(c.phone || '')}</a>`).join('')}</div>` : ''}
-      ${RO ? '' : `<div class="hjmemo"><input class="hjin sm" id="bdhp_in" data-fk="hp:${x.id}" placeholder="기록 남기기 (예: 임차인 통화 — 3월 이사) 쓰고 [추가]" maxlength="500"><button type="button" class="btn dark sm" id="bdhp_add">추가</button></div>`}
+      ${RO ? '' : `<div class="hjmemo"><input class="hjin sm" id="bdhp_in" data-fk="hp:${x.id}" placeholder="기록 남기기 (예: 임차인 통화 — 3월 이사) · Enter" maxlength="500"><button type="button" class="btn dark sm" id="bdhp_add">추가</button></div>`}
       ${L.length ? `<ul class="hjhist">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button>`}</li>`; }).join('')}</ul>` : '<p class="note">아직 기록이 없습니다.</p>'}
       <p class="note">가격·상태를 바꾸거나 전화를 걸면 자동으로 남습니다(회색).</p>`;
     $('bdhp_x').onclick = () => { B.hist = null; refresh(); };
     P.querySelectorAll('[data-call]').forEach(a => a.onclick = () => callLog(a.dataset.call));
     if (RO) return;
     const add = () => { const t = $('bdhp_in').value.trim(); if (!t) return $('bdhp_in').focus(); $('bdhp_in').value = ''; saveItem(x.id, it => { it.memo = X.memoAdd(it.memo, t); }, '기록했습니다'); };
-    $('bdhp_add').onclick = add; $('bdhp_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); };   // 10/30 선배: 기록은 [추가]를 눌렀을 때만 (Enter로는 안 들어감)
+    $('bdhp_add').onclick = add; $('bdhp_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } };   // 10/30 기록 = 직접 쓰고 Enter 또는 [추가]
     P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => { if (!confirm('이 기록을 지울까요?')) return; const i = +b.dataset.mdel; saveItem(x.id, it => { const a = X.memoParse(it.memo); a.splice(i, 1); it.memo = memoJoin(a); }); });
     P.querySelectorAll('[data-medit]').forEach(b => b.onclick = () => {
       const i = +b.dataset.medit, sp = P.querySelector(`.hx[data-hi="${i}"]`), e0 = L[i]; if (!sp || !e0) return;
@@ -568,11 +568,12 @@ window.Board = (() => {
   function callLog(k) {
     const [id, n] = String(k).split(':'), x = H.items().find(i => i.id === id); if (!x || X.ro().has(id)) return;
     const c = (x.contacts || [])[+n] || {};
-    saveItem(id, it => { it.memo = X.memoAdd(it.memo, `전화 · ${[c.role, c.name].filter(Boolean).join(' ') || '연락처'}`); });
+    void c;   // 10/30 전화 걸 때 자동 기록 안 남김
   }
   // 저장할 때 바뀐 내용 → 기록 한 줄 (가격·거래·상태·현상태·만기·유형)
   const prTx = x => x.kind === 'sale' ? `매매 ${cw(x.price) || '-'}` : x.kind === 'jeonse' ? `전세 ${cw(x.deposit) || '-'}` : x.kind === 'wolse' ? `월세 ${cw(x.deposit) || 0}/${x.rent || '-'}` : `분양권 ${cw(x.price) || '-'}${x.pr ? ' P' + cw(x.pr) : ''}`;
   function autoLines(a, b) {
+    if (a || !a) return [];   // 10/30 선배 결정: 바뀐 내용은 기록에 자동으로 남기지 않음 (직접 쓴 기록만) — 아래는 예전 방식
     const out = [];
     if (a.kind !== b.kind || (a.price || 0) !== (b.price || 0) || (a.deposit || 0) !== (b.deposit || 0) || (a.rent || 0) !== (b.rent || 0) || (a.pr || 0) !== (b.pr || 0)) out.push(`변경 · ${prTx(a)} → ${prTx(b)}`);
     if ((a.premium || 0) !== (b.premium || 0)) out.push(`변경 · 권리금 ${cw(a.premium) || '없음'} → ${cw(b.premium) || '없음'}`);
@@ -724,7 +725,7 @@ window.Board = (() => {
     body += panelInfo(x, RO);   // 10/29 접지 않음: 직접 넣는 칸만 칸으로, 대장 자동값은 한 줄 글자 + [자동입력사항 고치기]
     // 기록
     const L = X.memoParse(x.memo);
-    body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="기록 내용을 쓰고 [추가]" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
+    body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="기록 내용 쓰고 Enter" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
     body += L.length ? `<ul class="rph">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `<span>${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button></span>`}</li>`; }).join('')}</ul>` : '';
     const cu = H.custFor && (H.custFor(x) || []).length ? custBox(x) : '';   // 맞는 고객이 있을 때만
     W.innerHTML = `<aside class="rpanel rpwin" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}${x.no ? (RO ? `<small class="rpno">No. ${esc(x.no)}</small>` : `<button type="button" class="rpno" id="bdrp_no" title="매물번호 · 누르면 고치기 (규칙은 설정 → 우리 사무소)">No. ${esc(x.no)}</button>`) : ''}${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpdh" data-a="del" title="이 매물 삭제">삭제</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
@@ -783,7 +784,7 @@ window.Board = (() => {
     });
     // 기록
     const add = () => { const t = $('bdrp_hin').value.trim(); if (!t) return $('bdrp_hin').focus(); $('bdrp_hin').value = ''; saveItem(id, it => { it.memo = X.memoAdd(it.memo, t); }, '기록했습니다'); };
-    if ($('bdrp_hadd')) { $('bdrp_hadd').onclick = add; $('bdrp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); }; }   // 10/30 선배: 기록은 [추가]를 눌렀을 때만
+    if ($('bdrp_hadd')) { $('bdrp_hadd').onclick = add; $('bdrp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }; }   // 10/30 기록 = 직접 쓰고 Enter 또는 [추가]
     P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => { if (!confirm('이 기록을 지울까요?')) return; const i = +b.dataset.mdel; saveItem(id, it => { const a = X.memoParse(it.memo); a.splice(i, 1); it.memo = memoJoin(a); }); });
     P.querySelectorAll('[data-medit]').forEach(b => b.onclick = () => {
       const L = X.memoParse(x.memo), i = +b.dataset.medit, sp = P.querySelector(`.hx[data-hi="${i}"]`), e0 = L[i]; if (!sp || !e0) return;
