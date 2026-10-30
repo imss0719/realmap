@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14212E">
+<title>리얼맵 장부</title>
+<link rel="manifest" href="/m.webmanifest">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="리얼맵 장부">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 10/30 리얼맵 중개장부 — 휴대폰 버전 (선배 결정: 내 매물 정보만 · 보기·찾기·전화만 · 고치기·등록은 PC 장부) */
+:root{--bg:#F1F3F6;--sf:#fff;--fg:#14212E;--mu:#6B7684;--ln:#E5E8EC;--navy:#14212E;--y:#F2B705;--sale:#C92A2A;--jeonse:#1C64C8;--wolse:#2B8A3E;--pre:#7048E8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:17px;line-height:1.45;letter-spacing:-.01em;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+a{color:inherit;text-decoration:none}button{font:inherit;color:inherit}
+.hd{position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:10px;min-height:58px}
+.hd .bk{border:0;background:none;color:#fff;font-size:30px;line-height:1;padding:0 6px 0 0;cursor:pointer}
+.hd h1{margin:0;font-size:21px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hd h1 small{display:block;font-size:13.5px;color:#AEBBC8;font-weight:500;margin-top:1px}
+.hd .ic{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:12px;width:44px;height:44px;font-size:21px;cursor:pointer}
+.home .hd{padding-bottom:30px}
+.srch{margin:-20px 14px 14px;position:relative;z-index:6}
+.srch input{width:100%;border:0;border-radius:16px;padding:16px 16px 16px 46px;font:inherit;font-size:18px;background:#fff;box-shadow:0 6px 18px rgba(20,33,46,.12);color:var(--fg)}
+.srch:before{content:"🔍";position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:19px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 14px}
+.t{background:var(--sf);border-radius:18px;padding:12px 14px;text-align:left;display:flex!important;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:0;cursor:pointer;display:block;width:100%}
+.t .i{width:54px;height:54px;border-radius:16px;flex:none;display:grid;place-items:center;font-size:28px}.t div+span{min-width:0}
+.t b{display:block;font-size:17px;letter-spacing:-.04em;line-height:1.25;word-break:keep-all}.t em{font-style:normal;font-size:18px;color:var(--mu);font-weight:900}
+.t.hl em{color:#2F9E44}
+.sec{margin:14px 14px 0;background:var(--sf);border-radius:18px;padding:12px 16px 6px}
+.sec h2{margin:0 0 4px;font-size:17px}
+.sec .li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--ln);font-size:16px}
+.sec .li:first-of-type{border-top:0}.sec .li span{flex:1;min-width:0}.sec .li b{white-space:nowrap;color:#D9480F;font-weight:900}
+.sec .li small{display:block;color:var(--mu);font-size:13.5px}
+.chips{display:flex;gap:7px;padding:10px 12px;overflow-x:auto;background:var(--sf);border-bottom:1px solid var(--ln);scrollbar-width:none;position:sticky;top:58px;z-index:4}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;border:1.5px solid #CED4DA;background:#fff;border-radius:999px;padding:8px 15px;font-size:16px;font-weight:800;cursor:pointer}
+.chips button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.card{display:block;background:var(--sf);margin:10px 12px;border-radius:18px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer}
+.card .a{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.card .a b{font-size:18.5px;line-height:1.3}
+.k{flex:none;font-size:13.5px;font-weight:800;color:#fff;border-radius:7px;padding:2px 9px;line-height:20px}
+.k.sale{background:var(--sale)}.k.jeonse{background:var(--jeonse)}.k.wolse{background:var(--wolse)}.k.presale{background:var(--pre)}.k.gray{background:#ADB5BD}
+.card .p{font-size:22px;font-weight:900;margin:3px 0 1px;letter-spacing:-.03em}
+.card .m{font-size:15px;color:var(--mu)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.tags span{font-size:13.5px;background:#F1F3F5;border-radius:7px;padding:3px 9px;font-weight:700}
+.tags .ad{background:#E6F6EA;color:#1F7A3E}.tags .dd{background:#FFE8E0;color:#C2410C}
+.cnt{padding:12px 16px 0;color:var(--mu);font-size:14.5px;font-weight:700}
+.empty{text-align:center;color:var(--mu);padding:40px 20px;font-size:16px}
+.call{display:inline-flex;align-items:center;gap:6px;background:#2F9E44;color:#fff;border-radius:12px;padding:9px 14px;font-weight:800;font-size:16px;white-space:nowrap}
+/* 상세 */
+.pr{background:var(--sf);padding:16px 18px;border-bottom:1px solid var(--ln)}.pr .p{font-size:28px;font-weight:900;letter-spacing:-.03em}.pr .m{font-size:16px;color:var(--mu);margin-top:3px}
+.kv{background:var(--sf);margin:10px 12px;border-radius:18px;padding:2px 16px}
+.kv div{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid #EEF1F4;font-size:17px}.kv div:first-child{border-top:0}
+.kv span{color:var(--mu);flex:none}.kv b{font-weight:800;text-align:right;word-break:keep-all}
+.tel{background:var(--sf);margin:10px 12px;border-radius:18px;padding:4px 16px}
+.tel div{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #EEF1F4}.tel div:first-child{border-top:0}
+.tel div span{flex:1;min-width:0;font-size:16.5px}.tel div span small{display:block;color:var(--mu);font-size:13.5px}
+.memo{background:#FFF9DB;margin:10px 12px;border-radius:16px;padding:13px 15px;font-size:16.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:50vh;overflow:auto}
+.memo b{display:block;font-size:13.5px;color:#8A6D00;margin-bottom:2px}
+.ph{display:flex;gap:8px;overflow-x:auto;padding:10px 12px 0;scrollbar-width:none}.ph img{height:150px;border-radius:14px;flex:none}
+.pcl{display:block;text-align:center;color:var(--mu);font-size:14.5px;margin:18px 0 6px;text-decoration:underline}
+.note{margin:10px 16px;color:var(--mu);font-size:14px}
+.lg{max-width:420px;margin:40px auto;padding:0 20px;text-align:center}.lg p{color:var(--mu)}.lg a{display:block;background:var(--y);border-radius:16px;padding:16px;font-weight:900;font-size:18px;margin-top:14px}.lg a.k2{background:#FEE500}
+.ins{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:20;background:var(--navy);color:#fff;border-radius:18px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center}
+.ins img{width:46px;height:46px;border-radius:12px;flex:none}.ins span{flex:1;font-size:15px;line-height:1.45}.ins span b{display:block;font-size:16.5px}
+.ins button{border:0;border-radius:12px;padding:10px 12px;font-weight:900;font-size:15px;cursor:pointer}.ins .go{background:var(--y);color:var(--navy)}.ins .x{background:none;color:#AEBBC8;font-size:22px;padding:4px}
+.ld{padding:60px 0;text-align:center;color:var(--mu)}
+.grp{padding:14px 16px 2px;font-size:14.5px;font-weight:800;color:var(--mu)}
+</style>
+</head><body>
+<div id="app"><div class="ld">장부를 불러오는 중…</div></div>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id), app = $('app');
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  async function api(u) {
+    const r = await fetch(u, { credentials: 'same-origin' }), j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) { const e = new Error(j.message || '잠시 연결이 원활하지 않습니다.'); e.code = j.error; e.st = r.status; throw e; }
+    return j;
+  }
+  // ---------- 숫자·이름 ----------
+  const won = m => { m = Math.round(+m || 0); if (!m) return '0'; const e = Math.floor(m / 10000), r = m % 10000; return (e ? e + '억' : '') + (r ? (e ? ' ' : '') + r.toLocaleString() + (e ? '' : '만') : ''); };
+  const KN = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
+  const price = x => x.kind === 'wolse' ? `${x.deposit ? won(x.deposit) : '0'} / ${(+x.rent || 0).toLocaleString()}` : x.kind === 'presale' ? `P ${won(x.pr || 0)}` : x.kind === 'jeonse' ? won(x.deposit) : won(x.price);
+  const py = a => a ? `${Math.round(a)}㎡(${(a / 3.3058).toFixed(0)}평)` : '';
+  const CATS = { apt: ['아파트', '주상복합', '오피스텔'], shop: ['상가', '사무실'], bld: ['건물'], ofc: ['지식산업센터'], home: ['빌라', '연립', '다가구', '주택'], redev: ['재개발', '재건축'], pre: [], land: ['토지'], fac: ['공장·창고'], etc: ['숙박', '기타'] };
+  const catOf = x => x.kind === 'presale' ? 'pre' : Object.keys(CATS).find(k => CATS[k].includes(x.ptype)) || 'etc';
+  // 첫 화면 아이콘 (선배 결정: 내 매물 정보만 · 보기·찾기·전화 + 내 광고)
+  const TILES = [
+    { id: 'apt', n: '아파트·오피', i: '🏢', c: '#E7F0FF' }, { id: 'shop', n: '상가·사무실', i: '🏪', c: '#FFF0E0', cats: ['shop'] }, { id: 'bld', n: '건물', i: '🏬', c: '#EDE7FF', cats: ['bld'] },
+    { id: 'home', n: '빌라·주택', i: '🏠', c: '#E3F7E8', cats: ['home'] }, { id: 'redev', n: '재개발·분양권', i: '🏗️', c: '#FFE9EC', cats: ['redev', 'pre'] }, { id: 'etc', n: '토지·공장 등', i: '🗺️', c: '#F1F3F5', cats: ['land', 'fac', 'ofc', 'etc'] },
+    { id: 'ads', n: '내 광고', i: '📢', c: '#FFF4CC' }, { id: 'pc', n: 'PC 장부', i: '💻', c: '#EEF1F4' },
+  ];
+  const nameOf = x => { const p = (x.places && x.places[0]) || {}; const d = p.dong || x.dong, h = p.ho || x.ho; return [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), d ? (/동$/.test(d) ? d : d + '동') : '', h ? (/(호|층)$/.test(h) ? h : h + '호') : ''].filter(Boolean).join(' '); };
+  const isPub = x => x.pub && x.pub.on && x.status === 'on';
+  const today = () => { const d = new Date(Date.now() + 9 * 3600e3); return d.toISOString().slice(0, 10); };
+  const dday = s => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return null; return Math.round((Date.parse(`${m[1]}-${m[2]}-${m[3]}`) - Date.parse(today())) / 864e5); };
+  const telA = (ph, label = '전화') => { const d = String(ph || '').replace(/\D/g, ''); return d ? `<a class="call" href="tel:${d}">📞 ${esc(label)}</a>` : ''; };
+  const fmtTel = v => { const d = String(v || '').replace(/\D/g, ''); return d.length === 11 ? d.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3') : /^02/.test(d) ? d.replace(/^(02)(\d{3,4})(\d{4})$/, '$1-$2-$3') : d.length === 10 ? d.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3') : String(v || ''); };
+
+  // ---------- 자료 ----------
+  const D = { items: [], bk: null, cx: [], units: {}, cust: [], err: null };
+  const unitName = (cx, key) => { const [, dn, h] = String(key).split('|'); const d = dn ? (/동$/.test(dn) ? dn : dn + '동') : '', ho = h ? (/(호|층)$/.test(h) ? h : h + '호') : ''; return [d, ho].filter(Boolean).join(' '); };
+  const LIVE = { owner: '집주인 거주', tenant: '세입자 거주', empty: '공실' };
+  const recEmpty = r => !r || (!(r.tels || []).length && !r.note && !r.live && !r.exp && !(r.st && r.st.src) && !r.mk && !(r.pr && (r.pr.sale || r.pr.jeonse || r.pr.wd || r.pr.wr)));
+  const unitList = () => { const out = []; for (const cx of D.cx) for (const [k, r] of Object.entries(D.units[cx.id] || {})) if (!recEmpty(r)) out.push({ cx, key: k, r }); return out; };
+  async function load() {
+    try { const me = await api('/api/auth?action=me'); if (!me.member) throw Object.assign(new Error('login'), { code: 'login' }); }
+    catch (e) { D.err = e.code === 'login' || e.st === 401 ? 'login' : e.message; return; }
+    try { const j = await api('/api/auth?action=listings'); D.items = j.items || []; D.bk = j.bk || null; }
+    catch (e) { D.err = e.code === 'login' ? 'login' : e.code === 'start' || e.code === 'verify' ? 'start' : e.message; return; }
+    // 선배 결정(10/30): 휴대폰은 내 매물 정보만 — 아파트 호 장부(기록)·고객은 불러오지 않음
+  }
+  const live = () => D.items.filter(x => x.status !== 'done');
+  const inTile = (t, x) => t.cats ? t.cats.includes(catOf(x)) : t.id === 'apt' ? catOf(x) === 'apt' : false;
+
+  // ---------- 화면 조각 ----------
+  const head = (title, sub = '', back = true) => `<div class="hd">${back ? '<button class="bk" data-back aria-label="뒤로">‹</button>' : ''}<h1>${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ''}</h1><button class="ic" data-go="#/s" aria-label="찾기">🔍</button></div>`;
+  const kTag = x => `<span class="k ${esc(x.kind)}">${KN[x.kind] || ''}</span>`;
+  function itemCard(x) {
+    const p0 = (x.places && x.places[0]) || {}, d = dday(x.exp);
+    const sub = [x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype, py(x.area || p0.area), x.mgmt ? `관리비 ${won(x.mgmt)}` : ''].filter(Boolean).join(' · ');
+    const tags = [isPub(x) ? '<span class="ad">● 광고 중</span>' : '', x.status === 'hold' ? '<span>보류</span>' : '', d != null && d >= 0 && d <= 90 ? `<span class="dd">만기 D-${d}</span>` : '', x.owner ? `<span>${esc(x.owner)}</span>` : '', x.no ? `<span>No.${esc(x.no)}</span>` : ''].filter(Boolean).join('');
+    return `<a class="card" href="#/i/${encodeURIComponent(x.id)}"><div class="a"><b>${esc(nameOf(x))}</b>${kTag(x)}</div><div class="p">${esc(price(x))}</div><div class="m">${esc(sub || (x.addr || ''))}</div>${tags ? `<div class="tags">${tags}</div>` : ''}</a>`;
+  }
+  const unitPrice = r => { const p = r.pr || {}, k = (r.st && r.st.k) || []; const a = []; if (p.sale) a.push(['sale', won(p.sale)]); if (p.jeonse) a.push(['jeonse', won(p.jeonse)]); if (p.wd || p.wr) a.push(['wolse', `${won(p.wd)} / ${(+p.wr || 0).toLocaleString()}`]); return a.length ? a : k.map(z => [z, '']); };
+  function unitCard(u) {
+    const r = u.r, pr = unitPrice(r), d = dday(r.exp);
+    const tags = [r.mk ? '<span class="ad">● 매물</span>' : '', r.live ? `<span>${LIVE[r.live] || ''}</span>` : '', d != null && d >= 0 && d <= 120 ? `<span class="dd">만기 D-${d}</span>` : r.exp ? `<span>만기 ${esc(r.exp.slice(2).replace(/-/g, '.'))}</span>` : '', (r.tels || []).length ? `<span>📞 ${(r.tels || []).length}</span>` : ''].filter(Boolean).join('');
+    return `<a class="card" href="#/u/${encodeURIComponent(u.cx.id)}/${encodeURIComponent(u.key)}"><div class="a"><b>${esc(unitName(u.cx, u.key))}</b>${pr[0] ? `<span class="k ${pr[0][0]}">${KN[pr[0][0]]}</span>` : ''}</div>${pr[0] && pr[0][1] ? `<div class="p">${esc(pr.map(z => z[1]).filter(Boolean).join(' · '))}</div>` : ''}${r.ar ? `<div class="m">${esc(py(r.ar))}</div>` : ''}${tags ? `<div class="tags">${tags}</div>` : ''}</a>`;
+  }
+  function custCard(c) {
+    const want = [(c.k || []).map(k => KN[k]).join('·'), (c.pt || []).join('·'), (c.where || []).join('·'), c.bmax ? `${won(c.bmax)} 이하` : '', c.amin ? `${c.amin}평↑` : ''].filter(Boolean).join(' · ');
+    return `<div class="card" style="cursor:default"><div class="a"><b>${esc(c.name || fmtTel(c.phone) || '이름 없음')}</b>${c.status === 'on' ? '<span class="k jeonse">찾는 중</span>' : '<span class="k gray">끝</span>'}</div>${want ? `<div class="m" style="margin-top:4px">${esc(want)}</div>` : ''}${c.memo || c.note ? `<div class="m" style="margin-top:4px">📝 ${esc(String(c.note || c.memo).slice(0, 80))}</div>` : ''}<div class="tags" style="justify-content:space-between;align-items:center"><span>${esc(fmtTel(c.phone))}</span>${telA(c.phone)}</div></div>`;
+  }
+
+  // ---------- 화면 ----------
+  const R = { f: {} };
+  function home() {
+    const L = live(), units = unitList();
+    const cnt = t => t.id === 'ads' ? L.filter(isPub).length : t.id === 'pc' ? '' : L.filter(x => inTile(t, x)).length;
+    // 챙길 것: 호 만기 · 매물 만기 · 꼭 챙길 것(날짜) · 광고 기간 끝남
+    const todo = [];
+    for (const u of units) { const d = dday(u.r.exp); if (d != null && d >= 0 && d <= 60) todo.push({ d, t: `${u.cx.name} ${unitName(u.cx, u.key)} 만기`, h: `#/u/${encodeURIComponent(u.cx.id)}/${encodeURIComponent(u.key)}` }); }
+    for (const x of L) {
+      const d = dday(x.exp); if (d != null && d >= 0 && d <= 60) todo.push({ d, t: `${nameOf(x)} 만기`, h: `#/i/${encodeURIComponent(x.id)}` });
+      const i = dday(x.impd); if (i != null && i >= 0 && i <= 14) todo.push({ d: i, t: x.imp || `${nameOf(x)} 챙길 것`, h: `#/i/${encodeURIComponent(x.id)}` });
+      if (isPub(x) && x.pub.exp) { const e = dday(String(x.pub.exp).slice(0, 10)); if (e != null && e <= 7) todo.push({ d: Math.max(0, e), t: `${nameOf(x)} 광고 ${e < 0 ? '기간 끝남' : '곧 끝남'}`, h: '#/ads' }); }
+    }
+    todo.sort((a, b) => a.d - b.d);
+    const bk = D.bk || {};
+    app.innerHTML = `<div class="home">${`<div class="hd"><h1>${esc(bk.office || '리얼맵')} 장부<small>매물 ${L.length} · 광고 중 ${L.filter(isPub).length}</small></h1></div>`}
+<div class="srch"><input id="q" type="search" placeholder="주소·동호수, 전화번호, 이름 찾기" enterkeyhint="search" autocomplete="off"></div>
+<div class="grid">${TILES.map(t => { const n = cnt(t); return `<button class="t${t.id === 'ads' && n ? ' hl' : ''}" data-go="${t.id === 'pc' ? '#pc' : '#/c/' + t.id}"><div class="i" style="background:${t.c}">${t.i}</div><span><b>${t.n}</b>${n !== '' ? `<em>${n}건</em>` : ''}</span></button>`; }).join('')}</div>
+<div class="sec"><h2>챙길 것 <small style="color:var(--mu);font-weight:600;font-size:13.5px">내 매물 만기 60일 · 광고 기간</small></h2>${todo.length ? todo.slice(0, 8).map(z => `<a class="li" href="${z.h}"><span>${esc(z.t)}</span><b>${z.d === 0 ? '오늘' : 'D-' + z.d}</b></a>`).join('') : '<div class="li" style="color:var(--mu)">가까운 만기나 끝나는 광고가 없습니다.</div>'}</div>
+<p class="note">휴대폰에서는 보기·찾기·전화만 됩니다. 매물 등록·고치기는 PC 장부에서 해 주세요.</p>
+<a class="pcl" href="#pc">PC 화면으로 보기</a></div>`;
+    const q = $('q'); q.onkeydown = e => { if (e.key === 'Enter' && q.value.trim()) location.hash = '#/s/' + encodeURIComponent(q.value.trim()); };
+  }
+  function chips(key, list) { const cur = R.f[key] || ''; return `<div class="chips">${list.map(([v, l]) => `<button data-f="${key}" data-v="${v}" class="${cur === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`; }
+  function catPage(id) {
+    const t = TILES.find(z => z.id === id); if (!t) return home();
+    if (id === 'cust') {
+      const f = R.f.cu || 'on', L = D.cust.filter(c => !f || (f === 'on' ? c.status === 'on' : true));
+      app.innerHTML = head('고객', `찾는 중 ${D.cust.filter(c => c.status === 'on').length}명`) + chips('cu', [['on', '찾는 중'], ['all', '전체']]) + (L.length ? L.map(custCard).join('') : '<div class="empty">고객이 없습니다.</div>');
+      return;
+    }
+    if (id === 'ads') {
+      const L = live().filter(isPub).sort((a, b) => String(a.pub.exp || '').localeCompare(String(b.pub.exp || '')));
+      app.innerHTML = head('내 광고', `리얼맵 지도에 광고 중 ${L.length}건`) + (L.length ? L.map(x => { const e = x.pub.exp ? dday(String(x.pub.exp).slice(0, 10)) : null; return itemCard(x).replace('</a>', `<div class="tags"><span class="${e != null && e <= 7 ? 'dd' : 'ad'}">${e == null ? '광고 중' : e < 0 ? '광고 기간 끝남' : `광고 ${e}일 남음`}</span></div></a>`); }).join('') : '<div class="empty">지금 광고 중인 매물이 없습니다.<br>광고는 PC 장부에서 올릴 수 있습니다.</div>');
+      return;
+    }
+    const f = R.f[id] || '';
+    let L = live().filter(x => inTile(t, x));
+    const kinds = [['', '전체'], ...['sale', 'jeonse', 'wolse', 'presale'].filter(k => L.some(x => x.kind === k)).map(k => [k, KN[k]]), ...(L.some(isPub) ? [['ad', '● 광고 중']] : [])];
+    if (f === 'ad') L = L.filter(isPub); else if (f) L = L.filter(x => x.kind === f);
+    L.sort((a, b) => String(b.up || b.at || '').localeCompare(String(a.up || a.at || '')));
+    if (id === 'apt') {   // 아파트: 단지별 호 장부 + 단지에 없는 아파트 매물
+      app.innerHTML = head('아파트·오피', `매물 ${L.length}건`) + chips('apt', kinds) + (L.length ? L.map(itemCard).join('') : '<div class="empty">아파트·오피 매물이 없습니다.</div>');
+      return;
+    }
+    app.innerHTML = head(t.n, `${L.length}건`) + (kinds.length > 2 ? chips(id, kinds) : '') + (L.length ? L.map(itemCard).join('') : '<div class="empty">이 종류 매물이 없습니다.</div>');
+  }
+  function danjiPage(cxId) {
+    const cx = D.cx.find(c => c.id === cxId); if (!cx) return home();
+    const f = R.f['d' + cxId] || '';
+    let U = unitList().filter(u => u.cx.id === cxId);
+    const all = U.length;
+    if (f === 'mk') U = U.filter(u => u.r.mk); else if (f === 'tel') U = U.filter(u => (u.r.tels || []).length); else if (f === 'exp') U = U.filter(u => { const d = dday(u.r.exp); return d != null && d >= 0 && d <= 120; }); else if (f) U = U.filter(u => unitPrice(u.r).some(z => z[0] === f && z[1]));
+    const nat = s => String(s).replace(/\D/g, '').padStart(6, '0');
+    U.sort((a, b) => { const [, da, ha] = a.key.split('|'), [, db, hb] = b.key.split('|'); return nat(da).localeCompare(nat(db)) || nat(ha).localeCompare(nat(hb)); });
+    app.innerHTML = head(cx.name, `기록 있는 호 ${all}`) + chips('d' + cxId, [['', '전체'], ['mk', '● 매물'], ['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세'], ['exp', '만기 임박'], ['tel', '연락처 있음']]) + (U.length ? U.map(unitCard).join('') : '<div class="empty">해당하는 호가 없습니다.</div>');
+  }
+  function itemPage(id) {
+    const x = D.items.find(z => z.id === id); if (!x) return home();
+    const p0 = (x.places && x.places[0]) || {};
+    const cs = Array.isArray(x.contacts) && x.contacts.length ? x.contacts : x.owner || x.phone ? [{ role: '소유자', name: x.owner, phone: x.phone }] : [];
+    const kv = [
+      ['종류', [x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype, KN[x.kind]].filter(Boolean).join(' · ')],
+      ['주소', x.addr], ['면적', py(x.area || p0.area)],
+      x.kind === 'wolse' || x.kind === 'jeonse' ? ['보증금', x.deposit ? won(x.deposit) : ''] : null, x.kind === 'wolse' ? ['월세', x.rent ? `${(+x.rent).toLocaleString()}만` : ''] : null,
+      ['관리비', x.mgmt ? won(x.mgmt) : ''], ['권리금', x.premium ? won(x.premium) : ''], ['융자', x.loan ? won(x.loan) : ''],
+      ['현 임대', x.curDep || x.curRent ? `${won(x.curDep)} / ${(+x.curRent || 0).toLocaleString()}` : ''], ['만기', x.exp ? x.exp.replace(/-/g, '.') : ''],
+      ['상태', x.status === 'hold' ? '보류' : '진행 중'], ['리얼맵 광고', isPub(x) ? `● 광고 중${x.pub.exp ? ` (~${String(x.pub.exp).slice(5, 10).replace('-', '.')})` : ''}` : ''], ['매물번호', x.no],
+    ].filter(z => z && z[1]);
+    const rents = (x.rents || []).filter(r => r.deposit || r.rent || r.biz || r.label);
+    app.innerHTML = head(nameOf(x), x.no ? `No.${x.no}` : '') + `<div class="pr"><div class="p">${KN[x.kind] || ''} ${esc(price(x))}</div><div class="m">${esc([py(x.area || p0.area), x.bname && x.addr ? x.addr.split(' ').slice(-2).join(' ') : ''].filter(Boolean).join(' · '))}</div></div>`
+      + ((x.photos || []).length ? `<div class="ph">${x.photos.slice(0, 10).map(p => `<img src="${esc(p.url)}" alt="" loading="lazy">`).join('')}</div>` : '')
+      + (cs.length ? `<div class="tel">${cs.map(c => `<div><span>${esc(c.role || '연락처')} <b>${esc(c.name || '')}</b><small>${esc(fmtTel(c.phone))}</small></span>${telA(c.phone)}</div>`).join('')}</div>` : '')
+      + (x.imp ? `<div class="memo"><b>꼭 챙길 것</b>${esc(x.imp)}</div>` : '')
+      + `<div class="kv">${kv.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div>`
+      + (rents.length ? `<div class="kv">${rents.slice(0, 30).map(r => `<div><span>${esc([r.fl, r.label, r.biz].filter(Boolean).join(' ') || '임차')}</span><b>${esc(`${won(r.deposit)} / ${(+r.rent || 0).toLocaleString()}`)}${r.exp ? ` · ${esc(r.exp)}` : ''}</b></div>`).join('')}</div>` : '')
+      + (x.memo ? `<div class="memo"><b>메모</b>${esc(x.memo)}</div>` : '')
+      + '<p class="note">고치기는 PC 장부에서 할 수 있습니다.</p>';
+  }
+  function unitPage(cxId, key) {
+    const cx = D.cx.find(c => c.id === cxId), r = cx && (D.units[cxId] || {})[key]; if (!r) return home();
+    const pr = unitPrice(r), d = dday(r.exp), ST = { mine: '우리 매물', other: '다른 부동산' };
+    const kv = [['평형', py(r.ar)], ['현 상태', LIVE[r.live] || ''], ['만기', r.exp ? `${r.exp.replace(/-/g, '.')}${d != null && d >= 0 ? ` (D-${d})` : ''}` : ''], ['입주', r.moveIn], ['방·욕실', r.rm || r.bt ? `${r.rm || '-'} / ${r.bt || '-'}` : ''], ['관리비', r.mg ? won(r.mg) : ''], ['현 보증금·월세', r.cd || r.cr ? `${won(r.cd)} / ${(+r.cr || 0).toLocaleString()}` : ''], ['옵션', r.opt], ['받은 곳', r.st && r.st.src ? (ST[r.st.src] || '') + (r.st.office ? ` ${r.st.office}` : '') : ''], ['매물', r.mk ? '● 매물로 등록됨' : '']].filter(z => z[1]);
+    app.innerHTML = head(`${cx.name}`, unitName(cx, key)) + `<div class="pr"><div class="p">${esc(unitName(cx, key))}</div><div class="m">${pr.filter(z => z[1]).map(z => `${KN[z[0]]} ${z[1]}`).join(' · ') || '가격 기록 없음'}</div></div>`
+      + ((r.tels || []).length ? `<div class="tel">${r.tels.map(t => `<div><span>${esc(t.l || '연락처')} <b>${esc(t.m || '')}</b><small>${esc(fmtTel(t.n))}</small></span>${telA(t.n)}</div>`).join('')}</div>` : '')
+      + (r.imp ? `<div class="memo"><b>챙길 것</b>${esc(r.imp)}</div>` : '')
+      + (kv.length ? `<div class="kv">${kv.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div>` : '')
+      + (r.note ? `<div class="memo"><b>메모</b>${esc(r.note)}</div>` : '')
+      + '<p class="note">고치기는 PC 장부에서 할 수 있습니다.</p>';
+  }
+  function searchPage(q) {
+    const s = String(q || '').trim().toLowerCase(), sd = s.replace(/\D/g, '');
+    const hit = t => { const v = String(t || '').toLowerCase(); return v.includes(s) || (sd.length >= 3 && v.replace(/\D/g, '').includes(sd)); };
+    const I = s ? D.items.filter(x => hit([x.no, x.addr, x.road, x.bname, x.owner, x.phone, x.memo, x.ptype, x.imp, nameOf(x), JSON.stringify(x.places || ''), JSON.stringify(x.contacts || '')].join(' '))) : [];
+    const U = s ? unitList().filter(u => hit([u.cx.name, unitName(u.cx, u.key), u.key.split('|').slice(1).join(' '), u.r.note, u.r.imp, JSON.stringify(u.r.tels || '')].join(' '))) : [];
+    const C = s ? D.cust.filter(c => hit([c.name, c.phone, c.memo, c.note, (c.where || []).join(' ')].join(' '))) : [];
+    app.innerHTML = `<div class="hd"><button class="bk" data-back aria-label="뒤로">‹</button><h1>찾기</h1></div><div class="srch" style="margin-top:12px"><input id="q" type="search" value="${esc(q || '')}" placeholder="동·호수, 전화번호, 이름 찾기" enterkeyhint="search" autocomplete="off"></div>`
+      + (!s ? '<div class="empty">예: 101동 1203 · 010-1234 · 김○○</div>' : !I.length && !U.length && !C.length ? '<div class="empty">찾는 내용이 없습니다.</div>'
+        : (U.length ? `<div class="grp">아파트 호 ${U.length}</div>` + U.slice(0, 30).map(u => unitCard(u).replace(/<b>/, `<b>${esc(u.cx.name)} `)).join('') : '')
+        + (I.length ? `<div class="grp">매물 ${I.length}</div>` + I.slice(0, 40).map(itemCard).join('') : '')
+        + (C.length ? `<div class="grp">고객 ${C.length}</div>` + C.slice(0, 20).map(custCard).join('') : ''));
+    const inp = $('q'); if (!s) inp.focus();
+    inp.onkeydown = e => { if (e.key === 'Enter') location.replace('#/s/' + encodeURIComponent(inp.value.trim())); };
+  }
+  function gate() {
+    if (D.err === 'login') app.innerHTML = `<div class="lg"><h2>리얼맵 장부</h2><p>로그인하면 휴대폰에서 장부를 보고, 찾고, 바로 전화할 수 있습니다.</p><a class="k2" href="/auth/login?r=${encodeURIComponent('/m.html')}">카카오로 로그인</a></div>`;
+    else if (D.err === 'start') app.innerHTML = `<div class="lg"><h2>중개사 서비스 시작이 필요합니다</h2><p>PC 장부에서 중개사무소 정보를 먼저 등록해 주세요.</p><a href="/listings.html?pc=1">PC 장부로 가기</a></div>`;
+    else app.innerHTML = `<div class="lg"><h2>잠시 연결이 원활하지 않습니다</h2><p>${esc(D.err)}</p><a href="/m.html">다시 열기</a></div>`;
+  }
+  // ---------- 길 찾기 (#/c/종류 · #/d/단지 · #/i/매물 · #/u/단지/호 · #/s/찾기) ----------
+  function route() {
+    if (D.err) return gate();
+    const h = location.hash;
+    if (h === '#pc') { try { localStorage.setItem('rm.pc', '1'); } catch { /* 저장 불가 */ } location.href = '/listings.html?pc=1'; return; }
+    const m = h.match(/^#\/(c|d|i|u|s)(?:\/([^/]*))?(?:\/(.*))?$/), dec = v => { try { return decodeURIComponent(v || ''); } catch { return v || ''; } };
+    if (!m) home(); else if (m[1] === 'c') catPage(m[2]); else if (m[1] === 'd') danjiPage(dec(m[2])); else if (m[1] === 'i') itemPage(dec(m[2])); else if (m[1] === 'u') unitPage(dec(m[2]), dec(m[3])); else searchPage(dec(m[2]));
+    window.scrollTo(0, R.y[h] || 0);
+  }
+  R.y = {};
+  addEventListener('scroll', () => { R.y[location.hash] = scrollY; }, { passive: true });
+  addEventListener('hashchange', route);
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-back]'); if (b) { e.preventDefault(); if (history.length > 1 && R.moved) history.back(); else location.hash = ''; return; }
+    const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); R.moved = true; location.hash = g.dataset.go; return; }
+    const f = e.target.closest('[data-f]'); if (f) { R.f[f.dataset.f] = f.dataset.v; route(); return; }
+    if (e.target.closest('a[href^="#/"]')) R.moved = true;
+  });
+
+  // ---------- 홈 화면에 추가 (한 번만 안내) ----------
+  function installHint() {
+    let seen = false; try { seen = localStorage.getItem('rm.minst') === '1'; } catch { /* 없음 */ }
+    if (seen || matchMedia('(display-mode: standalone)').matches || navigator.standalone) return;
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const show = (txt, btn) => {
+      const el = document.createElement('div'); el.className = 'ins';
+      el.innerHTML = `<img src="/icon-192.png" alt=""><span><b>홈 화면에 리얼맵 장부 추가</b>${txt}</span>${btn ? '<button class="go">추가</button>' : ''}<button class="x" aria-label="닫기">×</button>`;
+      document.body.appendChild(el);
+      const done = () => { el.remove(); try { localStorage.setItem('rm.minst', '1'); } catch { /* 없음 */ } };
+      el.querySelector('.x').onclick = done;
+      return { el, done };
+    };
+    if (ios) { show('아래 <b style="display:inline">공유 ⬆︎</b> → <b style="display:inline">홈 화면에 추가</b>를 누르면 앱처럼 바로 열립니다.'); return; }
+    let ev = null;
+    addEventListener('beforeinstallprompt', e => { e.preventDefault(); ev = e; const s = show('한 번 추가하면 아이콘을 눌러 바로 열립니다.', true); s.el.querySelector('.go').onclick = async () => { s.done(); ev.prompt(); try { await ev.userChoice; } catch { /* 무시 */ } }; });
+    setTimeout(() => { if (!ev && !document.querySelector('.ins')) show('브라우저 메뉴(⋮)에서 <b style="display:inline">홈 화면에 추가</b>를 누르면 앱처럼 바로 열립니다.'); }, 4000);
+  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/m-sw.js', { scope: '/m.html' }).catch(() => {});
+
+  load().then(() => { route(); if (!D.err) installHint(); });
+})();
+</script>
+</body></html>

@@ -1,0 +1,16 @@
+{
+  "name": "리얼맵 중개장부",
+  "short_name": "리얼맵 장부",
+  "description": "리얼맵 중개장부 — 휴대폰에서 보기·찾기·전화",
+  "start_url": "/m.html",
+  "scope": "/m.html",
+  "display": "standalone",
+  "background_color": "#14212E",
+  "theme_color": "#14212E",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512m.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
