@@ -380,7 +380,8 @@ function cleanAd(a) {
     movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
-    mgmtT: ['fix', 'avg', 'use', 'rule', 'unk'].includes(a.mgmtT) ? a.mgmtT : '', noloan: !!a.noloan, loanHide: !!a.loanHide,   // 10/30 관리비 부과: 사용량에 따라(use) · 관리규약에 따라(rule) · 모름(unk) (예전 실비 avg · 정액 fix) · 융자 없음 mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),
+    mgmtT: ['fix', 'avg', 'use', 'rule', 'unk'].includes(a.mgmtT) ? a.mgmtT : '', noloan: !!a.noloan, loanHide: !!a.loanHide, live: ['tenant', 'owner', 'empty'].includes(a.live) ? a.live : '',   // 10/30 현상태(세입자·집주인 거주·공실)
+      // 10/30 관리비 부과: 사용량에 따라(use) · 관리규약에 따라(rule) · 모름(unk) (예전 실비 avg · 정액 fix) · 융자 없음 mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),
     ty: t(a.ty, 8).replace(/\s/g, '').toUpperCase(), spy: (v => v > 3 && v < 300 ? v : null)(Math.round(Number(a.spy) || 0)),   // 아파트 타입(84B)·공급평 (10/26)
     // 재개발·재건축 (10/26): 구역명·단계·물건 형태·대지지분㎡·감정가·권리가액·조합원 분양·이주비(만원)
     rz: t(a.rz, 30), stage: STAGES.includes(a.stage) ? a.stage : '', form: FORMS.includes(a.form) ? a.form : '', jshare: dec(a.jshare), apv: won(a.apv), rgt: won(a.rgt), msh: t(a.msh, 20), mvl: won(a.mvl),
