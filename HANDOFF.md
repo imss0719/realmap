@@ -675,3 +675,4 @@
 - 10/30 회색 점 비율 30 → 50%(offices-seoul.mjs RATE, 동마다 최대 20건물) · 화면 칸(96px, 휴대폰 84px) 하나에 건물 2곳 이상이면 '🏠 부동산 n' 묶음 하나 → 누르면 목록 카드(#ofCard .gl).
 - 10/30 휴대폰 장부 '홈 화면에 추가'를 크롬이 앱 설치(WebAPK)로 처리 → Google Play 프로텍트가 '안전하지 않은 앱 차단'. 매니페스트 연결을 m.html·listings.html에서 빼서 그냥 바로가기 아이콘으로(⋮ → 홈 화면에 추가 / 삼성 인터넷 ≡ → 현재 페이지 추가). 예전 m-sw.js 서비스워커는 m.html이 지움. m.webmanifest·m-sw.js 파일은 남겨 둠(안 씀).
 - 10/30 선배 결정 "방법이 기기마다 다르면 안 됨": 손가락(터치)도 PC처럼 한 번 = 줄 선택, 두 번(450ms 안) = 입력창 (danji.js wireLedRows S.tap · board.js B.tap). listings.html 표에 touch-action:manipulation(두 번 누르기가 확대로 안 먹히게).
+- 10/30 설명서·홍보 갱신: pro-guide.html 4번(한 번=고르기 · 두 번/Enter=떠 있는 입력창 · 새 그림 guide/pro-panel.webp 예시 자료) · 7·8·11번 문구(삭제로 정리, 지도에 보이는 우리 사무소: 노란 원/회색 '○○부동산'·묶음) · 새 13번 휴대폰 장부(guide/pro-mobile.webp, 홈 화면 바로가기, Play 프로텍트 차단 안내) · 요금제 14번 · FAQ 휴대폰. guide.html 7번 서울·경기 정비사업·계산기, 관심 구역 경기(☆만), 1번 지도 위 매물·중개사무소 안내, 맨 아래 경기 링크. promo.html '중개사에게 좋은 점' 6칸(재개발 페이지 노출, 휴대폰 장부 추가 · 3열).

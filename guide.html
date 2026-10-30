@@ -142,6 +142,7 @@ footer a{color:inherit}
     <li><b>개발지도</b><span>재개발·재건축 같은 정비구역을 지도에 색으로 표시합니다.</span></li>
     <li><b>실거래가 표시</b><span>건물마다 최근 거래가와 전용면적, 거래 연월이 붙습니다. 누르면 거래 내역이 열립니다.</span></li>
   </ol>
+  <div class="tip"><b>지도 위 매물 · 중개사무소</b> 흰 바탕에 노란 테두리 말풍선은 중개사무소가 올린 <b>매물</b>입니다. <b>노란 테두리 동그라미</b>는 리얼맵에 가입한 중개사무소(옆 숫자 = 광고 중인 매물 수)이고, 서울의 <b>회색 '○○부동산'</b>은 공공데이터로 표시한 근처 중개사무소입니다. 몰려 있으면 '🏠 부동산 12'처럼 묶이고, 누르면 목록이 나옵니다.</div>
 </section>
 
 <section id="parcel">
@@ -274,12 +275,12 @@ footer a{color:inherit}
     <li><b>누른 필지</b><span>빨간 실선은 지금 누른 필지이고, 빨간 점선은 같은 건물(단지)이 걸쳐 있는 나머지 필지입니다.</span></li>
     <li><b>구역 이름표</b><span>구역명이 지도에 바로 붙어 어디가 어느 구역인지 한눈에 보입니다.</span></li>
     <li><b>핀 표시</b><span>경계가 공개되지 않은 사업은 위치에 핀으로 표시하고, 추진 단계를 함께 적어 드립니다.</span></li>
-    <li><b>서울 정비사업 현황</b><span>서울 830여 곳의 사업을 구별로 모아 보는 페이지로 이어집니다.</span></li>
+    <li><b>서울 · 경기 정비사업 현황</b><span>서울 830여 곳, 경기 670여 곳의 사업을 구·시별로 모아 보는 페이지로 이어집니다. 구역마다 추진 단계·단계별 일자와 <b>내 집 분담금·평형 미리 계산</b>이 있습니다.</span></li>
   </ol>
   <h3>구역 안 필지를 누르면</h3>
   <p>주소 아래에 <b>'재개발'</b>, <b>'재건축'</b>, <b>'신속통합기획'</b> 같은 표시가 붙고, '개발' 탭에서 구역명, 계획 세대수·층수·용적률과 함께 지금 어느 단계까지 왔는지 보여 드립니다.</p>
   <div class="shot"><div class="fig"><img src="/guide/stage.webp" width="833" height="250" alt="추진 단계 표시 - 대상지, 기획, 구역지정, 추진위, 조합설립, 사업시행, 관리처분, 착공, 준공" loading="lazy"></div><figcaption>추진 단계와 다음 단계 안내</figcaption></div>
-  <div class="tip"><b>관심 구역 알림</b> <a href="/seoul/">서울 재개발·재건축 정비사업 현황</a>에서 구역을 관심 구역으로 담아 두고 진행 단계를 한곳에서 확인하실 수 있습니다. 추진 알림은 신청을 받고 있으며, 알림 발송은 준비 중입니다. <span class="tag">회원</span></div>
+  <div class="tip"><b>관심 구역 알림</b> <a href="/seoul/">서울</a>·<a href="/gyeonggi/">경기</a> 재개발·재건축 정비사업 현황에서 구역을 ☆ 관심 구역으로 담아 두고 진행 단계를 한곳에서 확인하실 수 있습니다. 추진 알림(🔔)은 서울 구역만 신청을 받고 있으며, 알림 발송은 준비 중입니다. <span class="tag">회원</span></div>
 </section>
 
 <section id="safe">
@@ -346,6 +347,6 @@ footer a{color:inherit}
 
 </main>
 <script>document.querySelectorAll('.fig img').forEach(function(i){i.style.cursor='zoom-in';i.title='누르면 크게 볼 수 있습니다';i.addEventListener('click',function(){window.open(i.src,'_blank')})});</script>
-<footer>리얼맵 · 운영 주식회사 드림인베스트 · 문의 contact@realmap.online · <a href="/privacy.html">개인정보처리방침</a> · <a href="/seoul/">서울 정비사업 현황</a></footer>
+<footer>리얼맵 · 운영 주식회사 드림인베스트 · 문의 contact@realmap.online · <a href="/privacy.html">개인정보처리방침</a> · <a href="/seoul/">서울 정비사업 현황</a> · <a href="/gyeonggi/">경기 정비사업 현황</a></footer>
 </body>
 </html>
