@@ -99,7 +99,7 @@ const TG = ['규모', '단계', '권역', '종류'];
 const themeUrl = t => `/gyeonggi/t/${t.slug}.html`;
 const LOGO = `<svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#F2B705"/><g transform="translate(6.4 9) scale(0.72)"><g fill="#14212E"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/></g><path d="M35 28.6 54 27V30L47 38H35Z" fill="#fff"/></g></svg>`;
 const viewNav = cur => `<nav class="vw" aria-label="보는 방법"><div class="vw-in">
-  <a href="/seoul/">서울</a><a href="/gyeonggi/"${cur === 'idx' ? ' aria-current="page"' : ''}>경기 전체</a><span class="vs">시별</span>
+  <a href="/seoul/">서울</a><a href="/gyeonggi/"${cur === 'idx' ? ' aria-current="page"' : ''}>경기 전체</a><a href="/incheon/">인천</a><span class="vs">시별</span>
   <details class="vd"><summary${cur === 'si' ? ' class="on"' : ''}>${SIS.length}개 시 ▾</summary><div class="vdm">${SIS.map(s => `<a href="/gyeonggi/${SLUG[s]}.html">${s}<small>${bySi.get(s).length}</small></a>`).join('')}</div></details>
   ${TG.map(g => `<span class="vs">${g}</span>${THEMES.filter(t => t.g === g && t.list.length).map(t => `<a href="${themeUrl(t)}"${cur === t.slug ? ' aria-current="page"' : ''}>${esc(t.short)}</a>`).join('')}`).join('')}
 </div></nav>`;

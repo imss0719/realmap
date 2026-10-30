@@ -127,7 +127,7 @@ const TG = ['규모', '단계', '권역', '종류'];
 const themeUrl = t => `/seoul/t/${t.slug}.html`;
 // 위쪽 '보는 방법' 줄
 const viewNav = cur => `<nav class="vw" aria-label="보는 방법"><div class="vw-in">
-  <a href="/seoul/"${cur === 'idx' ? ' aria-current="page"' : ''}>서울 전체</a><a href="/gyeonggi/">경기</a><span class="vs">구별</span>
+  <a href="/seoul/"${cur === 'idx' ? ' aria-current="page"' : ''}>서울 전체</a><a href="/gyeonggi/">경기</a><a href="/incheon/">인천</a><span class="vs">구별</span>
   <details class="vd"><summary${cur === 'gu' ? ' class="on"' : ''}>25개 구 ▾</summary><div class="vdm">${GU_ORDER.filter(g => byGu.get(g).length).map(g => `<a href="/seoul/${GU[g]}.html">${g}<small>${byGu.get(g).length}</small></a>`).join('')}</div></details>
   ${TG.map(g => `<span class="vs">${g}</span>${THEMES.filter(t => t.g === g && t.list.length).map(t => `<a href="${themeUrl(t)}"${cur === t.slug ? ' aria-current="page"' : ''}>${esc(t.short)}</a>`).join('')}`).join('')}
 </div></nav>`;
