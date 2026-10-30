@@ -702,7 +702,10 @@ window.Board = (() => {
     const won = (key, v, neg = false) => { const n = v ? Math.round(+v) : ''; return `<span class="wonw"><input class="rpi rpw" data-fk="p:${id}:${key}" data-pv="${key}" data-won${neg ? '="neg"' : ''} value="${n}" inputmode="numeric" ${dis}><i class="u">만원</i><i class="wonh">${esc(window.wonH ? window.wonH(n) : '')}</i></span>`; };
     let body = '';   // 10/29 상태 칸(진행·보류·거래완료) 없앰 — 매물번호는 제목줄로
     // 10/29 금액 칸은 두 개씩 한 줄 (거래 | 첫 금액 · 나머지 둘씩)
-    const won2 = (key, v, neg) => won(key, v, neg).replace('class="rpi rpw"', 'class="rpi rpw" style="width:72px"');
+    // 10/30 선배: 'n칸 남음' 대신 비어 있는 칸 자체를 노랗게 (관리비·가격도) — 화면에 다 보이게
+    const missP = H.canPub() && x.status === 'on' && !X.pubLive(x) ? X.adMissing(x, BKOK) : [];
+    const ndK = key => (key === '$mgmt' && missP.includes('관리비') && !a.nomgmt) || (missP.includes('가격') && ['$price', '$deposit', '$rent', '$pr'].includes(key) && !x[key.slice(1)]);
+    const won2 = (key, v, neg) => won(key, v, neg).replace('class="rpi rpw"', `class="rpi rpw${ndK(key) ? ' nd' : ''}" style="width:72px"`);
     const cells = [...(PF[x.kind] || PF.sale).map(([f, t]) => [t.replace('전세 ', '').replace('프리미엄(P)', 'P'), won2('$' + f, x[f], f === 'pr')]),
       ...(cat === 'shop' ? [['권리금', won2('$premium', x.premium)]] : []),
       ...(x.kind === 'presale' ? [['납입액', won2('$paid', x.paid)]] : [])];
@@ -914,7 +917,8 @@ window.Board = (() => {
     // 10/30 선배: 리얼맵 등록에 필요한 칸은 입력창에서 빠짐없이 — 이 종류 칸 목록에 없더라도(예: 통주택의 방·욕실) 필요하면 넣음
     for (const key of need) if (!key.startsWith('#') && !key.startsWith('$') && key !== 'flt' && !own.includes(key) && !AUTOK.includes(key) && key !== 'movein') own.push(key);
     const rows = [];
-    const g2 = ['$area', 'flt'].filter(has); if (g2.length) rows.push(`<div class="rpg">${g2.map(fld).join('')}</div>`);
+    const g2 = ['$area', 'flt'].filter(key => has(key) || need.has(key));   // 10/30 비어 있으면 이 종류 칸 목록에 없어도 보이게 (예: 통건물 해당 층)
+    if (g2.length) rows.push(`<div class="rpg">${g2.map(fld).join('')}</div>`);
     const rest = own.filter(key => !g2.includes(key));
     for (let i = 0; i < rest.length; i += 3) rows.push(`<div class="rpg c3">${rest.slice(i, i + 3).map(fld).join('')}</div>`);
     if (has('movein')) { const mv = a.movein || ''; rows.push(`<label class="rpf"><span>입주 가능일</span><div class="rpmv"><span class="rpseg">${['즉시입주', '협의'].map(t => `<button type="button" data-mv="${t}" aria-pressed="${mv === t}" ${dis}>${t === '즉시입주' ? '즉시' : t}</button>`).join('')}</span><input class="rpi ${cls('movein')}" data-fk="f:${id}:movein" data-fd="movein" value="${esc(['즉시입주', '협의'].includes(mv) ? '' : mv)}" placeholder="${need.has('movein') ? '또는 날짜 (입력)' : '또는 날짜'}" ${dis}></div></label>`); }
@@ -924,7 +928,7 @@ window.Board = (() => {
     if (auto.length) { for (let i = 0; i < auto.length; i += 2) rows.push(`<div class="rpg">${auto.slice(i, i + 2).map(fld).join('')}</div>`); if (canFill) rows.push('<div class="rpfill"><button type="button" class="rplnk" data-a="autofill">빈 칸 건축물대장에서 채우기</button></div>'); }
     const y = k === 'unit' ? yields(x, x.curDep, x.curRent) : null;
     if (y) rows.push(`<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>`);
-    const left = need.size ? `<em class="rpleft">${need.size}칸 남음</em>` : '';
+    const left = '';   // 10/30 선배: 'n칸 남음' 표시는 없앰 — 비어 있는 칸이 노랗게 보이는 것으로 충분
     return `<div class="rpr rpinfo"><b>${k === 'land' ? '토지' : '정보'}${left}</b><div class="rpv">${rows.join('')}</div></div>`;
   }
   // 이 매물에 맞는 고객 (고객관리에서 찾는 중인 고객)
