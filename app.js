@@ -2957,7 +2957,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
 
   // ---------- 10/30 아파트·오피스텔 매물 자동 그림 (사진이 없어도 비지 않게) ----------
   //   ① 단지 배치도: /api/parcel?dongs=1 (필지 경계 + 도로명주소 건물 윤곽·지상층수) → 매물 동만 노란색 · 북쪽이 위
-  //   ② 층 위치도: 그 동 전체 층 중 매물 층만 (정확한 층 또는 저·중·고층 구간) — 호·라인은 공개하지 않으므로 그리지 않음
+  //   (10/30 선배: 층 위치도·'자동 그림' 설명 글은 뺌)
   const FIG_T = ['아파트', '오피스텔'];
   const figOn = x => FIG_T.includes(x.pbase || x.ptype) && !!x.pnu;
   const ndg = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
@@ -2967,43 +2967,19 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (!FIGC.has(k)) FIGC.set(k, (async () => {
       const d = await api(`/api/parcel?pnu=${x.pnu}&dongs=1`, 2);
       const B = (d.buildings || []).filter(b => b.ring && b.ring.length > 2);
-      if (x.dong && !B.some(b => ndg(b.dong) === ndg(x.dong))) {   // 필지 밖으로 걸친 동 → 그 동만 따로 찾아 붙임
-        try { const w = await api(`/api/parcel?pnu=${x.pnu}&dongs=1&want=${encodeURIComponent(ndg(x.dong))}${x.bname ? '&name=' + encodeURIComponent(x.bname) : ''}`, 2); (w.buildings || []).forEach(b => { if (b.ring && b.ring.length > 2) B.push(b); }); } catch { /* 없으면 그대로 */ }
+      if (x.dong && !B.some(b => ndg(b.dong) === ndg(x.dong))) {
+        // 10/30 선배: 4단지 매물에 1단지 필지가 그려지고 402동만 멀리 떨어져 나오던 것 → 그 동이 실제로 선 필지를 찾아 그 필지로 다시 그림
+        const w = await api(`/api/parcel?pnu=${x.pnu}&dongs=1&want=${encodeURIComponent(ndg(x.dong))}${x.bname ? '&name=' + encodeURIComponent(x.bname) : ''}`, 2);
+        const t = (w.buildings || []).find(b => ndg(b.dong) === ndg(x.dong)); if (!t) return null;
+        const p2 = await api(`/api/parcel?lat=${t.lat}&lng=${t.lng}`, 2), pn2 = p2.bldPnu || p2.pnu;
+        if (!pn2 || pn2 === x.pnu) return null;
+        const d2 = await api(`/api/parcel?pnu=${pn2}&dongs=1`, 2), B2 = (d2.buildings || []).filter(b => b.ring && b.ring.length > 2);
+        if (!B2.some(b => ndg(b.dong) === ndg(x.dong))) return null;
+        return { parcel: d2.parcel, B: B2 };
       }
       return { parcel: d.parcel, B };
     })().catch(() => null));
     return FIGC.get(k);
-  }
-  // 매물의 층 → 표시할 층 구간 [아래, 위] (저·중·고층은 서버 floorText와 같은 3등분)
-  function figRange(x, t) {
-    const f = String(x.flr || '');
-    if (!t) return null;
-    const m = f.match(/^(\d+)층/); if (m) { const v = Math.min(+m[1], t); return [v, v, `${v}층`]; }
-    const a = Math.floor(t / 3), b = Math.floor(t * 2 / 3);
-    if (f === '저층') return [1, Math.max(1, a), `저층 (1~${Math.max(1, a)}층)`];
-    if (f === '중층') return [a + 1, Math.max(a + 1, b), `중층 (${a + 1}~${Math.max(a + 1, b)}층)`];
-    if (f === '고층') return [b + 1, t, `고층 (${b + 1}~${t}층)`];
-    return null;
-  }
-  function figFloor(x, t, mini) {
-    t = Math.round(+t || 0); if (!t || t > 120) return '';
-    const rg = figRange(x, t); if (!rg) return '';
-    const W = mini ? 72 : 320, H = mini ? 72 : 220, top = mini ? 6 : 26, bot = mini ? 8 : 34;
-    const rh = Math.max(mini ? 1.2 : 2.5, Math.min(mini ? 4 : 11, (H - top - bot) / t)), bh = rh * t, by = H - bot - bh;
-    const bw = mini ? 30 : 104, bx = mini ? 21 : 108;
-    let rows = '';
-    for (let i = 1; i <= t; i++) { const y = by + bh - i * rh, on = i >= rg[0] && i <= rg[1]; rows += `<rect x="${bx}" y="${y.toFixed(1)}" width="${bw}" height="${rh.toFixed(1)}" fill="${on ? '#FFD25E' : '#F4F6F9'}" stroke="${on ? '#C98A00' : '#C9D2DC'}" stroke-width="${mini ? 0.4 : rh > 5 ? 0.8 : 0.4}"/>`; }
-    const y1 = by + bh - rg[1] * rh, y2 = by + bh - (rg[0] - 1) * rh;
-    if (mini) return `<svg viewBox="0 0 72 72" class="lfig-mini" role="img" aria-label="${esc(rg[2])}"><rect width="72" height="72" fill="#fff"/>${rows}<line x1="10" y1="${H - bot}" x2="62" y2="${H - bot}" stroke="#94A0AD" stroke-width="1"/></svg>`;
-    const dn = x.dong ? `${/동$/.test(x.dong) ? x.dong : x.dong + '동'}` : (x.bname || '이 건물');
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(dn)} 층 위치 ${esc(rg[2])}"><rect width="${W}" height="${H}" fill="#fff"/>
-      <rect x="${bx - 3}" y="${(by - 4).toFixed(1)}" width="${bw + 6}" height="4" fill="#C9D2DC"/>${rows}
-      <line x1="40" y1="${H - bot}" x2="${W - 40}" y2="${H - bot}" stroke="#7B8794" stroke-width="1.2"/>
-      <g font-size="10.5" fill="#7B8794" text-anchor="end"><text x="${bx - 8}" y="${(by + Math.min(rh, 10)).toFixed(1)}">${t}층</text><text x="${bx - 8}" y="${H - bot - 2}">1층</text></g>
-      <path d="M${bx + bw + 6} ${y1.toFixed(1)} h7 V${y2.toFixed(1)} h-7" fill="none" stroke="#C98A00" stroke-width="1.4"/>
-      <text x="${bx + bw + 18}" y="${((y1 + y2) / 2 + 4).toFixed(1)}" font-size="12" font-weight="700" fill="#8A5A00">${esc(rg[2].replace(/ \(.*\)$/, ''))}</text>
-      ${rg[2].includes('(') ? `<text x="${bx + bw + 18}" y="${((y1 + y2) / 2 + 18).toFixed(1)}" font-size="10" fill="#A17A2C">${esc(rg[2].match(/\((.*)\)/)[1])}</text>` : ''}
-      <text x="${W / 2}" y="${H - 12}" font-size="11.5" fill="#3B4754" text-anchor="middle" font-weight="700">${esc(dn)} · 지상 ${t}층</text></svg>`;
   }
   function figSite(x, d) {
     if (!d || !d.B.length) return '';
@@ -3043,23 +3019,16 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       el.dataset.done = '1';
       const x = LP_ITEMS.get(el.dataset.figk); if (!x) return;
       const d = await figData(x);
-      const tg = d && d.B && (x.dong ? d.B.find(b => ndg(b.dong) === ndg(x.dong)) : null);
-      const site = figSite(x, d), t = +x.tfl || (tg && tg.floors) || 0;
-      const fl = el.querySelector('.lfig-f'), st = el.querySelector('.lfig-s');
-      if (st) { if (site) st.querySelector('.lfig-b').innerHTML = site; else st.remove(); }
-      if (fl && !fl.dataset.has && t) { const sv = figFloor(x, t); if (sv) { fl.querySelector('.lfig-b').innerHTML = sv; fl.hidden = false; } }
-      if (!el.querySelector('.lfig-t:not([hidden])')) el.remove();
+      const site = figSite(x, d);
+      if (site) el.querySelector('.lfig-b').innerHTML = site; else el.remove();   // 10/30 선배: 층 그림·설명 글은 뺌 (단지 배치도만)
     });
   }
   const LP_ITEMS = new Map();
   function figHtml(x) {
     if (!figOn(x)) return '';
     LP_ITEMS.set(x.k, x);
-    const fl = x.tfl ? figFloor(x, x.tfl) : '';
     setTimeout(fillFigs, 0);
-    return `<div class="lfig" data-figk="${esc(x.k)}">
-      <figure class="lfig-t lfig-s"><div class="lfig-b"><span class="lfig-ld">단지 배치도를 그리는 중…</span></div><figcaption><i>리얼맵 자동 그림</i>단지 배치도</figcaption></figure>
-      <figure class="lfig-t lfig-f"${fl ? ' data-has="1"' : ' hidden'}><div class="lfig-b">${fl}</div><figcaption><i>리얼맵 자동 그림</i>층 위치 · 호는 공개하지 않음</figcaption></figure></div>`;
+    return `<div class="lfig" data-figk="${esc(x.k)}"><figure class="lfig-t"><div class="lfig-b"><span class="lfig-ld">단지 배치도를 그리는 중…</span></div></figure></div>`;
   }
   function lsDetail(x) {
     const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
@@ -3110,7 +3079,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const what = `${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.form && /^재(개발|건축)$/.test(x.ptype) ? `${x.ptype} ${x.form}` : x.ptype)}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}`;
     return `<div class="lc${open ? ' open' : ''}">
       <button type="button" class="lc-top" data-lx="${esc(x.k)}" aria-expanded="${open}">
-        ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : figOn(x) && x.tfl && figFloor(x, x.tfl, true) ? `<span class="lc-th fig" title="자동 그림 · 층 위치">${figFloor(x, x.tfl, true)}</span>` : '<span class="lc-th none">사진<br>없음</span>'}
+        ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : '<span class="lc-th none">사진<br>없음</span>'}
         <span class="lc-tx"><span class="lc-k"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${what}${x.viol ? ' <b class="lviol">위반</b>' : ''}</span>
           <b class="lc-pr">${esc(lsPrice(x))}</b><small>${esc(meta)}</small><small class="lc-of">${lsAv(x.bk, 'lav')}${esc(x.bk.office)}</small></span>
         <span class="lc-ar" aria-hidden="true">›</span></button>
