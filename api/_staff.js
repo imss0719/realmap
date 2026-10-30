@@ -88,7 +88,8 @@ export async function staffApi({ redis, s, req, res, send, fail, planOf, loadBk,
     if (!/^01\d{8,9}$/.test(phone)) return fail(res, 400, 'phone', '휴대폰 번호를 확인해 주세요.');
     if ((await redis(['GET', `realmap:smsok:${s.id}`])) !== phone) return fail(res, 400, 'sms', '휴대폰 인증을 먼저 해 주세요.');
     const prev = J(await redis(['HGET', `realmap:staff:${o}`, String(s.id)]));
-    const m = { uid: String(s.id), name, role, phone: phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'), st: prev && prev.st === 'on' ? 'on' : 'wait', at: (prev && prev.at) || new Date().toISOString(), okAt: (prev && prev.okAt) || '', nick: s.n || '' };
+    // 10/31 고침: 이미 승인된 직원이 초대 링크로 다시 신청해도 역할(보조원→소속공인중개사)은 바뀌지 않음 — 역할 변경은 대표만
+    const m = { uid: String(s.id), name, role: prev && prev.st === 'on' && prev.role ? prev.role : role, phone: phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'), st: prev && prev.st === 'on' ? 'on' : 'wait', at: (prev && prev.at) || new Date().toISOString(), okAt: (prev && prev.okAt) || '', nick: s.n || '' };
     await redis(['HSET', `realmap:staff:${o}`, String(s.id), JSON.stringify(m)]);
     await redis(['SET', `realmap:staffof:${s.id}`, JSON.stringify({ o: String(o), st: m.st })]);
     if (m.st === 'wait' && !prev) { await note(o, { k: 'staff', name, role, uid: String(s.id) }); await smsTo(o, `[리얼맵] ${name}님(${ROLE[role]})이 중개장부 직원 참여를 신청했습니다. [설정 → 직원 관리]에서 승인해 주세요.`); }
