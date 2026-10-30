@@ -347,19 +347,38 @@ window.Danji = (() => {
     const L = Object.entries(n).filter(([, v]) => v > 0); if (!L.length) return '';
     return `<p class="eoth">진행 중인 매물: ${L.map(([k, v]) => `<button type="button" data-ocat="${k}">${esc(H.catName ? H.catName(k) : k)} ${v} ▸</button>`).join(' ')}</p>`;
   };
-  function drawTree() {
-    const T = $('dj_tree'); if (!T) return;
+  // 10/30 '단지 없는 매물' = 단지에 안 담긴 아파트·주상복합·오피스텔 매물 (매물 화면 아파트 탭이 이것만 보여 주고, 왼쪽에는 이 단지 탐색기를 그대로 그림)
+  const isOrph = x => !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu || (x.places || []).some(q => q.pnu === p.pnu)));
+  // 10/30 선배: '모든 단지' 표·숫자에 개별매물도 함께 — 매물 하나를 가짜 단지 하나(cx.orph = 매물 id)로 보고 한 줄 (고치기는 개별매물 화면의 입력창)
+  const APTY = ['아파트', '주상복합', '오피스텔'];
+  const orphItems = () => (S.host && S.host.items ? S.host.items() || [] : []).filter(x => APTY.includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && isOrph(x));
+  function orphRows() {
+    return orphItems().map(x => {
+      const P = (x.places && x.places[0]) || x, nm = x.bname || String(P.addr || x.addr || '').split(' ').slice(-2).join(' ') || '개별매물';
+      const cx = { id: '@' + x.id, name: nm, places: [{ pnu: P.pnu }], dir: {}, orph: x.id };
+      return rowOf(cx, {}, new Map([[`${P.pnu}|${normD(P.dong)}|${normH(P.ho)}`, [x]]]), P.pnu, P.dong || '', P.ho || '');
+    });
+  }
+  function treeInto(el) {
+    if (!S.loaded || !el) return false;
+    drawTree(el);
+    if (!el._dj) { el._dj = true; el.addEventListener('click', e => { const b = e.target.closest('button,input'); if (!b || b.closest('.torph') || b.closest('[data-tnx]') || b.closest('[data-book]')) return; if (S.host && S.host.goDanji) S.host.goDanji(); }, true); }   // 단지·모든 단지·＋단지 등을 누르면 아파트 화면으로 간 뒤 그 동작
+    return true;
+  }
+  function drawTree(el) {
+    const T = el || $('dj_tree'); if (!T) return;
+    const inO = !!el;   // 단지 없는 매물 화면에 그리는 중
     const cnt = c => { if (!S.L[c.id]) { loadLedger(c); return ''; } const n = cxN(c); return n < 0 ? '' : n; };   // 숫자 = 매물(내+타)
     const cur = S.cx.items.find(c => c.id === S.cur), C = cur && S.C[cur.id];
-    const allMode = S.cur === '__all' && !multiOn() && !S.adding;
-    T.innerHTML = `<div class="tth"><b>단지</b>${bookTog()}</div>
-      <button type="button" class="tn all${S.cur === '__all' && !multiOn() ? ' on' : ''}" data-tall>모든 단지<span class="ct">${S.cx.items.length}곳</span></button>
-      ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur; const n = cnt(c);
+    const allMode = S.cur === '__all' && !multiOn() && !S.adding && !inO;
+    T.innerHTML = `<div class="tth"><b>단지</b>${inO ? '' : bookTog()}</div>
+      <button type="button" class="tn all${S.cur === '__all' && !multiOn() && !inO ? ' on' : ''}" data-tall>모든 단지<span class="ct">${(() => { const ns = S.cx.items.map(cxN); return ns.some(v => v < 0) ? '' : ns.reduce((p, v) => p + v, 0) + orphItems().filter(x => x.status === 'on').length; })()}</span></button>
+      ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur && !inO; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         const ck = allMode || (multiOn() ? S.multi.has(c.id) : !S.adding && c.id === S.cur);   // 10/28: 지금 표에 나오는 단지 = 체크 (모든 단지면 전부 · 하나면 그 단지)
         return `<div class="tn${op ? ' on' : ''}"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button>${S.delMode ? `<button type="button" class="tdel" data-tdel="${c.id}">빼기</button>` : `<span class="ct">${n === '' ? '' : n}</span>`}</div>
         ${fo && C && C.dongs && !S.delMode ? treeDongs(c, C) + `<div class="tmore"><button type="button" data-tren>이름 바꾸기</button> · <button type="button" data-taddpl>빠진 동 더하기</button></div>` : ''}`; }).join('')}
-      ${(() => { const n = (S.host.items() || []).filter(x => ['아파트', '주상복합', '오피스텔'].includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<div class="tn torph"><button type="button" data-torph title="단지에 담지 않고 올린 아파트·오피스텔 매물"><span class="ar">📁</span>단지 없는 매물</button><span class="ct">${n}</span></div>` : ''; })()}
+      ${(() => { const n = (S.host.items() || []).filter(x => ['아파트', '주상복합', '오피스텔'].includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<div class="tn torph"><button type="button" data-torph title="단지에 담지 않고 올린 아파트·오피스텔 매물"><span class="ar">📁</span>개별매물</button><span class="ct">${n}</span></div>` : ''; })()}
       <div class="tadr"><button type="button" class="tn add" data-tadd title="단지 추가">＋ 단지</button>${S.cx.items.length ? `<button type="button" class="tn add rm${S.delMode ? ' on' : ''}" data-tdm title="단지 빼기">${S.delMode ? '빼기 끝' : '− 단지'}</button>` : ''}${S.host.goAptList ? '<button type="button" class="tn add nx" data-tnx title="단지에 담지 않고 아파트·오피스텔 한 호만 매물로 올리기">＋단지없이 추가</button>' : ''}</div>
       ${S.delMode ? '<p class="tdn">뺄 단지 옆의 [빼기]를 누르세요</p>' : ''}`;
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
@@ -388,7 +407,7 @@ window.Danji = (() => {
     const dm = T.querySelector('[data-tdm]'); if (dm) dm.onclick = () => { S.delMode = !S.delMode; drawTree(); };
     wireBook();   // 10/30 탐색기 머리의 [전체 · 매물만]
     T.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { const c = S.cx.items.find(z => z.id === b.dataset.tdel); if (c) delCx(c); });
-    const orph = T.querySelector('[data-torph]'); if (orph) orph.onclick = () => S.host.goAptList();   // 10/26 매물 화면의 '아파트 매물'로
+    const orph = T.querySelector('[data-torph]'); if (orph) { orph.closest('.torph').classList.toggle('on', inO); orph.onclick = () => { if (!inO) S.host.goAptList(); }; }   // 10/26 매물 화면 아파트 탭(10/30 단지 없는 매물만)으로
     const nx = T.querySelector('[data-tnx]'); if (nx) nx.onclick = () => { S.host.goAptList(); setTimeout(() => { const q = document.getElementById('bdQ'); if (q) { q.focus(); q.placeholder = '단지없이 추가: 아파트·오피스텔 주소나 건물명을 치고 Enter (예: ○○오피스텔 807호)'; } }, 120); };   // 10/30 선배: [＋단지][−단지][＋단지없이 추가]
   }
   // 10/28 단지 빼기: 확인창 한 번 (이름 입력 없음) · 왼쪽 목록 [단지 빼기]와 ⋯ 메뉴가 같이 씀
@@ -417,7 +436,7 @@ window.Danji = (() => {
     const items = allList();
     items.forEach(c => { if (!S.L[c.id]) loadLedger(c); });
     const wait = items.filter(c => !S.L[c.id] || (S.L[c.id].p && !S.L[c.id].units)).length;
-    const K = kpi(items.flatMap(c => rowsAll(c, CI(c), mineMap(c))));
+    const K = kpi([...items.flatMap(c => rowsAll(c, CI(c), mineMap(c))), ...(multiOn() ? [] : orphRows())]);   // 10/30 개별매물 포함
     $('dj_cxBody').innerHTML = `
       <div class="card hdc hd1"><div class="h1r">${cxSelHtml('__all')}
         <span class="hm">${items.length}곳${wait ? ` · 장부를 불러오는 중 (${items.length - wait}/${items.length})` : ''} · 매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span>${bookTog()}<span class="sp"></span></div></div>
@@ -714,7 +733,7 @@ window.Danji = (() => {
     const s = x.st, pr = (x.r && x.r.pr) || {};
     return (s.k || []).map(k => { const v = k === 'sale' ? shortWon(pr.sale) : k === 'jeonse' ? shortWon(pr.jeonse) : pr.wd || pr.wr ? `${shortWon(pr.wd) || 0}/${pr.wr || 0}` : ''; return `${KN[k]}${v ? ' ' + v : !x.r || !x.r.pr ? (s.pr ? ' ' + s.pr : '') : ''}`; }).join(' · ');
   }
-  const LOCK = x => cxLocked(x.cx) || !!(S.L[x.cx.id] && S.L[x.cx.id].err);
+  const LOCK = x => !!x.cx.orph || cxLocked(x.cx) || !!(S.L[x.cx.id] && S.L[x.cx.id].err);
   function prHtml(x) {
     const r = x.r, s = x.st;
     if (s.done && r && r.deal) return `${KN[r.deal.k][0]} ${r.deal.k === 'wolse' ? `${shortWon(r.deal.a)}/${r.deal.r || ''}` : shortWon(r.deal.a)}`;
@@ -765,8 +784,8 @@ window.Danji = (() => {
   function cellHtml(x, c) {
     const r = x.r || {}, s = x.st;
     switch (c.id) {
-      case 'mk0': { const on = !!s.src && !s.done; return `<button type="button" class="mkd${on ? ' on' : ''}" data-mkd="${esc(x.key)}" title="${on ? '매물입니다 · 누르면 매물에서 해제' : '누르면 매물로 등록'}" ${LOCK(x) ? 'disabled' : ''}>${on ? '●' : '○'}</button>`; }
-      case 'cxn': return `<button type="button" class="cxn" data-gocx=""${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
+      case 'mk0': { const on = !!s.src && !s.done; return `<button type="button" class="mkd${on ? ' on' : ''}" data-mkd="${esc(x.key)}" title="${on ? '매물입니다 · 누르면 매물에서 해제' : '누르면 매물로 등록'}" ${LOCK(x) && !x.cx.orph ? 'disabled' : ''}>${on ? '●' : '○'}</button>`; }
+      case 'cxn': return x.cx.orph ? `<button type="button" class="cxn" data-goorph="${esc(x.cx.orph)}" title="개별매물 · 누르면 개별매물 화면">${esc(x.cx.name)} <small class="mut">개별</small></button>` : `<button type="button" class="cxn" data-gocx="${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
       case 'dn': return `<b>${esc(DN(x.dn).replace(/동$/, ''))}</b>`;
       case 'ho': return `<b>${esc(x.ho)}</b>`;
       case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : ''}>${p.v}</b>` : '<span class="mut">-</span>'; }
@@ -826,7 +845,7 @@ window.Danji = (() => {
     const F = TF(), MM = ALL ? null : mineMap(cx);
     Object.assign(F, { k: [], c: [], t: [], a: [], s: LED() ? [] : ['on', 'hold'] });   // 10/28 체크 거르기 없앰 → 장부마다 고정
     let rows;
-    if (ALL) rows = allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))).filter(x => pass(x, F));
+    if (ALL) rows = [...allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))), ...(multiOn() ? [] : orphRows())].filter(x => pass(x, F));   // 10/30 개별매물도 함께
     else if (C.view === 'dong') {
       rows = rowsDong(cx, C, MM);
       if (!rows) { box.innerHTML = '<div class="loading">이 동의 호 목록을 받는 중입니다…</div>'; return; }
@@ -883,6 +902,7 @@ window.Danji = (() => {
     box.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => toggleHist(cx, b.dataset.hist));
     wireTel(cx, box);
     box.querySelectorAll('[data-gocx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.multi.clear(); saveMulti(); S.cur = b.dataset.gocx; S.hist = null; draw(); });
+    box.querySelectorAll('[data-goorph]').forEach(b => b.onclick = e => { e.stopPropagation(); S.host.goAptList(); });   // 10/30 개별매물 → 개별매물 화면
     drawPanel();
     // 누른 줄은 진한 파랑으로 남겨 둠 (상세·기록을 보는 동안 어느 호인지 놓치지 않게)
     box.querySelectorAll('tbody tr[data-key]').forEach(tr => tr.addEventListener('pointerdown', () => { S.selKey = tr.dataset.key; box.querySelectorAll('tr.sel').forEach(z => { if (z !== tr) z.classList.remove('sel'); }); tr.classList.add('sel'); }));
@@ -1318,6 +1338,7 @@ window.Danji = (() => {
   }
   // 10/29 ● 매물 등록·해제 (매물로 올리기·내리기 버튼 대신) · 리얼맵에 게시 중이면 해제 전에 한 번 물음
   function toggleMk(x) {
+    if (x.cx.orph) { const ls = (x.st.mine || [])[0]; if (ls && S.host.lsStatus) S.host.lsStatus(ls.id, x.st.src && !x.st.hold ? 'hold' : 'on'); return; }   // 10/30 개별매물: 매물 카드 상태로
     if (LOCK(x)) return toast('보기만 되는 단지입니다');
     const cx = x.cx, s = x.st;
     if (s.src && !s.done) {
@@ -1353,6 +1374,7 @@ window.Danji = (() => {
     return rowOf(c, C, mineMap(c), p, (dongOf(C, dn) || {}).dong || dn, h);
   };
   async function openPanel(x, mk) {
+    if (x && x.cx && x.cx.orph) { if (S.host.openOrph) S.host.openOrph(x.cx.orph); return; }   // 10/30 개별매물은 개별매물 화면의 입력창으로
     if (S.ed) endEdit(S.tcx);
     const same = S.pk && S.pk.key === x.key && S.pk.cx === x.cx.id;
     S.pk = { key: x.key, cx: x.cx.id }; S.pkMk = !!mk; if (!same) S.pkRec = null;
@@ -2002,5 +2024,5 @@ window.Danji = (() => {
 
   // 매물관리에서 방향을 넣어 단지관리 라인 방향이 바뀌었을 때 (서버가 cxDirty로 알려 줌) 단지 목록만 다시 받음
   async function reloadCx(fresh) { if (!S.loaded) return; if (fresh) S.L = {}; try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; refresh(); } catch { /* 다음에 열 때 */ } }
-  return { mount, refresh, add, goto, reloadCx };
+  return { mount, refresh, add, goto, reloadCx, treeInto, isOrph };
 })();

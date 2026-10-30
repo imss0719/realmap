@@ -141,8 +141,10 @@ window.Board = (() => {
     dn: x => places(x)[0].dong || '(없음)', fl: x => flTx((x.ad || {}).fl) || '(없음)',
     rz: x => (x.ad || {}).rz || '(없음)', stage: x => (x.ad || {}).stage || '(없음)', form: x => (x.ad || {}).form || '(없음)', rk: x => x.ptype || '', mid: x => (x.ad || {}).mid || '(없음)',
   };
+  const orphOn = () => B.cat === 'apt' && !B.allApt;   // B.allApt: 알림 등에서 단지에 담긴 아파트 매물로 갈 때만 잠깐 전부
   function pass(x, any) {
     if (!any && catOf(x) !== B.cat) return false;
+    if (!any && orphOn() && H.isOrph && !H.isOrph(x)) return false;   // 10/30 아파트·오피 탭은 단지 없는 매물만
     if (B.fs.length && !B.fs.includes(x.status)) return false;
     if (B.fk.length && !B.fk.includes(x.kind)) return false;
     if (B.fc.length && !B.fc.some(f => FLAG[f] && FLAG[f](x))) return false;
@@ -235,6 +237,8 @@ window.Board = (() => {
     const T = $('bdTree'); if (!T) return;
     $('bdLay').classList.toggle('hastree', treeOn());
     if (!treeOn()) { T.innerHTML = ''; return; }
+    // 10/30 선배: 아파트·오피 탭 = '단지 없는 매물' — 왼쪽은 아파트 화면의 단지 탐색기를 그대로 (누르면 아파트 화면으로)
+    const dj = orphOn() && H.djTree && H.djTree(T); $('bdLay').classList.toggle('djt', !!dj); if (dj) return;
     const base = H.items().filter(x => pass(x)), tr = B.tr || {}, flat = flatCat() || B.cat === 'redev';
     const top = {}, sub = {};
     base.forEach(x => { const h = topOf(x); top[h] = (top[h] || 0) + 1; if (!flat && x.bname) { const s = sub[h] || (sub[h] = {}); s[x.bname] = (s[x.bname] || 0) + 1; } });
@@ -242,7 +246,8 @@ window.Board = (() => {
     const byN = o => Object.entries(o).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko', { numeric: true }));
     T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b>${bstHtml()}</div>
       ${node('all', 'data-thd=""', '<i></i>전체', base.length, !tr.hd)}
-      ${byN(top).map(([h, n]) => { const s = sub[h], open = s && tr.hd === h; return node('', `data-thd="${esc(h)}"`, `<span class="ar">${s ? (open ? '▾' : '▸') : ''}</span><i></i>${esc(h)}`, n, tr.hd === h && !tr.bn) + (open ? byN(s).map(([b, c]) => node('d', `data-thd="${esc(h)}" data-tbn="${esc(b)}"`, `<i></i>${esc(b)}`, c, tr.bn === b)).join('') : ''); }).join('')}`;   // 10/28 보류·거래완료는 위 [진행 중 · 보류 · 거래완료]에서만    const go = () => { keep(); B.fitNext = true; refresh(); };
+      ${byN(top).map(([h, n]) => { const s = sub[h], open = s && tr.hd === h; return node('', `data-thd="${esc(h)}"`, `<span class="ar">${s ? (open ? '▾' : '▸') : ''}</span><i></i>${esc(h)}`, n, tr.hd === h && !tr.bn) + (open ? byN(s).map(([b, c]) => node('d', `data-thd="${esc(h)}" data-tbn="${esc(b)}"`, `<i></i>${esc(b)}`, c, tr.bn === b)).join('') : ''); }).join('')}`;   // 10/28 보류·거래완료는 위 상태 버튼에서만 (10/30 [전체 · 매물만])
+    const go = () => { keep(); B.fitNext = true; refresh(); };
     T.querySelectorAll('[data-thd]').forEach(b => b.onclick = () => { const h = b.dataset.thd, bn = b.dataset.tbn; B.tr = !h ? null : (tr.hd === h && !bn && !tr.bn && sub[h]) ? null : { hd: h, ...(bn ? { bn } : {}) }; go(); });   // 펼친 동네를 다시 누르면 접힘
     T.querySelectorAll('[data-tst]').forEach(b => b.onclick = () => { B.fs = [b.dataset.tst]; B.tr = null; go(); });
     wireBst(T);
@@ -254,8 +259,8 @@ window.Board = (() => {
   // 10/28 단순화(5단계): 위 막대는 상태 · 찾기 · 지도로 보기만 · 10/30 상태 → [전체 · 매물만] (아파트와 같게 · 넓은 화면은 탐색기 머리)
   //   매물 등록은 아래 주소 줄 하나 · 고치기는 줄을 누르면 오른쪽 입력창 · 지도 광고는 표 맨 끝 '리얼맵' 칸
   function drawBar() {
-    const inCat = H.items().filter(x => catOf(x) === B.cat), nOn = inCat.filter(x => x.status === 'on').length;
-    $('bdBar').innerHTML = `<div class="bd-row bd-fl bd-s"><b class="bd-tt">${esc(CATNAME[B.cat])}</b><span class="bd-cnt">${inCat.length}건 · 매물 <b>${nOn}</b></span>
+    const oo = orphOn() && H.isOrph, inCat = H.items().filter(x => catOf(x) === B.cat && (!oo || H.isOrph(x))), nOn = inCat.filter(x => x.status === 'on').length;
+    $('bdBar').innerHTML = `<div class="bd-row bd-fl bd-s"><b class="bd-tt">${oo ? '개별매물' : esc(CATNAME[B.cat])}</b><span class="bd-cnt">${inCat.length}건 · 매물 <b>${nOn}</b></span>
       ${bstHtml()}<span class="sp"></span>
       <input class="bd-find" id="bdFind" type="search" data-fk="find" placeholder="이 탭에서 찾기" value="${esc(B.q)}">
       <button type="button" class="tb map${B.map ? ' on' : ''}" id="bdMap">${B.map ? '지도 닫기' : '지도로 보기'}</button></div>`;
@@ -284,7 +289,11 @@ window.Board = (() => {
       K('rdep', '보증금 합', { g: '임대 현황', ed: 'det' }), K('rrent', '월세 합', { g: '임대 현황', ed: 'det' }), K('yld', '수익률', { g: '임대 현황', s: 'yld' }), K('vac', '공실', { g: '임대 현황', ed: 'det' }), ...COMMON_END, ...TAIL],
     land: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('addr', '주소', { s: 'addr' }), K('jimok', '지목 · 용도', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }), K('ar', '면적', { ed: 'in', s: 'ar' }), K('road', '도로', { ed: 'det' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('ppy', '평당', { g: '의뢰가격', s: 'ppy' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), ...COMMON_END, ...TAIL],
-    apt: RES('apt'), ofc: RES('ofc'), home: RES('home'),
+    // 10/30 선배: 아파트·오피 탭(= 단지 없는 매물)은 아파트 화면 장부와 같은 칸 순서 — 매물 · 단지명 · 유형 · 동 · 호 · 평형 · 타입 · 향 · 받은 곳 · 거래 · 의뢰가격 · 챙길 것 · 현상태 · 연락처 · 최근 기록 · 리얼맵
+    apt: [K('mk0', '매물'), K('nm', '단지명', { s: 'nm' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('dn', '동'), K('ho', '호'), K('py', '평형', { s: 'ar' }), K('tp', '타입'), K('dir', '향'), K('src', '받은 곳'), K('kd', '거래', { ed: 'pop' }),
+      K('ps', '매매', { ...PRS, s: 'ps' }), K('pj', '전세', { ...PRS, s: 'pj' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('gap', '갭', { g: '의뢰가격' }),
+      K('imp', '챙길 것', { ed: 'in' }), K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '차임', { ed: 'in', ...CUR }), K('exp', '만기', { ed: 'in', s: 'exp' }), ...TAIL],
+    ofc: RES('ofc'), home: RES('home'),
     // 재개발·재건축 (10/26): 프리미엄 = 매매가 − 권리가액 (자동)
     redev: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('rk', '구분', { ed: 'pop', s: 'ty' }), K('rz', '구역명', { ed: 'in', s: 'rz' }), K('stage', '단계', { ed: 'pop', s: 'stage' }), K('form', '물건 형태', { ed: 'pop' }), K('addr', '주소', { s: 'addr' }),
       K('jsh', '대지지분', { ed: 'in', s: 'jsh' }), K('ar', '전용', { ed: 'in', s: 'ar' }), K('kd', '거래', { ed: 'pop' }),
@@ -300,7 +309,7 @@ window.Board = (() => {
   COLS.fac = COLS.etc = [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }),
     K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
     K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('ppy', '대지 평당', { g: '의뢰가격', s: 'ppy' }), ...COMMON_END, ...TAIL];
-  const MAPHIDE = ['h', 'biz', 'exp', 'cst', 'cdep', 'crent', 'mgmt', 'prem', 'road', 'zone', 'appr', 'scale', 'loan', 'vac', 'dir', 'ty', 'jimok', 'rdep', 'rrent', 'gap', 'pj', 'act'];
+  const MAPHIDE = ['h', 'biz', 'exp', 'cst', 'cdep', 'crent', 'mgmt', 'prem', 'road', 'zone', 'appr', 'scale', 'loan', 'vac', 'dir', 'ty', 'jimok', 'rdep', 'rrent', 'gap', 'pj', 'act', 'tp', 'src'];
   const VC = () => { const L = COLS[B.cat] || COLS.shop; return B.map ? L.filter(c => !MAPHIDE.includes(c.id)) : L; };    // 지도를 켜면 표가 좁아져 일부 칸은 숨김 (상세에서 보임)
   const impTxt = t => String(t || '').replace(/^\s*(?:20\d{2}[-./])?\d{1,2}\s*(?:[./]|월\s*)\d{1,2}(?:\s*일)?(?![~\d])(?:까지)?\s*[·,:-]?\s*/, '') || t;   // 맨 앞 날짜는 빨간 날짜 표시와 겹치므로 글에서 뺌
   const impSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 7 && dl >= -3; };
@@ -325,6 +334,9 @@ window.Board = (() => {
         if (tb(x) === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평 — 아파트 화면에서 라인 평형을 적으면 정확해집니다"'}>${sp}평</b>${a.ty ? ' · ' + esc(a.ty) : ''} <small>${esc(String(x.area))}</small>`; }
         return `<b>${pyt(x.area).replace('.0평', '평')}</b> <small>${m2t(x.area)}</small>`;
       }
+      case 'py': { if (!x.area) return ep(); if (tb(x) === '아파트' && places(x).length === 1) { const sp = a.spy || Math.round(x.area * (x.area <= 60 ? 1.36 : x.area <= 85 ? 1.33 : 1.27) / PY); return `<b${a.spy ? '' : ' class="est" title="전용면적으로 계산한 공급평"'}>${sp}평</b> <small>${esc(String(x.area))}</small>`; } return `<b>${pyt(x.area).replace('.0평', '평')}</b> <small>${esc(String(x.area))}</small>`; }   // 10/30 단지 없는 매물: 평형 · 타입 따로
+      case 'tp': return a.ty ? esc(a.ty) : ep();
+      case 'src': return '<b>내 매물</b>';
       case 'dir': return a.dir ? esc(a.dir) : ep();
       case 'kd': return `<span class="kd ${k}">${X.KIND[k]}</span>`;
       case 'ps': return (k === 'sale' || k === 'presale') && x.price ? `<b class="pv sale">${cw(x.price)}</b>${k === 'presale' && x.pr && B.cat !== 'pre' ? `<small>P ${cw(x.pr)}</small>` : ''}` : ep();
@@ -1334,6 +1346,7 @@ window.Board = (() => {
       if (B.fs.length && !B.fs.includes('on')) B.fs = [];
       if (B.fk.length && !B.fk.includes(kind)) B.fk = [];
       B.fc = []; B.fx = []; B.cf = null; B.tr = null;
+      if (nx && orphOn() && catOf(nx) === 'apt' && H.isOrph && !H.isOrph(nx)) H.toast('담아 둔 단지의 매물이라 아파트 화면의 그 단지에 들어갔습니다', 3500);   // 10/30
       if (nx && catOf(nx) !== B.cat) { B.cat = catOf(nx); if (H.onCat) H.onCat(B.cat); H.toast(`${CATNAME[B.cat]} 탭으로 옮겼습니다`, 2500); }   // 등록한 매물의 종류 탭으로
       B.q = ''; keep(); B.fitNext = true;
       H.redraw();
@@ -1389,12 +1402,12 @@ window.Board = (() => {
   // 알림에서 '그 매물로 가기': 거르기를 풀고 그 줄을 펼쳐서 보여 줌
   function reveal(id) {
     const x = H.items().find(i => i.id === id); if (!x) return;
-    B.cat = catOf(x); if (H.onCat) H.onCat(B.cat); B.sel = null; B.ed = null; B.add.D = null;
+    B.cat = catOf(x); B.allApt = B.cat === 'apt' && H.isOrph && !H.isOrph(x); if (H.onCat) H.onCat(B.cat); B.sel = null; B.ed = null; B.add.D = null;
     B.fk = []; B.fc = []; B.fx = []; B.cf = null; B.tr = null; B.q = ''; if (B.fs.length && !B.fs.includes(x.status)) B.fs = [];
     B.pk = id; B.hl = id; keep(); refresh(); setTimeout(() => focus(id, true), 60);
   }
   // 위 탭에서 종류를 고름 (listings.js) — 탭을 바꾸면 거르기는 처음대로(상태만 유지)
-  function setCat(c) { if (!CATS[c] || c === B.cat) return; B.cat = c; B.tr = null; B.cf = null; B.fx = []; B.fk = []; B.fc = []; B.ed = null; B.sel = null; B.hist = null; B.add.D = null; B.pk = null; B.fs = []; keep(); B.fitNext = true; refresh(); }
+  function setCat(c) { if (B.allApt) { B.allApt = false; if (c === B.cat) refresh(); } if (!CATS[c] || c === B.cat) return; B.cat = c; B.tr = null; B.cf = null; B.fx = []; B.fk = []; B.fc = []; B.ed = null; B.sel = null; B.hist = null; B.add.D = null; B.pk = null; B.fs = []; keep(); B.fitNext = true; refresh(); }
   const counts = () => { const o = {}; (H ? H.items() : []).forEach(x => { if (x.status === 'on') { const c = catOf(x); o[c] = (o[c] || 0) + 1; } }); return o; };
   return { init, mount, refresh, focus, reveal, autoItem, setCat, cat: () => B.cat, catOf, counts, CATNAME, autoLines, _man: man };
 })();
