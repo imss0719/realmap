@@ -2,8 +2,8 @@
 //   ① 단지 목록: 국토부 아파트 매매 실거래(최근 MONTHS개월)에서 단지 이름·지번 → 필지번호(PNU)
 //   ② 단지마다 건축물대장 전유공용면적(getBrExposPubuseAreaInfo) 전부 → 호마다 전용 + 주거공용 = 공급면적
 //      (공용 중 주차장·관리사무소·커뮤니티 같은 '기타 공용'은 계약면적에만 들어가므로 뺌)
-//   ③ 전용면적별로 공급면적이 둘 이상이면 같은 전용의 다른 타입 → 59A·59B (공급 작은 쪽부터 · 공공자료엔 타입 이름이 없어 '추정')
-//   결과: data/apt/<구코드>.json  { updated, gu, n, cx: { PNU: { n 단지명, y 준공연도, h 세대수, d 동 수, nosup(대장에 공용면적 없음), t: [{ ex 대표 전용, exs 이 타입의 전용들, sup 공급, py 공급평, ty 추정 타입, h 세대 }] } } }
+//   ③ 전용면적(소수점 둘째 자리)마다 따로 · 같은 전용에서 공급이 0.5㎡ 넘게 다르면 그것도 따로 (타입 이름은 선배가 평형표에서)
+//   결과: data/apt/<구코드>.json  { updated, gu, n, cx: { PNU: { n 단지명, y 준공연도, h 세대수, d 동 수, nosup(대장에 공용면적 없음), t: [{ ex 전용, sup 공급, py 공급평, ty 타입(비워 둠 · 선배가 평형표에서), h 세대 }] } } }
 //   하루 요청 한도가 있어 MAX_CALLS·시간을 넘으면 멈추고, 다음 실행은 아직 안 받은 단지부터 이어 받음 (REFRESH=1이면 처음부터)
 // 필요한 비밀값: DATA_GO_KR_KEY
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -82,23 +82,16 @@ for (const gu of GUS) {
     if (!units.length) { empty++; db.cx[pnu] = { n: e.n, y: e.y, h: 0, d: 0, t: [], none: 1 }; continue; }
     // 10/30 고침 (마포 시범 결과): 오래된 단지는 대장에 공용면적이 없음 → 공급평을 비워 둠 (전용 = 공급으로 나오던 것)
     const nosup = units.filter(u => u.co < 1).length > units.length * 0.5;
-    // 같은 정수 전용(59.78·59.92·59.97…)끼리 모아 공급면적이 1㎡ 안쪽으로 이어지면 한 타입 (끝세대 등 대장 소수점 차이로 59A~59G까지 쪼개지던 것)
-    const groups = {};
-    for (const u of units) { const ex = Math.round(u.ex * 100) / 100, sup = nosup ? ex : Math.round((u.ex + u.co) * 100) / 100; (groups[Math.floor(ex)] = groups[Math.floor(ex)] || []).push({ ex, sup }); }
-    const med = a => { a = [...a].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+    // 10/30 선배: 임의로 묶지 말고 전용면적(소수점 둘째 자리)이 다르면 다 따로 — 같은 타입으로 묶는 건 선배가 평형표에서
+    //   같은 전용 안에서 공급면적이 0.5㎡ 넘게 다르면 그것도 따로 (몇 호뿐이어도 빼지 않음) · 타입 이름(ty)은 비워 둠
+    const byEx = new Map();
+    for (const u of units) { const ex = Math.round(u.ex * 100) / 100, sup = Math.round((u.ex + u.co) * 100) / 100; (byEx.get(ex) || byEx.set(ex, []).get(ex)).push(sup); }
     const t = [];
-    for (const [k, G] of Object.entries(groups).sort((a, b) => a[0] - b[0])) {
-      G.sort((a, b) => a.sup - b.sup);
-      let cl = [];
-      for (const u of G) { const c = cl[cl.length - 1]; if (c && u.sup - c.last <= 1.0) { c.u.push(u); c.last = u.sup; } else cl.push({ u: [u], last: u.sup }); }
-      // 몇 호뿐인 무리는 가장 가까운 큰 무리에 합침 (대장 오기·특이 세대)
-      const minN = Math.max(2, G.length * 0.05), big = cl.filter(c => c.u.length >= minN);
-      if (big.length && big.length < cl.length) { for (const c of cl) if (!big.includes(c)) { const m = med(c.u.map(z => z.sup)); big.sort((a, b) => Math.abs(med(a.u.map(z => z.sup)) - m) - Math.abs(med(b.u.map(z => z.sup)) - m))[0].u.push(...c.u); } cl = big.sort((a, b) => med(a.u.map(z => z.sup)) - med(b.u.map(z => z.sup))); }
-      cl.forEach((c, i) => {
-        const cnt = {}; c.u.forEach(z => { cnt[z.ex] = (cnt[z.ex] || 0) + 1; });
-        const exs = Object.keys(cnt).map(Number).sort((a, b) => a - b), ex = +Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0], sup = Math.round(med(c.u.map(z => z.sup)) * 100) / 100;
-        t.push({ ex, exs, sup: nosup ? null : sup, py: nosup ? null : Math.round(sup / PY), ty: `${k}${cl.length > 1 ? String.fromCharCode(65 + i) : ''}`, h: c.u.length });
-      });
+    for (const [ex, sups] of [...byEx.entries()].sort((a, b) => a[0] - b[0])) {
+      if (nosup) { t.push({ ex, sup: null, py: null, ty: '', h: sups.length }); continue; }
+      const cl = [];
+      for (const s of sups.sort((a, b) => a - b)) { const c = cl[cl.length - 1]; if (c && s - c.last <= 0.5) { c.n++; c.sum += s; c.last = s; } else cl.push({ n: 1, sum: s, last: s }); }
+      for (const c of cl) { const sup = Math.round(c.sum / c.n * 100) / 100; t.push({ ex, sup, py: Math.round(sup / PY), ty: '', h: c.n }); }
     }
     db.cx[pnu] = { n: e.n, y: e.y, h: units.length, d: new Set([...U.keys()].map(k => k.split('|')[0])).size, t, ...(nosup ? { nosup: 1 } : {}) };
     done++;
