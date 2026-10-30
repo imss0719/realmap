@@ -973,7 +973,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     if (RESID.includes(tbase(x))) {
       if (a.rooms == null || a.rooms === '') miss.push('방 수');
       if (a.baths == null || a.baths === '') miss.push('욕실 수');
-      if (window.Mg) miss.push(...Mg.miss(a, x.mgmt)); else if (!x.mgmt && !a.nomgmt) miss.push('관리비');   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 비주거는 관리비 필수 아님
+      if (x.kind === 'presale') { /* 10/31 분양권은 관리비 필수 아님 (입주 전) */ } else if (window.Mg) miss.push(...Mg.miss(a, x.mgmt)); else if (!x.mgmt && !a.nomgmt) miss.push('관리비');   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 비주거는 관리비 필수 아님
     }
     return miss;
   }
