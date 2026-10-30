@@ -992,6 +992,42 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, plan: planView(await planOf(uid)) });
     }
 
+    // 10/30 운영자 단지 평형표: PNU별 전용면적 → 공급평·타입 (모든 회원 화면 공통)
+    //   GET ?p=PNU,PNU… → { map: { PNU: { n, a: { '59.92': { py, t } } } } } · GET ?all=1 (운영자) → 입력한 단지 목록
+    //   POST { pnu, n, a } (운영자만) — a가 비면 그 단지를 지움
+    if (action === 'pyt') {
+      if (!R_URL || !R_TOKEN) return fail(res, 503, 'redis', '저장소가 준비되지 않았습니다.');
+      const K = 'realmap:pyt', okP = v => /^\d{19}$/.test(String(v || ''));
+      const isOp = () => { const s = readSession(req); return !!(s && ADMIN_ID && s.id === ADMIN_ID); };
+      if (req.method !== 'POST') {
+        if (req.query.all) {
+          res.setHeader('Cache-Control', 'no-store');
+          if (!isOp()) return fail(res, 403, 'op', '운영자만 쓸 수 있습니다.');
+          const h = (await redis(['HGETALL', K]).catch(() => null)) || [], list = [];
+          for (let i = 0; i + 1 < h.length; i += 2) { try { const v = JSON.parse(h[i + 1]); list.push({ pnu: h[i], n: v.n || '', k: Object.keys(v.a || {}).length, at: v.at || '' }); } catch { /* 건너뜀 */ } }
+          list.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+          return send(res, 200, { ok: true, list });
+        }
+        const ps = String(req.query.p || '').split(',').filter(okP).slice(0, 50);
+        if (!ps.length) return send(res, 200, { ok: true, map: {} });
+        const vs = (await redis(['HMGET', K, ...ps]).catch(() => null)) || [], map = {};
+        ps.forEach((p, i) => { if (vs[i]) { try { map[p] = JSON.parse(vs[i]); } catch { /* 건너뜀 */ } } });
+        return send(res, 200, { ok: true, map }, 60);
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      if (!isOp()) return fail(res, 403, 'op', '운영자만 쓸 수 있습니다.');
+      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      if (!okP(b.pnu)) return fail(res, 400, 'pnu', '단지 번호(PNU)를 확인해 주세요.');
+      const a = {};
+      for (const [k, v] of Object.entries(b.a || {}).slice(0, 60)) {
+        const ar = Math.round(parseFloat(k) * 100) / 100, py = Math.round(+((v || {}).py) || 0), t = String((v || {}).t || '').replace(/[^0-9A-Za-z가-힣\-]/g, '').slice(0, 8);
+        if (ar > 5 && ar < 500 && (py > 0 && py < 300 || t)) a[ar.toFixed(2)] = { ...(py > 0 && py < 300 ? { py } : {}), ...(t ? { t } : {}) };
+      }
+      if (!Object.keys(a).length) await redis(['HDEL', K, b.pnu]);
+      else await redis(['HSET', K, b.pnu, JSON.stringify({ n: String(b.n || '').slice(0, 40), a, at: new Date().toISOString() })]);
+      return send(res, 200, { ok: true, a });
+    }
+
     // 10/29 매물번호 규칙 — GET 보기 · POST {p, f} 저장 (대표만)
     if (action === 'norule') {
       res.setHeader('Cache-Control', 'no-store');
