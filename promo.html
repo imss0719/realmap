@@ -127,7 +127,7 @@ a{color:inherit}
     <div class="mc"><b>매매 21.5억</b><small>○○아파트 101동 · 34평 · 남향 · 고층</small><div class="of"><s></s>○○공인중개사<u>중개사 소개 ▸</u></div></div></div>
 </div></div>
 
-<div class="alt" id="zone"><div class="sec"><h2>👑 재개발·재건축 구역 <em class="gd">1순위 자리</em> 찾기</h2><p class="lead">서울·경기 1,500여 정비구역 페이지마다 '이 구역 중개사무소'가 있습니다. 구역 근처에 광고 매물이 가장 많은 사무소가 <b>1순위 · 이 구역 대표</b>로 맨 위에 크게 소개됩니다.</p>
+<div class="alt" id="zone"><div class="sec"><h2>👑 재개발·재건축 구역 <em class="gd">1순위 자리</em> 찾기</h2><p class="lead">서울·경기·인천 1,500여 정비구역 페이지마다 '이 구역 중개사무소'가 있습니다. 구역 근처에 광고 매물이 가장 많은 사무소가 <b>1순위 · 이 구역 대표</b>로 맨 위에 크게 소개됩니다.</p>
   <div class="zf"><input id="zq" type="search" placeholder="구역 이름이나 동 이름 (예: 아현, 북아현, 광명, 소사)" autocomplete="off" enterkeyhint="search"><button type="button" class="btn y" id="zgo">찾기</button></div>
   <div class="zchips" id="zch"><button type="button" data-zq="마포구">마포</button><button type="button" data-zq="서대문구">서대문</button><button type="button" data-zq="은평구">은평</button><button type="button" data-zq="용산구">용산</button><button type="button" data-zq="성동구">성동</button><button type="button" data-zq="광명시">광명</button><button type="button" data-zq="성남시">성남</button><button type="button" data-zq="안양시">안양</button></div>
   <div id="zres" class="zres"><p class="zmsg">구역 이름·동·구(시)를 넣어 보세요. 1순위가 비어 있는 곳은 👑 표시가 붙습니다.</p></div>
@@ -146,7 +146,7 @@ a{color:inherit}
     <div><i>🗺️</i><b>필지 정보와 한 화면</b><span>토지·건축물대장·실거래가·개발 정보 바로 옆에 내 매물이 보입니다.</span></div>
     <div><i>🔗</i><b>내 소개 페이지</b><span>명함·블로그·카톡 프로필에 붙이는 링크 하나와 QR로 내 매물 전부를 보여 줍니다.</span></div>
     <div><i>✅</i><b>등록번호 확인 배지</b><span>국가 자료로 확인한 중개사만 올릴 수 있어서, 손님이 믿고 보는 지도입니다.</span></div>
-    <div><i>🏗️</i><b>재개발 페이지에도 노출</b><span>서울·경기 1,500여 곳 정비구역 페이지의 '이 구역 매물'과 '이 구역 중개사무소'에 내 매물과 사무소가 뜹니다.</span></div>
+    <div><i>🏗️</i><b>재개발 페이지에도 노출</b><span>서울·경기·인천 1,500여 곳 정비구역 페이지의 '이 구역 매물'과 '이 구역 중개사무소'에 내 매물과 사무소가 뜹니다.</span></div>
     <div><i>📱</i><b>휴대폰 장부</b><span>밖에서도 휴대폰으로 내 매물을 찾고, 손님·집주인에게 바로 전화합니다. 홈 화면 아이콘 하나면 됩니다.</span></div>
   </div></div></div>
 
@@ -196,7 +196,7 @@ a{color:inherit}
 </div></div>
 <script src="/sms.js"></script>
 <script>
-// 10/30 재개발·재건축 구역 1순위 찾기: 서울(data/seoul-zones.json)·경기(data/gg-zones.json) 구역 이름·동·구로 찾고,
+// 10/30 재개발·재건축 구역 1순위 찾기: 서울(data/seoul-zones.json)·경기(data/gg-zones.json)·인천(data/ic-zones.json) 구역 이름·동·구로 찾고,
 //   구역 가운데서 700m 안 광고 매물 수로 지금 1순위를 대략 보여 줌 (정확한 순위는 구역 페이지: 경계 안 + 700m)
 (function () {
   const $ = id => document.getElementById(id), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -204,9 +204,10 @@ a{color:inherit}
   let Z = null, P = null, busy = null;
   const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
   function load() {
-    if (!busy) busy = Promise.all([get('/data/seoul-zones.json'), get('/data/gg-zones.json'), get('/api/auth?action=pubs')]).then(([s, g, p]) => {
+    if (!busy) busy = Promise.all([get('/data/seoul-zones.json'), get('/data/gg-zones.json'), get('/api/auth?action=pubs'), get('/data/ic-zones.json')]).then(([s, g, p, ic]) => {
       Z = [...((s && s.rows) || []).filter(r => GU[r.gu]).map(r => ({ n: r.n, where: `서울 ${r.gu} ${String(r.a || '').split(' ')[0]}`, q: `${r.n} ${r.gu} ${r.a}`, st: r.st, hh: r.hh, lat: r.lat, lng: r.lng, url: `/seoul/${GU[r.gu]}/${r.id}.html` })),
-        ...((g && g.rows) || []).filter(r => r.slug && !['준공', '청산'].includes(r.st)).map(r => ({ n: r.n, where: `경기 ${r.si} ${r.dong || ''}`, q: `${r.n} ${r.si} ${r.gu || ''} ${r.addr || ''}`, st: r.st, hh: r.hh, lat: r.lat, lng: r.lng, url: `/gyeonggi/${r.slug}/${r.id}.html` }))];
+        ...((g && g.rows) || []).filter(r => r.slug && !['준공', '청산'].includes(r.st)).map(r => ({ n: r.n, where: `경기 ${r.si} ${r.dong || ''}`, q: `${r.n} ${r.si} ${r.gu || ''} ${r.addr || ''}`, st: r.st, hh: r.hh, lat: r.lat, lng: r.lng, url: `/gyeonggi/${r.slug}/${r.id}.html` })),
+        ...((ic && ic.rows) || []).filter(r => r.slug && !['준공', '청산'].includes(r.st)).map(r => ({ n: r.n, where: `인천 ${r.si} ${r.dong || ''}`, q: `${r.n} 인천 ${r.si} ${r.dong || ''}`, st: r.st, hh: r.hh, lat: r.lat, lng: r.lng, url: `/incheon/${r.slug}/${r.id}.html` }))];
       P = ((p && p.items) || []).filter(x => x.lat && x.lng && x.bk && x.bk.verified);
     });
     return busy;
