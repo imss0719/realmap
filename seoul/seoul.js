@@ -7,7 +7,9 @@
   const SLUG = { '종로구': 'jongno', '중구': 'jung', '용산구': 'yongsan', '성동구': 'seongdong', '광진구': 'gwangjin', '동대문구': 'dongdaemun', '중랑구': 'jungnang', '성북구': 'seongbuk', '강북구': 'gangbuk', '도봉구': 'dobong', '노원구': 'nowon', '은평구': 'eunpyeong', '서대문구': 'seodaemun', '마포구': 'mapo', '양천구': 'yangcheon', '강서구': 'gangseo', '구로구': 'guro', '금천구': 'geumcheon', '영등포구': 'yeongdeungpo', '동작구': 'dongjak', '관악구': 'gwanak', '서초구': 'seocho', '강남구': 'gangnam', '송파구': 'songpa', '강동구': 'gangdong' };
   const GGS = { '수원시': 'suwon', '성남시': 'seongnam', '고양시': 'goyang', '용인시': 'yongin', '부천시': 'bucheon', '안산시': 'ansan', '안양시': 'anyang', '남양주시': 'namyangju', '화성시': 'hwaseong', '평택시': 'pyeongtaek', '의정부시': 'uijeongbu', '시흥시': 'siheung', '파주시': 'paju', '김포시': 'gimpo', '광명시': 'gwangmyeong', '광주시': 'gwangju', '군포시': 'gunpo', '하남시': 'hanam', '오산시': 'osan', '이천시': 'icheon', '안성시': 'anseong', '의왕시': 'uiwang', '양주시': 'yangju', '포천시': 'pocheon', '여주시': 'yeoju', '과천시': 'gwacheon', '구리시': 'guri', '동두천시': 'dongducheon', '가평군': 'gapyeong', '양평군': 'yangpyeong', '연천군': 'yeoncheon' };
   // 10/30 관심 구역 링크: 경기 구역 번호는 41로 시작하는 8자리 (gu 자리에 시 이름)
-  const zhref = x => /^41\d{6}$/.test(String(x.id)) && GGS[x.gu] ? `/gyeonggi/${GGS[x.gu]}/${x.id}.html` : `/seoul/${SLUG[x.gu] || ''}/${x.id}.html`;
+  const ICS = { '중구': 'jung', '동구': 'dong', '미추홀구': 'michuhol', '연수구': 'yeonsu', '남동구': 'namdong', '부평구': 'bupyeong', '계양구': 'gyeyang', '서구': 'seo', '강화군': 'ganghwa', '옹진군': 'ongjin' };
+  //   10/30 인천 구역 번호는 28로 시작하는 8자리 (서울 번호는 4~7자리라 안 겹침)
+  const zhref = x => /^41\d{6}$/.test(String(x.id)) && GGS[x.gu] ? `/gyeonggi/${GGS[x.gu]}/${x.id}.html` : /^28\d{6}$/.test(String(x.id)) && ICS[x.gu] ? `/incheon/${ICS[x.gu]}/${x.id}.html` : `/seoul/${SLUG[x.gu] || ''}/${x.id}.html`;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------- 방문 통계 (리얼맵과 같은 임의 번호, 개인정보 없음 · 운영자 기기는 세지 않음) ----------
@@ -15,8 +17,8 @@
     let v = '', op = false;
     try { op = localStorage.getItem('rm.op') === '1'; v = localStorage.getItem('rm.vid') || ''; if (!v) { v = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('rm.vid', v); } } catch { /* 저장 불가 */ }
     if (op) return;
-    const m = location.pathname.match(/^\/(?:seoul|(gyeonggi))\/(?:([a-z]+)(?:\/(\d+|[a-z]+))?\.html)?$/);
-    const pg = (m && m[1] ? 'gg/' : '') + (!m ? 'idx' : m[3] ? `${m[2]}/${m[3]}` : m[2] || 'idx');   // 테마 페이지는 t/big 처럼 · 10/30 경기는 gg/ 를 앞에
+    const m = location.pathname.match(/^\/(?:seoul|(gyeonggi|incheon))\/(?:([a-z]+)(?:\/(\d+|[a-z]+))?\.html)?$/);
+    const pg = (m && m[1] ? (m[1] === 'incheon' ? 'ic/' : 'gg/') : '') + (!m ? 'idx' : m[3] ? `${m[2]}/${m[3]}` : m[2] || 'idx');   // 테마 페이지는 t/big 처럼 · 10/30 경기는 gg/ 를 앞에
     let src = '';
     try { if (!sessionStorage.getItem('rm.ssrc')) {
       const ua = navigator.userAgent || ''; let h = ''; try { h = document.referrer ? new URL(document.referrer).hostname : ''; } catch { /* 없음 */ }
@@ -183,7 +185,7 @@
   //   리얼맵 지도 광고(/api/auth?action=pubs) 중 구역 경계(국토부 경계 = data/jeongbi-seoul.json, 서울시 행의 jb) 안에 있는 매물
   //   중개사무소 = 이 구역에 매물을 올린 곳 + 사무소가 구역에서 700m 안인 곳 · 비어 있으면 [내 물건 등록하기]/[내 사무실 등록하기] → 홍보 페이지
   (async function zoneAds() {
-    const act = $('section.pn.act[data-z]'); if (!act || !/^\/(seoul|gyeonggi)\/[a-z]+\/\d+\.html$/.test(location.pathname)) return;
+    const act = $('section.pn.act[data-z]'); if (!act || !/^\/(seoul|gyeonggi|incheon)\/[a-z]+\/\d+\.html$/.test(location.pathname)) return;
     const ZR = (() => { try { const t = $('#zrow'); return t ? JSON.parse(t.textContent) : null; } catch { return null; } })();   // 10/30 경기: 페이지 안에 구역 자료
     const css = document.createElement('style');
     css.textContent = `.za .zl li{grid-template-columns:auto minmax(0,1fr) auto}.za .kd{font-size:11px;font-weight:800;color:#fff;border-radius:5px;padding:2px 6px}.za .k-sale{background:#C92A2A}.za .k-jeonse{background:#1C64C8}.za .k-wolse{background:#2B8A3E}.za .k-presale{background:#7048E8}
@@ -202,7 +204,7 @@
 .zr .rule{font-size:11.5px;color:var(--muted);padding:6px 12px 10px;margin:0}`;
     document.head.appendChild(css);
     const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
-    const SD = ZR ? '41' : '11';
+    const SD = ZR ? ZR.sido || '41' : '11';   // 10/30 인천은 zrow에 sido '28'
     const [Z, J, P, PA, PB] = await Promise.all([ZR ? null : get('/data/seoul-zones.json'), ZR ? null : get('/data/jeongbi-seoul.json'), get('/api/auth?action=pubs'), get(`/data/price-${SD}.json`), get(`/data/price2-${SD}.json`)]);
     const row = ZR || (Z && (Z.rows || []).find(r => String(r.id) === act.dataset.id)); if (!row) return;
     const rings = ZR ? (ZR.ring || []).slice() : [];
