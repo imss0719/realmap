@@ -371,7 +371,7 @@ window.Danji = (() => {
   function treeInto(el) {
     if (!S.loaded || !el) return false;
     drawTree(el);
-    if (!el._dj) { el._dj = true; el.addEventListener('click', e => { const b = e.target.closest('button,input'); if (!b || b.closest('.torph') || b.closest('[data-tnx]') || b.closest('[data-book]')) return; if (S.host && S.host.goDanji) S.host.goDanji(); }, true); }   // 단지·모든 단지·＋단지 등을 누르면 아파트 화면으로 간 뒤 그 동작
+    if (!el._dj) { el._dj = true; el.addEventListener('click', e => { if (!el.querySelector('[data-tall]')) return; const b = e.target.closest('button,input'); if (!b || b.closest('.torph') || b.closest('[data-tnx]') || b.closest('[data-book]')) return; if (S.host && S.host.goDanji) S.host.goDanji(); }, true); }   // 단지·모든 단지·＋단지 등을 누르면 아파트 화면으로 간 뒤 그 동작 · 10/30 지금 이 자리에 단지 탐색기가 그려져 있을 때만 (다른 종류 탭으로 바뀌면 아무 일 안 함)
     return true;
   }
   function drawTree(el) {
