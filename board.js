@@ -765,7 +765,7 @@ window.Board = (() => {
     body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="기록 내용 쓰고 Enter" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
     body += L.length ? `<ul class="rph">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `<span>${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button></span>`}</li>`; }).join('')}</ul>` : '';
     const cu = H.custFor && (H.custFor(x) || []).length ? custBox(x) : '';   // 맞는 고객이 있을 때만
-    W.innerHTML = `<aside class="rpanel rpwin" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}${x.no ? (RO ? `<small class="rpno">No. ${esc(x.no)}</small>` : `<button type="button" class="rpno" id="bdrp_no" title="매물번호 · 누르면 고치기 (규칙은 설정 → 우리 사무소)">No. ${esc(x.no)}</button>`) : ''}${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpdh" data-a="del" title="이 매물 삭제">삭제</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
+    W.innerHTML = `<aside class="rpanel rpwin" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${RO ? '' : `<button type="button" class="rpnm" id="bdrp_nm" title="이름 고치기 (단지·건물 이름 — 예: ○○리브하임2차)" aria-label="이름 고치기">✎</button>`}${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}${x.no ? (RO ? `<small class="rpno">No. ${esc(x.no)}</small>` : `<button type="button" class="rpno" id="bdrp_no" title="매물번호 · 누르면 고치기 (규칙은 설정 → 우리 사무소)">No. ${esc(x.no)}</button>`) : ''}${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpdh" data-a="del" title="이 매물 삭제">삭제</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
       ${RO ? '' : `<div class="rptyl" id="bdrp_tyl" hidden><div>${X.PTYPES.map(t => `<button type="button" data-rty="${t}" aria-pressed="${x.ptype === t}">${t}</button>`).join('')}</div></div>`}
       ${RO ? '<p class="rpwarn">요금제 한도를 넘은 매물이라 보기만 됩니다</p>' : ''}
       <div class="rpbody">${body}${cu ? `<div class="rps bdcu">${cu}</div>` : ''}</div>
@@ -775,6 +775,8 @@ window.Board = (() => {
   }
   function wirePanel(W, x, RO) {
     const id = x.id, P = $('bd_rp');
+    // 10/30 선배: 주소로 올렸어도 이름(단지·건물명)을 직접 넣을 수 있게 — 아파트 화면 개별매물·표 '단지명/물건명'에 그대로 나옴
+    if ($('bdrp_nm')) $('bdrp_nm').onclick = e => { e.stopPropagation(); const v = prompt('이름 (단지·건물 이름)\n비우면 주소로 보입니다', x.bname || ''); if (v == null) return; const t = v.trim().slice(0, 40); if (t === (x.bname || '')) return; saveItem(id, it => { it.bname = t; it.places.forEach(P => { P.bname = t; }); }, t ? `이름을 '${t}'(으)로 바꿨습니다` : '이름을 지웠습니다'); };
     if ($('bdrp_ty')) $('bdrp_ty').onclick = e => { e.stopPropagation(); const L = $('bdrp_tyl'); L.hidden = !L.hidden; };   // 10/29 칸 바로 고치기를 없앤 뒤 유형을 바꿀 곳이 없어 입력창 머리에 둠
     W.querySelectorAll('[data-rty]').forEach(b => b.onclick = () => { $('bdrp_tyl').hidden = true; setPType(x, b.dataset.rty); });
     $('bdrp_x').onclick = closePanel;
