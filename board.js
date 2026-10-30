@@ -768,7 +768,6 @@ window.Board = (() => {
     // 10/29 [저장]: 칸은 고칠 때마다 저장되지만, 쓰던 칸을 마저 저장하고 '저장했습니다'를 보여 준 뒤 닫음
     { let done = false; const sv = e => { if (e && e.type === 'pointerdown') e.preventDefault(); if (done) return; done = true; const a = document.activeElement; if (a && P.contains(a) && a.blur) a.blur(); setTimeout(() => { closePanel(); H.toast('저장했습니다'); }, 150); }; $('bdrp_close').onpointerdown = sv; $('bdrp_close').onclick = sv; }
     P.onkeydown = e => { if (e.key === 'Escape' && !e.target.closest('.rph textarea')) { e.preventDefault(); closePanel(); } };
-    if ($('bdrp_auto')) $('bdrp_auto').onclick = () => { B.pkMore = !B.pkMore; refresh(); };
     if ($('bdrp_no')) $('bdrp_no').onclick = () => {
       const b = $('bdrp_no'), i = document.createElement('input'); i.className = 'rpi rpnoi'; i.value = x.no || ''; i.maxLength = 20; b.replaceWith(i); i.focus(); i.select();
       let done = false; const fin = ok => { if (done) return; done = true; const v = i.value.trim(); if (ok && v && v !== x.no) saveItem(id, it => { it.no = v; }, '매물번호를 바꿨습니다'); else refresh(); };
@@ -878,7 +877,7 @@ window.Board = (() => {
       ${y ? `<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b> <small>(매매가 − 기보증금 ${sw(y.inv)} 기준)</small></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>` : ''}
       <datalist id="bdMv"><option value="즉시입주"><option value="협의"></datalist>`;
   }
-  // 10/29 입력창 '정보' 칸 (시안 '정보칸_시안'): 직접 넣는 칸만 칸으로 · 대장에서 자동으로 채운 값은 회색 한 줄 + [자동입력사항 고치기]
+  // 10/29 입력창 '정보' 칸 (시안 '정보칸_시안'): 직접 넣는 칸만 칸으로 · 대장에서 자동으로 채운 값은 회색 한 줄 + [자동입력사항 고치기] → 10/30 처음부터 펼침
   function panelInfo(x, RO) {
     const a = x.ad || {}, dis = RO ? 'disabled' : '', id = x.id, k = detKind(x);
     const miss = H.canPub() && x.status === 'on' && !X.pubLive(x) ? X.adMissing(x, BKOK) : [];
@@ -903,13 +902,9 @@ window.Board = (() => {
     for (let i = 0; i < rest.length; i += 3) rows.push(`<div class="rpg c3">${rest.slice(i, i + 3).map(fld).join('')}</div>`);
     if (has('movein')) { const mv = a.movein || ''; rows.push(`<label class="rpf"><span>입주 가능일</span><div class="rpmv"><span class="rpseg">${['즉시입주', '협의'].map(t => `<button type="button" data-mv="${t}" aria-pressed="${mv === t}" ${dis}>${t === '즉시입주' ? '즉시' : t}</button>`).join('')}</span><input class="rpi ${cls('movein')}" data-fk="f:${id}:movein" data-fd="movein" value="${esc(['즉시입주', '협의'].includes(mv) ? '' : mv)}" placeholder="${need.has('movein') ? '또는 날짜 (입력)' : '또는 날짜'}" ${dis}></div></label>`); }
     // 10/30 관리비 없음은 위 관리비 줄로 옮김
-    // 대장 자동값 한 줄
-    const fmt = key => { const v = val(key); if (v === '' || v == null) return ''; return key === 'appr' ? `사용승인 ${v}` : key === 'park' ? `주차 ${v}` : key === 'tfl' ? `지상 ${v}층` : String(v); };
-    const txt = auto.map(fmt).filter(Boolean).join(' · ');
-    const autoMiss = auto.some(key => need.has(key));
     const canFill = !RO && miss.some(m => ['건축물 용도', '사용승인일', '주차 대수', '총 층수', '지목'].includes(m));
-    if (auto.length) rows.push(B.pkMore ? `<div class="rpauto op"><div class="rpg">${auto.map(fld).join('')}</div><button type="button" class="rplnk" id="bdrp_auto">접기</button></div>`
-      : `<div class="rpauto${autoMiss ? ' nd' : ''}">${esc(txt || '자동으로 채운 값이 없습니다')}${canFill ? ' <button type="button" class="rplnk" data-a="autofill">대장에서 채우기</button>' : ''} <button type="button" class="rplnk" id="bdrp_auto">자동입력사항 고치기</button></div>`);
+    // 10/30 선배: 자동으로 채운 칸도 접지 않고 처음부터 다 펼쳐서 (두 칸씩 · 사용승인일이 잘리지 않게) (다른 칸과 똑같이 바로 고침) · 대장에서 채우기는 빈 칸이 있을 때만
+    if (auto.length) { for (let i = 0; i < auto.length; i += 2) rows.push(`<div class="rpg">${auto.slice(i, i + 2).map(fld).join('')}</div>`); if (canFill) rows.push('<div class="rpfill"><button type="button" class="rplnk" data-a="autofill">빈 칸 건축물대장에서 채우기</button></div>'); }
     const y = k === 'unit' ? yields(x, x.curDep, x.curRent) : null;
     if (y) rows.push(`<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>`);
     const left = need.size ? `<em class="rpleft">${need.size}칸 남음</em>` : '';
