@@ -16,7 +16,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: node scripts/gg-zones.mjs
+      - name: 경기도 자료 받기 (경기 서버가 안 받으면 지난번 자료로 계속)
+        run: node scripts/gg-zones.mjs
+        continue-on-error: true
         env:
           GG_OPENAPI_KEY: ${{ secrets.GG_OPENAPI_KEY }}
       - name: 좌표·경계 붙이기
