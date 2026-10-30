@@ -2764,10 +2764,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         if (!o) {
           const x = e.list[0], el = document.createElement('button');
           el.type = 'button'; el.className = 'llabel';
-          el.title = `${x.bname || x.addr}${e.dn ? ' ' + e.dn + '동' : ''} · 중개사 매물 ${e.list.length}건 (지금 나와 있는 물건)`;
-          el.innerHTML = `<i class="lk-${x.kind}">${LKIND[x.kind]}</i><span><b>${esc(lsPrice(x))}</b><small>${esc((x.ptype === '기타' && x.ptypeTx) || x.ptype || '')}</small></span>${e.list.length > 1 ? `<em>${e.list.length}</em>` : ''}`;
+          el.title = `${x.bname || x.addr}${e.dn ? ' ' + e.dn + '동' : ''} · ${(x.ptype === '기타' && x.ptypeTx) || x.ptype || ''} ${LKIND[x.kind]} · 중개사 매물 ${e.list.length}건 (지금 나와 있는 물건)`;
+          el.innerHTML = `<i class="lk-${x.kind}">${LKIND[x.kind].charAt(0)}</i>${esc(lsPrice(x))}${e.list.length > 1 ? `<u>+${e.list.length - 1}</u>` : ''}`;   // 10/30 선배 A안: 한 줄 알약 (종류는 마우스를 올리면)
           el.onclick = ev => { ev.stopPropagation(); S.lstJump = true; pickPnu(e.pnu); };
-          o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 5, clickable: true });
+          o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.2, zIndex: 5, clickable: true });
           { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(5); }   // 10/29 마우스 올리면 맨 위로
           LS.ovs.set(id, o);
         }
