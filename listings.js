@@ -286,7 +286,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       const cs = Array.isArray(x.contacts) ? x.contacts : x.owner || x.phone ? [{ role: '집주인', name: x.owner, phone: x.phone }] : [];
       const dh = p => [p.dong && p.dong + (/동$/.test(p.dong) ? '' : '동'), p.ho && p.ho + (/(호|층)$/.test(p.ho) ? '' : '호')].filter(Boolean).join(' ');
       const units = pl.map(dh).filter(Boolean);
-      const extra = [x.mgmt && `관리비 ${shortWon(x.mgmt)}`, x.premium && `권리금 ${shortWon(x.premium)}`, x.curDep && `기보증금 ${shortWon(x.curDep)}`, x.curRent && `기월세 ${shortWon(x.curRent)}`, x.loan && `${x.kind === 'presale' ? '중도금 대출' : '융자'} ${shortWon(x.loan)}`, x.paid && `납입 ${shortWon(x.paid)}`].filter(Boolean);
+      const extra = [x.mgmt && `관리비 ${shortWon(x.mgmt)}`, x.premium && `권리금 ${shortWon(x.premium)}`, x.curDep && `기보증금 ${shortWon(x.curDep)}`, x.curRent && `기월세 ${shortWon(x.curRent)}`, x.loan && !(x.ad || {}).loanHide && `${x.kind === 'presale' ? '중도금 대출' : '융자'} ${shortWon(x.loan)}`, x.paid && `납입 ${shortWon(x.paid)}`].filter(Boolean);
       const addrs = [...new Set(pl.map(p => p.addr))];
       return `<div class="card${RO.has(x.id) ? ' ro' : ''}${x.status === 'done' ? ' done' : ''}${S.hl === x.id ? ' hl' : ''}" id="c_${x.id}">
       <div class="ch"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${x.ptype ? `<span class="pt">${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}</span>` : ''}${pl.length > 1 ? `<span class="pt">${pl.length}건 묶음</span>` : ''}<span class="st ${x.status}">${STAT[x.status]}</span></div>
@@ -1166,7 +1166,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       case 'area': return x.area ? `${x.area}㎡ (${(x.area / 3.3058).toFixed(1)}평)` : '';
       case 'fl': return a.fl || a.tfl ? `${a.fl || '?'}${/^\d+$/.test(a.fl || '') ? '층' : ''} / ${a.tfl ? a.tfl + '층' : '?'}` : '';
       case 'rb': return a.rooms != null && a.rooms !== '' ? `방 ${a.rooms} · 욕실 ${a.baths ?? '?'}` : '';
-      case 'mgmt': return a.nomgmt ? '없음' : x.mgmt ? `월 ${x.mgmt}만원 · ${a.mgmtT === 'fix' ? '정액' : '실비'}` : '';
+      case 'mgmt': return a.nomgmt ? '없음' : x.mgmt ? `월 ${x.mgmt}만원${({ fix: '정액', avg: '실비', use: '사용량에 따라', rule: '관리규약에 따라', unk: '부과 방식 모름' })[a.mgmtT] ? ' · ' + ({ fix: '정액', avg: '실비', use: '사용량에 따라', rule: '관리규약에 따라', unk: '부과 방식 모름' })[a.mgmtT] : ''}` : '';
       case 'zone': return a.zone || '';
       default: return a[k] == null ? '' : String(a[k]);
     }
@@ -1178,7 +1178,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       case 'dir': return chips('dir', DIRS, a.dir);
       case 'movein': return `${chips('movein', ['즉시입주', '협의'], a.movein)}${inp('movein', ['즉시입주', '협의'].includes(a.movein) ? '' : a.movein, '또는 날짜', 'maxlength="20"')}`;
       case 'rb': return `<div class="prow">방 ${inp('rooms', a.rooms, '', 'inputmode="numeric" maxlength="2" style="width:70px"')} 욕실 ${inp('baths', a.baths, '', 'inputmode="numeric" maxlength="2" style="width:70px"')}</div>`;
-      case 'mgmt': return `<div class="prow">월 ${inp('$mgmt', x.mgmt, '', 'inputmode="numeric" style="width:90px"')} 만원 ${chips('mgmtT', ['실비', '정액'], a.mgmtT === 'fix' ? '정액' : '실비')}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>${a.mgmtT === 'fix' && x.mgmt >= 10 ? `<div class="pchips">${MGI.map(([m, t]) => `<label class="pck"><input type="checkbox" data-mgi2="${m}" ${(a.mgmtInc || []).includes(m) ? 'checked' : ''}>${t}</label>`).join('')}</div><small class="pmeta">정액 10만원 이상이면 포함 항목을 표시해야 합니다</small>` : ''}`;
+      case 'mgmt': return `<div class="prow">월 ${inp('$mgmt', x.mgmt, '', 'inputmode="numeric" style="width:90px"')} 만원 ${chips('mgmtT', ['사용량에 따라', '관리규약에 따라', '모름'], ({ use: '사용량에 따라', rule: '관리규약에 따라', unk: '모름' })[a.mgmtT] || '')}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>${a.mgmtT === 'fix' && x.mgmt >= 10 ? `<div class="pchips">${MGI.map(([m, t]) => `<label class="pck"><input type="checkbox" data-mgi2="${m}" ${(a.mgmtInc || []).includes(m) ? 'checked' : ''}>${t}</label>`).join('')}</div><small class="pmeta">정액 10만원 이상이면 포함 항목을 표시해야 합니다</small>` : ''}`;
       case 'fl': return `<div class="prow">${inp('fl', a.fl, isWhole(x) ? '전체' : '', 'maxlength="8" style="width:110px"')} 층 / 총 ${inp('tfl', a.tfl, '', 'inputmode="numeric" maxlength="3" style="width:80px"')} 층</div>`;
       case 'use': return inp('use', a.use, '', 'maxlength="40"');
       case 'appr': return inp('appr', a.appr, '연.월.일', 'maxlength="10"');
@@ -1204,6 +1204,9 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     const phs = x.photos || [];
     const dh = [p0.dong && (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동'), p0.ho && (/(호|층)$/.test(p0.ho) ? p0.ho : p0.ho + '호')].filter(Boolean).join(' ');
     const live = pubLive(x);
+    // 10/30 선배 결정: 중개장부(표)에서 올릴 때는 사진만 — 필수 칸은 입력창(두 번 누르기)에서 빠짐없이 채움 · 지도·내 광고에서 새로 올릴 때는 예전처럼
+    const fromLed = !!x.id && !P.U && (S.mode === 'list' || S.mode === 'danji');
+    const ledNeed = fromLed && miss.length ? `<div class="ps-need tried"><h4>입력창에서 먼저 채워 주세요 <em>${miss.length}칸</em></h4><div class="pmeta">${esc(miss.join(', '))}</div><button type="button" class="btn sub" id="psToPanel" style="margin-top:8px">입력창 열기</button></div>` : '';
     $('form').innerHTML = `<div class="ps">
       <div class="ps-sum"><b><span class="kd ${x.kind}">${KIND[x.kind]}</span> ${esc(priceText(x))} · ${esc(x.bname || (x.addr || p0.addr || '').split(' ').slice(-2).join(' '))}${dh ? ' ' + esc(dh) : ''}</b>
         <small>${esc([x.area ? `면적 ${x.area}㎡ (${(x.area / 3.3058).toFixed(1)}평)` : '', a.fl ? `${a.fl}${/^\d+$/.test(a.fl) ? '층' : ''}${a.tfl ? ' / ' + a.tfl + '층' : ''}` : '', '호수·연락처·메모는 공개되지 않습니다'].filter(Boolean).join(' · '))}</small>
@@ -1211,12 +1214,12 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       ${P.U ? psUnitHtml(P) : ''}
       <div class="ps-ph"><h4>사진 <small>${phs.length}/30 · 첫 번째가 대표 사진</small></h4><div class="pgrid">${phs.map((p, i) => `<div class="ph"><img src="${esc(p.url)}" alt="" loading="lazy">${i === 0 ? '<em>대표</em>' : ''}<div class="pbar">${i ? `<button type="button" data-psl="${i}" aria-label="앞으로">◀</button>` : '<span></span>'}<button type="button" data-psx="${i}" aria-label="사진 빼기">×</button>${i < phs.length - 1 ? `<button type="button" data-psl="${i + 1}" aria-label="뒤로">▶</button>` : '<span></span>'}</div></div>`).join('')}${Array.from({ length: P.upN }, () => '<div class="ph up"><span>올리는 중…</span></div>').join('')}${phs.length + P.upN < 30 ? '<label class="ph add"><input type="file" id="psPhF" accept="image/*" multiple hidden><b>＋</b><span>사진 추가</span></label>' : ''}</div></div>
       ${P.filling ? '<div class="ps-fill">건축물대장에서 빈 칸을 채우는 중…</div>' : ''}
-      ${needK.length || other.length ? `<div class="ps-need${P.tried ? ' tried' : ''}"><h4>이것만 채워 주세요 <em>${needK.length + other.length}칸</em></h4>
+      ${fromLed ? ledNeed : needK.length || other.length ? `<div class="ps-need${P.tried ? ' tried' : ''}"><h4>이것만 채워 주세요 <em>${needK.length + other.length}칸</em></h4>
         ${needK.map(k => `<div class="pf"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`).join('')}
         ${other.length ? `<div class="pmeta">${esc(other.join(', '))}: 중개장부 입력창에서 넣어 주세요</div>` : ''}</div>` : `<div class="ps-ok">필수 항목을 모두 채웠습니다</div>`}
-      <div class="ps-auto"><h4>채워진 항목 <small>틀린 것만 눌러서 고치기</small></h4>
+      ${fromLed ? '' : `<div class="ps-auto"><h4>채워진 항목 <small>틀린 것만 눌러서 고치기</small></h4>
         ${filled.map(k => P.open.has(k) ? `<div class="pf op"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`
-          : `<button type="button" class="pa" data-po="${k}"><span>${PS_LB[k]}</span><b>${esc(psVal(x, k)) || '<i>비어 있음 · 선택</i>'}</b>${AUTOK.includes(k) && psVal(x, k) ? '<u>자동</u>' : ''}</button>`).join('')}</div>
+          : `<button type="button" class="pa" data-po="${k}"><span>${PS_LB[k]}</span><b>${esc(psVal(x, k)) || '<i>비어 있음 · 선택</i>'}</b>${AUTOK.includes(k) && psVal(x, k) ? '<u>자동</u>' : ''}</button>`).join('')}</div>`}
       <details class="ps-opt"${a.desc ? ' open' : ''}><summary>광고 소개글 · 선택</summary><textarea class="pin2" data-pk="desc" rows="2" maxlength="300" placeholder="">${esc(a.desc || '')}</textarea></details>
       <div class="ps-go"><button type="button" class="btn main" id="psGo">${P.edit ? '저장하기' : isPub(x) ? '다시 게시 (30일)' : '리얼맵 지도에 올리기 (30일)'}</button>
         <p>${esc(S.bk ? S.bk.office : '')} 정보와 함께 표시됩니다${P.edit ? ' · 필수 항목이 비면 지도에서 내려갑니다' : ''}</p></div></div>`;
@@ -1232,7 +1235,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     F.querySelectorAll('[data-pk]').forEach(i => { i.oninput = set; i.onchange = () => { set(); }; });
     F.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => {
       set(); const k = b.dataset.pc, v = b.dataset.v;
-      if (k === 'ptype') { const b0 = tbase(x); x.ptype = v; if (/^재(개발|건축)$/.test(v) && !x.ad.form) x.ad.form = v === '재건축' ? '아파트' : formOf(b0); } else if (k === 'mgmtT') x.ad.mgmtT = v === '정액' ? 'fix' : 'avg'; else x.ad[k] = x.ad[k] === v && k !== 'movein' ? '' : v;
+      if (k === 'ptype') { const b0 = tbase(x); x.ptype = v; if (/^재(개발|건축)$/.test(v) && !x.ad.form) x.ad.form = v === '재건축' ? '아파트' : formOf(b0); } else if (k === 'mgmtT') { const c = ({ '사용량에 따라': 'use', '관리규약에 따라': 'rule', '모름': 'unk' })[v] || ''; x.ad.mgmtT = x.ad.mgmtT === c ? '' : c; } else x.ad[k] = x.ad[k] === v && k !== 'movein' ? '' : v;
       drawPubSheet();
     });
     F.querySelectorAll('[data-pkind]').forEach(b => b.onclick = () => { set(); x.kind = b.dataset.pkind; drawPubSheet(); const i = F.querySelector('[data-pk^="$"]'); if (i) i.focus(); });   // 10/28 주소·지도로 새로 올릴 때 거래 종류
@@ -1244,6 +1247,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     F.querySelectorAll('[data-psl]').forEach(b => b.onclick = () => { set(); const i = +b.dataset.psl, a = x.photos; [a[i - 1], a[i]] = [a[i], a[i - 1]]; drawPubSheet(); });
     if ($('psCard')) $('psCard').onclick = () => { set(); const it = S.pubS.x; closeForm(); if (it.id) openForm(S.items.find(i => i.id === it.id) || it); else openForm(null, it.pnu, { dong: it.places[0].dong, ho: it.places[0].ho, kind: it.kind, price: it.price, deposit: it.deposit, rent: it.rent, contacts: it.contacts }); };
     $('psGo').onclick = () => { set(); pubSubmit(); };
+    if ($('psToPanel')) $('psToPanel').onclick = () => { const id = x.id, md = S.mode; closeForm(); if (md === 'list' && window.Board) Board.reveal(id); else toast('아파트 장부에서 그 호를 두 번 눌러 입력창의 빈 칸을 채워 주세요', 4000); };
     if ($('psDong')) $('psDong').onchange = e => { set(); P.U.cur = e.target.value; psUnits(P); drawPubSheet(); };
     if ($('psHo')) $('psHo').onchange = e => { set(); if (e.target.value) psPickHo(P, e.target.value); };
   }
@@ -1288,7 +1292,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     const P = S.pubS, x = P.x;
     const miss = adMissing(x, S.bk);
     if (P.U && !(x.places[0] || {}).ho) { P.tried = true; drawPubSheet(); return toast('동·호를 골라 주세요 (호수는 공개되지 않습니다)', 3500); }
-    if (miss.length && !P.edit) { P.tried = true; drawPubSheet(); return toast(`아직 비어 있습니다: ${miss.join(', ')}`, 3500); }
+    if (miss.length && !P.edit) { P.tried = true; drawPubSheet(); return toast(`아직 비어 있습니다: ${miss.join(', ')}${x.id && !P.U && (S.mode === 'list' || S.mode === 'danji') ? ' — 입력창에서 채워 주세요' : ''}`, 3500); }
     $('psGo').disabled = true; $('psGo').textContent = '올리는 중…';
     let id = x.id;
     try {

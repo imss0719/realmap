@@ -100,6 +100,16 @@ a{color:inherit}
 .smsbox button{border:1.5px solid #1C64C8;background:#fff;color:#1C64C8;border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}.smsbox button:disabled{opacity:.5}
 .smsbox .sms-check{background:#1C64C8;color:#fff}.smsbox .sms-code{width:110px;border:2px solid #DCE2E8;border-radius:8px;padding:6px 8px;font-size:15px;letter-spacing:2px}
 .smsbox .sms-t{color:#E03131;font-weight:700;font-variant-numeric:tabular-nums}.smsbox .sms-msg{color:#5E6A77;margin-top:4px}.smsbox .sms-ok{color:#1F7A4D;font-weight:800}
+/* 10/30 재개발 구역 1순위 찾기 */
+#zone h2 .gd{font-style:normal;color:#C79300}
+.zf{display:flex;gap:8px;margin-top:18px}.zf input{flex:1;min-width:0;border:2px solid var(--line);border-radius:12px;padding:13px 14px;font:inherit;font-size:17px;background:#fff}.zf input:focus{border-color:var(--gold);outline:0}
+.zchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.zchips button{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-weight:700;font-size:14px;cursor:pointer}.zchips button:hover{border-color:var(--gold)}
+.zres{margin-top:16px;display:grid;gap:8px}.zmsg{color:var(--muted);margin:6px 2px}
+.zr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px}
+.zr.e{border-color:var(--gold);background:#FFFDF3}.zr b{font-size:16.5px}.zr small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.zr .tg{display:inline-block;font-size:12px;font-weight:900;border-radius:999px;padding:1px 9px;margin-left:6px;vertical-align:2px}.zr .tg.e{background:var(--gold);color:var(--navy)}.zr .tg.t{background:#EEF1F4;color:#5E6A77}
+.zr .ac{display:flex;gap:6px}.zr .ac a{white-space:nowrap;border-radius:9px;padding:8px 12px;font-weight:800;font-size:13.5px;text-decoration:none}.zr .ac .v{border:1.5px solid var(--line);color:var(--fg);background:#fff}.zr .ac .g{background:var(--gold);color:var(--navy)}
+@media(max-width:560px){.zr{grid-template-columns:1fr}.zr .ac a{flex:1;text-align:center}}
 </style>
 </head>
 <body>
@@ -110,11 +120,17 @@ a{color:inherit}
     <h1>방문자가 빠르게 늘고 있는<br>리얼맵에 <em>내 매물을 무료로</em><br>홍보하세요</h1>
     <p>집과 땅을 보러 온 손님이 보는 바로 그 지도에 대표님 매물이 뜹니다.<br>필지를 누르고 가격·사진만 넣으면 1분, 나머지는 건축물대장에서 자동으로 채워집니다.</p>
     <div class="stt"><div><b>약 1,000명</b><span>최근 10일 방문자</span></div><div><b>600회+</b><span>하루 필지 조회 (최대)</span></div><div><b>10건 무료</b><span>매물 광고 · 카드 등록 없음</span></div></div>
-    <div class="b"><a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a><a class="btn g" href="#profile">소개 페이지 미리 보기</a></div>
+    <div class="b"><a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a><a class="btn g" href="#zone">👑 우리 동네 재개발 1순위 찾기</a></div>
     <div class="free">매물 광고 10건까지 무료 · 카드 등록 없음 · 등록번호가 확인된 중개사무소만</div>
   </div>
   <div class="mv"><span class="pin" style="left:40px;top:46px"><s></s>21.5억</span><span class="pin w" style="left:170px;top:120px"><s></s>월 320</span><span class="pin j" style="left:70px;top:190px"><s></s>7억</span>
     <div class="mc"><b>매매 21.5억</b><small>○○아파트 101동 · 34평 · 남향 · 고층</small><div class="of"><s></s>○○공인중개사<u>중개사 소개 ▸</u></div></div></div>
+</div></div>
+
+<div class="alt" id="zone"><div class="sec"><h2>👑 재개발·재건축 구역 <em class="gd">1순위 자리</em> 찾기</h2><p class="lead">서울·경기 1,500여 정비구역 페이지마다 '이 구역 중개사무소'가 있습니다. 구역 근처에 광고 매물이 가장 많은 사무소가 <b>1순위 · 이 구역 대표</b>로 맨 위에 크게 소개됩니다.</p>
+  <div class="zf"><input id="zq" type="search" placeholder="구역 이름이나 동 이름 (예: 아현, 북아현, 광명, 소사)" autocomplete="off" enterkeyhint="search"><button type="button" class="btn y" id="zgo">찾기</button></div>
+  <div class="zchips" id="zch"><button type="button" data-zq="마포구">마포</button><button type="button" data-zq="서대문구">서대문</button><button type="button" data-zq="은평구">은평</button><button type="button" data-zq="용산구">용산</button><button type="button" data-zq="성동구">성동</button><button type="button" data-zq="광명시">광명</button><button type="button" data-zq="성남시">성남</button><button type="button" data-zq="안양시">안양</button></div>
+  <div id="zres" class="zres"><p class="zmsg">구역 이름·동·구(시)를 넣어 보세요. 1순위가 비어 있는 곳은 👑 표시가 붙습니다.</p></div>
 </div></div>
 
 <div class="sec"><h2>이렇게 올립니다</h2><p class="lead">처음 한 번 사무소 확인, 그다음부터는 매물 하나에 1분이면 됩니다.</p>
@@ -179,6 +195,44 @@ a{color:inherit}
   <div class="row"><button class="btn x" type="button" id="mClose">닫기</button><button class="btn y" type="button" id="mGo">시작하고 지도로 가기</button></div>
 </div></div>
 <script src="/sms.js"></script>
+<script>
+// 10/30 재개발·재건축 구역 1순위 찾기: 서울(data/seoul-zones.json)·경기(data/gg-zones.json) 구역 이름·동·구로 찾고,
+//   구역 가운데서 700m 안 광고 매물 수로 지금 1순위를 대략 보여 줌 (정확한 순위는 구역 페이지: 경계 안 + 700m)
+(function () {
+  const $ = id => document.getElementById(id), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const GU = { '종로구': 'jongno', '중구': 'jung', '용산구': 'yongsan', '성동구': 'seongdong', '광진구': 'gwangjin', '동대문구': 'dongdaemun', '중랑구': 'jungnang', '성북구': 'seongbuk', '강북구': 'gangbuk', '도봉구': 'dobong', '노원구': 'nowon', '은평구': 'eunpyeong', '서대문구': 'seodaemun', '마포구': 'mapo', '양천구': 'yangcheon', '강서구': 'gangseo', '구로구': 'guro', '금천구': 'geumcheon', '영등포구': 'yeongdeungpo', '동작구': 'dongjak', '관악구': 'gwanak', '서초구': 'seocho', '강남구': 'gangnam', '송파구': 'songpa', '강동구': 'gangdong' };
+  let Z = null, P = null, busy = null;
+  const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
+  function load() {
+    if (!busy) busy = Promise.all([get('/data/seoul-zones.json'), get('/data/gg-zones.json'), get('/api/auth?action=pubs')]).then(([s, g, p]) => {
+      Z = [...((s && s.rows) || []).filter(r => GU[r.gu]).map(r => ({ n: r.n, where: `서울 ${r.gu} ${String(r.a || '').split(' ')[0]}`, q: `${r.n} ${r.gu} ${r.a}`, st: r.st, hh: r.hh, lat: r.lat, lng: r.lng, url: `/seoul/${GU[r.gu]}/${r.id}.html` })),
+        ...((g && g.rows) || []).filter(r => r.slug && !['준공', '청산'].includes(r.st)).map(r => ({ n: r.n, where: `경기 ${r.si} ${r.dong || ''}`, q: `${r.n} ${r.si} ${r.gu || ''} ${r.addr || ''}`, st: r.st, hh: r.hh, lat: r.lat, lng: r.lng, url: `/gyeonggi/${r.slug}/${r.id}.html` }))];
+      P = ((p && p.items) || []).filter(x => x.lat && x.lng && x.bk && x.bk.verified);
+    });
+    return busy;
+  }
+  const dist = (a, b, c, d) => Math.hypot((a - c) * 111000, (b - d) * 88000);
+  function topOf(z) {
+    if (!z.lat) return null;
+    const m = new Map();
+    for (const x of P) if (dist(x.lat, x.lng, z.lat, z.lng) <= 700) { const r = String(x.bk.regno || ''), e = m.get(r) || m.set(r, { o: x.bk.office, n: 0 }).get(r); e.n++; }
+    return [...m.values()].sort((a, b) => b.n - a.n)[0] || null;
+  }
+  async function find(q) {
+    q = String(q || '').trim(); if (!q) return;
+    $('zres').innerHTML = '<p class="zmsg">찾는 중…</p>';
+    await load();
+    const k = q.replace(/\s+/g, ''), L = Z.filter(z => z.q.replace(/\s+/g, '').includes(k)).sort((a, b) => (b.hh || 0) - (a.hh || 0)).slice(0, 30);
+    if (!L.length) { $('zres').innerHTML = '<p class="zmsg">찾는 구역이 없습니다. 동 이름이나 구(시) 이름으로 넣어 보세요.</p>'; return; }
+    $('zres').innerHTML = L.map(z => { const t = topOf(z), empty = !t; return `<div class="zr${empty ? ' e' : ''}"><div><b>${esc(z.n)}</b>${empty ? '<span class="tg e">👑 1순위 비어 있음</span>' : `<span class="tg t">1순위 ${esc(t.o)} · ${t.n}건</span>`}<small>${esc(z.where)} · ${esc(z.st || '')}${z.hh ? ` · ${Number(z.hh).toLocaleString()}세대` : ''}</small></div>
+      <div class="ac"><a class="v" href="${z.url}" target="_blank" rel="noopener">구역 페이지 보기</a><a class="g" href="/promo.html?go=1">${empty ? '1순위 잡기' : '이 구역 매물 올리기'}</a></div></div>`; }).join('') + (L.length === 30 ? '<p class="zmsg">30곳까지만 보여 드립니다. 더 자세히 넣어 보세요.</p>' : '');
+  }
+  $('zgo').onclick = () => find($('zq').value);
+  $('zq').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); find($('zq').value); } };
+  $('zch').querySelectorAll('[data-zq]').forEach(b => b.onclick = () => { $('zq').value = b.textContent; find(b.dataset.zq); });
+  if (location.hash === '#zone') load();
+})();
+</script>
 <script>
 // 10/28 시작하기는 이 페이지 안에서 (pro.html로 넘어가지 않음): 로그인 → 중개사무소 확인 → 리얼맵 지도(/?promo=1)에서 필지를 눌러 바로 올리기
 (() => {

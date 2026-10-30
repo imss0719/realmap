@@ -2962,7 +2962,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const lsYmd = iso => iso ? iso.slice(2, 10).replace(/-/g, '.') : '';
   function lsDetail(x) {
     const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
-    const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${x.mgmtT === 'fix' ? ' (정액)' : ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
+    const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${({ fix: ' (정액)', use: ' (사용량에 따라 부과)', rule: ' (관리규약에 따라 부과)' })[x.mgmtT] || ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
     const land = (x.pbase || x.ptype) === '토지';
     const f = [
       x.area && [x.ak === 'land' ? '토지면적' : x.ak === 'tot' ? '연면적' : '전용면적', `${n(x.area, 2)}㎡ (${(x.area / 3.305785).toFixed(1)}평)`],

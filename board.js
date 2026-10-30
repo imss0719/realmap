@@ -678,13 +678,15 @@ window.Board = (() => {
     // 10/29 금액 칸은 두 개씩 한 줄 (거래 | 첫 금액 · 나머지 둘씩)
     const won2 = (key, v, neg) => won(key, v, neg).replace('class="rpi rpw"', 'class="rpi rpw" style="width:72px"');
     const cells = [...(PF[x.kind] || PF.sale).map(([f, t]) => [t.replace('전세 ', '').replace('프리미엄(P)', 'P'), won2('$' + f, x[f], f === 'pr')]),
-      ...(x.kind !== 'presale' && k !== 'land' ? [['관리비', won2('$mgmt', x.mgmt)]] : []),
       ...(cat === 'shop' ? [['권리금', won2('$premium', x.premium)]] : []),
-      ...(x.kind === 'sale' && k !== 'unit' ? [['융자', won2('$loan', x.loan)]] : []),
       ...(x.kind === 'presale' ? [['납입액', won2('$paid', x.paid)]] : [])];
     const pair = (a, b) => `<div class="rpr rpr2 mk"><b>${a[0]}</b><div class="rpv">${a[1]}</div>${b ? `<b>${b[0]}</b><div class="rpv">${b[1]}</div>` : '<b></b><div></div>'}</div>`;
     const all = kinds.length > 1 ? [['거래', seg('kind', kinds, x.kind)], ...cells] : cells;
     for (let i = 0; i < all.length; i += 2) body += pair(all[i], all[i + 1]);
+    // 10/30 선배: 관리비 = 금액 + 부과 방식(사용량에 따라 · 관리규약에 따라 · 모름) + 없음 / 융자 = 금액 + 없음 — 한 줄씩
+    if (x.kind !== 'presale' && k !== 'land') body += `<div class="rpr mk"><b>관리비</b><div class="rpv rpmg">${a.nomgmt ? '<span class="rpno">관리비 없음</span>' : won2('$mgmt', x.mgmt)}${a.nomgmt ? '' : `<span class="rpseg">${[['use', '사용량에 따라'], ['rule', '관리규약에 따라'], ['unk', '모름']].map(([v, t]) => `<button type="button" data-mgt="${v}" aria-pressed="${a.mgmtT === v}" ${dis}>${t}</button>`).join('')}</span>`}<label class="rpck"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 없음</label></div></div>`;
+    if (x.kind === 'sale' && k !== 'unit') body += `<div class="rpr mk"><b>융자</b><div class="rpv rpmg">${a.noloan ? '<span class="rpno">융자 없음</span>' : won2('$loan', x.loan)}<label class="rpck"><input type="checkbox" data-fb="noloan" ${a.noloan ? 'checked' : ''} ${dis}> 없음</label><label class="rpck" title="손님에게 보여 주는 자료에 융자를 넣지 않음"><input type="checkbox" data-fb="loanHide" ${a.loanHide ? 'checked' : ''} ${dis}> 표시 안 함</label></div></div>`;
+    body += panelInfo(x, RO);   // 10/30 선배: 정보는 융자 바로 아래 → 층별 현황·현상태 → 연락처 → 챙길 것 → 기록
     // 재개발·재건축
     if (cat === 'redev') {
       const pm = premOf(x);
@@ -722,7 +724,7 @@ window.Board = (() => {
     const cs = [...(x.contacts || []), ...Array(B.cblank.get(id) || 0).fill({ role: '소유자' })];
     body += row('연락처', `<div class="rptels">${cs.map((c, i) => `<div class="rptel"><select class="rpi lb" data-ci="${i}" data-cf="role" ${dis}>${H.roles.map(r => `<option ${c.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select><input class="rpi" data-fk="c:${id}:${i}:name" data-ci="${i}" data-cf="name" value="${esc(c.name || '')}" placeholder="이름" ${dis}><input class="rpi" data-fk="c:${id}:${i}:phone" data-ci="${i}" data-cf="phone" value="${esc(c.phone || '')}" placeholder="번호" inputmode="tel" ${dis}>${c.phone ? `<a class="rpcall" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}" data-call="${id}:${i}">전화</a>` : '<span></span>'}${RO ? '' : `<button type="button" class="rpdel" data-cdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${RO ? '' : '<button type="button" class="rplnk" data-a="cadd">＋ 추가</button>'}`);
     body += row('챙길 것', inp('imp', x.imp, '', 'maxlength="100"'));
-    body += panelInfo(x, RO);   // 10/29 접지 않음: 직접 넣는 칸만 칸으로, 대장 자동값은 한 줄 글자 + [자동입력사항 고치기]
+    // 10/29 정보 칸(접지 않음)은 10/30 융자 바로 아래로 옮김
     // 기록
     const L = X.memoParse(x.memo);
     body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="기록 내용 쓰고 Enter" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
@@ -871,12 +873,14 @@ window.Board = (() => {
     const fld = key => `<label class="rpf"><span>${lb(key)}</span>${ctl(key)}</label>`;
     const auto = F.map(f => f[0]).filter(key => AUTOK.includes(key));
     const own = F.map(f => f[0]).filter(key => !AUTOK.includes(key) && key !== 'movein' && !(key === 'biz' && k === 'unit' && catOf(x) === 'shop'));   // 상가 업종은 위 '현상태'에 있음
+    // 10/30 선배: 리얼맵 등록에 필요한 칸은 입력창에서 빠짐없이 — 이 종류 칸 목록에 없더라도(예: 통주택의 방·욕실) 필요하면 넣음
+    for (const key of need) if (!key.startsWith('#') && !key.startsWith('$') && key !== 'flt' && !own.includes(key) && !AUTOK.includes(key) && key !== 'movein') own.push(key);
     const rows = [];
     const g2 = ['$area', 'flt'].filter(has); if (g2.length) rows.push(`<div class="rpg">${g2.map(fld).join('')}</div>`);
     const rest = own.filter(key => !g2.includes(key));
     for (let i = 0; i < rest.length; i += 3) rows.push(`<div class="rpg c3">${rest.slice(i, i + 3).map(fld).join('')}</div>`);
     if (has('movein')) { const mv = a.movein || ''; rows.push(`<label class="rpf"><span>입주 가능일</span><div class="rpmv"><span class="rpseg">${['즉시입주', '협의'].map(t => `<button type="button" data-mv="${t}" aria-pressed="${mv === t}" ${dis}>${t === '즉시입주' ? '즉시' : t}</button>`).join('')}</span><input class="rpi ${cls('movein')}" data-fk="f:${id}:movein" data-fd="movein" value="${esc(['즉시입주', '협의'].includes(mv) ? '' : mv)}" placeholder="${need.has('movein') ? '또는 날짜 (입력)' : '또는 날짜'}" ${dis}></div></label>`); }
-    if (k === 'unit' && /아파트|빌라|오피스텔|주택/.test(tb(x) || '')) rows.push(`<label class="rpck"><input type="checkbox" data-fb="nomgmt" ${a.nomgmt ? 'checked' : ''} ${dis}> 관리비 없음</label>`);
+    // 10/30 관리비 없음은 위 관리비 줄로 옮김
     // 대장 자동값 한 줄
     const fmt = key => { const v = val(key); if (v === '' || v == null) return ''; return key === 'appr' ? `사용승인 ${v}` : key === 'park' ? `주차 ${v}` : key === 'tfl' ? `지상 ${v}층` : String(v); };
     const txt = auto.map(fmt).filter(Boolean).join(' · ');
@@ -978,6 +982,7 @@ window.Board = (() => {
       }, 0);
     });
     r.querySelectorAll('[data-fb]').forEach(c => c.onchange = () => saveItem(id, it => { it.ad = { ...(it.ad || {}), [c.dataset.fb]: c.checked }; }));
+    r.querySelectorAll('[data-mgt]').forEach(b => b.onclick = () => { const v = b.dataset.mgt; saveItem(id, it => { const a0 = it.ad || {}; it.ad = { ...a0, mgmtT: a0.mgmtT === v ? '' : v }; }); });   // 10/30 관리비 부과 방식
     r.querySelectorAll('[data-ci]').forEach(i => {
       i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } };
       i.onchange = () => setTimeout(() => {
