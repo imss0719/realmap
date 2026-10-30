@@ -220,10 +220,12 @@ window.Board = (() => {
     if (B.fk.some(k => !(CATKIND[B.cat] || []).includes(k))) { B.fk = B.fk.filter(k => (CATKIND[B.cat] || []).includes(k)); keep(); }   // 예전에 저장한 거래 거르기(분양권 등)가 이 탭에 없으면 버림
     if (!EL || !$('bd')) return;
     // 입력 중인 칸은 다시 그려도 그대로 (값·커서 유지)
-    const a = document.activeElement, fk = a && a.dataset && a.dataset.fk && $('bd').contains(a) ? a.dataset.fk : null;
+    //   10/30 입력창은 매물 화면 밖(#bd_rpwHost)에 있으므로 거기도 봄 — 안 그러면 Tab으로 다음 칸에 가는 순간 저장·다시 그리기로 커서가 표로 넘어감
+    const roots = () => [$('bd'), $('bd_rpwHost')].filter(Boolean);
+    const a = document.activeElement, fk = a && a.dataset && a.dataset.fk && roots().some(r => r.contains(a)) ? a.dataset.fk : null;
     const val = fk ? a.value : null, s0 = fk ? a.selectionStart : null, s1 = fk ? a.selectionEnd : null;
     drawTree(); drawBar(); drawTable(); drawPanel();
-    if (fk) { const n = $('bd').querySelector(`[data-fk="${CSS.escape(fk)}"]`); if (n) { if (n.value !== val) n.value = val; n.focus(); try { n.setSelectionRange(s0, s1); } catch { /* 숫자 칸 등 */ } } }
+    if (fk) { const n = roots().map(r => r.querySelector(`[data-fk="${CSS.escape(fk)}"]`)).find(Boolean); if (n) { if (n.value !== val) n.value = val; n.focus(); try { n.setSelectionRange(s0, s1); } catch { /* 숫자 칸 등 */ } } }
     H.drawBk && H.drawBk();
   }
   // ---------- 왼쪽 탐색기 (넓은 화면 · 지도 닫았을 때) — 10/26 종류별 ----------
