@@ -8,7 +8,7 @@
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
-import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch } from './_ledger.js';
+import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch, clearHist } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
 import { lsLoad, lsSave, lsMutate, lsDrop } from './_ls.js';
 import { officeOf, permOf, can, teamN, members, dropTeam, leave, staffApi, seatsOf, SEAT, ROLE } from './_staff.js';
@@ -70,6 +70,7 @@ export async function startTrial(uid) {
 const cxOpen = (items, P) => new Set([...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(0, P.cx || 0).map(x => x.id));
 const cxFull = P => P.plan === 'free' ? `무료 이용은 단지 ${P.cx}곳까지입니다. Basic(월 9,900원)이면 20곳까지 등록할 수 있습니다.` : `${P.name} 요금제는 단지 ${P.cx}곳까지입니다.${P.plan === 'vip' ? '' : ' 요금제를 올리시면 더 등록할 수 있습니다.'}`;
 export const planView = P => ({ plan: P.plan, name: P.name, until: P.until || null, ls: P.ls >= 1e9 ? null : P.ls, ad: P.ad >= 1e9 ? null : P.ad, cx: P.cx || 0, cu: P.cu >= 1e9 ? null : (P.cu || 0), adv: P.adv, started: P.started, ended: P.ended || '', trialUsed: !!P.trialUsed, op: !!P.op, gift: !!P.gift, seats: seatsOf(P) });
+const SPECS = ['아파트', '오피스텔', '빌라·주택', '상가·사무실', '건물', '토지', '공장·창고', '재개발·재건축', '분양권'];
 // 중개사무소 정보 확인 (시작하기·정보 수정 공용)
 function cleanBk(b) {
   b = b || {};
@@ -78,6 +79,9 @@ function cleanBk(b) {
   if (!bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel || !bk.mobile) return [null, '여섯 칸을 모두 입력해 주세요.'];
   if (!/^01\d-?\d{3,4}-?\d{4}$/.test(bk.mobile)) return [null, '휴대폰 번호를 확인해 주세요. (문자 문의를 받을 번호)'];
   if (!/\d{4,}/.test(bk.regno)) return [null, '중개사무소 등록번호를 확인해 주세요. (예: 11440-2025-00123)'];
+  // 10/28 중개사 소개 페이지(선택): 한 줄 소개 · 전문 분야(정해진 것 중에서) · 활동 동네
+  bk.intro = str(b.intro, 120); bk.area = str(b.area, 40);
+  bk.spec = (Array.isArray(b.spec) ? b.spec : []).map(v => String(v)).filter(v => SPECS.includes(v)).slice(0, 6);
   return [bk, ''];
 }
 
@@ -174,7 +178,7 @@ async function verifyBk(uid, bk) {
     return { st: 'dup', msg: V_MSG.dup };
   }
   let r;
-  try { r = await checkOffice(bk); } catch { return { st: 'error', msg: '' }; }
+  try { r = await checkOffice(bk); } catch (e) { return { st: 'error', msg: '', code: String((e && e.message) || e).slice(0, 60) }; }
   if (r.st !== 'ok') return { st: r.st, msg: r.st === 'closed' ? `국가 자료에 '${r.row.sttusSeCodeNm || '휴업·폐업'}' 상태로 조회됩니다. 영업 중인 중개사무소만 이용하실 수 있습니다.` : V_MSG[r.st] };
   bk.verified = now; bk.vby = 'auto'; bk.regno = r.row.jurirno || bk.regno;
   if (r.row.bsnmCmpnm) bk.office = r.row.bsnmCmpnm; // 광고에는 등록된 명칭 그대로
@@ -266,7 +270,7 @@ function pubSummary(uid, x, bk) {
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
-    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '' },
+    bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '', ...(bk.lat && bk.lng ? { lat: bk.lat, lng: bk.lng, posv: bk.posv || 1 } : {}) },   // 10/29 lat·lng = 지도의 사무소 핀 자리
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
   };
 }
@@ -297,12 +301,14 @@ const lineOf = ho => { const n = Number(String(ho || '').replace(/\D/g, '')); re
 const lsKeyOf = p => `${p.pnu}|${normD(p.dong)}|${normH(p.ho)}`;
 // 10/28 오피스텔: 매물 카드에 동을 안 적은 경우 → 같은 필지·같은 호면 그 카드
 const lsAt = (items, key) => { const [pn, , h] = key.split('|'); return items.find(x => x.status !== 'done' && x.kind !== 'presale' && (x.places || []).some(p => p.ho && (lsKeyOf(p) === key || (!normD(p.dong) && p.pnu === pn && normH(p.ho) === h)))); };
-async function lsFromLedger(uid, { key, st, pr }) {
+async function lsFromLedger(uid, { key, st, pr, rm = 0, bt = 0, mg = 0, mv = '' }) {
   if (st.src === 'other') return false;   // 타부동산 물건은 내 매물 카드가 아님
   let hit = false;
   const items = await lsMutate(redis, uid, ls => {
     const x = lsAt(ls, key); if (!x) return false;
-    const was = JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status]);
+    const was = JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.ad]);
+    // 10/29 장부 매물 칸의 방·욕실·관리비·입주도 카드(리얼맵 광고)에 — 장부에 값이 있을 때만 덮어씀
+    { const a = x.ad = { ...(x.ad || {}) }; if (rm) a.rooms = rm; if (bt) a.baths = bt; if (mv) a.movein = /^\d{4}-\d{2}-\d{2}$/.test(mv) ? mv.replace(/-/g, '.') : mv; if (mg) { x.mgmt = mg; a.nomgmt = false; } }
     if (!st.src) { if (x.status === 'on') x.status = 'hold'; }   // 매물장에서 내림 → 카드는 보류 (지도 광고는 syncPub이 내림)
     else {
       const k = st.k.includes(x.kind) ? x.kind : st.k[0] || x.kind;
@@ -311,7 +317,7 @@ async function lsFromLedger(uid, { key, st, pr }) {
       else if (k === 'wolse' && (pr.wd || pr.wr)) Object.assign(x, { kind: 'wolse', deposit: pr.wd || null, rent: pr.wr || null });
       x.status = st.hold ? 'hold' : 'on';
     }
-    if (JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status]) === was) return false;
+    if (JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.ad]) === was) return false;
     x.up = new Date().toISOString(); hit = true;
   });
   if (hit) { const bk = await loadBk(uid), P = await planOf(uid); const it2 = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, it2); }
@@ -374,7 +380,8 @@ function cleanAd(a) {
     movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
-    mgmtT: a.mgmtT === 'fix' ? 'fix' : 'avg', mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),
+    mgmtT: ['fix', 'avg', 'use', 'rule', 'unk'].includes(a.mgmtT) ? a.mgmtT : '', noloan: !!a.noloan, loanHide: !!a.loanHide, live: ['tenant', 'owner', 'empty'].includes(a.live) ? a.live : '',   // 10/30 현상태(세입자·집주인 거주·공실)
+      // 10/30 관리비 부과: 사용량에 따라(use) · 관리규약에 따라(rule) · 모름(unk) (예전 실비 avg · 정액 fix) · 융자 없음 mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),
     ty: t(a.ty, 8).replace(/\s/g, '').toUpperCase(), spy: (v => v > 3 && v < 300 ? v : null)(Math.round(Number(a.spy) || 0)),   // 아파트 타입(84B)·공급평 (10/26)
     // 재개발·재건축 (10/26): 구역명·단계·물건 형태·대지지분㎡·감정가·권리가액·조합원 분양·이주비(만원)
     rz: t(a.rz, 30), stage: STAGES.includes(a.stage) ? a.stage : '', form: FORMS.includes(a.form) ? a.form : '', jshare: dec(a.jshare), apv: won(a.apv), rgt: won(a.rgt), msh: t(a.msh, 20), mvl: won(a.mvl),
@@ -717,7 +724,43 @@ export default async function (req, res) {
       for (let i = 0; i < raw.length; i += 2) { try { const v = JSON.parse(raw[i + 1]); if (v.exp > now) items.push(v); else if (v.exp < gone) old.push(raw[i]); } catch { old.push(raw[i]); } }
       // 게시 기간이 끝나고 30일 더 지난 매물은 공개 목록에서 지웁니다 (매물장에서 '연장'하면 다시 올라감)
       if (old.length) try { await redis(['HDEL', PUB_KEY, ...old]); } catch { /* 다음에 */ }
+      // 10/30 ?bb=남,서,북,동 (위도·경도 상자): 정비사업 구역 페이지는 그 근처 매물만 받음 (없으면 예전처럼 전체 · 지도·홍보 페이지)
+      const bb = String(req.query.bb || '').split(',').map(Number);
+      if (bb.length === 4 && bb.every(Number.isFinite)) return send(res, 200, { ok: true, items: items.filter(v => v.lat >= bb[0] && v.lat <= bb[2] && v.lng >= bb[1] && v.lng <= bb[3]) }, 60);
       return send(res, 200, { ok: true, items }, 60);
+    }
+
+    // 10/28 중개사 소개 페이지 (누구나 볼 수 있음) — GET ?action=office&r=등록번호 숫자 · 등록번호가 확인된 사무소만 · 1분 캐시
+    //   광고에 이미 나가는 정보(공인중개사법 표시 항목·대표 사진)와 소개 칸, 지금 지도에 게시 중인 매물만 돌려줌
+    if (action === 'office') {
+      const d = digitsOf(req.query.r);
+      if (d.length < 10 || !R_URL || !R_TOKEN) return fail(res, 404, 'none', '중개사무소를 찾지 못했습니다.');
+      const uid = await redis(['HGET', 'realmap:regno', d]).catch(() => null);
+      const bk = uid ? await loadBk(uid) : null;
+      if (!bk || !bk.verified || digitsOf(bk.regno) !== d) return fail(res, 404, 'none', '중개사무소를 찾지 못했습니다.');
+      const raw = (await redis(['HGETALL', PUB_KEY])) || [], now = new Date().toISOString(), items = [];
+      for (let i = 0; i < raw.length; i += 2) { if (!String(raw[i]).startsWith(`${uid}:`)) continue; try { const v = JSON.parse(raw[i + 1]); if (v.exp > now) items.push(v); } catch { /* 건너뜀 */ } }
+      items.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+      const o = { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', photo: bk.photo || '', intro: bk.intro || '', spec: bk.spec || [], area: bk.area || '' };
+      return send(res, 200, { ok: true, office: o, items }, 60);
+    }
+
+    // 10/29 홍보 페이지 '이용자 추이' 그래프: 최근 26주 주간 방문자(중복 제외)를 가장 많은 주 = 1로 나눈 비율만 공개 (실제 숫자는 내보내지 않음) · 6시간 캐시
+    if (action === 'growth') {
+      if (!R_URL || !R_TOKEN) return send(res, 200, { ok: true, w: [] }, 3600);
+      const hit = await redis(['GET', 'rm:growth']).catch(() => null);
+      if (hit) { try { return send(res, 200, JSON.parse(hit), 3600); } catch { /* 다시 셈 */ } }
+      const dayOf = i => new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, '');
+      const W = 26, cmds = [];
+      for (let w = 0; w < W; w++) cmds.push(['PFCOUNT', ...Array.from({ length: 7 }, (_, k) => `rm:st:${dayOf(1 + w * 7 + k)}:uv`)]);   // 어제까지 꽉 찬 7일씩
+      const r = await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) }).then(x => x.json()).catch(() => []);
+      let vals = cmds.map((_, w) => ({ s: dayOf(7 + w * 7), n: Number(r[w] && r[w].result) || 0 })).reverse();
+      while (vals.length && !vals[0].n) vals.shift();
+      const mx = Math.max(1, ...vals.map(v => v.n));
+      const out = { ok: true, w: vals.map(v => ({ s: v.s, v: Math.round(v.n / mx * 1000) / 1000 })) };
+      out.up = vals.length >= 4 && vals[vals.length - 1].n >= vals[0].n * 1.3;   // 실제로 늘었을 때만 화면에 보임
+      await redis(['SET', 'rm:growth', JSON.stringify(out), 'EX', '21600']).catch(() => {});
+      return send(res, 200, out, 3600);
     }
 
     // 등록번호로 사무소 명칭·소재지 미리 채우기 (가입 화면) — GET ?action=bkfind&regno=
@@ -914,6 +957,7 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
+      if (body.via === 'promo') bk.home = 'ads';   // 10/28 매물 홍보 페이지로 시작 → 중개장부 첫 화면은 '내 광고'
       let P = await planOf(s.id);
       if (P.started) return send(res, 200, { ok: true, plan: planView(P), bk: await loadBk(s.id) });
       if (await redis(['GET', `realmap:staffof:${s.id}`])) return fail(res, 400, 'staff', '이 카카오 계정은 다른 사무소의 직원으로 등록되어 있습니다. 내 사무소를 따로 시작하시려면 [설정 → 내 소속]에서 먼저 나가 주세요.');
@@ -948,6 +992,80 @@ export default async function (req, res) {
       return send(res, 200, { ok: true, plan: planView(await planOf(uid)) });
     }
 
+    // 10/30 운영자 단지 평형표: PNU별 전용면적 → 공급평·타입 (모든 회원 화면 공통)
+    //   GET ?p=PNU,PNU… → { map: { PNU: { n, a: { '59.92': { py, t } } } } } · GET ?all=1 (운영자) → 입력한 단지 목록
+    //   POST { pnu, n, a } (운영자만) — a가 비면 그 단지를 지움
+    if (action === 'pyt') {
+      if (!R_URL || !R_TOKEN) return fail(res, 503, 'redis', '저장소가 준비되지 않았습니다.');
+      const K = 'realmap:pyt', okP = v => /^\d{19}$/.test(String(v || ''));
+      const isOp = () => { const s = readSession(req); return !!(s && ADMIN_ID && s.id === ADMIN_ID); };
+      if (req.method !== 'POST') {
+        if (req.query.all) {
+          res.setHeader('Cache-Control', 'no-store');
+          if (!isOp()) return fail(res, 403, 'op', '운영자만 쓸 수 있습니다.');
+          const h = (await redis(['HGETALL', K]).catch(() => null)) || [], list = [];
+          for (let i = 0; i + 1 < h.length; i += 2) { try { const v = JSON.parse(h[i + 1]); list.push({ pnu: h[i], n: v.n || '', k: Object.keys(v.a || {}).length, at: v.at || '' }); } catch { /* 건너뜀 */ } }
+          list.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+          return send(res, 200, { ok: true, list });
+        }
+        const ps = String(req.query.p || '').split(',').filter(okP).slice(0, 50);
+        if (!ps.length) return send(res, 200, { ok: true, map: {} });
+        const vs = (await redis(['HMGET', K, ...ps]).catch(() => null)) || [], map = {};
+        ps.forEach((p, i) => { if (vs[i]) { try { map[p] = JSON.parse(vs[i]); } catch { /* 건너뜀 */ } } });
+        return send(res, 200, { ok: true, map }, 60);
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      if (!isOp()) return fail(res, 403, 'op', '운영자만 쓸 수 있습니다.');
+      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      if (!okP(b.pnu)) return fail(res, 400, 'pnu', '단지 번호(PNU)를 확인해 주세요.');
+      const a = {};
+      for (const [k, v] of Object.entries(b.a || {}).slice(0, 60)) {
+        const ar = Math.round(parseFloat(k) * 100) / 100, py = Math.round(+((v || {}).py) || 0), t = String((v || {}).t || '').replace(/[^0-9A-Za-z가-힣\-]/g, '').slice(0, 8);
+        if (ar > 5 && ar < 500 && (py > 0 && py < 300 || t)) a[ar.toFixed(2)] = { ...(py > 0 && py < 300 ? { py } : {}), ...(t ? { t } : {}) };
+      }
+      if (!Object.keys(a).length) await redis(['HDEL', K, b.pnu]);
+      else await redis(['HSET', K, b.pnu, JSON.stringify({ n: String(b.n || '').slice(0, 40), a, at: new Date().toISOString() })]);
+      return send(res, 200, { ok: true, a });
+    }
+
+    // 10/29 매물번호 규칙 — GET 보기 · POST {p, f} 저장 (대표만)
+    if (action === 'norule') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = await office(req);
+      if (!s || s.blocked || !R_URL || !R_TOKEN) return fail(res, 401, 'login', '로그인이 필요합니다.');
+      const k = `realmap:norule:${s.id}`;
+      if (req.method !== 'POST') { const v = await redis(['GET', k]).catch(() => null); let r = {}; try { r = JSON.parse(v) || {}; } catch { /* 없음 */ } return send(res, 200, { ok: true, rule: r }); }
+      if (s.staff) return noStaff(res, s, '매물번호 규칙은');
+      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const rule = { p: String(b.p || '').replace(/[^0-9A-Za-z가-힣]/g, '').slice(0, 6), f: ['ym', 'seq', 'kind'].includes(b.f) ? b.f : 'ym' };
+      await redis(['SET', k, JSON.stringify(rule)]);
+      return send(res, 200, { ok: true, rule });
+    }
+
+    // 10/29 사무소 좌표 저장 (중개장부 화면이 사무소 주소를 지도 좌표로 바꿔 보냄) — POST {lat,lng} · 지도의 중개사무소 핀에 씀
+    if (action === 'bkpos') {
+      res.setHeader('Cache-Control', 'no-store');
+      const s = await office(req);
+      if (!s || s.blocked || !R_URL || !R_TOKEN || req.method !== 'POST') return fail(res, 400, 'bad', '저장하지 못했습니다.');
+      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const lat = Math.round(Number(b.lat) * 1e6) / 1e6, lng = Math.round(Number(b.lng) * 1e6) / 1e6;
+      if (!(lat > 33 && lat < 39 && lng > 124 && lng < 132)) return fail(res, 400, 'bad', '좌표가 올바르지 않습니다.');
+      // 10/29 운영자가 지도를 보면 예전 방식 좌표(posv<3)인 사무소를 화면이 새 방식으로 다시 찾아 보냄 (regno) — 더 새 방식일 때만 바꿈
+      const opReg = b.regno ? digitsOf(b.regno) : '';
+      if (opReg && !(ADMIN_ID && (s.me || s.id) === ADMIN_ID)) return fail(res, 403, 'no', '운영자만 할 수 있습니다.');
+      const uid = opReg ? await redis(['HGET', 'realmap:regno', opReg]).catch(() => null) : s.id;
+      if (!uid) return fail(res, 404, 'none', '중개사무소를 찾지 못했습니다.');
+      const bk = await loadBk(uid);
+      if (!bk || !bk.addr) return fail(res, 400, 'bad', '중개사무소 정보가 없습니다.');
+      const pv = Number(b.v) || 1;
+      if (opReg && (bk.posv || 1) >= pv) return send(res, 200, { ok: true, same: true });   // 10/29 v2 = 주소 근처에서 사무소 이름으로 다시 찾은 좌표 (예전 좌표는 한 번 다시 찾음)
+      if (bk.lat === lat && bk.lng === lng && (bk.posv || 1) >= pv) return send(res, 200, { ok: true, bk });
+      bk.lat = lat; bk.lng = lng; bk.posv = pv;
+      await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(bk)]);
+      try { const P = await planOf(uid); await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); } catch { /* 다음 저장 때 */ }
+      return send(res, 200, { ok: true, ...(opReg ? {} : { bk }) });
+    }
+
     // 중개사무소 정보 (매물 광고에 표시)
     if (action === 'bk') {
       res.setHeader('Cache-Control', 'no-store');
@@ -963,12 +1081,17 @@ export default async function (req, res) {
       const [bk, err] = cleanBk(body.bk);
       if (!bk) return fail(res, 400, 'need', err);
       // 등록번호·대표자가 그대로면 확인 유지(명칭은 등록된 그대로), 바뀌면 국가 자료로 다시 확인
-      const prevBk = await loadBk(s.id);
+      const prevBk = await loadBk(s.id); let opWarn = '';
+      if (prevBk && prevBk.home) bk.home = prevBk.home;
+      if (prevBk && prevBk.lat && prevBk.addr === bk.addr) { bk.lat = prevBk.lat; bk.lng = prevBk.lng; if (prevBk.posv) bk.posv = prevBk.posv; }   // 10/29 사무소 좌표는 주소가 그대로일 때만 유지 (바뀌면 화면이 다시 찾아 bkpos로 보냄)   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
+      if (body.bk && ['ads', 'book'].includes(body.bk.home)) bk.home = body.bk.home;
       if (!P.op && !(await mobileOk(s.id, bk, prevBk))) return fail(res, 400, 'sms', SMS_NEED);
       if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
         Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
         if (prevBk.vby === 'auto') bk.office = prevBk.office;
-      } else if (!P.op) {
+      } else if (P.op) {   // 10/29 운영자도 등록번호를 국가 자료로 확인해 둠 (확인되면 소개 페이지·확인 배지) — 안 돼도 저장은 그대로
+        try { const v = await verifyBk(s.id, bk); if (v.st !== 'ok') { delete bk.verified; opWarn = v.st === 'error' ? '국가 자료(브이월드) 조회가 원활하지 않아 등록번호를 확인하지 못했습니다. 운영 화면 [중개사 관리]에서 직접 확인 표시를 할 수 있습니다.' + (v.code ? ` (사유: ${v.code})` : '') : `등록번호 확인 안 됨: ${v.msg || v.st}`; } } catch { /* 저장은 계속 */ }
+      } else {
         const v = await verifyBk(s.id, bk);
         if (v.st === 'error') return fail(res, 503, 'vworld', '지금은 국가 자료(브이월드) 조회가 원활하지 않아 등록번호·대표자 변경을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
         if (v.st !== 'ok') return fail(res, 400, 'verify', v.msg);
@@ -980,7 +1103,7 @@ export default async function (req, res) {
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       if (prevBk && prevBk.photo && prevBk.photo !== bk.photo) await dropPhotos([prevBk.photo]);
       try { await lsMutate(redis, s.id, ls => syncPub(s.id, ls, bk, P)); } catch { /* 다음 저장 때 반영 */ }
-      return send(res, 200, { ok: true, bk, canPub: canPub(s.id) });
+      return send(res, 200, { ok: true, bk, canPub: canPub(s.id), ...(opWarn ? { warn: opWarn } : {}) });
     }
 
     // 매물장 (PRO 전용) — 회원별 최대 1,000건, 한 덩어리로 저장
@@ -1010,9 +1133,12 @@ export default async function (req, res) {
       let items = L.items;
       // 매물번호: 비워 두면 '등록한 해·월-순번' (예: 2610-001)으로 자동으로 붙입니다
       const ym = iso => { const d = new Date(new Date(iso || Date.now()).getTime() + 9 * 3600e3); return String(d.getUTCFullYear()).slice(2) + String(d.getUTCMonth() + 1).padStart(2, '0'); };
-      const nextNo = (list, iso) => { const p = ym(iso) + '-'; const max = list.reduce((m, x) => { const k = String(x.no || ''); return k.startsWith(p) ? Math.max(m, Number(k.slice(p.length)) || 0) : m; }, 0); return p + String(max + 1).padStart(3, '0'); };
+      // 10/29 설정 → 우리 사무소 '매물번호 규칙' (realmap:norule:<대표id> {p: 앞 글자, f: 'ym' 년월-순번 | 'seq' 순번만 | 'kind' 종류-순번}) — 새로 붙이는 번호부터
+      const NR = await redis(['GET', `realmap:norule:${s.id}`]).then(v => { try { return JSON.parse(v) || {}; } catch { return {}; } }).catch(() => ({}));
+      const nextNo = (list, iso, x) => { const f = ['ym', 'seq', 'kind'].includes(NR.f) ? NR.f : 'ym', body = f === 'seq' ? '' : f === 'kind' ? String((x && x.ptype) || '매물').replace(/\s/g, '').slice(0, 5) + '-' : ym(iso) + '-', p = (NR.p ? NR.p + '-' : '') + body, w = f === 'seq' ? 4 : 3;
+        const max = list.reduce((m, y) => { const k = String(y.no || ''), r = k.startsWith(p) ? k.slice(p.length) : ''; return /^\d+$/.test(r) ? Math.max(m, Number(r)) : m; }, 0); return p + String(max + 1).padStart(w, '0'); };
       if (items.some(x => !x.no)) { // 예전에 등록한 매물은 등록일 순서대로 번호를 붙여 둡니다
-        [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at); });
+        [...items].sort((a, b) => String(a.at).localeCompare(String(b.at))).forEach(x => { if (!x.no) x.no = nextNo(items, x.at, x); });
         await save();
       }
       // 직원이 있으면: 화면 위에 '누구로 쓰는 중인지' · 권한 · 60초마다 새 내용 확인 (team)
@@ -1030,6 +1156,7 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       if (s.staff) {   // 직원 권한: 엑셀 불러오기·되돌리기는 대표만 · 지도 광고는 소속공인중개사(대표 허용 시) · 삭제는 대표가 정한 대로
         if (['import', 'unimport'].includes(body.op)) return noStaff(res, s, '엑셀 불러오기는');
+        if (body.op === 'histclear') return noStaff(res, s, '기록 모두 지우기는');
         if (['pub', 'renew', 'unpub'].includes(body.op) && !can(s, tm.perm, 'pub')) return s.role === 'ast' ? fail(res, 403, 'perm', '중개보조원은 매물 광고를 할 수 없습니다 (공인중개사법 제18조의2). 대표님이나 소속공인중개사님께 부탁해 주세요.') : noPerm(res, '지도 광고');
         if (body.op === 'del' && !can(s, tm.perm, 'del')) return noPerm(res, '매물 삭제');
       }
@@ -1065,8 +1192,8 @@ export default async function (req, res) {
         const p0 = places[0], c0 = contacts[0] || {};
         let no = str(it.no, 20);
         if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) { if (!imp) return { err: ['dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`] }; no = ''; }   // 엑셀 불러오기: 겹치면 새 번호
-        if (!no) no = prev && prev.no ? prev.no : nextNo(items, now);
-        const areaSum = places.reduce((a, p) => a + (p.area || 0), 0);
+        if (!no) no = prev && prev.no ? prev.no : nextNo(items, now, it);
+        const isL = p => p.land || p.ak === 'land', areaSum = places.filter(p => isL(p0) || !isL(p)).reduce((a, p) => a + (p.area || 0), 0);   // 10/30 건물에 붙인 대지 필지는 면적 합계(전용·연면적)에서 뺌
         const rec = {
           id: prev ? prev.id : Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), no,
           // 목록·지도용 대표값 (첫 번째 주소 · 첫 번째 연락처)
@@ -1145,6 +1272,11 @@ export default async function (req, res) {
       } else if (body.op === 'unpub') {
         const x = items.find(i => i.id === id);
         if (x && x.pub) x.pub.on = false;
+      } else if (body.op === 'histclear') {   // 10/30 선배 요청: 지금까지의 기록 모두 지우기 (매물 기록 + 아파트 호 기록 · 대표만)
+        let n = 0; items.forEach(x => { if (x.memo) { n++; x.memo = ''; } });
+        const h = await clearHist(redis, s.id).catch(() => 0);
+        await save();
+        return send(res, 200, { ok: true, items, cleared: { ls: n, hj: h } });
       } else if (body.op === 'del') {
         const gone = items.find(x => x.id === id); body._gone = gone;
         if (gone && gone.pub) { gone.pub.on = false; try { await redis(['HDEL', PUB_KEY, `${s.id}:${gone.id}`]); } catch { /* 무시 */ } }
