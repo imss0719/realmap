@@ -1153,7 +1153,7 @@ export default async function (req, res) {
         let no = str(it.no, 20);
         if (no && items.some(x => x.no === no && x.id !== (prev && prev.id))) { if (!imp) return { err: ['dup_no', `매물번호 ${no}은(는) 이미 다른 매물에 쓰고 있습니다.`] }; no = ''; }   // 엑셀 불러오기: 겹치면 새 번호
         if (!no) no = prev && prev.no ? prev.no : nextNo(items, now, it);
-        const areaSum = places.reduce((a, p) => a + (p.area || 0), 0);
+        const isL = p => p.land || p.ak === 'land', areaSum = places.filter(p => isL(p0) || !isL(p)).reduce((a, p) => a + (p.area || 0), 0);   // 10/30 건물에 붙인 대지 필지는 면적 합계(전용·연면적)에서 뺌
         const rec = {
           id: prev ? prev.id : Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), no,
           // 목록·지도용 대표값 (첫 번째 주소 · 첫 번째 연락처)
