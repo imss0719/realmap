@@ -752,6 +752,7 @@ window.Board = (() => {
     } else if (cat !== 'pre') {
       // 10/30 선배: 토지 말고도 주소 추가 — 건물·공장 = 필지 더하기(대지) · 상가·사무실·주택 = 호수 더하기(같은 건물) 또는 다른 건물 주소
       const pl = places(x), W = k === 'whole', tot = pl.reduce((s0, p) => s0 + (p.area || 0), 0);
+      if (!W && !RO) pl.forEach(p => { if (p.ho && p.pnu && !p.area) autoArea(id, p); });   // 10/30 선배: 더한 호수의 전용면적을 건축물대장에서 자동으로
       const lb = (p, i) => W ? (i === 0 ? '건물' : (p.land || p.ak === 'land') ? '대지' : '') : '';
       const nm = p => [shortAddr(p.addr), dh(p)].filter(Boolean).join(' ');
       body += `<div class="rps"><h4>${W ? '필지' : '주소 · 호수'} <small>${pl.length}곳</small></h4>
@@ -1080,6 +1081,18 @@ window.Board = (() => {
         saveItem(id, it => { const ar = (c && c.area) || null; it.places.push({ pnu, addr: p.addr || h.t, lat: h.lat, lng: h.lng, bname: '', dong: '', ho: '', area: ar, ...(detKind(x) === 'whole' ? { site: ar } : {}), land: true, ak: 'land' }); }, '필지를 붙였습니다');
       } catch { H.toast('그 위치의 필지를 찾지 못했습니다', 3500); refresh(); }
     });
+  }
+  // 10/30 호수 전용면적 (건축물대장 전유부 합계) — 칸이 비어 있는 호만 한 번씩 찾아서 채움
+  B.aa = B.aa || new Set();
+  async function autoArea(id, P) {
+    const k = `${id}|${P.pnu}|${P.dong || ''}|${P.ho}`; if (B.aa.has(k)) return; B.aa.add(k);
+    const dq = P.dong ? (/동$/.test(P.dong) ? P.dong : P.dong + '동') : '';
+    let ar = null;
+    for (const h of [...new Set([P.ho, /호$/.test(P.ho) ? P.ho.replace(/호$/, '') : P.ho + '호'])]) {
+      try { const j = await H.api(`/api/units?pnu=${P.pnu}&dong=${encodeURIComponent(dq)}&ho=${encodeURIComponent(h)}`); const ex = ((j.area && j.area.ok && j.area.data) || []).filter(r => /전유/.test(r.gb || '')); const sum = ex.reduce((a, r) => a + (r.area || 0), 0); if (sum) { ar = Math.round(sum * 100) / 100; break; } } catch { /* 다음 */ }
+    }
+    if (!ar) return;
+    saveItem(id, it => { const Q = (it.places || []).find(q => q.pnu === P.pnu && (q.dong || '') === (P.dong || '') && q.ho === P.ho); if (Q && !Q.area) Q.area = ar; });
   }
   async function landOf(pnu) {
     if (B.L[pnu] && B.L[pnu] !== 'loading') return B.L[pnu];
