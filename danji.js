@@ -287,7 +287,7 @@ window.Danji = (() => {
   const LED = () => S.book === 'ledger';
   const bookTog = () => `<span class="vtab bk" role="tablist" aria-label="장부 고르기">${[['ledger', '전체'], ['market', '매물만']].map(([v, t]) => `<button type="button" data-book="${v}" aria-pressed="${S.book === v}">${t}</button>`).join('')}</span>`;
   function wireBook() {
-    document.querySelectorAll('#dj_cxBody [data-book]').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#dj_cxBody [data-book], #dj_tree [data-book]').forEach(b => b.onclick = () => {   // 10/30 넓은 화면은 탐색기 머리(선배) · 좁은 화면은 제목 옆
       if (S.book === b.dataset.book) return;
       if (S.ed) endEdit(S.tcx);
       S.book = b.dataset.book;
@@ -352,7 +352,7 @@ window.Danji = (() => {
     const cnt = c => { if (!S.L[c.id]) { loadLedger(c); return ''; } const n = cxN(c); return n < 0 ? '' : n; };   // 숫자 = 매물(내+타)
     const cur = S.cx.items.find(c => c.id === S.cur), C = cur && S.C[cur.id];
     const allMode = S.cur === '__all' && !multiOn() && !S.adding;
-    T.innerHTML = `<div class="tth"><b>단지</b></div>
+    T.innerHTML = `<div class="tth"><b>단지</b>${bookTog()}</div>
       <button type="button" class="tn all${S.cur === '__all' && !multiOn() ? ' on' : ''}" data-tall>모든 단지<span class="ct">${S.cx.items.length}곳</span></button>
       ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
@@ -386,6 +386,7 @@ window.Danji = (() => {
     const tr = T.querySelector('[data-tren]'); if (tr) tr.onclick = async () => { const c = cur; if (!c) return; const nm = prompt('단지 이름', c.name); if (!nm || nm === c.name) return; try { const j = await post({ op: 'rename', id: c.id, name: nm }); S.cx = { items: j.items, memos: j.memos }; delete S.C[c.id]; draw(); } catch (e) { toast(e.message); } };
     const tp = T.querySelector('[data-taddpl]'); if (tp) tp.onclick = () => { S.adding = 'place'; S.results = null; draw(); };
     const dm = T.querySelector('[data-tdm]'); if (dm) dm.onclick = () => { S.delMode = !S.delMode; drawTree(); };
+    wireBook();   // 10/30 탐색기 머리의 [전체 · 매물만]
     T.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { const c = S.cx.items.find(z => z.id === b.dataset.tdel); if (c) delCx(c); });
     const orph = T.querySelector('[data-torph]'); if (orph) orph.onclick = () => S.host.goAptList();   // 10/26 매물 화면의 '아파트 매물'로
     const nx = T.querySelector('[data-tnx]'); if (nx) nx.onclick = () => { S.host.goAptList(); setTimeout(() => { const q = document.getElementById('bdQ'); if (q) { q.focus(); q.placeholder = '단지없이 추가: 아파트·오피스텔 주소나 건물명을 치고 Enter (예: ○○오피스텔 807호)'; } }, 120); };   // 10/30 선배: [＋단지][−단지][＋단지없이 추가]
@@ -419,7 +420,7 @@ window.Danji = (() => {
     const K = kpi(items.flatMap(c => rowsAll(c, CI(c), mineMap(c))));
     $('dj_cxBody').innerHTML = `
       <div class="card hdc hd1"><div class="h1r">${cxSelHtml('__all')}
-        <span class="hm">${items.length}곳${wait ? ` · 장부를 불러오는 중 (${items.length - wait}/${items.length})` : ''} · 매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span><span class="sp"></span>${bookTog()}</div></div>
+        <span class="hm">${items.length}곳${wait ? ` · 장부를 불러오는 중 (${items.length - wait}/${items.length})` : ''} · 매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span>${bookTog()}<span class="sp"></span></div></div>
       <div class="card gcard"><div class="djfrow"><div class="tbf" id="dj_tbf"></div></div><div id="dj_tbl"></div>
       </div>`;
     wireCxSel(); wireBook();
@@ -453,9 +454,9 @@ window.Danji = (() => {
       <div class="card hdc hd1"><div class="h1r">
         ${cxSelHtml(cx.id)}${C.view === 'dong' && C.cur ? `<b class="cxdn">${esc(DN(normD(String(C.cur).split('|')[1])) || '건물')}</b>` : gOn(C) ? `<b class="cxdn">${esc(((subOf(cx, C) || []).filter(g => gOn(C).includes(g.k)).map(g => g.nm)).join(' · '))}</b>` : ''}
         <span class="hm">매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span>
-        <span class="sp"></span>
         ${bookTog()}
-        <button type="button" class="btn ghost xs${tab === 'map' ? ' on' : ''}" id="dj_grid" title="단지 지도 위에 동마다 매물·만기">${tab === 'map' ? '표로 보기' : '지도 보기'}</button>
+        <span class="sp"></span>
+        <button type="button" class="btn ghost xs${tab === 'map' ? ' on' : ''}" id="dj_grid" title="단지 지도 위에 동마다 매물·만기 (단지현황판)">${tab === 'map' ? '표로 보기' : '단지현황판'}</button>
         <button type="button" class="btn ghost xs${open ? ' on' : ''}" id="dj_bt">시세 ${open ? '▴' : '▾'}</button>
         <span class="mmw nw"><button type="button" class="btn ghost xs" id="dj_more" aria-label="단지 메뉴">⋯</button><span class="mmenu" id="dj_mmenu" hidden><button type="button" id="dj_ren">단지 이름 바꾸기</button><button type="button" id="dj_addPl">빠진 동 더하기</button><button type="button" id="dj_delCx" class="red">단지 빼기</button></span></span>
       </div>${open ? `<div class="sum">${summary(C)}</div><div id="dj_board">${board(C)}</div>` : ''}</div>

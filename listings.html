@@ -1080,14 +1080,23 @@ th .cfb:hover{background:#E6ECF2;color:var(--fg)}th .cfb.on{background:var(--gol
 .bdt .hbtn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:1px 7px;font-size:12px;font-weight:700;color:#3E4A57;cursor:pointer}.bdt .hbtn.on{border-color:var(--navy);background:var(--navy);color:#fff}
 .bdt a.tl{color:inherit;text-decoration:none}.bdt a.tl:hover{color:var(--sale);text-decoration:underline}
 .bdt td.c-tel,.bdt td.c-h{white-space:nowrap}
+/* 10/30 맨 앞 '매물' ●/○ (아파트 장부 .dj .xt .mkd와 같은 모양) */
+.bdt td.c-mk0,.bdt th.c-mk0{text-align:center;width:34px;padding-left:4px;padding-right:4px}
+.bdt .mkd{display:inline-block;vertical-align:middle;width:12px;height:12px;border-radius:50%;border:1.5px solid #C3CBD4;background:#fff;padding:0;font-size:0;cursor:pointer}.bdt .mkd.on{background:#F2B705;border-color:#D99A00}.bdt .mkd:hover{border-color:#E8A23A;transform:scale(1.25)}.bdt .mkd:disabled{cursor:default}
+.bd .bd-cnt b{color:var(--fg)}.bd .bd-s .bst{margin-left:8px}
+/* 10/30 [전체 · 매물만]: 탐색기가 보이면 탐색기 머리에만 · 아니면 위 제목 옆에만 */
+.djtree .tth,.bdtree .tth{display:flex;align-items:center;gap:6px}.djtree .tth b,.bdtree .tth b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.djtree .tth .vtab.bk{margin-left:0}.djtree .tth .vtab.bk button{padding:3px 9px;font-size:12.5px;min-height:26px}
+.bdtree .tth .bst{flex:none}.bdtree .tth .bst button{padding:3px 8px;font-size:12px}
+.djlay.hastree #dj_cxBody .h1r .vtab.bk,.bdlay.hastree .bd-s .bst{display:none}
 /* 왼쪽 칸 고정 (번호 ~ 물건명/주소) */
-.bdt.fx .c-n,.bdt.fx .c-ty,.bdt.fx[data-fzl=nm] .c-nm,.bdt.fx[data-fzl=addr] .c-addr{position:sticky;z-index:1}
-.bdt.fx .c-n{left:var(--l-n,0)}.bdt.fx .c-ty{left:var(--l-ty,0)}.bdt.fx[data-fzl=nm] .c-nm{left:var(--l-nm,0)}.bdt.fx[data-fzl=addr] .c-addr{left:var(--l-addr,0)}
+.bdt.fx .c-mk0,.bdt.fx .c-n,.bdt.fx .c-ty,.bdt.fx[data-fzl=nm] .c-nm,.bdt.fx[data-fzl=addr] .c-addr{position:sticky;z-index:1}
+.bdt.fx .c-mk0{left:var(--l-mk0,0)}.bdt.fx .c-n{left:var(--l-n,0)}.bdt.fx .c-ty{left:var(--l-ty,0)}.bdt.fx[data-fzl=nm] .c-nm{left:var(--l-nm,0)}.bdt.fx[data-fzl=addr] .c-addr{left:var(--l-addr,0)}
 .bdt.fx[data-fzl=nm] .c-nm,.bdt.fx[data-fzl=addr] .c-addr{box-shadow:inset -1px 0 0 var(--line)}
-.bdt.fx tbody tr[data-id] :where(td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#fff}
-.bdt.fx tbody tr[data-id]:hover :where(td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#EAF2FD}
-.bdt.fx tbody tr.mk-y :where(td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#FFF4C2}
-.bdt.fx tbody tr.on :where(td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#D6E6FA}
+.bdt.fx tbody tr[data-id] :where(td.c-mk0,td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#fff}
+.bdt.fx tbody tr[data-id]:hover :where(td.c-mk0,td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#EAF2FD}
+.bdt.fx tbody tr.mk-y :where(td.c-mk0,td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#FFF4C2}
+.bdt.fx tbody tr.on :where(td.c-mk0,td.c-n,td.c-ty,td.c-nm,td.c-addr){background:#D6E6FA}
 .bdt.fx thead :where(th.c-n,th.c-ty,th.c-nm,th.c-addr){z-index:2;background:#F5F7F9}
 /* 넓은 화면: 표 상자 안에서 세로로도 스크롤 → 머리 세 줄이 위에 붙음 */
 @media (min-width:901px){.bd .bd-scroll{max-height:calc((100vh - var(--toph,60px) - 16px) / var(--fz,1));overflow:auto}}

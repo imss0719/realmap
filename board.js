@@ -20,9 +20,10 @@ window.Board = (() => {
     (() => { try { return JSON.parse(localStorage.getItem('rm.bd') || 'null') || {}; } catch { return {}; } })(),
     { q: '', open: new Set(), blank: new Map(), cblank: new Map(), hl: null, sel: null, ed: null, add: { q: '', res: null, busy: false, D: null }, L: {}, U: {}, fitNext: true });
   // 예전 폴더 값({pt, bn})은 버림 · 거르기 배열이 없으면 처음대로
-  if (!CATS[B.cat]) B.cat = 'shop'; if (B.tr && !B.tr.hd) B.tr = null; ['fk', 'fs', 'fc', 'fx'].forEach(k => { if (!Array.isArray(B[k])) B[k] = k === 'fs' ? ['on'] : []; });
+  if (!CATS[B.cat]) B.cat = 'shop'; if (B.tr && !B.tr.hd) B.tr = null; ['fk', 'fs', 'fc', 'fx'].forEach(k => { if (!Array.isArray(B[k])) B[k] = []; });
   // 10/28 단순화(5단계): 체크 거르기·▾ 거르기·노랑/빨강 표시·여러 건 선택·손님 조건은 없앰 → 예전에 기억한 거르기는 버리고, 상태는 늘 '진행 중'부터
-  Object.assign(B, { fk: [], fs: ['on'], fc: [], fx: [], cf: null, f: {}, grp: '', fo: false, sel: null, pk: null });
+  //   10/30 선배: 상태 [진행 중 · 보류 · 거래완료] → 아파트처럼 [전체 · 매물만] (B.fs [] = 전체 · ['on'] = 매물만) · 늘 '전체'부터
+  Object.assign(B, { fk: [], fs: [], fc: [], fx: [], cf: null, f: {}, grp: '', fo: false, sel: null, pk: null });
   const keep = () => { try { localStorage.setItem('rm.bd', JSON.stringify({ cat: B.cat, sort: B.sort, dir: B.dir, grp: B.grp, f: B.f, map: B.map, rate: B.rate, fo: B.fo, tr: B.tr, fk: B.fk, fs: B.fs, fc: B.fc, fx: B.fx })); } catch { /* 무시 */ } };
   const esc = s => X.esc(s);
   const m2t = a => a ? `${(+a).toLocaleString(undefined, { maximumFractionDigits: 2 })}㎡` : '';
@@ -239,22 +240,26 @@ window.Board = (() => {
     base.forEach(x => { const h = topOf(x); top[h] = (top[h] || 0) + 1; if (!flat && x.bname) { const s = sub[h] || (sub[h] = {}); s[x.bname] = (s[x.bname] || 0) + 1; } });
     const node = (cls, attrs, label, n, on) => `<button type="button" class="tn ${cls}${on ? ' on' : ''}" ${attrs}>${label}<span class="ct">${n || ''}</span></button>`;
     const byN = o => Object.entries(o).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko', { numeric: true }));
-    T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b></div>
+    T.innerHTML = `<div class="tth"><b>${esc(CATNAME[B.cat])}</b>${bstHtml()}</div>
       ${node('all', 'data-thd=""', '<i></i>전체', base.length, !tr.hd)}
       ${byN(top).map(([h, n]) => { const s = sub[h], open = s && tr.hd === h; return node('', `data-thd="${esc(h)}"`, `<span class="ar">${s ? (open ? '▾' : '▸') : ''}</span><i></i>${esc(h)}`, n, tr.hd === h && !tr.bn) + (open ? byN(s).map(([b, c]) => node('d', `data-thd="${esc(h)}" data-tbn="${esc(b)}"`, `<i></i>${esc(b)}`, c, tr.bn === b)).join('') : ''); }).join('')}`;   // 10/28 보류·거래완료는 위 [진행 중 · 보류 · 거래완료]에서만    const go = () => { keep(); B.fitNext = true; refresh(); };
     T.querySelectorAll('[data-thd]').forEach(b => b.onclick = () => { const h = b.dataset.thd, bn = b.dataset.tbn; B.tr = !h ? null : (tr.hd === h && !bn && !tr.bn && sub[h]) ? null : { hd: h, ...(bn ? { bn } : {}) }; go(); });   // 펼친 동네를 다시 누르면 접힘
     T.querySelectorAll('[data-tst]').forEach(b => b.onclick = () => { B.fs = [b.dataset.tst]; B.tr = null; go(); });
+    wireBst(T);
   }
+  // 10/30 [전체 · 매물만] — 넓은 화면은 왼쪽 탐색기 머리에 (선배) · 탐색기가 숨는 좁은 화면·지도 열 때는 위 막대 제목 옆 (CSS로 하나만 보임)
+  const bstHtml = () => { const mk = B.fs[0] === 'on'; return `<span class="bst" role="tablist" aria-label="장부 고르기">${[['', '전체'], ['on', '매물만']].map(([k, t]) => `<button type="button" data-bst="${k}" aria-pressed="${(k === 'on') === mk}">${t}</button>`).join('')}</span>`; };
+  const wireBst = root => root.querySelectorAll('[data-bst]').forEach(b => b.onclick = () => { const v = b.dataset.bst ? [b.dataset.bst] : []; if (String(B.fs) === String(v)) return; B.fs = v; B.tr = null; B.pk = null; B.fitNext = true; refresh(); });
   // ---------- 위 거르기 막대 ----------
-  // 10/28 단순화(5단계): 위 막대는 [진행 중 · 보류 · 거래완료] · 찾기 · 지도로 보기만 (아파트 화면의 [전체 · 매물만]과 같은 자리)
+  // 10/28 단순화(5단계): 위 막대는 상태 · 찾기 · 지도로 보기만 · 10/30 상태 → [전체 · 매물만] (아파트와 같게 · 넓은 화면은 탐색기 머리)
   //   매물 등록은 아래 주소 줄 하나 · 고치기는 줄을 누르면 오른쪽 입력창 · 지도 광고는 표 맨 끝 '리얼맵' 칸
   function drawBar() {
-    const st = B.fs[0] || 'on', inCat = H.items().filter(x => catOf(x) === B.cat), n = s => inCat.filter(x => x.status === s).length;
-    $('bdBar').innerHTML = `<div class="bd-row bd-fl bd-s"><b class="bd-tt">${esc(CATNAME[B.cat])}</b><span class="bd-cnt">진행 ${n('on')}</span><span class="sp"></span>
-      <span class="bst" role="tablist" aria-label="상태 고르기">${[['on', '진행 중'], ['hold', '보류'], ['done', '거래완료']].map(([k, t]) => `<button type="button" data-bst="${k}" aria-pressed="${st === k}">${t}${k !== 'on' && n(k) ? ` <small>${n(k)}</small>` : ''}</button>`).join('')}</span>
+    const inCat = H.items().filter(x => catOf(x) === B.cat), nOn = inCat.filter(x => x.status === 'on').length;
+    $('bdBar').innerHTML = `<div class="bd-row bd-fl bd-s"><b class="bd-tt">${esc(CATNAME[B.cat])}</b><span class="bd-cnt">${inCat.length}건 · 매물 <b>${nOn}</b></span>
+      ${bstHtml()}<span class="sp"></span>
       <input class="bd-find" id="bdFind" type="search" data-fk="find" placeholder="이 탭에서 찾기" value="${esc(B.q)}">
       <button type="button" class="tb map${B.map ? ' on' : ''}" id="bdMap">${B.map ? '지도 닫기' : '지도로 보기'}</button></div>`;
-    $('bdBar').querySelectorAll('[data-bst]').forEach(b => b.onclick = () => { if (B.fs[0] === b.dataset.bst) return; B.fs = [b.dataset.bst]; B.tr = null; B.pk = null; B.fitNext = true; refresh(); });
+    wireBst($('bdBar'));
     $('bdFind').oninput = e => { clearTimeout(B.fT); B.fT = setTimeout(() => { B.q = e.target.value.trim(); B.fitNext = true; refresh(); }, 250); };
     $('bdMap').onclick = () => { B.map = !B.map; keep(); B.fitNext = true; H.showMap(B.map); refresh(); };
   }
@@ -265,34 +270,34 @@ window.Board = (() => {
   const PRS = { ed: 'pop', g: '의뢰가격' }, CUR = { g: '현상태' };
   const COMMON_END = [K('imp', '꼭 챙길 것', { ed: 'in' })];
   const TAIL = [K('tel', '연락처'), K('h', '최근 기록', { s: 'h' }), K('pub', '리얼맵')];   // 10/28 상태는 위 [진행 중 · 보류 · 거래완료] · 상세 버튼 칸은 없앰 (줄을 누르면 입력창)
-  const RES = cat => [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', cat === 'apt' ? '단지' : '물건명', { s: 'nm' }),
+  const RES = cat => [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', cat === 'apt' ? '단지' : '물건명', { s: 'nm' }),
     ...(cat === 'home' ? [K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' })] : [K('dn', '동'), K('ho', '호')]), K('ar', cat === 'apt' ? '평형 · 타입' : '전용', { ed: 'in', s: 'ar' }), K('dir', '방향', { ed: 'in' }),
     K('kd', '거래', { ed: 'pop' }), K('ps', '매매', { ...PRS, s: 'ps' }), K('pj', '전세', { ...PRS, s: 'pj' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('mgmt', '관리비', { ed: 'in', g: '의뢰가격' }),
     ...(cat === 'apt' ? [K('gap', '갭', { g: '의뢰가격' })] : []), ...COMMON_END,
     K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL];
   const COLS = {
-    shop: [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' }), K('ho', '호'), K('ar', '전용', { ed: 'in', s: 'ar' }),
+    shop: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' }), K('ho', '호'), K('ar', '전용', { ed: 'in', s: 'ar' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매', { ...PRS, s: 'ps' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('prem', '권리금', { ed: 'in', g: '의뢰가격' }), K('mgmt', '관리비', { ed: 'in', g: '의뢰가격' }),
       K('biz', '업종', { ed: 'in' }), ...COMMON_END, K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL],
-    bld: [K('n', '번호', { s: 'at' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }), K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
+    bld: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }), K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ed: 'pop', g: '가격', s: 'ps' }), K('ppy', '대지 평당', { g: '가격', s: 'ppy' }), K('loan', '융자', { ed: 'in', g: '가격' }),
       K('rdep', '보증금 합', { g: '임대 현황', ed: 'det' }), K('rrent', '월세 합', { g: '임대 현황', ed: 'det' }), K('yld', '수익률', { g: '임대 현황', s: 'yld' }), K('vac', '공실', { g: '임대 현황', ed: 'det' }), ...COMMON_END, ...TAIL],
-    land: [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('addr', '주소', { s: 'addr' }), K('jimok', '지목 · 용도', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }), K('ar', '면적', { ed: 'in', s: 'ar' }), K('road', '도로', { ed: 'det' }),
+    land: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('addr', '주소', { s: 'addr' }), K('jimok', '지목 · 용도', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }), K('ar', '면적', { ed: 'in', s: 'ar' }), K('road', '도로', { ed: 'det' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('ppy', '평당', { g: '의뢰가격', s: 'ppy' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), ...COMMON_END, ...TAIL],
     apt: RES('apt'), ofc: RES('ofc'), home: RES('home'),
     // 재개발·재건축 (10/26): 프리미엄 = 매매가 − 권리가액 (자동)
-    redev: [K('n', '번호', { s: 'at' }), K('rk', '구분', { ed: 'pop', s: 'ty' }), K('rz', '구역명', { ed: 'in', s: 'rz' }), K('stage', '단계', { ed: 'pop', s: 'stage' }), K('form', '물건 형태', { ed: 'pop' }), K('addr', '주소', { s: 'addr' }),
+    redev: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('rk', '구분', { ed: 'pop', s: 'ty' }), K('rz', '구역명', { ed: 'in', s: 'rz' }), K('stage', '단계', { ed: 'pop', s: 'stage' }), K('form', '물건 형태', { ed: 'pop' }), K('addr', '주소', { s: 'addr' }),
       K('jsh', '대지지분', { ed: 'in', s: 'jsh' }), K('ar', '전용', { ed: 'in', s: 'ar' }), K('kd', '거래', { ed: 'pop' }),
       K('apv', '감정가', { ed: 'in', g: '가격', s: 'apv' }), K('rgt', '권리가액', { ed: 'in', g: '가격', s: 'rgt' }), K('ps', '매매가', { ed: 'pop', g: '가격', s: 'ps' }), K('prm', '프리미엄', { g: '가격', s: 'prm' }),
       K('msh', '조합원 분양', { ed: 'in' }), K('mvl', '이주비', { ed: 'in' }), ...COMMON_END,
       K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL],
     // 분양권 (10/26): 총액 = 분양가 + 프리미엄 (자동)
-    pre: [K('n', '번호', { s: 'at' }), K('ty', '종류', { ed: 'pop', s: 'ty' }), K('nm', '단지명', { s: 'nm' }), K('dn', '동'), K('ho', '호'), K('ar', '평형 · 타입', { ed: 'in', s: 'ar' }),
+    pre: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '종류', { ed: 'pop', s: 'ty' }), K('nm', '단지명', { s: 'nm' }), K('dn', '동'), K('ho', '호'), K('ar', '평형 · 타입', { ed: 'in', s: 'ar' }),
       K('ps', '분양가', { ed: 'pop', g: '가격', s: 'ps' }), K('prp', '프리미엄', { ed: 'pop', g: '가격', s: 'prp' }), K('ptot', '총액', { g: '가격', s: 'ptot' }),
       K('down', '계약금', { ed: 'in', g: '납부' }), K('mid', '중도금', { ed: 'pop', g: '납부' }), K('due', '입주예정', { ed: 'in', s: 'due' }), K('resale', '전매 가능일', { ed: 'in', s: 'resale' }), ...COMMON_END, ...TAIL],
   };
   // 공장·창고 · 숙박·기타: 건물 칸 + 유형 · 임대
-  COLS.fac = COLS.etc = [K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }),
+  COLS.fac = COLS.etc = [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }),
     K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
     K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('ppy', '대지 평당', { g: '의뢰가격', s: 'ppy' }), ...COMMON_END, ...TAIL];
   const MAPHIDE = ['h', 'biz', 'exp', 'cst', 'cdep', 'crent', 'mgmt', 'prem', 'road', 'zone', 'appr', 'scale', 'loan', 'vac', 'dir', 'ty', 'jimok', 'rdep', 'rrent', 'gap', 'pj', 'act'];
@@ -307,12 +312,13 @@ window.Board = (() => {
   function cell(x, c, n) {
     const P = places(x)[0] || {}, a = x.ad || {}, k = x.kind;
     switch (c) {
+      case 'mk0': { const on = x.status === 'on'; return `<button type="button" class="mkd${on ? ' on' : ''}" data-mkd="${x.id}" title="${on ? '매물입니다 · 누르면 매물에서 해제' : x.status === 'done' ? '거래완료 · 누르면 다시 매물로' : '누르면 매물로 등록'}" ${X.ro().has(x.id) ? 'disabled' : ''}>${on ? '●' : '○'}</button>`; }   // 10/30 아파트 장부와 같은 맨 앞 '매물'
       case 'n': return `<span class="no">${n}</span>`;
       case 'ty': return `<span class="ty ${catOf(x)}">${esc(chip(x))}</span>`;
       case 'nm': return x.bname ? `<b>${esc(x.bname)}</b>` : ep();
-      case 'addr': { const pl = places(x); return `<b>${esc(shortAddr(P.addr || x.addr))}</b>${pl.length > 1 ? ` <em>외 ${pl.length - 1}${isLand(x) ? '필지' : ''}</em>` : ''}`; }
+      case 'addr': { const n2 = new Set(places(x).map(q => q.pnu)).size; return `<b>${esc(shortAddr(P.addr || x.addr))}</b>${n2 > 1 ? ` <em>외 ${n2 - 1}${isLand(x) || isWhole(x) ? '필지' : ''}</em>` : ''}`; }   // 10/30 같은 건물 호수 더하기는 '호' 칸에서 외 n
       case 'dn': return P.dong ? esc(String(P.dong).replace(/동$/, '')) : ep();
-      case 'ho': return P.ho ? esc(String(P.ho).replace(/호$/, '')) : ep();
+      case 'ho': { const n2 = places(x).filter(q => q.ho).length; return P.ho ? esc(String(P.ho).replace(/호$/, '')) + (n2 > 1 ? ` <em>외 ${n2 - 1}</em>` : '') : ep(); }   // 10/30 호수 여러 개
       case 'fl': return a.fl || a.tfl ? `${esc(flTx(a.fl) || '?')}${a.tfl ? `<small>/${a.tfl}F</small>` : ''}` : ep('층');
       case 'ar': {
         if (!x.area) return ep('면적');
@@ -399,7 +405,7 @@ window.Board = (() => {
   }
   // 왼쪽 칸(번호 ~ 물건명·주소) 고정 — 글자 크기로 칸 너비가 바뀌면 다시 잼
   let RO_ = null;
-  const FZ = ['n', 'ty', 'nm', 'addr'];
+  const FZ = ['mk0', 'n', 'ty', 'nm', 'addr'];
   function fixCols() {
     const tb = $('bdT') && $('bdT').querySelector('table.bdt'); if (!tb) return;
     const put = () => {
@@ -445,6 +451,13 @@ window.Board = (() => {
     T.querySelectorAll('th[data-sort]').forEach(h => h.onclick = () => { const s = h.dataset.sort; if (B.sort === s) B.dir *= -1; else { B.sort = s; B.dir = ['at', 'pr', 'ar', 'memo', 'h'].includes(s) ? -1 : 1; } keep(); refresh(); });
     T.querySelectorAll('a[data-call]').forEach(a => a.onclick = e => { e.stopPropagation(); callLog(a.dataset.call); });
     T.querySelectorAll('[data-pubm]').forEach(b => b.onclick = e => { e.stopPropagation(); H.pubClick(b.dataset.pubm, b); });
+    // 10/30 맨 앞 '매물' ●/○: 누르면 매물(진행) ↔ 매물 아님(보류 — 지도 광고는 서버가 내림) · 기록은 남기지 않음
+    T.querySelectorAll('[data-mkd]').forEach(b => { b.ondblclick = e => e.stopPropagation(); b.onclick = e => {
+      e.stopPropagation(); const x = H.items().find(i => i.id === b.dataset.mkd); if (!x) return;
+      const on = x.status !== 'on';
+      if (!on && x.pub && x.pub.on && !confirm('리얼맵 지도에 게시 중인 매물입니다. 매물에서 해제하면 지도에서도 내려갑니다. 해제할까요?')) return;
+      saveItem(x.id, it => { it.status = on ? 'on' : 'hold'; }, on ? '매물로 등록했습니다' : '매물에서 해제했습니다');
+    }; });
     // 10/29 한 번 누르면 줄 선택만 · 두 번(더블클릭)·Enter = 입력창 · 10/30 손가락도 두 번(기기마다 같게)
     T.querySelectorAll('tr[data-id]').forEach(r => {
       r.onpointerup = e => { r._pt = e.pointerType; };
@@ -719,6 +732,15 @@ window.Board = (() => {
         <div class="rppl">${pl.map((p, i) => { const c = B.L[p.pnu]; return `<div class="pr"><span><b>${esc(shortAddr(p.addr))}</b> <small>${esc(c && c !== 'loading' ? [c.jimok, zoneS([c.zone1, c.zone2].filter(Boolean).join(' · '))].filter(Boolean).join(' · ') : '')}</small></span><input class="rpi" data-fk="pa:${id}:${i}" data-pa="${i}" value="${p.area || ''}" placeholder="㎡" ${dis}>${pl.length > 1 && !RO ? `<button type="button" class="rpdel" data-pdel="${i}" aria-label="이 필지 빼기">×</button>` : '<span></span>'}</div>`; }).join('')}</div>
         ${RO ? '' : `<input class="rpi" data-fk="pq:${id}" data-pq="${id}" placeholder="＋ 필지 추가: 지번을 치고 Enter" style="margin-top:6px"><div class="pres" data-pres="${id}">${B.add.pres && B.add.pres.id === id ? presHtml(B.add.pres.res) : ''}</div>`}
         <p class="rpn">합계 <b>${m2t(Math.round(tot * 100) / 100)}</b> (${pyt(tot)})${x.kind === 'sale' && x.price && tot ? ` · 평당 <b>${sw(x.price / (tot / PY))}</b>` : ''}</p></div>`;
+    } else if (cat !== 'pre') {
+      // 10/30 선배: 토지 말고도 주소 추가 — 건물·공장 = 필지 더하기(대지) · 상가·사무실·주택 = 호수 더하기(같은 건물) 또는 다른 건물 주소
+      const pl = places(x), W = k === 'whole', tot = pl.reduce((s0, p) => s0 + (p.area || 0), 0);
+      const lb = (p, i) => W ? (i === 0 ? '건물' : (p.land || p.ak === 'land') ? '대지' : '') : '';
+      const nm = p => [shortAddr(p.addr), dh(p)].filter(Boolean).join(' ');
+      body += `<div class="rps"><h4>${W ? '필지' : '주소 · 호수'} <small>${pl.length}곳</small></h4>
+        <div class="rppl">${pl.map((p, i) => `<div class="pr"><span><b>${esc(nm(p) || '(주소 없음)')}</b> <small>${esc(lb(p, i))}</small></span>${W && i === 0 ? '<span></span>' : `<input class="rpi" data-fk="pa:${id}:${i}" data-pa="${i}" value="${p.area || ''}" placeholder="${W ? '대지㎡' : '전용㎡'}" ${dis}>`}${pl.length > 1 && !RO ? `<button type="button" class="rpdel" data-pdel="${i}" aria-label="빼기">×</button>` : '<span></span>'}</div>`).join('')}</div>
+        ${RO ? '' : `<input class="rpi" data-fk="pq:${id}" data-pq="${id}" data-pqk="${W ? 'land' : 'ho'}" placeholder="${W ? '＋ 필지 추가: 지번을 치고 Enter (예: 12-3)' : '＋ 호수 추가: 호수를 치고 Enter (예: 102호) · 다른 건물은 주소'}" style="margin-top:6px"><div class="pres" data-pres="${id}">${B.add.pres && B.add.pres.id === id ? presHtml(B.add.pres.res) : ''}</div>`}
+        ${!W && pl.length > 1 && tot ? `<p class="rpn">전용 합계 <b>${m2t(Math.round(tot * 100) / 100)}</b> (${pyt(tot)})</p>` : ''}</div>`;
     }
     // 연락처
     const cs = [...(x.contacts || []), ...Array(B.cblank.get(id) || 0).fill({ role: '소유자' })];
@@ -1010,26 +1032,36 @@ window.Board = (() => {
     if (ln) { ln.onkeydown = e => { if (e.key === 'Enter') ln.blur(); }; ln.onchange = () => setTimeout(() => { const v = man(ln.value); if (Number.isNaN(v)) return H.toast('금액을 확인해 주세요'); saveItem(id, it => { it.loan = v; }); }, 0); }
     r.querySelectorAll('[data-rate]').forEach(rt => { rt.onchange = () => setTimeout(() => { const v = parseFloat(rt.value); if (v >= 0 && v < 30) { B.rate = v; keep(); refresh(); } }, 0); });
     r.querySelectorAll('[data-uk]').forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') i.blur(); }; i.onchange = () => setTimeout(() => { const v = man(i.value); if (Number.isNaN(v)) return H.toast('금액을 확인해 주세요'); saveItem(id, it => { it[i.dataset.uk] = v; }); }, 0); });
-    r.querySelectorAll('[data-pa]').forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') i.blur(); }; i.onchange = () => setTimeout(() => { const v = parseFloat(i.value.replace(/[^\d.]/g, '')) || null; saveItem(id, it => { it.places[+i.dataset.pa].area = v; }); }, 0); });
+    r.querySelectorAll('[data-pa]').forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') i.blur(); }; i.onchange = () => setTimeout(() => { const v = parseFloat(i.value.replace(/[^\d.]/g, '')) || null; saveItem(id, it => { const P = it.places[+i.dataset.pa]; P.area = v; if (detKind(x) === 'whole' && (P.land || P.ak === 'land')) P.site = v; }); }, 0); });   // 10/30 건물에 붙인 필지 = 대지면적
     r.querySelectorAll('[data-pdel]').forEach(b => b.onclick = () => { if (confirm('이 필지를 뺄까요?')) saveItem(id, it => { it.places.splice(+b.dataset.pdel, 1); }); });
     const pq = r.querySelector('[data-pq]');
     if (pq) pq.onkeydown = e => {
       if (e.key !== 'Enter' || e.isComposing) return; e.preventDefault();
       let q = pq.value.trim(); if (!q) return;
+      // 10/30 호수만 치면(102 · 102호 · B101 · 지하1층 · 3층) 같은 건물에 한 칸 더 (주소 찾기 없이)
+      const hm = pq.dataset.pqk === 'ho' && q.match(/^((?:B|b|지하|비)?\s*\d+(?:-\d+)?\s*(?:호|층)?)$/);
+      if (hm) {
+        const P0 = places(x)[0] || {}, ho = hm[1].replace(/\s+/g, '');
+        if (places(x).some(P => P.pnu === P0.pnu && String(P.ho || '').replace(/호$/, '') === ho.replace(/호$/, ''))) return H.toast('이미 들어 있는 호수입니다');
+        return saveItem(id, it => { if (!it.places || !it.places.length) it.places = [{ ...P0 }]; it.places.push({ pnu: P0.pnu, addr: P0.addr, lat: P0.lat, lng: P0.lng, bname: P0.bname || '', dong: P0.dong || '', ho, area: null, ak: P0.ak === 'tot' ? 'ex' : P0.ak || 'ex' }); }, `${/층$/.test(ho) ? ho : ho.replace(/호$/, '') + '호'}를 더했습니다`);
+      }
       // 지번만 치면 첫 필지의 동네를 붙여서 찾음
       if (/^산?\s*\d+(-\d+)?$/.test(q)) { const base = String(places(x)[0].addr || '').split(' '); const k = base.findIndex(t => /(동|가|리|읍|면)\d*$/.test(t) && !/[시군구]$/.test(t)); if (k >= 0) q = base.slice(0, k + 1).join(' ') + ' ' + q; }
+      let ho2 = ''; if (pq.dataset.pqk === 'ho') { const m2 = q.match(/\s((?:B|지하)?\d+(?:-\d+)?\s*(?:호|층))$/i); if (m2) { ho2 = m2[1].replace(/\s+/g, ''); q = q.slice(0, m2.index).trim(); } }   // '아현동 12-3 101호' → 주소 + 호
       B.add.pres = { id, res: 'busy' }; refresh();
-      kakaoFind(q, res => { B.add.pres = { id, res, q }; refresh(); });
+      kakaoFind(q, res => { B.add.pres = { id, res, q, ho: ho2 }; refresh(); });
     };
     r.querySelectorAll('[data-pr]').forEach(b => b.onclick = async () => {
-      const res = B.add.pres && B.add.pres.res, h = res && res[+b.dataset.pr]; if (!h) return;
+      const res = B.add.pres && B.add.pres.res, h = res && res[+b.dataset.pr], ho0 = (B.add.pres && B.add.pres.ho) || ''; if (!h) return;
       B.add.pres = null;
       try {
         const p = await H.api(`/api/parcel?lat=${h.lat}&lng=${h.lng}`);
         const pnu = p.pnu || p.bldPnu;
-        if (places(x).some(P => P.pnu === pnu)) return H.toast('이미 들어 있는 필지입니다');
+        const unit = detKind(x) === 'unit', ho = unit ? ho0 : '';
+        if (!unit && places(x).some(P => P.pnu === pnu)) return H.toast('이미 들어 있는 필지입니다');
+        if (unit) { saveItem(id, it => { it.places.push({ pnu, addr: p.addr || h.t, lat: h.lat, lng: h.lng, bname: '', dong: '', ho, area: null, ak: 'ex' }); }, '주소를 더했습니다'); return; }   // 10/30 상가 등: 다른 건물 주소
         const c = await landOf(pnu);
-        saveItem(id, it => { it.places.push({ pnu, addr: p.addr || h.t, lat: h.lat, lng: h.lng, bname: '', dong: '', ho: '', area: (c && c.area) || null, land: true, ak: 'land' }); }, '필지를 붙였습니다');
+        saveItem(id, it => { const ar = (c && c.area) || null; it.places.push({ pnu, addr: p.addr || h.t, lat: h.lat, lng: h.lng, bname: '', dong: '', ho: '', area: ar, ...(detKind(x) === 'whole' ? { site: ar } : {}), land: true, ak: 'land' }); }, '필지를 붙였습니다');
       } catch { H.toast('그 위치의 필지를 찾지 못했습니다', 3500); refresh(); }
     });
   }
@@ -1304,7 +1336,7 @@ window.Board = (() => {
       const nx = H.items()[0];
       B.add.D = null; B.add.q = '';
       if (nx) { B.hl = nx.id; B.pk = nx.id; }   // 10/28 등록하면 그 줄의 오른쪽 입력창이 열림 (나머지는 거기서)
-      if (B.fs.length && !B.fs.includes('on')) B.fs = ['on'];
+      if (B.fs.length && !B.fs.includes('on')) B.fs = [];
       if (B.fk.length && !B.fk.includes(kind)) B.fk = [];
       B.fc = []; B.fx = []; B.cf = null; B.tr = null;
       if (nx && catOf(nx) !== B.cat) { B.cat = catOf(nx); if (H.onCat) H.onCat(B.cat); H.toast(`${CATNAME[B.cat]} 탭으로 옮겼습니다`, 2500); }   // 등록한 매물의 종류 탭으로
@@ -1363,11 +1395,11 @@ window.Board = (() => {
   function reveal(id) {
     const x = H.items().find(i => i.id === id); if (!x) return;
     B.cat = catOf(x); if (H.onCat) H.onCat(B.cat); B.sel = null; B.ed = null; B.add.D = null;
-    B.fk = []; B.fc = []; B.fx = []; B.cf = null; B.tr = null; B.q = ''; B.fs = [x.status];
+    B.fk = []; B.fc = []; B.fx = []; B.cf = null; B.tr = null; B.q = ''; if (B.fs.length && !B.fs.includes(x.status)) B.fs = [];
     B.pk = id; B.hl = id; keep(); refresh(); setTimeout(() => focus(id, true), 60);
   }
   // 위 탭에서 종류를 고름 (listings.js) — 탭을 바꾸면 거르기는 처음대로(상태만 유지)
-  function setCat(c) { if (!CATS[c] || c === B.cat) return; B.cat = c; B.tr = null; B.cf = null; B.fx = []; B.fk = []; B.fc = []; B.ed = null; B.sel = null; B.hist = null; B.add.D = null; B.pk = null; B.fs = ['on']; keep(); B.fitNext = true; refresh(); }
+  function setCat(c) { if (!CATS[c] || c === B.cat) return; B.cat = c; B.tr = null; B.cf = null; B.fx = []; B.fk = []; B.fc = []; B.ed = null; B.sel = null; B.hist = null; B.add.D = null; B.pk = null; B.fs = []; keep(); B.fitNext = true; refresh(); }
   const counts = () => { const o = {}; (H ? H.items() : []).forEach(x => { if (x.status === 'on') { const c = catOf(x); o[c] = (o[c] || 0) + 1; } }); return o; };
   return { init, mount, refresh, focus, reveal, autoItem, setCat, cat: () => B.cat, catOf, counts, CATNAME, autoLines, _man: man };
 })();
