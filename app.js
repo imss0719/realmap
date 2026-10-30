@@ -2954,6 +2954,113 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 카드는 사진·가격·면적만 간단히 보여 주고, 누르면 그 자리에서 펼쳐 상세·실거래 비교·연락처를 보여 줌
   const LP = { open: false, pnu: null, f: 'all', sort: 'new', exp: new Set(), closed: false };
   const lsYmd = iso => iso ? iso.slice(2, 10).replace(/-/g, '.') : '';
+
+  // ---------- 10/30 아파트·오피스텔 매물 자동 그림 (사진이 없어도 비지 않게) ----------
+  //   ① 단지 배치도: /api/parcel?dongs=1 (필지 경계 + 도로명주소 건물 윤곽·지상층수) → 매물 동만 노란색 · 북쪽이 위
+  //   ② 층 위치도: 그 동 전체 층 중 매물 층만 (정확한 층 또는 저·중·고층 구간) — 호·라인은 공개하지 않으므로 그리지 않음
+  const FIG_T = ['아파트', '오피스텔'];
+  const figOn = x => FIG_T.includes(x.pbase || x.ptype) && !!x.pnu;
+  const ndg = s => String(s || '').replace(/\s/g, '').replace(/^제/, '').replace(/동$/, '').toUpperCase();
+  const FIGC = new Map();   // pnu|dong → Promise(단지 자료)
+  function figData(x) {
+    const k = `${x.pnu}|${ndg(x.dong)}`;
+    if (!FIGC.has(k)) FIGC.set(k, (async () => {
+      const d = await api(`/api/parcel?pnu=${x.pnu}&dongs=1`, 2);
+      const B = (d.buildings || []).filter(b => b.ring && b.ring.length > 2);
+      if (x.dong && !B.some(b => ndg(b.dong) === ndg(x.dong))) {   // 필지 밖으로 걸친 동 → 그 동만 따로 찾아 붙임
+        try { const w = await api(`/api/parcel?pnu=${x.pnu}&dongs=1&want=${encodeURIComponent(ndg(x.dong))}${x.bname ? '&name=' + encodeURIComponent(x.bname) : ''}`, 2); (w.buildings || []).forEach(b => { if (b.ring && b.ring.length > 2) B.push(b); }); } catch { /* 없으면 그대로 */ }
+      }
+      return { parcel: d.parcel, B };
+    })().catch(() => null));
+    return FIGC.get(k);
+  }
+  // 매물의 층 → 표시할 층 구간 [아래, 위] (저·중·고층은 서버 floorText와 같은 3등분)
+  function figRange(x, t) {
+    const f = String(x.flr || '');
+    if (!t) return null;
+    const m = f.match(/^(\d+)층/); if (m) { const v = Math.min(+m[1], t); return [v, v, `${v}층`]; }
+    const a = Math.floor(t / 3), b = Math.floor(t * 2 / 3);
+    if (f === '저층') return [1, Math.max(1, a), `저층 (1~${Math.max(1, a)}층)`];
+    if (f === '중층') return [a + 1, Math.max(a + 1, b), `중층 (${a + 1}~${Math.max(a + 1, b)}층)`];
+    if (f === '고층') return [b + 1, t, `고층 (${b + 1}~${t}층)`];
+    return null;
+  }
+  function figFloor(x, t, mini) {
+    t = Math.round(+t || 0); if (!t || t > 120) return '';
+    const rg = figRange(x, t); if (!rg) return '';
+    const W = mini ? 72 : 320, H = mini ? 72 : 220, top = mini ? 6 : 26, bot = mini ? 8 : 34;
+    const rh = Math.max(mini ? 1.2 : 2.5, Math.min(mini ? 4 : 11, (H - top - bot) / t)), bh = rh * t, by = H - bot - bh;
+    const bw = mini ? 30 : 104, bx = mini ? 21 : 108;
+    let rows = '';
+    for (let i = 1; i <= t; i++) { const y = by + bh - i * rh, on = i >= rg[0] && i <= rg[1]; rows += `<rect x="${bx}" y="${y.toFixed(1)}" width="${bw}" height="${rh.toFixed(1)}" fill="${on ? '#FFD25E' : '#F4F6F9'}" stroke="${on ? '#C98A00' : '#C9D2DC'}" stroke-width="${mini ? 0.4 : rh > 5 ? 0.8 : 0.4}"/>`; }
+    const y1 = by + bh - rg[1] * rh, y2 = by + bh - (rg[0] - 1) * rh;
+    if (mini) return `<svg viewBox="0 0 72 72" class="lfig-mini" role="img" aria-label="${esc(rg[2])}"><rect width="72" height="72" fill="#fff"/>${rows}<line x1="10" y1="${H - bot}" x2="62" y2="${H - bot}" stroke="#94A0AD" stroke-width="1"/></svg>`;
+    const dn = x.dong ? `${/동$/.test(x.dong) ? x.dong : x.dong + '동'}` : (x.bname || '이 건물');
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(dn)} 층 위치 ${esc(rg[2])}"><rect width="${W}" height="${H}" fill="#fff"/>
+      <rect x="${bx - 3}" y="${(by - 4).toFixed(1)}" width="${bw + 6}" height="4" fill="#C9D2DC"/>${rows}
+      <line x1="40" y1="${H - bot}" x2="${W - 40}" y2="${H - bot}" stroke="#7B8794" stroke-width="1.2"/>
+      <g font-size="10.5" fill="#7B8794" text-anchor="end"><text x="${bx - 8}" y="${(by + Math.min(rh, 10)).toFixed(1)}">${t}층</text><text x="${bx - 8}" y="${H - bot - 2}">1층</text></g>
+      <path d="M${bx + bw + 6} ${y1.toFixed(1)} h7 V${y2.toFixed(1)} h-7" fill="none" stroke="#C98A00" stroke-width="1.4"/>
+      <text x="${bx + bw + 18}" y="${((y1 + y2) / 2 + 4).toFixed(1)}" font-size="12" font-weight="700" fill="#8A5A00">${esc(rg[2].replace(/ \(.*\)$/, ''))}</text>
+      ${rg[2].includes('(') ? `<text x="${bx + bw + 18}" y="${((y1 + y2) / 2 + 18).toFixed(1)}" font-size="10" fill="#A17A2C">${esc(rg[2].match(/\((.*)\)/)[1])}</text>` : ''}
+      <text x="${W / 2}" y="${H - 12}" font-size="11.5" fill="#3B4754" text-anchor="middle" font-weight="700">${esc(dn)} · 지상 ${t}층</text></svg>`;
+  }
+  function figSite(x, d) {
+    if (!d || !d.B.length) return '';
+    const W = 320, H = 220, P = 16;
+    const rings = [...(d.parcel ? (d.parcel.type === 'Polygon' ? [d.parcel.coordinates[0]] : d.parcel.type === 'MultiPolygon' ? d.parcel.coordinates.map(c => c[0]) : []) : []), ...d.B.map(b => b.ring)];
+    const all = rings.flat(); if (!all.length) return '';
+    const lat0 = all.reduce((s, p) => s + p[1], 0) / all.length, kx = Math.cos(lat0 * Math.PI / 180) * 111320, ky = 110540;
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    const pr = ([lo, la]) => [lo * kx, -la * ky];
+    all.forEach(p => { const [a, b] = pr(p); x1 = Math.min(x1, a); x2 = Math.max(x2, a); y1 = Math.min(y1, b); y2 = Math.max(y2, b); });
+    const sc = Math.min((W - 2 * P) / Math.max(1, x2 - x1), (H - 2 * P - 14) / Math.max(1, y2 - y1)), ox = (W - (x2 - x1) * sc) / 2, oy = (H - 14 - (y2 - y1) * sc) / 2;
+    const pt = p => { const [a, b] = pr(p); return [ox + (a - x1) * sc, oy + (b - y1) * sc]; };
+    const path = r => r.map((p, i) => { const [a, b] = pt(p); return `${i ? 'L' : 'M'}${a.toFixed(1)} ${b.toFixed(1)}`; }).join('') + 'Z';
+    const cen = r => { const q = r.map(pt); return [q.reduce((s, p) => s + p[0], 0) / q.length, q.reduce((s, p) => s + p[1], 0) / q.length]; };
+    const size = r => { const q = r.map(pt), xs = q.map(p => p[0]), ys = q.map(p => p[1]); return Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)); };
+    // 매물 동: 동 이름이 같은 건물 · 동이 없으면(오피스텔 등) 매물 위치에 가장 가까운 건물
+    let tgt = x.dong ? d.B.find(b => ndg(b.dong) === ndg(x.dong)) : null;
+    if (!tgt && !x.dong && x.lat) tgt = d.B.slice().sort((a, b) => Math.hypot(a.lat - x.lat, a.lng - x.lng) - Math.hypot(b.lat - x.lat, b.lng - x.lng))[0];
+    if (!tgt) return '';
+    const par = d.parcel ? (d.parcel.type === 'Polygon' ? [d.parcel.coordinates[0]] : d.parcel.type === 'MultiPolygon' ? d.parcel.coordinates.map(c => c[0]) : []) : [];
+    const bl = d.B.map(b => { const me = b === tgt, [cx, cy] = cen(b.ring), q = b.ring.map(pt), lb = me ? (x.dong ? `${ndg(x.dong)}동` : (x.bname || '이 건물').slice(0, 12)) : (b.dong ? ndg(b.dong) : ''); return { me, d: path(b.ring), cx, cy, top: Math.min(...q.map(p => p[1])), btm: Math.max(...q.map(p => p[1])), lb, big: size(b.ring) > 13 }; });
+    const tg = bl.find(b => b.me);
+    // 이름표는 건물을 가리지 않게 위쪽에 (위가 모자라면 아래쪽) · 꼬리로 건물을 가리킴
+    const lw = tg.lb.length * 11 + 14, up = tg.top - 26 > 4, ly = up ? tg.top - 24 : tg.btm + 7, lx = Math.max(4, Math.min(W - 4 - lw, tg.cx - lw / 2));
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="단지 배치도 ${esc(tg.lb)} 위치"><rect width="${W}" height="${H}" fill="#fff"/>
+      ${par.map(r => `<path d="${path(r)}" fill="#F2F6EE" stroke="#A9B8A0" stroke-width="1" stroke-dasharray="4 3"/>`).join('')}
+      ${bl.filter(b => !b.me).map(b => `<path d="${b.d}" fill="#E7EBF0" stroke="#9AA5B1" stroke-width="0.8"/>`).join('')}
+      <path d="${tg.d}" fill="#FFD25E" stroke="#C98A00" stroke-width="1.6"/>
+      <g font-size="9.5" fill="#5B6774" text-anchor="middle">${bl.filter(b => !b.me && b.lb && b.big).map(b => `<text x="${b.cx.toFixed(1)}" y="${(b.cy + 3.5).toFixed(1)}">${esc(b.lb)}</text>`).join('')}</g>
+      <g><path d="M${(tg.cx - 5).toFixed(1)} ${(up ? ly + 17 : ly).toFixed(1)} L${tg.cx.toFixed(1)} ${(up ? ly + 22 : ly - 5).toFixed(1)} L${(tg.cx + 5).toFixed(1)} ${(up ? ly + 17 : ly).toFixed(1)}Z" fill="#14212E"/><rect x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" width="${lw}" height="17" rx="8.5" fill="#14212E"/><text x="${(lx + lw / 2).toFixed(1)}" y="${(ly + 12.5).toFixed(1)}" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">${esc(tg.lb)}</text></g>
+      <g transform="translate(${W - 20},18)"><path d="M0 -9 L5 5 L0 2 L-5 5Z" fill="#3B4754"/><text y="16" font-size="9" fill="#3B4754" text-anchor="middle">N</text></g>
+      <text x="${W / 2}" y="${H - 6}" font-size="10" fill="#94A0AD" text-anchor="middle">공공 지도자료(도로명주소 건물) 기준 · 실제와 조금 다를 수 있음</text></svg>`;
+  }
+  // 상세를 그린 뒤 자리 채우기 (단지 자료는 한 번 받아 둠)
+  function fillFigs() {
+    document.querySelectorAll('[data-figk]:not([data-done])').forEach(async el => {
+      el.dataset.done = '1';
+      const x = LP_ITEMS.get(el.dataset.figk); if (!x) return;
+      const d = await figData(x);
+      const tg = d && d.B && (x.dong ? d.B.find(b => ndg(b.dong) === ndg(x.dong)) : null);
+      const site = figSite(x, d), t = +x.tfl || (tg && tg.floors) || 0;
+      const fl = el.querySelector('.lfig-f'), st = el.querySelector('.lfig-s');
+      if (st) { if (site) st.querySelector('.lfig-b').innerHTML = site; else st.remove(); }
+      if (fl && !fl.dataset.has && t) { const sv = figFloor(x, t); if (sv) { fl.querySelector('.lfig-b').innerHTML = sv; fl.hidden = false; } }
+      if (!el.querySelector('.lfig-t:not([hidden])')) el.remove();
+    });
+  }
+  const LP_ITEMS = new Map();
+  function figHtml(x) {
+    if (!figOn(x)) return '';
+    LP_ITEMS.set(x.k, x);
+    const fl = x.tfl ? figFloor(x, x.tfl) : '';
+    setTimeout(fillFigs, 0);
+    return `<div class="lfig" data-figk="${esc(x.k)}">
+      <figure class="lfig-t lfig-s"><div class="lfig-b"><span class="lfig-ld">단지 배치도를 그리는 중…</span></div><figcaption><i>리얼맵 자동 그림</i>단지 배치도</figcaption></figure>
+      <figure class="lfig-t lfig-f"${fl ? ' data-has="1"' : ' hidden'}><div class="lfig-b">${fl}</div><figcaption><i>리얼맵 자동 그림</i>층 위치 · 호는 공개하지 않음</figcaption></figure></div>`;
+  }
   function lsDetail(x) {
     const MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
     const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${({ fix: ' (정액)', use: ' (사용량에 따라 부과)', rule: ' (관리규약에 따라 부과)' })[x.mgmtT] || ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
@@ -2985,7 +3092,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const btns = IS_PHONE
       ? `${tel ? `<a href="tel:${tel}">전화</a>` : ''}${mob ? `<a href="sms:${mob}${/iPhone|iPad/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(sms)}">문자</a>` : ''}`
       : `${x.bk.tel ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.tel)}">☎ ${esc(x.bk.tel)}</button>` : ''}${x.bk.mobile ? `<button type="button" class="lcopy" data-copy="${esc(x.bk.mobile)}">📱 ${esc(x.bk.mobile)}</button>` : ''}`;
-    return `${x.photos.length > 1 ? `<div class="lph">${x.photos.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="매물 사진 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
+    return `${x.photos.length > 1 ? `<div class="lph">${x.photos.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="매물 사진 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}${figHtml(x)}
       <div class="lpr">${esc(lsPriceFull(x))}</div>
       ${lsCompare(x)}
       ${x.desc ? `<p class="ldesc">${esc(x.desc)}</p>` : ''}
@@ -3003,7 +3110,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const what = `${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.form && /^재(개발|건축)$/.test(x.ptype) ? `${x.ptype} ${x.form}` : x.ptype)}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}`;
     return `<div class="lc${open ? ' open' : ''}">
       <button type="button" class="lc-top" data-lx="${esc(x.k)}" aria-expanded="${open}">
-        ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : '<span class="lc-th none">사진<br>없음</span>'}
+        ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : figOn(x) && x.tfl && figFloor(x, x.tfl, true) ? `<span class="lc-th fig" title="자동 그림 · 층 위치">${figFloor(x, x.tfl, true)}</span>` : '<span class="lc-th none">사진<br>없음</span>'}
         <span class="lc-tx"><span class="lc-k"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${what}${x.viol ? ' <b class="lviol">위반</b>' : ''}</span>
           <b class="lc-pr">${esc(lsPrice(x))}</b><small>${esc(meta)}</small><small class="lc-of">${lsAv(x.bk, 'lav')}${esc(x.bk.office)}</small></span>
         <span class="lc-ar" aria-hidden="true">›</span></button>
