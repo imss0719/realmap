@@ -1254,6 +1254,9 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     if ($('psToPanel')) $('psToPanel').onclick = () => { const id = x.id, md = S.mode; closeForm(); if (md === 'list' && window.Board) Board.reveal(id); else toast('아파트 장부에서 그 호를 두 번 눌러 입력창의 빈 칸을 채워 주세요', 4000); };
     if ($('psDong')) $('psDong').onchange = e => { set(); P.U.cur = e.target.value; psUnits(P); drawPubSheet(); };
     if ($('psHo')) $('psHo').onchange = e => { set(); if (e.target.value) psPickHo(P, e.target.value); };
+    const hoTx = v => { set(); const p = P.x.places[0] || (P.x.places[0] = {}); p.ho = String(v || '').trim().slice(0, 12); drawPubSheet(); };
+    if ($('psHoTx')) $('psHoTx').onchange = e => hoTx(e.target.value);
+    if ($('psHoAll')) $('psHoAll').onclick = () => { const a = P.x.ad || (P.x.ad = {}); if (!a.fl) a.fl = '전체'; hoTx('전체'); };
   }
   // 10/29 지도에서 아파트·오피스텔을 올릴 때 등록창 안에서 동·호 고르기 (예전에는 큰 매물카드로 넘어감)
   function psUnitHtml(P) {
@@ -1261,7 +1264,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     const list = Array.isArray(L) ? L.filter(u => U.byDong || String(u.dong || '').trim() === U.cur) : [], nh = v => String(v || '').replace(/호$/, '');
     const dsel = U.dongs.length >= 2 ? `<select class="pin2" id="psDong">${U.dongs.map(d => `<option ${d === U.cur ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>` : '';
     const hsel = !L || L === 'loading' ? '<select class="pin2" disabled><option>호 목록 불러오는 중…</option></select>'
-      : L === 'error' || !list.length ? '<span class="pmeta">호 목록을 불러오지 못했습니다. 중개장부 [매물]에서 주소로 등록해 주세요</span>'
+      : L === 'error' || !list.length ? `<input class="pin2" id="psHoTx" value="${esc(p0.ho || '')}" placeholder="호수 직접 입력 (예: 201호 · 2층)" maxlength="12" style="width:190px"> <button type="button" class="btn sub" id="psHoAll">건물 전체</button><div class="pmeta" style="margin-top:4px">건축물대장에 호 목록이 없는 건물입니다 (단독·다가구 등). 직접 적거나 [건물 전체]를 눌러 주세요</div>`   // 10/30 선배: 호 목록이 없으면 저장을 못 하던 것
       : `<select class="pin2" id="psHo"${U.busy ? ' disabled' : ''}><option value="">호 고르기</option>${list.map(u => `<option value="${esc(u.ho)}" ${nh(U.busy || p0.ho) === nh(u.ho) ? 'selected' : ''}>${esc(u.ho)}${u.flr != null ? ` (${u.flrGb === '지하' ? 'B' : ''}${u.flr}층)` : ''}</option>`).join('')}</select>`;
     const done = !!p0.ho && !U.busy;
     return `<div class="ps-need ps-unit${P.tried && !p0.ho ? ' tried' : ''}${done ? ' ok' : ''}"><h4>동 · 호 ${done ? '<em class="ok">골랐습니다</em>' : '<em>골라 주세요</em>'}</h4><div class="prow">${dsel} ${hsel}</div>
