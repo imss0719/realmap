@@ -772,3 +772,10 @@ a.favbtn{text-decoration:none}
 .gof.cl{padding:1px 2px 1px 6px;gap:4px}.gof.cl i{display:grid;place-items:center;width:auto;height:auto;background:none;border:0;box-shadow:none;color:#fff}
 .gof.cl b{margin-right:0;font-size:10.5px;padding:0 5px}
 #ofCard .gl{max-height:38vh;overflow-y:auto;display:grid;gap:2px}#ofCard .gl b{font-size:14.5px;font-weight:700;white-space:normal}#ofCard .gh{font-size:15.5px!important;margin-bottom:4px}
+/* 10/30 실거래 작은 범례 (왼쪽 아래 · 동별 시세 범례와 같은 자리) — 거래가/평당가 + 색 */
+.tleg{position:absolute;left:12px;bottom:26px;z-index:12;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.14);padding:6px 8px 5px;font-size:11.5px;width:max-content;max-width:calc(100% - 24px)}
+.tleg .tmode{margin:0 0 5px;padding:2px}.tleg .tmode button{font-size:12px;padding:3px 10px}
+.tleg .tlg{display:flex;gap:9px;font-weight:600;color:var(--fg)}.tleg .tlg span{display:inline-flex;align-items:center;gap:4px}.tleg .tlg i{width:10px;height:10px;border-radius:3px}
+.tleg small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.map.lp-on .tleg{left:312px}
+@media (max-width:760px){.tleg{top:118px;bottom:auto;left:16px}}

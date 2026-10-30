@@ -1327,8 +1327,8 @@
   const zcolor = z => ZTYPE[z.type] || ZTYPE['기타'];
 
   function devInit() {
-    // 개발지도 버튼: 꺼져 있으면 켜기 → 켜져 있고 패널이 닫혀 있으면 패널 열기 → 패널이 열려 있으면 끄기
-    $('mtDev').onclick = () => { if (!D.on) toggleDev(true); else if ($('devpanel').hidden) { $('devpanel').hidden = false; $('tpanel').hidden = true; } else toggleDev(false); };
+    // 10/30 선배: 개발지도 버튼은 켜기·끄기만 (종류 고르는 창 없음 · 늘 모든 종류)
+    $('mtDev').onclick = () => toggleDev(!D.on);
     $('devClose').onclick = () => { $('devpanel').hidden = true; };
     const boxes = [...document.querySelectorAll('[data-jb]')];
     const syncAll = () => { $('jbAll').checked = boxes.every(b => b.checked); $('jbAll').indeterminate = !$('jbAll').checked && boxes.some(b => b.checked); };
@@ -1340,8 +1340,7 @@
   function toggleDev(on) {
     D.on = on; D.hinted = false;
     $('mtDev').setAttribute('aria-pressed', on);
-    $('devpanel').hidden = !on;
-    if (on) $('tpanel').hidden = true;
+    $('devpanel').hidden = true;
     if (!on) hideZone();
     devRefresh();
   }
@@ -2230,7 +2229,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   function measureToggle(on) {
     M.on = on; $('mtMeasure').setAttribute('aria-pressed', on); $('measure').hidden = !on;
-    if (!on) measureClear(); else { $('devpanel').hidden = true; $('tpanel').hidden = true; toast(M.mode === 'sum' ? '합산할 필지를 차례로 눌러 주세요' : '지도에서 지점을 차례로 눌러 주세요'); }
+    if (!on) measureClear(); else { $('devpanel').hidden = true; toast(M.mode === 'sum' ? '합산할 필지를 차례로 눌러 주세요' : '지도에서 지점을 차례로 눌러 주세요'); }
     measureDraw();
   }
   function measureClear() {
@@ -2289,23 +2288,19 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const eok = man => { if (man >= 10000) { const e = man / 10000; const d = e >= 10 ? 10 : 100; return `${String(Math.round(e * d) / d)}억`; } return `${n(man)}만`; };
   function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds, mode: T.mode })); } catch { /* 저장소 없음 */ } }
   function tradeMapInit() {
-    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; Object.assign(T.kinds, v.kinds || {}); if (v.mode === 'py') T.mode = 'py'; } } catch { /* 저장소 없음 */ }
+    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; if (v.mode === 'py') T.mode = 'py'; } } catch { /* 저장소 없음 */ }   // 10/30 종류 고르기 없앰 → 늘 아파트·빌라·오피스텔 모두
     // 거래가 · 평당가(전용 기준) 전환 — 고른 쪽을 기억
-    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); $('tSec').textContent = T.mode === 'py' ? '최근 6개월 매매 · 건물별 최근 거래의 평당가 (전용면적 기준)' : '최근 6개월 매매 · 건물별 최근 거래가'; };
+    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); $('tSec').textContent = T.mode === 'py' ? '최근 6개월 매매 · 평당가 (전용 기준)' : '최근 6개월 매매 · 최근 거래가'; };
     document.querySelectorAll('[data-tm]').forEach(b => b.onclick = () => { if (T.mode === b.dataset.tm) return; T.mode = b.dataset.tm; tmSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); drawTrades(); });
     tmSync();
-    const boxes = [...document.querySelectorAll('[data-tk]')];
-    boxes.forEach(cb => { cb.checked = !!T.kinds[cb.dataset.tk]; cb.onchange = () => { T.kinds[cb.dataset.tk] = cb.checked; tSave(); tradeRefresh(); }; });
     const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); };
     setOn(T.on);
-    // 실거래 버튼: 꺼져 있으면 켜고 선택 창 열기 → 켜져 있고 창이 닫혀 있으면 창 열기 → 창이 열려 있으면 끄기
+    // 10/30 선배: 실거래 버튼은 켜기·끄기만 (고르는 창 없음) · 범례·거래가/평당가는 지도 왼쪽 아래 작은 상자(tradeRefresh가 보이고 숨김)
     $('mtTrade').onclick = () => {
-      if (!T.on) { setOn(true); openTPanel(); if (S.map.getLevel() > 11) toast('조금 더 확대하면 구별·동별 시세와 건물별 실거래가가 보입니다'); }
-      else if ($('tpanel').hidden) openTPanel();
-      else { setOn(false); $('tpanel').hidden = true; }
+      setOn(!T.on);
+      if (T.on && S.map.getLevel() > 11) toast('조금 더 확대하면 구별·동별 시세와 건물별 실거래가가 보입니다');
       tradeRefresh(); priceRefresh();
     };
-    $('tClose').onclick = () => { $('tpanel').hidden = true; };
     kakao.maps.event.addListener(S.map, 'idle', tradeRefresh);
     kakao.maps.event.addListener(S.map, 'idle', priceRefresh);
     // 동별 시세 설정
@@ -2585,7 +2580,6 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     $('pmClose').onclick = close;
     $('pmGo').onclick = () => { close(); S.map.setLevel(ly === 'g' ? 7 : 4); S.map.setCenter(new kakao.maps.LatLng(f.ctr[1], f.ctr[0])); };
   }
-  function openTPanel() { $('devpanel').hidden = true; $('tpanel').hidden = false; }
   function regionAt(lat, lng) {
     return new Promise(ok => S.geocoder.coord2RegionCode(lng, lat, (r, st) => {
       if (st !== kakao.maps.services.Status.OK) return ok(null);
@@ -2653,6 +2647,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   const tActive = () => T.on && S.map.getLevel() <= MAXLV && Object.values(T.kinds).some(Boolean);
   async function tradeRefresh() {
+    $('tpanel').hidden = !tActive();   // 10/30 작은 범례 (건물별 가격이 보일 때만 · 축소하면 동별 시세 범례가 같은 자리)
     if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), c = S.map.getCenter();
     const pts = [[c.getLat(), c.getLng()], [sw.getLat(), sw.getLng()], [ne.getLat(), ne.getLng()], [sw.getLat(), ne.getLng()], [ne.getLat(), sw.getLng()]];
