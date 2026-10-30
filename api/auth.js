@@ -1026,7 +1026,8 @@ export default async function (req, res) {
       const a = {};
       for (const [k, v] of Object.entries(b.a || {}).slice(0, 60)) {
         const ar = Math.round(parseFloat(k) * 100) / 100, py = Math.round(+((v || {}).py) || 0), t = String((v || {}).t || '').replace(/[^0-9A-Za-z가-힣\-]/g, '').slice(0, 8);
-        if (ar > 5 && ar < 500 && (py > 0 && py < 300 || t)) a[ar.toFixed(2)] = { ...(py > 0 && py < 300 ? { py } : {}), ...(t ? { t } : {}) };
+        const img = ownPhoto(String((v || {}).img || ''), ADMIN_ID) ? String(v.img) : '';   // 10/30 타입 평면도 (운영자가 올린 사진만)
+        if (ar > 5 && ar < 500 && (py > 0 && py < 300 || t || img)) a[ar.toFixed(2)] = { ...(py > 0 && py < 300 ? { py } : {}), ...(t ? { t } : {}), ...(img ? { img } : {}) };
       }
       if (!Object.keys(a).length) await redis(['HDEL', K, b.pnu]);
       else await redis(['HSET', K, b.pnu, JSON.stringify({ n: String(b.n || '').slice(0, 40), a, at: new Date().toISOString() })]);
