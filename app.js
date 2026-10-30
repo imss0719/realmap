@@ -2845,20 +2845,28 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (lv > 4 || !inSeoul(S.map.getCenter())) return hide();
     if (!GR.rows) { if (!GR.busy) { GR.busy = true; fetch('/data/offices-seoul.json').then(r => r.json()).then(j => { GR.rows = j.rows || []; drawGray(); }).catch(() => { GR.rows = []; }); } return; }
     const mem = new Set(); for (const x of LS.all || []) { const r = String((x.bk && x.bk.regno) || '').replace(/\D/g, ''); if (r) mem.add(r); }
-    const b = S.map.getBounds(), named = true, show = new Set();   // 10/30 선배 결정: G형 '○○부동산' 알약 (레벨 1~4 · '중' 표시는 뺌)
+    const b = S.map.getBounds(), proj = S.map.getProjection(), show = new Set();
+    // 10/30 선배 결정: 비율 50% · 주변에 몰려 있으면(화면 칸 하나에 건물 2곳 이상) 집 모양 + '부동산' + 숫자 하나로 묶고, 누르면 목록
+    const cs = innerWidth <= 760 ? 84 : 96, cells = new Map();
     GR.rows.forEach((g, i) => {
       const ll = new K.LatLng(g[0], g[1]); if (!b.contain(ll)) return;
       const ns = String(g[2]).split('|'), rs = String(g[3] || '').split('|'), L = ns.filter((n, k) => n && !mem.has(rs[k]));
       if (!L.length) return;
-      const id = i + ':' + (named ? 'n' : 'd') + ':' + L.length; show.add(id);
+      const pt = proj.containerPointFromCoords(ll), ck = Math.floor(pt.x / cs) + ':' + Math.floor(pt.y / cs);
+      const c = cells.get(ck) || cells.set(ck, { ll, list: [], ids: [] }).get(ck); c.list.push(...L); c.ids.push(i);
+    });
+    const HOUSE = '<svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3 2 11.5h3V21h5.5v-6h3v6H19v-9.5h3z"/></svg>';
+    cells.forEach(c => {
+      const many = c.ids.length > 1, L = c.list;
+      const id = (many ? 'c' : 'b') + c.ids.join(',') + ':' + L.length; show.add(id);
       let o = GR.ovs.get(id);
       if (!o) {
-        const el = document.createElement('button'); el.type = 'button'; el.className = 'gof' + (named ? ' nm' : '');
-        el.title = L.join(', ') + ' · 리얼맵 미가입';
-        const sn = ofName({ office: L[0] }).replace(/\s*\d{2,4}-\d{3,4}-\d{4}.*$/, '').replace(/[·,].*$/, '').trim();
-        el.innerHTML = `<span>${esc(sn.length > 7 ? sn.slice(0, 7) + '…' : sn + (/부동산$/.test(sn) ? '' : '부동산'))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}`;
+        const el = document.createElement('button'); el.type = 'button'; el.className = 'gof' + (many ? ' cl' : '');
+        el.title = (many ? `이 근처 미가입 중개사무소 ${L.length}곳` : L.join(', ')) + ' · 누르면 목록';
+        if (many) el.innerHTML = `<i>${HOUSE}</i><span>부동산</span><b>${L.length}</b>`;
+        else { const sn = ofName({ office: L[0] }).replace(/\s*\d{2,4}-\d{3,4}-\d{4}.*$/, '').replace(/[·,].*$/, '').trim(); el.innerHTML = `<span>${esc(sn.length > 7 ? sn.slice(0, 7) + '…' : sn + (/부동산$/.test(sn) ? '' : '부동산'))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}`; }
         el.onclick = ev => { ev.stopPropagation(); grayCard(L); };
-        o = new K.CustomOverlay({ position: ll, content: el, xAnchor: .5, yAnchor: .5, zIndex: 3, clickable: true });
+        o = new K.CustomOverlay({ position: c.ll, content: el, xAnchor: .5, yAnchor: .5, zIndex: 3, clickable: true });
         { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(3); }
         GR.ovs.set(id, o);
       }
@@ -2869,7 +2877,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function grayCard(L) {
     const box = $('toast').parentElement;
     let c = $('ofCard'); if (!c) { c = document.createElement('div'); c.id = 'ofCard'; box.appendChild(c); kakao.maps.event.addListener(S.map, 'click', () => { const z = $('ofCard'); if (z) z.hidden = true; }); }
-    c.innerHTML = `<div class="h"><div class="t">${L.map(n => `<b>${esc(n)}</b>`).join('')}<small class="gtag">리얼맵 미가입</small></div><button type="button" class="x" aria-label="닫기">×</button></div>
+    c.innerHTML = `<div class="h"><div class="t">${L.length > 1 ? `<b class="gh">이 근처 중개사무소 ${L.length}곳</b>` : ''}<div class="gl">${L.map(n => `<b>${esc(n)}</b>`).join('')}</div><small class="gtag">리얼맵 미가입</small></div><button type="button" class="x" aria-label="닫기">×</button></div>
       <a class="gjoin" href="/promo.html?go=1">이 사무소 사장님이세요? 무료로 매물 올리기</a><p class="gs">등록번호로 바로 연결 · 가입하면 사진과 매물이 함께 보입니다</p>`;
     c.hidden = false; c.querySelector('.x').onclick = () => { c.hidden = true; };
   }

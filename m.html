@@ -5,7 +5,8 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#14212E">
 <title>리얼맵 장부</title>
-<link rel="manifest" href="/m.webmanifest">
+<!-- 10/30 앱 설치(매니페스트)는 뺌: 휴대폰 보안(삼성 자동 차단 등)이 "앱 설치"로 보고 막음 → 그냥 바로가기 아이콘으로 -->
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -275,20 +276,21 @@ a{color:inherit;text-decoration:none}button{font:inherit;color:inherit}
     let seen = false; try { seen = localStorage.getItem('rm.minst') === '1'; } catch { /* 없음 */ }
     if (seen || matchMedia('(display-mode: standalone)').matches || navigator.standalone) return;
     const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    const show = (txt, btn) => {
+    const show = txt => {
       const el = document.createElement('div'); el.className = 'ins';
-      el.innerHTML = `<img src="/icon-192.png" alt=""><span><b>홈 화면에 리얼맵 장부 추가</b>${txt}</span>${btn ? '<button class="go">추가</button>' : ''}<button class="x" aria-label="닫기">×</button>`;
+      el.innerHTML = `<img src="/icon-192.png" alt=""><span><b>홈 화면에 리얼맵 장부 아이콘 추가</b>${txt}</span><button class="x" aria-label="닫기">×</button>`;
       document.body.appendChild(el);
       const done = () => { el.remove(); try { localStorage.setItem('rm.minst', '1'); } catch { /* 없음 */ } };
       el.querySelector('.x').onclick = done;
       return { el, done };
     };
     if (ios) { show('아래 <b style="display:inline">공유 ⬆︎</b> → <b style="display:inline">홈 화면에 추가</b>를 누르면 앱처럼 바로 열립니다.'); return; }
-    let ev = null;
-    addEventListener('beforeinstallprompt', e => { e.preventDefault(); ev = e; const s = show('한 번 추가하면 아이콘을 눌러 바로 열립니다.', true); s.el.querySelector('.go').onclick = async () => { s.done(); ev.prompt(); try { await ev.userChoice; } catch { /* 무시 */ } }; });
-    setTimeout(() => { if (!ev && !document.querySelector('.ins')) show('브라우저 메뉴(⋮)에서 <b style="display:inline">홈 화면에 추가</b>를 누르면 앱처럼 바로 열립니다.'); }, 4000);
+    // 안드로이드: 설치(앱) 대신 바로가기 — 크롬 ⋮ · 삼성 인터넷 ≡ 메뉴에서 직접 추가
+    const sam = /SamsungBrowser/i.test(navigator.userAgent);
+    show(sam ? '아래 <b style="display:inline">≡ 메뉴</b> → <b style="display:inline">현재 페이지 추가</b> → <b style="display:inline">홈 화면</b>을 누르면 아이콘이 생깁니다.' : '오른쪽 위 <b style="display:inline">⋮ 메뉴</b> → <b style="display:inline">홈 화면에 추가</b>를 누르면 아이콘이 생깁니다.');
   }
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/m-sw.js', { scope: '/m.html' }).catch(() => {});
+  // 10/30 예전에 등록한 서비스워커는 지움 (설치형 대신 바로가기)
+  if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => { if (/m-sw\.js/.test((r.active || r.installing || r.waiting || {}).scriptURL || '')) r.unregister(); })).catch(() => {});
 
   load().then(() => { route(); if (!D.err) installHint(); });
 })();
