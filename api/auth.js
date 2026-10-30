@@ -8,7 +8,7 @@
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
-import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch } from './_ledger.js';
+import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch, clearHist } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
 import { lsLoad, lsSave, lsMutate, lsDrop } from './_ls.js';
 import { officeOf, permOf, can, teamN, members, dropTeam, leave, staffApi, seatsOf, SEAT, ROLE } from './_staff.js';
@@ -1116,6 +1116,7 @@ export default async function (req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       if (s.staff) {   // 직원 권한: 엑셀 불러오기·되돌리기는 대표만 · 지도 광고는 소속공인중개사(대표 허용 시) · 삭제는 대표가 정한 대로
         if (['import', 'unimport'].includes(body.op)) return noStaff(res, s, '엑셀 불러오기는');
+        if (body.op === 'histclear') return noStaff(res, s, '기록 모두 지우기는');
         if (['pub', 'renew', 'unpub'].includes(body.op) && !can(s, tm.perm, 'pub')) return s.role === 'ast' ? fail(res, 403, 'perm', '중개보조원은 매물 광고를 할 수 없습니다 (공인중개사법 제18조의2). 대표님이나 소속공인중개사님께 부탁해 주세요.') : noPerm(res, '지도 광고');
         if (body.op === 'del' && !can(s, tm.perm, 'del')) return noPerm(res, '매물 삭제');
       }
@@ -1231,6 +1232,11 @@ export default async function (req, res) {
       } else if (body.op === 'unpub') {
         const x = items.find(i => i.id === id);
         if (x && x.pub) x.pub.on = false;
+      } else if (body.op === 'histclear') {   // 10/30 선배 요청: 지금까지의 기록 모두 지우기 (매물 기록 + 아파트 호 기록 · 대표만)
+        let n = 0; items.forEach(x => { if (x.memo) { n++; x.memo = ''; } });
+        const h = await clearHist(redis, s.id).catch(() => 0);
+        await save();
+        return send(res, 200, { ok: true, items, cleared: { ls: n, hj: h } });
       } else if (body.op === 'del') {
         const gone = items.find(x => x.id === id); body._gone = gone;
         if (gone && gone.pub) { gone.pub.on = false; try { await redis(['HDEL', PUB_KEY, `${s.id}:${gone.id}`]); } catch { /* 무시 */ } }

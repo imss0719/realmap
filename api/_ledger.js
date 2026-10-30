@@ -182,7 +182,8 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     const changed = JSON.stringify(snap(rec)) !== JSON.stringify(snap({ ...rec, ...nx }));   // 줄 표시처럼 기록에 안 남는 칸만 바뀐 경우도 저장
     if (!x && !changed && !movedMemo) return send(res, 200, { ok: true, rec, same: true });
     Object.assign(rec, nx);
-    if (x) push('edit', x, before);
+    // 10/30 선배 결정: 칸을 바꿀 때마다 자동 기록은 남기지 않음 — 기록은 직접 쓴 것만 (x·before는 안 씀)
+    void x; void before;
   } else if (op === 'deal') {
     const d = body.deal || {};
     const k = KS.includes(d.k) ? d.k : '';
@@ -210,7 +211,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     const lb = str(body.label, 10) || '연락처';
     const h0 = rec.hist[0];
     rec.called = now;
-    if (!(h0 && h0.e === 'call' && h0.x === `통화: ${lb}` && Date.now() - Date.parse(h0.t) < 5 * 60e3)) push('call', `통화: ${lb}`);
+    void h0; void lb;   // 10/30 전화 걸 때 자동 기록 안 남김 (직접 쓴 기록만)
   } else if (op === 'imh') {   // 10/28 엑셀 불러오기: 메모 속 날짜별 기록을 그 날짜의 상담 기록으로 (최대 100개)
     const L = (Array.isArray(body.hist) ? body.hist : []).slice(0, 100).map(h => ({ t: String(h && h.t || ''), x: str(h && h.x, 500), w: str(h && h.w, 10) }))
       .filter(h => h.x && !isNaN(Date.parse(h.t)) && h.t <= now);
@@ -254,9 +255,7 @@ export async function ledgerPatch(redis, uid, cxId, key, fn, why) {
   const before = JSON.stringify([rec.st, rec.pr]), snap0 = snap(rec);
   fn(rec);
   if (JSON.stringify([rec.st, rec.pr]) === before) return false;
-  rec.hist.forEach(h => { delete h.s; });
-  rec.hist.unshift({ t: new Date().toISOString(), e: 'edit', x: `${why} · ${stTxt(rec.st)}${rec.st.k.map(k => ' · ' + prTxt(k, rec.pr)).join('')}`, s: snap0 });
-  if (rec.hist.length > 300) rec.hist.length = 300;
+  void snap0; void why;   // 10/30 자동 기록 안 남김 (직접 쓴 기록만)
   rec.up = new Date().toISOString();
   await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, cxId]);
   return true;
@@ -270,4 +269,22 @@ export async function dropLedgers(redis, uid) {
     for (const id of ids) await redis(['DEL', `realmap:hj:${uid}:${id}`]);
     await redis(['DEL', `realmap:hjs:${uid}`]);
   } catch { /* 무시 */ }
+}
+
+// 10/30 선배 요청: 지금까지의 호 기록(히스토리) 모두 지우기 — 이 계정(대표)의 모든 단지 · 호 정보 칸은 그대로
+export async function clearHist(redis, uid) {
+  if (!KEY) return 0;
+  const ids = (await redis(['SMEMBERS', `realmap:hjs:${uid}`])) || [];
+  let n = 0;
+  for (const id of ids) {
+    const H = `realmap:hj:${uid}:${id}`, raw = (await redis(['HGETALL', H])) || [];
+    const arr = Array.isArray(raw) ? raw : Object.entries(raw).flat();
+    for (let i = 0; i + 1 < arr.length; i += 2) {
+      let r; try { r = { ...EMPTY(), ...unseal(arr[i + 1]) }; } catch { continue; }
+      if (!r.hist || !r.hist.length) continue;
+      n += r.hist.length; r.hist = [];
+      await redis(['HSET', H, arr[i], seal(r)]);
+    }
+  }
+  return n;
 }
