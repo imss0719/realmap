@@ -9,8 +9,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 const KEY = (process.env.SEOUL_KEY || '').trim(), KAKAO = (process.env.KAKAO_REST_KEY || '').trim();
 if (!KEY || !KAKAO) { console.log('SEOUL_KEY · KAKAO_REST_KEY 비밀값이 필요합니다.'); process.exit(1); }
 const SVCS = (process.env.SERVICE || 'landBizInfo').split(',').map(s => s.trim()).filter(Boolean);
-const RATE = +(process.env.RATE || 30);      // 건물 100곳 중 몇 곳을 찍을지
-const PER_DONG = +(process.env.PER_DONG || 12); // 한 동(법정동)에 최대 몇 건물
+const RATE = +(process.env.RATE || 50);      // 건물 100곳 중 몇 곳을 찍을지 (10/30 선배 결정 30 → 50)
+const PER_DONG = +(process.env.PER_DONG || 20); // 한 동(법정동)에 최대 몇 건물
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function page(svc, from, to) {
