@@ -357,7 +357,13 @@ window.Danji = (() => {
     return orphItems().map(x => {
       const P = (x.places && x.places[0]) || x, nm = x.bname || String(P.addr || x.addr || '').split(' ').slice(-2).join(' ') || '개별매물';
       const cx = { id: '@' + x.id, name: nm, places: [{ pnu: P.pnu }], dir: {}, orph: x.id };
-      return rowOf(cx, {}, new Map([[`${P.pnu}|${normD(P.dong)}|${normH(P.ho)}`, [x]]]), P.pnu, P.dong || '', P.ho || '');
+      const row = rowOf(cx, {}, new Map([[`${P.pnu}|${normD(P.dong)}|${normH(P.ho)}`, [x]]]), P.pnu, P.dong || '', P.ho || '');
+      // 10/30 선배: 개별매물은 장부 기록이 없으니 매물 카드 값으로 표 칸을 채움 (평형·타입·향·현상태·연락처·만기)
+      const a = x.ad || {}, live = a.live || (x.curRent || x.curDep ? 'tenant' : '');
+      row.a = x.area || 0; row.dir = a.dir || ''; row.lt = a.ty || a.spy ? { t: a.ty || '', py: a.spy || 0 } : null;
+      row.r = { live, cd: x.curDep || 0, cr: x.curRent || 0, exp: /^\d{4}-\d{2}-\d{2}$/.test(x.exp || '') ? x.exp : '', tels: (x.contacts || []).filter(c => c.phone).map(c => ({ l: c.role || '', n: c.phone, m: c.name || '' })), imp: x.imp || '' };
+      row.st.dl = dleft(row.r.exp); row.st.exp = row.st.dl != null && row.st.dl >= EXPWIN[0] && row.st.dl <= EXPWIN[1];
+      return row;
     });
   }
   function treeInto(el) {

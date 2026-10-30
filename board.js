@@ -365,7 +365,7 @@ window.Board = (() => {
       case 'mgmt': return x.mgmt ? cw(x.mgmt) : a.nomgmt ? '없음' : ep();
       case 'gap': { const g = k === 'sale' && x.price && x.curDep && x.curDep < x.price ? x.price - x.curDep : 0; return g ? `<b class="gap" title="매매가 - 현 보증금 (자동 계산)">${cw(g)}</b>` : ep(); }
       case 'biz': return a.biz ? `<span class="${/공실/.test(a.biz) ? 'vac' : 'biz'}">${esc(a.biz)}</span>` : ep();
-      case 'cst': return /공실/.test(a.biz || '') ? '<span class="vac">공실</span>' : x.curRent ? (catOf(x) === 'shop' ? '임차중' : '월세') : x.curDep ? (catOf(x) === 'shop' ? '임차중' : '전세') : ep();
+      case 'cst': return a.live === 'owner' ? '입주' : a.live === 'empty' || /공실/.test(a.biz || '') ? '<span class="vac">공실</span>' : x.curRent ? (catOf(x) === 'shop' ? '임차중' : '월세') : x.curDep ? (catOf(x) === 'shop' ? '임차중' : '전세') : ep();
       case 'cdep': return x.curDep ? cw(x.curDep) : ep();
       case 'crent': return x.curRent ? x.curRent.toLocaleString() : ep();
       case 'exp': return x.exp ? `<span class="${expSoon(x.exp) ? 'dd' : ''}">${esc(ymdS(x.exp))}</span>` : ep();
@@ -724,9 +724,10 @@ window.Board = (() => {
     if (k === 'unit' && cat !== 'pre') {
       const y = yields(x, x.curDep, x.curRent);
       const ex = inp('exp', /^\d{4}-\d{2}-\d{2}$/.test(x.exp || '') ? x.exp : '', '', 'type="date" style="width:118px"');   // 10/29 두 칸씩 한 줄
+      if (cat !== 'shop') body += `<div class="rpr mk"><b>현상태</b><div class="rpv">${seg('live', [['tenant', '세입자'], ['owner', '집주인 거주'], ['empty', '공실']], a.live || '')}</div></div>`;   // 10/30 선배: 현상태 고르기 (아파트 장부의 '구분'과 같음)
       body += `<div class="rpr rpr2"><b>현 보증금</b><div class="rpv">${won2('$curDep', x.curDep)}</div><b>월세</b><div class="rpv">${won2('$curRent', x.curRent)}</div></div>`
         + `<div class="rpr rpr2"><b>만기</b><div class="rpv">${ex}</div>${cat === 'shop' ? `<b>업종</b><div class="rpv">${inp('ad:biz', a.biz, '', 'title="업종 또는 공실"')}</div>` : '<b></b><div></div>'}</div>`
-        + (y ? `<p class="rpn" style="padding:0 8px">연 수익률 <b>${y.y.toFixed(2)}%</b> (매매가 − 현 보증금 기준)</p>` : '');
+        ;   // 10/30 연 수익률은 정보 칸 아래 상자 하나만 (두 번 나오던 것)
     }
     // 층별 현황 (통건물·공장)
     if (k === 'whole') {
@@ -798,6 +799,7 @@ window.Board = (() => {
       const g = b.parentNode.dataset.g, v = b.dataset.v;
       if (g === 'st') { if (v === x.status) return; return saveItem(id, it => { it.status = v; }, `'${X.STAT[v]}' 처리했습니다`); }
       if (g === 'kind') { if (v === x.kind) return; return saveItem(id, it => { it.kind = v; }); }
+      if (g === 'live') { const nv = (x.ad || {}).live === v ? '' : v; return saveItem(id, it => { it.ad = { ...(it.ad || {}), live: nv }; if (nv === 'owner' || nv === 'empty') { it.curDep = null; it.curRent = null; } }); }   // 10/30 다시 누르면 풀림 · 집주인·공실이면 현 보증금·월세 비움
       if (g === 'rk') { if (v === x.ptype) return; return saveItem(id, it => { it.ptype = v; if (!(it.ad || {}).form) it.ad = { ...(it.ad || {}), form: v === '재건축' ? '아파트' : '빌라' }; }); }
     });
     P.querySelectorAll('select[data-ps]').forEach(s => s.onchange = () => saveItem(id, it => { it.ad = { ...(it.ad || {}), [s.dataset.ps]: s.value }; }));
