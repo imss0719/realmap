@@ -359,9 +359,9 @@ window.Danji = (() => {
         const ck = allMode || (multiOn() ? S.multi.has(c.id) : !S.adding && c.id === S.cur);   // 10/28: 지금 표에 나오는 단지 = 체크 (모든 단지면 전부 · 하나면 그 단지)
         return `<div class="tn${op ? ' on' : ''}"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button>${S.delMode ? `<button type="button" class="tdel" data-tdel="${c.id}">빼기</button>` : `<span class="ct">${n === '' ? '' : n}</span>`}</div>
         ${fo && C && C.dongs && !S.delMode ? treeDongs(c, C) + `<div class="tmore"><button type="button" data-tren>이름 바꾸기</button> · <button type="button" data-taddpl>빠진 동 더하기</button></div>` : ''}`; }).join('')}
-      <div class="tadr"><button type="button" class="tn add" data-tadd>＋ 단지 추가</button>${S.cx.items.length ? `<button type="button" class="tn add rm${S.delMode ? ' on' : ''}" data-tdm>${S.delMode ? '빼기 끝' : '− 단지 빼기'}</button>` : ''}</div>
-      ${S.delMode ? '<p class="tdn">뺄 단지 옆의 [빼기]를 누르세요</p>' : ''}
-      ${(() => { const n = (S.host.items() || []).filter(x => ['아파트', '주상복합', '오피스텔'].includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<button type="button" class="tn add" data-torph title="매물 카드로 등록한 아파트 매물 목록으로 (위 단지 목록에 없는 단지 매물이 ${n}건 있습니다)">아파트·오피 매물 카드 목록 ▸ <small>단지 밖 ${n}건</small></button>` : ''; })()}`;
+      ${(() => { const n = (S.host.items() || []).filter(x => ['아파트', '주상복합', '오피스텔'].includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<div class="tn torph"><button type="button" data-torph title="단지에 담지 않고 올린 아파트·오피스텔 매물"><span class="ar">📁</span>단지 없는 매물</button><span class="ct">${n}</span></div>` : ''; })()}
+      <div class="tadr"><button type="button" class="tn add" data-tadd title="단지 추가">＋ 단지</button>${S.cx.items.length ? `<button type="button" class="tn add rm${S.delMode ? ' on' : ''}" data-tdm title="단지 빼기">${S.delMode ? '빼기 끝' : '− 단지'}</button>` : ''}${S.host.goAptList ? '<button type="button" class="tn add nx" data-tnx title="단지에 담지 않고 아파트·오피스텔 한 호만 매물로 올리기">＋ 단지없이 추가</button>' : ''}</div>
+      ${S.delMode ? '<p class="tdn">뺄 단지 옆의 [빼기]를 누르세요</p>' : ''}`;
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
       S.fold = S.fold || new Set(); const id = b.dataset.tcx;
@@ -388,6 +388,7 @@ window.Danji = (() => {
     const dm = T.querySelector('[data-tdm]'); if (dm) dm.onclick = () => { S.delMode = !S.delMode; drawTree(); };
     T.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { const c = S.cx.items.find(z => z.id === b.dataset.tdel); if (c) delCx(c); });
     const orph = T.querySelector('[data-torph]'); if (orph) orph.onclick = () => S.host.goAptList();   // 10/26 매물 화면의 '아파트 매물'로
+    const nx = T.querySelector('[data-tnx]'); if (nx) nx.onclick = () => { S.host.goAptList(); setTimeout(() => { const q = document.getElementById('bdQ'); if (q) { q.focus(); q.placeholder = '단지없이 추가: 아파트·오피스텔 주소나 건물명을 치고 Enter (예: ○○오피스텔 807호)'; } }, 120); };   // 10/30 선배: [＋단지][−단지][＋단지없이 추가]
   }
   // 10/28 단지 빼기: 확인창 한 번 (이름 입력 없음) · 왼쪽 목록 [단지 빼기]와 ⋯ 메뉴가 같이 씀
   async function delCx(cx) {
