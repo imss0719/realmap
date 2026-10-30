@@ -2064,5 +2064,11 @@ window.Danji = (() => {
 
   // 매물관리에서 방향을 넣어 단지관리 라인 방향이 바뀌었을 때 (서버가 cxDirty로 알려 줌) 단지 목록만 다시 받음
   async function reloadCx(fresh) { if (!S.loaded) return; if (fresh) S.L = {}; try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; refresh(); } catch { /* 다음에 열 때 */ } }
-  return { mount, refresh, add, startAdd, goto, reloadCx, treeInto, isOrph };
+  // 10/30 리얼맵 [등록]: 장부 입력창에 적은 방·욕실·관리비·입주를 매물 카드가 아직 못 받았을 때 채우는 데 씀
+  function recOf(pnu, dong, ho) {
+    const k1 = `${pnu}|${normD(dong)}|${normH(ho)}`, k2 = `*|${normD(dong)}|${normH(ho)}`;
+    for (const L of Object.values(S.L || {})) { const u = L && L.units; if (u && (u[k1] || u[k2])) return u[k1] || u[k2]; }
+    return null;
+  }
+  return { mount, refresh, add, startAdd, goto, reloadCx, treeInto, isOrph, recOf };
 })();

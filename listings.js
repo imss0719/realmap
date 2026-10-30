@@ -1185,6 +1185,17 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     if (x._unit && !(x.places[0] || {}).ho) { const u = x._unit, byDong = u.dongs.length >= 2; S.pubS.U = { pnu: u.pnu, byDong, dongs: u.dongs, cur: byDong ? (dongPick(u.dongs, u.dong) || u.dongs.find(d => /\d/.test(d)) || u.dongs[0]) : '', want: u.dong, lists: {}, busy: '' }; psUnits(S.pubS); }
     $('shTitle').textContent = edit ? '리얼맵 게시 내용 수정' : '리얼맵에 올리기';
     $('sheet').hidden = false; document.body.style.overflow = 'hidden';
+    // 10/30 아파트·오피: 장부 입력창 값(방·욕실·관리비·입주)이 카드에 아직 안 옮겨졌으면 여기서 채움 (선배: 입력창엔 관리비가 있는데 '관리비를 넣어 주세요')
+    if (window.Danji && Danji.recOf && ['아파트', '오피스텔'].includes(tbase(x))) {
+      const p0 = x.places[0] || {}, r = p0.ho ? Danji.recOf(p0.pnu || x.pnu, p0.dong, p0.ho) : null;
+      if (r) {
+        const a = x.ad || (x.ad = {});
+        if ((a.rooms == null || a.rooms === '') && r.rm) a.rooms = r.rm;
+        if ((a.baths == null || a.baths === '') && r.bt) a.baths = r.bt;
+        if (!x.mgmt && !a.nomgmt && r.mg) x.mgmt = r.mg;
+        if (!a.movein && r.moveIn) a.movein = /^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.replace(/-/g, '.') : r.moveIn;
+      }
+    }
     drawPubSheet();
     // 예전에 등록해 건축물대장 값(용도·사용승인·주차·층수 등)이 비어 있으면 지금 채움 (빈 칸만)
     const AUTOM = ['건축물 용도', '사용승인일', '주차 대수', '총 층수', '해당 층', '지목'];
