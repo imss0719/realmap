@@ -53,6 +53,8 @@ window.Danji = (() => {
   }
   function refresh() { if (S.loaded && S.el && S.el.offsetParent !== null) draw(); }
   async function add(pnu) { while (!S.loaded) await new Promise(r => setTimeout(r, 150)); await addComplex({ pnu }); }
+  // 10/30 내 광고에서 '아파트·오피 → 단지로 추가': 단지 추가 칸을 열어 줌
+  async function startAdd() { while (!S.loaded) await new Promise(r => setTimeout(r, 150)); S.delMode = false; S.adding = true; S.results = null; draw(); }
   // 알림에서 '그 호로 가기': 그 단지를 열고 그 호 줄로 (필터는 모두 풀고)
   async function goto(cxid, key) {
     while (!S.loaded) await new Promise(r => setTimeout(r, 150));
@@ -2047,5 +2049,5 @@ window.Danji = (() => {
 
   // 매물관리에서 방향을 넣어 단지관리 라인 방향이 바뀌었을 때 (서버가 cxDirty로 알려 줌) 단지 목록만 다시 받음
   async function reloadCx(fresh) { if (!S.loaded) return; if (fresh) S.L = {}; try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; refresh(); } catch { /* 다음에 열 때 */ } }
-  return { mount, refresh, add, goto, reloadCx, treeInto, isOrph };
+  return { mount, refresh, add, startAdd, goto, reloadCx, treeInto, isOrph };
 })();

@@ -103,7 +103,9 @@
     if (add && /^\d{19}$/.test(add)) {
       history.replaceState(null, '', '/listings.html');
       const o = { pnu: add, dong: (qs.get('dong') || '').slice(0, 20), ho: (qs.get('ho') || '').slice(0, 20) };
-      if (S.canPub) adFrom(o); else openForm(null, add, { dong: o.dong, ho: o.ho });   // 10/28 지도 [여기 매물 광고하기] → 간단 등록창(사진 포함)으로 바로
+      const lat = +qs.get('lat'), lng = +qs.get('lng');
+      if (lat && lng && !o.dong && !o.ho) mapAdd({ pnu: add, lat, lng, t: (qs.get('t') || '').slice(0, 80) });   // 10/30 지도 [여기 매물 광고하기] → 유형 확인 → 매물장 등록
+      else if (S.canPub) adFrom(o); else openForm(null, add, { dong: o.dong, ho: o.ho });   // 10/28 지도 [여기 매물 광고하기] → 간단 등록창(사진 포함)으로 바로
     }
     else if (edit) { history.replaceState(null, '', '/listings.html'); const x = S.items.find(i => i.id === edit); if (x) openForm(x); }
   }
@@ -1036,6 +1038,44 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
   }
   // ---------- 10/28 내 광고: 홍보만 하는 중개사용 단순 화면 (같은 매물 데이터 · 표·장부 없이 광고 카드와 버튼 4개) ----------
   //   [게시 중 · 지도에 없음 · 거래완료] · 수정·사진 = 간단 등록창 · 30일 연장 · 거래완료 · 내리기 · 올리기는 지도에서(필지 누르기)
+  // ---------- 10/30 등록 경로 하나로: 내 광고 [＋ 올리기] · 지도 [여기 매물 광고하기] → 유형 → 그 종류 매물장 등록 ----------
+  const AD_TY = [['apt', '아파트·오피'], ['shop', '상가·사무실'], ['bld', '건물'], ['ofc', '지산'], ['home', '빌라·주택'], ['redev', '재개발·재건축'], ['pre', '분양권'], ['land', '토지'], ['fac', '공장·창고'], ['etc', '숙박·기타']];
+  function dlg(html, wire) {
+    const old = $('tyDlg'); if (old) old.remove();
+    const d = document.createElement('div'); d.id = 'tyDlg'; d.className = 'tydlg'; d.innerHTML = `<div class="tyb">${html}<button type="button" class="tyx" aria-label="닫기">×</button></div>`;
+    document.body.appendChild(d); const close = () => d.remove();
+    d.onclick = e => { if (e.target === d || e.target.closest('.tyx')) close(); };
+    wire(d, close); return close;
+  }
+  function goRegister(cat, r) {
+    const toList = c => { setMode('list', c); setTimeout(() => window.Board && Board.startAdd(r, c === 'apt' ? '개별물건 등록: 아파트·오피스텔 주소나 건물명을 치고 Enter (예: ○○오피스텔 807호)' : ''), 120); };
+    if (cat !== 'apt') return toList(cat);
+    dlg(`<b class="tyh">아파트·오피스텔 매물입니다</b><p>이 건물을 <b>단지로 추가</b>할까요?<small>단지로 추가하면 동·호별 장부와 만기 관리를 함께 쓸 수 있습니다.</small></p><div class="tyg"><button type="button" class="y" data-dy="1">예, 단지로 추가</button><button type="button" data-dy="0">아니요, 개별물건으로 등록</button></div>`, (d, close) => {
+      d.querySelector('[data-dy="1"]').onclick = () => { close(); setMode('danji'); setTimeout(() => window.Danji && (r && r.pnu ? Danji.add(r.pnu) : Danji.startAdd()), 120); };
+      d.querySelector('[data-dy="0"]').onclick = () => { close(); toList('apt'); };
+    });
+  }
+  // 지도에서: 유형 한 번 확인 → 맞으면 그 매물장으로 (아니면 유형 고르기)
+  async function mapAdd(r) {
+    if (!window.Board) return;
+    if (!S.bdInit) { S.bdInit = true; Board.init(bdHost()); }
+    toast('건축물대장에서 건물 종류를 확인하는 중…', 6000);
+    let g = null; try { g = await Board.peek(r); } catch { /* 짐작 못 함 → 바로 고르기 */ }
+    $('toast').hidden = true;
+    const r2 = { ...r, pnu: (g && g.pnu) || r.pnu, t: (g && g.addr) || r.t || '' };
+    const name = g && (AD_TY.find(z => z[0] === g.cat) || [])[1];
+    const chips = `<div class="tyc">${AD_TY.map(([k, t]) => `<button type="button" data-tc="${k}">${t}</button>`).join('')}</div>`;
+    dlg(`<small class="tya">${esc(r2.t || '지도에서 고른 필지')}${g && g.ty ? ` (${esc(g.ty)})` : ''}</small>${name ? `<b class="tyh">이 매물, <em>${esc(name)}</em>이 맞나요?</b><p>맞으면 ${esc(name)} 매물장으로 가서 이 주소로 바로 등록합니다.</p><div class="tyg two"><button type="button" class="y" data-ok>맞아요</button><button type="button" data-other>다른 종류 고르기</button></div><div class="tyo" hidden>${chips}</div>` : `<b class="tyh">어떤 종류의 매물인가요?</b>${chips}`}`, (d, close) => {
+      const ok = d.querySelector('[data-ok]'); if (ok) ok.onclick = () => { close(); goRegister(g.cat, r2); };
+      const ot = d.querySelector('[data-other]'); if (ot) ot.onclick = () => { d.querySelector('.tyo').hidden = false; ot.disabled = true; };
+      d.querySelectorAll('[data-tc]').forEach(b => b.onclick = () => { close(); goRegister(b.dataset.tc, r2); });
+    });
+  }
+  // 내 광고 [매물장에서 고치기]: 그 매물의 매물장 입력창
+  function fixInLedger(x) {
+    if (!x) return;
+    setMode('list'); setTimeout(() => window.Board && Board.reveal(x.id), 80);
+  }
   function drawAds() {
     const box = $('ad'); if (!box) return;
     const b = S.bk || {}, P = S.plan || {}, now = new Date().toISOString(), soon = new Date(Date.now() + 7 * 864e5).toISOString(), old = new Date(Date.now() - 30 * 864e5).toISOString();
@@ -1051,29 +1091,28 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       const where = [x.bname || (p0.addr || x.addr || '').split(' ').slice(-2).join(' '), p0.dong && /아파트|오피스텔|주상복합/.test(x.ptype || '') ? (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동') : ''].filter(Boolean).join(' ');
       const meta = [x.ptype === '기타' ? x.ptypeTx || '기타' : x.ptype, x.area ? `${(x.area / 3.3058).toFixed(1).replace(/\.0$/, '')}평` : '', (x.ad || {}).dir || ''].filter(Boolean).join(' · ');
       const st = lv ? `<span class="st ${d <= 7 ? 'ex' : 'on'}">${d <= 7 ? `만료 D-${d} · ` : '● 게시 중 · '}${ymd(x.pub.exp).slice(5)}까지</span>` : `<span class="st gr">게시 기간 끝남 · ${ymd(x.pub.exp).slice(5)}</span>`;
-      const acts = lv ? `${d <= 7 ? `<button type="button" class="y" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="edit" data-id="${x.id}">수정 · 사진</button>${d > 7 ? `<button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button>` : ''}<button type="button" data-ax="done" data-id="${x.id}">거래완료</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
-        : `<button type="button" class="y" data-ax="pub" data-id="${x.id}">다시 게시 (30일)</button><button type="button" data-ax="done" data-id="${x.id}">거래완료</button>`;
+      // 10/30 선배: 내 광고는 사진 올리기·내리기만 — 정보는 보여 주기만 · 고치기는 매물장 입력창
+      const acts = lv ? `<button type="button" class="y" data-ax="photo" data-id="${x.id}">📷 사진 변경</button><button type="button" data-ax="fix" data-id="${x.id}">매물장에서 고치기</button><button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
+        : `<button type="button" class="y" data-ax="pub" data-id="${x.id}">다시 게시 (30일)</button><button type="button" data-ax="fix" data-id="${x.id}">매물장에서 고치기</button>`;
+      const a0 = x.ad || {}, info = [x.area ? `면적 ${x.area}㎡` : '', a0.fl || a0.tfl ? `${a0.fl || '?'}${/^\d+$/.test(a0.fl || '') ? '층' : ''} / ${a0.tfl ? a0.tfl + '층' : '?'}` : '', a0.movein || '', x.mgmt ? `관리비 ${x.mgmt}만` : a0.nomgmt ? '관리비 없음' : '', a0.park ? `주차 ${a0.park}` : '', x.no ? `No. ${x.no}` : ''].filter(Boolean).join(' · ');
       return `<div class="adc${lv ? '' : ' end'}"><a class="ph"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}${lv ? ` href="/?pnu=${esc(x.pnu || p0.pnu)}&lst=1" target="_blank" rel="noopener" title="지도에서 손님이 보는 모습"` : ''}>${ph ? '' : '사진 없음'}</a>
-        <div class="tx"><b class="p"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${esc(priceText(x))}</b><div class="m">${esc(where)}${meta ? ' · ' + esc(meta) : ''}</div>${st}</div><div class="acts">${acts}</div></div>`;
+        <div class="tx"><b class="p"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${esc(priceText(x))}</b><div class="m">${esc(where)}${meta ? ' · ' + esc(meta) : ''}</div>${info ? `<div class="info">${esc(info)}</div>` : ''}${st}</div><div class="acts">${acts}</div></div>`;
     };
     const g0 = gap[0], gm = g0 ? miss(g0) : [];
     box.innerHTML = `<div class="ads">
       <div class="adh"><span class="av">${b.photo ? `<img src="${esc(b.photo)}" alt="">` : esc(String(b.office || '리').trim().charAt(0))}</span>
         <div><b>${esc(b.office || '중개사무소 정보를 넣어 주세요')}</b>${b.verified ? '<span class="ver">등록번호 확인</span>' : ''}<small>${b.verified ? `소개 페이지 <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace(/^https?:\/\//, ''))}</a>` : '등록번호가 확인되면 소개 페이지가 생깁니다'}</small></div>
         <div class="r">${b.verified ? '<button type="button" id="adCp">링크 복사</button>' : ''}<button type="button" id="adBk">${b.office ? '소개 고치기' : '사무소 정보 넣기'}</button></div></div>
-      <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><div class="adq"><span class="pl">＋</span><input id="adQ" type="search" autocomplete="off" enterkeyhint="search" placeholder="매물 올리기: 주소·건물명 치고 Enter (예: ○○동 395-12 · ○○아파트 101동 1503호)" value="${esc(S.adQ || '')}"><button type="button" id="adQGo">찾기</button><div class="adr" id="adRes" hidden></div></div></div>
-      <div class="adalt">또는 <a href="/?promo=1" target="_blank" rel="noopener">지도에서 필지 골라 올리기 ▸</a></div>
+      <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><div class="adq2" id="adNew"><b>매물 올리기</b><div class="tys">${AD_TY.map(([k, t]) => `<button type="button" data-aty="${k}" aria-pressed="${S.adTy === k}">${t}</button>`).join('')}</div><button type="button" class="go" id="adGo">＋ 올리기</button></div></div></div>
       ${g0 ? `<div class="adw">⚠ ${gap.length}건이 빈 칸(${esc(gm.slice(0, 2).join('·'))}${gm.length > 2 ? ' 등' : ''}) 때문에 지도에서 안 보입니다<span class="sp"></span><button type="button" id="adGap">채우기</button></div>` : ''}
-      ${list.length ? list.map(card).join('') : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. 위 노란 칸에 <b>주소나 건물명</b>을 치고 Enter를 누르면 바로 올릴 수 있습니다.</div>'}
+      ${list.length ? list.map(card).join('') : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. 위에서 종류를 고르고 <b>[＋ 올리기]</b>를 누르면 매물장에서 등록한 뒤, 표의 <b>[리얼맵 등록]</b>에서 사진을 올려 게시합니다.</div>'}
       <div class="adf">사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·만기 알림·고객관리는 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
-    // 10/28 주소로 올리기: 주소·건물명(+동·호) → 후보 → 필지 → 간단 등록창 (동·호까지 치면 그 호로)
-    const q = $('adQ'), go = () => adSearch(q.value.trim());
-    q.onkeydown = e => { if (e.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); const R = S.adRes; if (R && R.length && q.value.trim() === S.adQ) return adPick(R[0]); go(); } if (e.key === 'Escape') { S.adRes = null; $('adRes').hidden = true; } };
-    $('adQGo').onclick = go;
-    if (!S.adFocused && !matchMedia('(max-width:760px)').matches) { S.adFocused = true; setTimeout(() => q.focus(), 50); }
+    // 10/30 선배: 내 광고에서는 유형만 고르고 [＋ 올리기] → 그 종류 매물장의 등록 칸으로 (정보는 매물장 입력창 한 곳에서만)
+    box.querySelectorAll('[data-aty]').forEach(b => b.onclick = () => { S.adTy = b.dataset.aty; box.querySelectorAll('[data-aty]').forEach(z => z.setAttribute('aria-pressed', z === b)); });
+    $('adGo').onclick = () => { if (!S.adTy) return toast('올릴 매물 종류를 먼저 골라 주세요'); goRegister(S.adTy); };
     if ($('adCp')) $('adCp').onclick = async () => { try { await navigator.clipboard.writeText(url); toast('소개 페이지 링크를 복사했습니다'); } catch { prompt('이 주소를 복사해 주세요', url); } };
     $('adBk').onclick = () => openBk(() => drawAds());
-    if ($('adGap')) $('adGap').onclick = () => pubSheet(g0, true);
+    if ($('adGap')) $('adGap').onclick = () => fixInLedger(g0);
     $('adBook').onclick = () => setMode('danji');
     $('adHome').onclick = async () => {
       const home = b.home === 'ads' ? 'book' : 'ads';
@@ -1083,7 +1122,8 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     box.querySelectorAll('[data-ax]').forEach(x => x.onclick = async () => {
       const it = S.items.find(i => i.id === x.dataset.id); if (!it) return;
       const a = x.dataset.ax;
-      if (a === 'edit') return pubSheet(it, true);
+      if (a === 'edit' || a === 'photo') return pubSheet(it, true);
+      if (a === 'fix') return fixInLedger(it);
       if (a === 'pub') return pubSheet(it);
       if (a === 'renew') return pubOp(it.id, 'renew');
       if (a === 'unpub') { if (confirm('리얼맵 지도에서 이 매물을 내릴까요? (매물은 중개장부에 그대로 남습니다)')) pubOp(it.id, 'unpub'); return; }
@@ -1196,6 +1236,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     }
     return '';
   }
+  const PSW = ['price', 'ptype', 'dir', 'movein', 'mgmt', 'wc', 'fl'];   // 10/30 리얼맵에 올리기: 한 줄을 다 쓰는 칸 (나머지는 두 개씩)
   function drawPubSheet() {
     const P = S.pubS; if (!P) return;
     const x = P.x, a = x.ad || {}, p0 = (x.places && x.places[0]) || {};
@@ -1209,7 +1250,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     const dh = [p0.dong && (/동$/.test(p0.dong) ? p0.dong : p0.dong + '동'), p0.ho && (/(호|층)$/.test(p0.ho) ? p0.ho : p0.ho + '호')].filter(Boolean).join(' ');
     const live = pubLive(x);
     // 10/30 선배 결정: 중개장부(표)에서 올릴 때는 사진만 — 필수 칸은 입력창(두 번 누르기)에서 빠짐없이 채움 · 지도·내 광고에서 새로 올릴 때는 예전처럼
-    const fromLed = !!x.id && !P.U && (S.mode === 'list' || S.mode === 'danji');
+    const fromLed = !!x.id && !P.U && (S.mode === 'list' || S.mode === 'danji' || S.mode === 'ads');   // 10/30 내 광고에서도 사진·소개글만
     const ledNeed = fromLed && miss.length ? `<div class="ps-need tried"><h4>입력창에서 먼저 채워 주세요 <em>${miss.length}칸</em></h4><div class="pmeta">${esc(miss.join(', '))}</div><button type="button" class="btn sub" id="psToPanel" style="margin-top:8px">입력창 열기</button></div>` : '';
     $('form').innerHTML = `<div class="ps">
       <div class="ps-sum"><b><span class="kd ${x.kind}">${KIND[x.kind]}</span> ${esc(priceText(x))} · ${esc(x.bname || (x.addr || p0.addr || '').split(' ').slice(-2).join(' '))}${dh ? ' ' + esc(dh) : ''}</b>
@@ -1218,12 +1259,10 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       ${P.U ? psUnitHtml(P) : ''}
       <div class="ps-ph"><h4>사진 <small>${phs.length}/30 · 첫 번째가 대표 사진</small></h4><div class="pgrid">${phs.map((p, i) => `<div class="ph"><img src="${esc(p.url)}" alt="" loading="lazy">${i === 0 ? '<em>대표</em>' : ''}<div class="pbar">${i ? `<button type="button" data-psl="${i}" aria-label="앞으로">◀</button>` : '<span></span>'}<button type="button" data-psx="${i}" aria-label="사진 빼기">×</button>${i < phs.length - 1 ? `<button type="button" data-psl="${i + 1}" aria-label="뒤로">▶</button>` : '<span></span>'}</div></div>`).join('')}${Array.from({ length: P.upN }, () => '<div class="ph up"><span>올리는 중…</span></div>').join('')}${phs.length + P.upN < 30 ? '<label class="ph add"><input type="file" id="psPhF" accept="image/*" multiple hidden><b>＋</b><span>사진 추가</span></label>' : ''}</div></div>
       ${P.filling ? '<div class="ps-fill">건축물대장에서 빈 칸을 채우는 중…</div>' : ''}
-      ${fromLed ? ledNeed : needK.length || other.length ? `<div class="ps-need${P.tried ? ' tried' : ''}"><h4>이것만 채워 주세요 <em>${needK.length + other.length}칸</em></h4>
-        ${needK.map(k => `<div class="pf"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`).join('')}
-        ${other.length ? `<div class="pmeta">${esc(other.join(', '))}: 중개장부 입력창에서 넣어 주세요</div>` : ''}</div>` : `<div class="ps-ok">필수 항목을 모두 채웠습니다</div>`}
-      ${fromLed ? '' : `<div class="ps-auto"><h4>채워진 항목 <small>틀린 것만 눌러서 고치기</small></h4>
-        ${filled.map(k => P.open.has(k) ? `<div class="pf op"><span>${PS_LB[k]}</span><div>${psEditor(x, k)}</div></div>`
-          : `<button type="button" class="pa" data-po="${k}"><span>${PS_LB[k]}</span><b>${esc(psVal(x, k)) || '<i>비어 있음 · 선택</i>'}</b>${AUTOK.includes(k) && psVal(x, k) ? '<u>자동</u>' : ''}</button>`).join('')}</div>`}
+      ${fromLed ? ledNeed : `<div class="ps-all${P.tried && (needK.length || other.length) ? ' tried' : ''}">
+        <div class="pf"><span>매물번호</span><div><input class="pin2 po" data-pk="no" value="${esc(x.no || '')}" placeholder="비워 두면 자동" maxlength="20"></div></div>
+        ${(L0 => [...L0.filter(k => !PSW.includes(k)), ...L0.filter(k => PSW.includes(k))])([...needK, ...filled.filter(k => !needK.includes(k))]).map(k => `<div class="pf${needK.includes(k) ? ' nd' : ''}${PSW.includes(k) ? ' w' : ''}"><span>${PS_LB[k]}${AUTOK.includes(k) && psVal(x, k) ? ' <u>자동</u>' : ''}</span><div>${psEditor(x, k)}</div></div>`).join('')}
+        ${other.length ? `<div class="pmeta" style="padding:4px 0">${esc(other.join(', '))}: 중개장부 입력창에서 넣어 주세요</div>` : ''}</div>`}
       <details class="ps-opt"${a.desc ? ' open' : ''}><summary>광고 소개글 · 선택</summary><textarea class="pin2" data-pk="desc" rows="2" maxlength="300" placeholder="">${esc(a.desc || '')}</textarea></details>
       <div class="ps-go"><button type="button" class="btn main" id="psGo">${P.edit ? '저장하기' : isPub(x) ? '다시 게시 (30일)' : '리얼맵 지도에 올리기 (30일)'}</button>
         <p>${esc(S.bk ? S.bk.office : '')} 정보와 함께 표시됩니다${P.edit ? ' · 필수 항목이 비면 지도에서 내려갑니다' : ''}</p></div></div>`;
@@ -1231,6 +1270,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     const set = () => {
       F.querySelectorAll('[data-pk]').forEach(i => {
         let k = i.dataset.pk, v = i.value.trim();
+        if (k === 'no') { x.no = v.replace(/[^\w가-힣-]/g, '').slice(0, 20); return; }   // 10/30 매물번호 (비우면 서버가 자동)
         if (k.startsWith('$')) { k = k.slice(1); const n = Number(v.replace(/[^\d.]/g, '')); x[k] = n > 0 ? n : null; if (k === 'area' && x.places[0]) { x.places[0].area = x[k]; } return; }
         if (k === 'movein' && !v && ['즉시입주', '협의'].includes(x.ad.movein)) return;
         x.ad[k] = k === 'tfl' || k === 'rooms' || k === 'baths' ? (v === '' ? null : parseInt(v, 10)) : v;
@@ -1251,7 +1291,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
     F.querySelectorAll('[data-psl]').forEach(b => b.onclick = () => { set(); const i = +b.dataset.psl, a = x.photos; [a[i - 1], a[i]] = [a[i], a[i - 1]]; drawPubSheet(); });
     if ($('psCard')) $('psCard').onclick = () => { set(); const it = S.pubS.x; closeForm(); if (it.id) openForm(S.items.find(i => i.id === it.id) || it); else openForm(null, it.pnu, { dong: it.places[0].dong, ho: it.places[0].ho, kind: it.kind, price: it.price, deposit: it.deposit, rent: it.rent, contacts: it.contacts }); };
     $('psGo').onclick = () => { set(); pubSubmit(); };
-    if ($('psToPanel')) $('psToPanel').onclick = () => { const id = x.id, md = S.mode; closeForm(); if (md === 'list' && window.Board) Board.reveal(id); else toast('아파트 장부에서 그 호를 두 번 눌러 입력창의 빈 칸을 채워 주세요', 4000); };
+    if ($('psToPanel')) $('psToPanel').onclick = () => { const id = x.id, md = S.mode; closeForm(); if (md === 'ads') return fixInLedger(x); if (md === 'list' && window.Board) Board.reveal(id); else toast('아파트 장부에서 그 호를 두 번 눌러 입력창의 빈 칸을 채워 주세요', 4000); };
     if ($('psDong')) $('psDong').onchange = e => { set(); P.U.cur = e.target.value; psUnits(P); drawPubSheet(); };
     if ($('psHo')) $('psHo').onchange = e => { set(); if (e.target.value) psPickHo(P, e.target.value); };
     const hoTx = v => { set(); const p = P.x.places[0] || (P.x.places[0] = {}); p.ho = String(v || '').trim().slice(0, 12); drawPubSheet(); };

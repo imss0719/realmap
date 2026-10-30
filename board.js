@@ -276,19 +276,19 @@ window.Board = (() => {
   const PRS = { ed: 'pop', g: '의뢰가격' }, CUR = { g: '현상태' };
   const COMMON_END = [K('imp', '꼭 챙길 것', { ed: 'in' })];
   const TAIL = [K('tel', '연락처'), K('h', '최근 기록', { s: 'h' }), K('pub', '리얼맵')];   // 10/28 상태는 위 [진행 중 · 보류 · 거래완료] · 상세 버튼 칸은 없앰 (줄을 누르면 입력창)
-  const RES = cat => [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', cat === 'apt' ? '단지' : '물건명', { s: 'nm' }),
+  const RES = cat => [K('mk0', '매물'), K('n', '매물번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', cat === 'apt' ? '단지' : '물건명', { s: 'nm' }),
     ...(cat === 'home' ? [K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' })] : [K('dn', '동'), K('ho', '호')]), K('ar', cat === 'apt' ? '평형 · 타입' : '전용', { ed: 'in', s: 'ar' }), K('dir', '방향', { ed: 'in' }),
     K('kd', '거래', { ed: 'pop' }), K('ps', '매매', { ...PRS, s: 'ps' }), K('pj', '전세', { ...PRS, s: 'pj' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('mgmt', '관리비', { ed: 'in', g: '의뢰가격' }),
     ...(cat === 'apt' ? [K('gap', '갭', { g: '의뢰가격' })] : []), ...COMMON_END,
     K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL];
   const COLS = {
-    shop: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' }), K('ho', '호'), K('ar', '전용', { ed: 'in', s: 'ar' }),
+    shop: [K('mk0', '매물'), K('n', '매물번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('fl', '층', { ed: 'in' }), K('ho', '호'), K('ar', '전용', { ed: 'in', s: 'ar' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매', { ...PRS, s: 'ps' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('prem', '권리금', { ed: 'in', g: '의뢰가격' }), K('mgmt', '관리비', { ed: 'in', g: '의뢰가격' }),
       K('biz', '업종', { ed: 'in' }), ...COMMON_END, K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL],
-    bld: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }), K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
+    bld: [K('mk0', '매물'), K('n', '매물번호', { s: 'at' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }), K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ed: 'pop', g: '가격', s: 'ps' }), K('ppy', '대지 평당', { g: '가격', s: 'ppy' }), K('loan', '융자', { ed: 'in', g: '가격' }),
       K('rdep', '보증금 합', { g: '임대 현황', ed: 'det' }), K('rrent', '월세 합', { g: '임대 현황', ed: 'det' }), K('yld', '수익률', { g: '임대 현황', s: 'yld' }), K('vac', '공실', { g: '임대 현황', ed: 'det' }), ...COMMON_END, ...TAIL],
-    land: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('addr', '주소', { s: 'addr' }), K('jimok', '지목 · 용도', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }), K('ar', '면적', { ed: 'in', s: 'ar' }), K('road', '도로', { ed: 'det' }),
+    land: [K('mk0', '매물'), K('n', '매물번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('addr', '주소', { s: 'addr' }), K('jimok', '지목 · 용도', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }), K('ar', '면적', { ed: 'in', s: 'ar' }), K('road', '도로', { ed: 'det' }),
       K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('ppy', '평당', { g: '의뢰가격', s: 'ppy' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), ...COMMON_END, ...TAIL],
     // 10/30 선배: 아파트·오피 탭(= 단지 없는 매물)은 아파트 화면 장부와 같은 칸 순서 — 매물 · 단지명 · 유형 · 동 · 호 · 평형 · 타입 · 향 · 받은 곳 · 거래 · 의뢰가격 · 챙길 것 · 현상태 · 연락처 · 최근 기록 · 리얼맵
     apt: [K('mk0', '매물'), K('nm', '단지명', { s: 'nm' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('dn', '동'), K('ho', '호'), K('py', '평형', { s: 'ar' }), K('tp', '타입'), K('dir', '향'), K('src', '받은 곳'), K('kd', '거래', { ed: 'pop' }),
@@ -296,18 +296,18 @@ window.Board = (() => {
       K('imp', '챙길 것', { ed: 'in' }), K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '차임', { ed: 'in', ...CUR }), K('exp', '만기', { ed: 'in', s: 'exp' }), ...TAIL],
     ofc: RES('ofc'), home: RES('home'),
     // 재개발·재건축 (10/26): 프리미엄 = 매매가 − 권리가액 (자동)
-    redev: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('rk', '구분', { ed: 'pop', s: 'ty' }), K('rz', '구역명', { ed: 'in', s: 'rz' }), K('stage', '단계', { ed: 'pop', s: 'stage' }), K('form', '물건 형태', { ed: 'pop' }), K('addr', '주소', { s: 'addr' }),
+    redev: [K('mk0', '매물'), K('n', '매물번호', { s: 'at' }), K('rk', '구분', { ed: 'pop', s: 'ty' }), K('rz', '구역명', { ed: 'in', s: 'rz' }), K('stage', '단계', { ed: 'pop', s: 'stage' }), K('form', '물건 형태', { ed: 'pop' }), K('addr', '주소', { s: 'addr' }),
       K('jsh', '대지지분', { ed: 'in', s: 'jsh' }), K('ar', '전용', { ed: 'in', s: 'ar' }), K('kd', '거래', { ed: 'pop' }),
       K('apv', '감정가', { ed: 'in', g: '가격', s: 'apv' }), K('rgt', '권리가액', { ed: 'in', g: '가격', s: 'rgt' }), K('ps', '매매가', { ed: 'pop', g: '가격', s: 'ps' }), K('prm', '프리미엄', { g: '가격', s: 'prm' }),
       K('msh', '조합원 분양', { ed: 'in' }), K('mvl', '이주비', { ed: 'in' }), ...COMMON_END,
       K('cst', '구분', CUR), K('cdep', '보증금', { ed: 'in', ...CUR }), K('crent', '월세', { ed: 'in', ...CUR }), K('exp', '만기일', { ed: 'in', s: 'exp' }), ...TAIL],
     // 분양권 (10/26): 총액 = 분양가 + 프리미엄 (자동)
-    pre: [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '종류', { ed: 'pop', s: 'ty' }), K('nm', '단지명', { s: 'nm' }), K('dn', '동'), K('ho', '호'), K('ar', '평형 · 타입', { ed: 'in', s: 'ar' }),
+    pre: [K('mk0', '매물'), K('n', '매물번호', { s: 'at' }), K('ty', '종류', { ed: 'pop', s: 'ty' }), K('nm', '단지명', { s: 'nm' }), K('dn', '동'), K('ho', '호'), K('ar', '평형 · 타입', { ed: 'in', s: 'ar' }),
       K('ps', '분양가', { ed: 'pop', g: '가격', s: 'ps' }), K('prp', '프리미엄', { ed: 'pop', g: '가격', s: 'prp' }), K('ptot', '총액', { g: '가격', s: 'ptot' }),
       K('down', '계약금', { ed: 'in', g: '납부' }), K('mid', '중도금', { ed: 'pop', g: '납부' }), K('due', '입주예정', { ed: 'in', s: 'due' }), K('resale', '전매 가능일', { ed: 'in', s: 'resale' }), ...COMMON_END, ...TAIL],
   };
   // 공장·창고 · 숙박·기타: 건물 칸 + 유형 · 임대
-  COLS.fac = COLS.etc = [K('mk0', '매물'), K('n', '번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }),
+  COLS.fac = COLS.etc = [K('mk0', '매물'), K('n', '매물번호', { s: 'at' }), K('ty', '유형', { ed: 'pop', s: 'ty' }), K('nm', '물건명', { s: 'nm' }), K('addr', '주소', { s: 'addr' }), K('site', '대지', { s: 'site', ed: 'det' }), K('tot', '연면적', { s: 'ar', ed: 'det' }),
     K('scale', '규모', { ed: 'det' }), K('appr', '준공', { ed: 'det' }), K('zone', '용도지역', { ed: 'det' }),
     K('kd', '거래', { ed: 'pop' }), K('ps', '매매가', { ...PRS, s: 'ps' }), K('pdep', '보증금', { ...PRS, s: 'pdep' }), K('prent', '월세', { ...PRS, s: 'prent' }), K('ppy', '대지 평당', { g: '의뢰가격', s: 'ppy' }), ...COMMON_END, ...TAIL];
   const MAPHIDE = ['h', 'biz', 'exp', 'cst', 'cdep', 'crent', 'mgmt', 'prem', 'road', 'zone', 'appr', 'scale', 'loan', 'vac', 'dir', 'ty', 'jimok', 'rdep', 'rrent', 'gap', 'pj', 'act', 'tp', 'src'];
@@ -323,7 +323,7 @@ window.Board = (() => {
     const P = places(x)[0] || {}, a = x.ad || {}, k = x.kind;
     switch (c) {
       case 'mk0': { const on = x.status === 'on'; return `<button type="button" class="mkd${on ? ' on' : ''}" data-mkd="${x.id}" title="${on ? '매물입니다 · 누르면 매물에서 해제' : x.status === 'done' ? '거래완료 · 누르면 다시 매물로' : '누르면 매물로 등록'}" ${X.ro().has(x.id) ? 'disabled' : ''}>${on ? '●' : '○'}</button>`; }   // 10/30 아파트 장부와 같은 맨 앞 '매물'
-      case 'n': return `<span class="no">${n}</span>`;
+      case 'n': return x.no ? `<span class="lno">${esc(x.no)}</span>` : `<span class="no">${n}</span>`;   // 10/30 선배: 순번 대신 매물번호 (없으면 순번)
       case 'ty': return `<span class="ty ${catOf(x)}">${esc(chip(x))}</span>`;
       case 'nm': return x.bname ? `<b>${esc(x.bname)}</b>` : ep();
       case 'addr': { const n2 = new Set(places(x).map(q => q.pnu)).size; return `<b>${esc(shortAddr(P.addr || x.addr))}</b>${n2 > 1 ? ` <em>외 ${n2 - 1}${isLand(x) || isWhole(x) ? '필지' : ''}</em>` : ''}`; }   // 10/30 같은 건물 호수 더하기는 '호' 칸에서 외 n
@@ -1170,6 +1170,23 @@ window.Board = (() => {
       setType(D, D.ty);
     } catch { if (alive()) { B.add.D = null; refresh(); H.toast('그 위치의 필지를 찾지 못했습니다. 다른 주소로 찾아 주세요', 3500); } }
   }
+  // 10/30 지도 [여기 매물 광고하기]: 매물장으로 가기 전에 유형만 짐작 (상태는 건드리지 않음) → {pnu, addr, ty}
+  async function peek(r) {
+    const p = await H.api(`/api/parcel?lat=${r.lat}&lng=${r.lng}`);
+    const D = { pnu: p.bldPnu || p.pnu, lpnu: p.pnu, addr: p.addr || r.t || '' };
+    const [b, L] = await Promise.all([H.api(`/api/building?pnu=${D.pnu}`).catch(() => null), H.api(`/api/land?pnu=${D.lpnu || D.pnu}`).catch(() => null)]);
+    const t = b && X.mainTitle(b), ts = ((b && b.titles && b.titles.data) || []).filter(z => z.mainAtch !== '부속건축물');
+    Object.assign(D, { b, t, rc: b && b.recap && b.recap.data && b.recap.data[0], ts, chr: (L && L.chr && L.chr.data) || null });
+    D.isSet = !!t && (ts.some(z => z.regstr === '집합') || !!(b.recap && b.recap.data && b.recap.data.length));
+    D.ty = guess(D);
+    return { pnu: D.pnu, addr: D.addr, ty: D.ty, cat: catOf({ ptype: D.ty }) };
+  }
+  // 10/30 내 광고·지도에서 넘어와 이 탭에서 바로 등록 시작 (주소를 알면 그 주소로 · 모르면 등록 칸에 커서)
+  function startAdd(r, ph) {
+    const q = $('bdQ'); if (q && ph) q.placeholder = ph;
+    if (r && r.lat) return pick({ t: r.t || '', lat: r.lat, lng: r.lng });
+    if (q) setTimeout(() => { q.focus(); q.scrollIntoView({ block: 'center' }); }, 60);
+  }
   function guess(D) {
     if (!D.t) return '토지';
     const g = X.guessType(D.t);
@@ -1434,5 +1451,5 @@ window.Board = (() => {
   // 10/30 다른 화면(아파트 화면의 개별매물)에서 이 매물 입력창만 띄우기 · 닫기
   const openWin = id => { if (!H.items().some(i => i.id === id)) return; B.pk = id; B.hl = id; refresh(); };
   const closeWin = () => { if (B.pk) closePanel(); };
-  return { init, mount, refresh, focus, reveal, autoItem, setCat, openWin, closeWin, cat: () => B.cat, catOf, counts, CATNAME, autoLines, _man: man };
+  return { init, mount, refresh, focus, reveal, autoItem, setCat, openWin, closeWin, peek, startAdd, cat: () => B.cat, catOf, counts, CATNAME, autoLines, _man: man };
 })();
