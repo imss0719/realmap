@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
 import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch, clearHist } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
+import { mgClean, mgMiss, mgPub } from './_mg.js';   // 10/30 주거용 관리비 세분화
 import { lsLoad, lsSave, lsMutate, lsDrop } from './_ls.js';
 import { officeOf, permOf, can, teamN, members, dropTeam, leave, staffApi, seatsOf, SEAT, ROLE } from './_staff.js';
 export { lsLoad, lsSave, lsMutate };
@@ -242,8 +243,7 @@ export function adMissing(x, bk) {
   if (RESID.includes(tbase(x))) {
     if (a.rooms == null || a.rooms === '') miss.push('방 수');
     if (a.baths == null || a.baths === '') miss.push('욕실 수');
-    if (!x.mgmt && !a.nomgmt) miss.push('관리비');
-    if (x.mgmt >= 10 && a.mgmtT === 'fix' && !(a.mgmtInc && a.mgmtInc.length)) miss.push('관리비 포함 항목');
+    miss.push(...mgMiss(x));   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 상가·사무실 등 비주거는 관리비 필수 아님
   }
   return miss;
 }
@@ -269,6 +269,8 @@ function pubSummary(uid, x, bk) {
     flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', dirB: RESID.includes(tbase(x)) ? '주실 기준' : '주출입구 기준', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
+    mg: RESID.includes(tbase(x)) ? mgPub(x) : null, wcn: a.wcn ?? null,   // 10/30 주거용 관리비 세분화 · 화장실 개수
+    loanTx: x.kind !== 'sale' || a.loanR === 'hide' || (!a.loanR && a.loanHide) ? '' : a.loanR === 'none' || (!a.loanR && a.noloan) ? '융자 없음' : a.loanR === 'lt30' ? '시세 대비 30% 미만' : a.loanR === 'ge30' ? '시세 대비 30% 이상' : '',   // 고르지 않았으면 표시 안 함
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
     bk: { office: bk.office, addr: bk.addr, regno: bk.regno, ceo: bk.ceo, tel: bk.tel, mobile: bk.mobile || '', verified: !!bk.verified, photo: bk.photo || '', ...(bk.lat && bk.lng ? { lat: bk.lat, lng: bk.lng, posv: bk.posv || 1 } : {}) },   // 10/29 lat·lng = 지도의 사무소 핀 자리
     at: x.pub.at, chk: x.pub.chk, exp: x.pub.exp,
@@ -301,14 +303,14 @@ const lineOf = ho => { const n = Number(String(ho || '').replace(/\D/g, '')); re
 const lsKeyOf = p => `${p.pnu}|${normD(p.dong)}|${normH(p.ho)}`;
 // 10/28 오피스텔: 매물 카드에 동을 안 적은 경우 → 같은 필지·같은 호면 그 카드
 const lsAt = (items, key) => { const [pn, , h] = key.split('|'); return items.find(x => x.status !== 'done' && x.kind !== 'presale' && (x.places || []).some(p => p.ho && (lsKeyOf(p) === key || (!normD(p.dong) && p.pnu === pn && normH(p.ho) === h)))); };
-async function lsFromLedger(uid, { key, st, pr, rm = 0, bt = 0, mg = 0, mv = '' }) {
+async function lsFromLedger(uid, { key, st, pr, rm = 0, bt = 0, mg = 0, mv = '', mgd = null, ln = 0, lnr = '' }) {
   if (st.src === 'other') return false;   // 타부동산 물건은 내 매물 카드가 아님
   let hit = false;
   const items = await lsMutate(redis, uid, ls => {
     const x = lsAt(ls, key); if (!x) return false;
-    const was = JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.ad]);
+    const was = JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.loan, x.ad]);
     // 10/29 장부 매물 칸의 방·욕실·관리비·입주도 카드(리얼맵 광고)에 — 장부에 값이 있을 때만 덮어씀
-    { const a = x.ad = { ...(x.ad || {}) }; if (rm) a.rooms = rm; if (bt) a.baths = bt; if (mv) a.movein = /^\d{4}-\d{2}-\d{2}$/.test(mv) ? mv.replace(/-/g, '.') : mv; if (mg) { x.mgmt = mg; a.nomgmt = false; } }
+    { const a = x.ad = { ...(x.ad || {}) }; if (rm) a.rooms = rm; if (bt) a.baths = bt; if (mv) a.movein = /^\d{4}-\d{2}-\d{2}$/.test(mv) ? mv.replace(/-/g, '.') : mv; if (mg) { x.mgmt = mg; a.nomgmt = false; } if (mgd) { a.mg2 = mgd; a.nomgmt = mgd.t === 'na' && mgd.na === 'none'; } if (lnr) a.loanR = lnr; if (ln) x.loan = ln; }   // 10/30 관리비 세분화·융자도
     if (!st.src) { if (x.status === 'on') x.status = 'hold'; }   // 매물장에서 내림 → 카드는 보류 (지도 광고는 syncPub이 내림)
     else {
       const k = st.k.includes(x.kind) ? x.kind : st.k[0] || x.kind;
@@ -317,7 +319,7 @@ async function lsFromLedger(uid, { key, st, pr, rm = 0, bt = 0, mg = 0, mv = '' 
       else if (k === 'wolse' && (pr.wd || pr.wr)) Object.assign(x, { kind: 'wolse', deposit: pr.wd || null, rent: pr.wr || null });
       x.status = st.hold ? 'hold' : 'on';
     }
-    if (JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.ad]) === was) return false;
+    if (JSON.stringify([x.kind, x.price, x.deposit, x.rent, x.status, x.mgmt, x.loan, x.ad]) === was) return false;
     x.up = new Date().toISOString(); hit = true;
   });
   if (hit) { const bk = await loadBk(uid), P = await planOf(uid); const it2 = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, it2); }
@@ -381,7 +383,10 @@ function cleanAd(a) {
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
     mgmtT: ['fix', 'avg', 'use', 'rule', 'unk'].includes(a.mgmtT) ? a.mgmtT : '', noloan: !!a.noloan, loanHide: !!a.loanHide, live: ['tenant', 'owner', 'empty'].includes(a.live) ? a.live : '',   // 10/30 현상태(세입자·집주인 거주·공실)
-      // 10/30 관리비 부과: 사용량에 따라(use) · 관리규약에 따라(rule) · 모름(unk) (예전 실비 avg · 정액 fix) · 융자 없음 mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),
+    mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),   // 예전 관리비 부과 방식 (읽기만 · 10/30 고침: 이 줄이 주석 안에 들어가 저장이 안 되던 것)
+    mg2: mgClean(a.mg2),   // 10/30 주거용 관리비 세분화 (api/_mg.js)
+    wcn: (v => v >= 0 && v < 100 ? v : null)(int(a.wcn)),   // 10/30 화장실 개수 (미기입 시 과태료 대상)
+    loanR: ['hide', 'none', 'lt30', 'ge30'].includes(a.loanR) ? a.loanR : (a.loanHide ? 'hide' : a.noloan ? 'none' : ''),   // 10/30 융자: 표시 안 함·없음·시세 30% 미만·이상
     ty: t(a.ty, 8).replace(/\s/g, '').toUpperCase(), spy: (v => v > 3 && v < 300 ? v : null)(Math.round(Number(a.spy) || 0)),   // 아파트 타입(84B)·공급평 (10/26)
     // 재개발·재건축 (10/26): 구역명·단계·물건 형태·대지지분㎡·감정가·권리가액·조합원 분양·이주비(만원)
     rz: t(a.rz, 30), stage: STAGES.includes(a.stage) ? a.stage : '', form: FORMS.includes(a.form) ? a.form : '', jshare: dec(a.jshare), apv: won(a.apv), rgt: won(a.rgt), msh: t(a.msh, 20), mvl: won(a.mvl),
