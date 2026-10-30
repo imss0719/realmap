@@ -47,6 +47,7 @@ window.Danji = (() => {
       try { const cx = await api('/api/auth?action=cx'); S.cx = { items: cx.items || [], memos: cx.memos || {} }; } catch (e) { toast(e.message, 4000); }
       S.loaded = true; S.cur = S.cur || (S.cx.items[0] || {}).id || null;
     } else if (!$('dj_wrap')) el.innerHTML = '<div class="dj-wrap" id="dj_wrap"></div>';
+    if (S.cx.items.length) loadPyt(S.cx.items.flatMap(c => (c.places || []).map(p => p.pnu)));   // 10/30 운영자 평형표 (새로 담은 단지만 더 받음)
     // 10/28 아파트 화면에 들어올 때는 항상 '모든 단지' 표부터 (알림에서 호로 가기·단지 담기·테스트 주소는 그대로)
     if (!S.adding && !new URLSearchParams(location.search).get('seed')) { S.multi.clear(); saveMulti(); S.cur = S.cx.items.length >= 2 ? '__all' : (S.cx.items[0] || {}).id || null; S.lastCx = null; if (djTab() !== 'table') setTab('table'); }
     draw();
@@ -502,7 +503,7 @@ window.Danji = (() => {
         <button type="button" class="btn ghost xs${tab === 'map' ? ' on' : ''}" id="dj_grid" title="단지 지도 위에 동마다 매물·만기 (단지현황판)">${tab === 'map' ? '표로 보기' : '단지현황판'}</button>
         <button type="button" class="btn ghost xs${open ? ' on' : ''}" id="dj_bt">시세 ${open ? '▴' : '▾'}</button>
         <span class="mmw nw"><button type="button" class="btn ghost xs" id="dj_more" aria-label="단지 메뉴">⋯</button><span class="mmenu" id="dj_mmenu" hidden><button type="button" id="dj_ren">단지 이름 바꾸기</button><button type="button" id="dj_addPl">빠진 동 더하기</button><button type="button" id="dj_delCx" class="red">단지 빼기</button></span></span>
-      </div>${open ? `<div class="sum">${summary(C)}</div><div id="dj_board">${board(C)}</div>` : ''}</div>
+      </div>${open ? `<div class="sum">${summary(C)}</div><div id="dj_board">${board(C, cx)}</div>` : ''}</div>
       <div class="card gcard tab-${tab}">
         <div class="djfrow">${dongChips(cx, C, MM)}<div class="tbf" id="dj_tbf"></div></div>
         <div class="dj-scanbar" id="dj_scan" hidden></div>
@@ -588,7 +589,7 @@ window.Danji = (() => {
     const html = `<div class="sd-h"><b>${dongV ? esc(C.cur.slice(20)) : '단지 전체'}</b><span>${[m + o ? `매물 ${m + o}` : '', e ? `만기 ${e}` : ''].filter(Boolean).join(' · ') || '매물 없음'}</span></div>`
       + (rows.length ? rows.map(x => {
         const r = x.r || {};
-        const sub = [supPy(x) ? `${supPy(x).v}평${x.lt && x.lt.t ? ' ' + x.lt.t : ''}` : '', x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', r.live ? LIVE[r.live] : '', r.exp ? `만기 ${r.exp.slice(2, 7).replace('-', '.')}` : '', x.st.src === 'other' ? (x.st.office || '타부동산') : ''].filter(Boolean).join(' · ') + (r.imp ? ` · ⚑ ${r.imp}` : '');
+        const sub = [supPy(x) ? `${supPy(x).v}평${tyOf(x) ? ' ' + tyOf(x) : ''}` : '', x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', r.live ? LIVE[r.live] : '', r.exp ? `만기 ${r.exp.slice(2, 7).replace('-', '.')}` : '', x.st.src === 'other' ? (x.st.office || '타부동산') : ''].filter(Boolean).join(' · ') + (r.imp ? ` · ⚑ ${r.imp}` : '');
         return `<button type="button" class="sd-it${x.st.hold ? ' hold' : ''}" data-go="${esc(x.key)}"><span class="sd-t"><b>${esc(US(x))}</b>${pills(x.st)}</span><span class="sd-p">${prHtml(x)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
       }).join('') : `<p class="sd-e">${dongV ? '이 동에는' : '이 단지에는'} 아직 매물이 없습니다.</p>`)
       + (rows.length ? '<p class="sd-n">누르면 표에서 그 호로 이동</p>' : '');
@@ -682,7 +683,7 @@ window.Danji = (() => {
   // 표 머리 ▾ 로 거를 수 있는 칸 (값 꺼내는 법) — 10/26
   const DCF = {
     cxn: x => x.cx.name, dn: x => DN(x.dn), ar: x => { const p = supPy(x); return p ? p.v + '평' : ''; },
-    ty: x => (x.lt && x.lt.t) || '', dir: x => x.dir || '', live: x => liveTxt(x), of: x => ofTxt(x.st),
+    ty: x => tyOf(x), dir: x => x.dir || '', live: x => liveTxt(x), of: x => ofTxt(x.st),
   };
   function pass(x, F) {
     const s = x.st, r = x.r || {};
@@ -690,7 +691,7 @@ window.Danji = (() => {
     if (F.c.length && !F.c.some(v => v === 'exp' ? s.exp : v === 'imp' ? r.imp : v === 'mk' ? r.mk : v === 'empty' ? r.live === 'empty' : false)) return false;
     if (F.k.length && !F.k.some(k => ((s.k || []).includes(k) && !s.done) || (s.done && r.deal && r.deal.k === k))) return false;
     if (F.a.length && !F.a.some(a => Math.abs(x.a - a) < 1.5)) return false;
-    if (F.t.length && !(x.lt && F.t.includes(x.lt.t))) return false;   // 타입(84B 등) — 라인 설정에서 적은 값
+    if (F.t.length && !F.t.includes(tyOf(x))) return false;   // 타입(84B 등) — 라인 설정에서 적은 값
     if (F.cf) for (const k in F.cf) if (F.cf[k] && !F.cf[k].includes(DCF[k](x))) return false;   // 머리 ▾ 거르기
     return true;
   }
@@ -783,7 +784,20 @@ window.Danji = (() => {
     return r.cd && sale && r.cd < sale ? { v: sale - r.cd } : null;
   }
   // 공급평: 라인에 적어 둔 값 → 없으면 전용면적으로 추정(≈, 보통 59㎡≈25평 · 84㎡≈34평 · 114㎡≈44평)
-  const supPy = x => x.lt && x.lt.py ? { v: x.lt.py } : x.a ? { v: Math.round(x.a * (x.a <= 60 ? 1.36 : x.a <= 85 ? 1.33 : 1.27) / PY), est: true } : null;
+  // 10/30 운영자 평형표 (설정 → 단지 평형표): PNU별 전용면적 → 공급평·타입 · 모든 회원 공통
+  //   순서: ① 회원이 직접 적은 값(라인·호) ② 운영자 평형표 ③ 전용면적으로 계산한 추정
+  const PYT = {};
+  const opOf = (pnu, a, tol = 0.011) => { const m = pnu && a && PYT[pnu]; if (!m || !m.a) return null; let best = null, bd = tol; for (const [k, v] of Object.entries(m.a)) { const d = Math.abs(+k - a); if (d < bd) { bd = d; best = v; } } return best; };
+  async function loadPyt(pnus) {
+    const want = [...new Set(pnus.filter(p => p && !(p in PYT)))]; if (!want.length) return;
+    want.forEach(p => { PYT[p] = null; });
+    for (let i = 0; i < want.length; i += 50) {
+      try { const j = await api(`/api/auth?action=pyt&p=${want.slice(i, i + 50).join(',')}`); Object.assign(PYT, j.map || {}); } catch { /* 없으면 추정값 */ }
+    }
+    refresh();
+  }
+  const supPy = (x, tol) => { if (x.lt && x.lt.py) return { v: x.lt.py }; const o = opOf(x.pnu, x.a, tol); if (o && o.py) return { v: o.py }; return x.a ? { v: Math.round(x.a * (x.a <= 60 ? 1.36 : x.a <= 85 ? 1.33 : 1.27) / PY), est: true } : null; };
+  const tyOf = x => (x.lt && x.lt.t) || ((opOf(x.pnu, x.a) || {}).t) || '';
   const impTxt = t => String(t || '').replace(/^\s*(?:20\d{2}[-./])?\d{1,2}\s*(?:[./]|월\s*)\d{1,2}(?:\s*일)?(?![~\d])(?:까지)?\s*[·,:-]?\s*/, '') || t;   // 맨 앞 날짜는 빨간 날짜 표시와 겹치므로 글에서 뺌
   const impSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 7 && dl >= -3; };
   // 칸에 쓰는 작은 도우미 (10/26)
@@ -813,7 +827,7 @@ window.Danji = (() => {
       case 'dn': return `<b>${esc(DN(x.dn).replace(/동$/, ''))}</b>`;
       case 'ho': return `<b>${esc(x.ho)}</b>`;
       case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : ''}>${p.v}</b>` : '<span class="mut">-</span>'; }
-      case 'ty': return x.lt && x.lt.t ? `<b>${esc(x.lt.t)}</b>` : '<span class="mut">-</span>';   // 10/28 칸 폭: '입력 84.97' 안내 없앰 (전용면적은 입력창에서)
+      case 'ty': return tyOf(x) ? `<b>${esc(tyOf(x))}</b>` : '<span class="mut">-</span>';   // 10/28 칸 폭: '입력 84.97' 안내 없앰 (전용면적은 입력창에서)
       case 'dir': return x.dir ? esc(x.dir) : '<span class="mut">-</span>';
       case 'of': return s.done ? `<span class="p done">계약됨 ✓</span>` : !s.src ? '<span class="mut">-</span>' : `<span class="${s.src === 'mine' ? 'ofm' : ''}">${esc(ofTxt(s))}</span>${s.hold ? ' <small class="hold">보류</small>' : ''}`;
       case 'kd': {
@@ -1218,7 +1232,7 @@ window.Danji = (() => {
   // ---------- 라인 설정: 타입(84B) · 공급평 · 방향 → 이 라인 모든 호에 (매물관리 아파트 매물에도 저장 때 채워짐) ----------
   function linePop(cx, pnu, dong, l, ex, th) {
     if (cxLocked(cx)) return toast(`요금제 단지 한도(${cxLimit()}곳)를 넘은 단지라 보기만 됩니다`, 3500);
-    const lk = `${pnu}|${normD(dong)}|${l}`, lt = (cx.lt || {})[lk] || {}, dir = (cx.dir || {})[lk] || '', est = ex ? supPy({ a: ex }).v : '';
+    const lk = `${pnu}|${normD(dong)}|${l}`, lt = (cx.lt || {})[lk] || {}, dir = (cx.dir || {})[lk] || '', est = ex ? supPy({ a: ex, pnu }).v : '';
     S.tcx = cx;
     const p = openPop(th, `<b class="pt">${esc(dong)} ${String(l).padStart(2, '0')}라인 설정</b><div class="ppf">
       <label>타입<input class="hjin sm" id="lp_t" value="${esc(lt.t || '')}" placeholder="예: 84B" maxlength="8"></label>
@@ -1780,7 +1794,8 @@ window.Danji = (() => {
     if (!top.length) return '<span class="muted">최근 1년 매매가 없습니다</span>';
     return top.map(e => { const ss = e.s.filter(r => r.date >= since).map(r => r.price), jj = e.j.filter(r => r.date >= since).map(r => r.deposit); const sm = med(ss.length ? ss : e.s.map(r => r.price)), jm = med(jj.length ? jj : e.j.map(r => r.deposit)); const jr = sm && jm ? Math.round(jm / sm * 100) : null; return `<span class="chip"><b>${e.ex}㎡</b> ${shortWon(sm)}${jr ? ` <small class="${jr >= 80 ? 'jr-hi' : jr >= 70 ? 'jr-mid' : ''}">전세 ${jr}%</small>` : ''}</span>`; }).join('');
   }
-  function board(C) {
+  function board(C, cx) {
+    const p0 = cx && cx.places && cx.places[0] && cx.places[0].pnu;   // 10/30 운영자 평형표 (실거래 면적은 반올림 → 넉넉히 맞춤)
     if (!C.trades) return '<h2>단지 시세판<small>최근 1년 실거래</small></h2><div class="loading">국토교통부 실거래를 모으는 중…</div>';
     const T = C.trades;
     if (!T.length) return `<h2>단지 시세판<small>최근 1년 실거래</small></h2><div class="muted">${C.err ? esc(C.err) : '최근 1년 동안 신고된 거래가 없습니다.'}</div>`;
@@ -1793,7 +1808,7 @@ window.Danji = (() => {
       const s6 = e.s.filter(r => r.date >= c6).map(r => r.price), j6 = e.j.filter(r => r.date >= c6).map(r => r.deposit);
       const sm = med(s6.length ? s6 : e.s.map(r => r.price)), jm = med(j6.length ? j6 : e.j.map(r => r.deposit));
       const jr = sm && jm ? Math.round(jm / sm * 100) : null;
-      return `<tr><td><b>${e.ex}㎡</b><small>${supPy({ a: e.ex }).v}평</small></td>
+      return `<tr><td><b>${e.ex}㎡</b><small>${supPy({ a: e.ex, pnu: p0 }, 0.6).v}평</small></td>
         <td>${last ? `<b>${shortWon(last.price)}</b><small>${esc(last.date.slice(2))} · ${esc(last.aptDong ? normD(last.aptDong) + '동 ' : '')}${esc(last.floor)}층</small>` : '-'}</td>
         <td>${sm ? shortWon(sm) : '-'}</td><td>${jm ? shortWon(jm) : '-'}</td>
         <td class="${jr >= 80 ? 'jr-hi' : jr >= 70 ? 'jr-mid' : ''}">${jr ? jr + '%' : '-'}</td>
@@ -1912,7 +1927,7 @@ window.Danji = (() => {
     const RJ = (C.trades || []).filter(r => r.kind !== 'apt' && normD(r.aptDong) === normD(dong));
     RJ.forEach(r => { const f = +r.floor; (byFloor.get(f) || byFloor.set(f, []).get(f)).push(r); });
     // 라인 머리: 공급평 · 타입 · 방향 (누르면 라인 설정 창) — 10/26
-    const head = `<tr><th></th>${lines.map(l => { const e = lineEx(l), lk = `${pnu}|${normD(dong)}|${l}`, dir = (cx.dir || {})[lk], lt = (cx.lt || {})[lk] || {}, sp = lt.py ? { v: lt.py } : e ? supPy({ a: e }) : null;
+    const head = `<tr><th></th>${lines.map(l => { const e = lineEx(l), lk = `${pnu}|${normD(dong)}|${l}`, dir = (cx.dir || {})[lk], lt = (cx.lt || {})[lk] || {}, sp = lt.py ? { v: lt.py } : e ? supPy({ a: e, pnu }) : null;
       return `<th class="ln" data-ln="${l}" title="눌러서 이 라인의 타입·공급평·방향 적기"><b>${String(l).padStart(2, '0')}라인${dir ? ` · ${esc(dir)}` : ''}</b>${sp ? `<span class="${sp.est ? 'est' : ''}">${sp.v}평</span>${lt.t ? ` · ${esc(lt.t)}` : ''}${hasAR && LM[l] && LM[l].mixed ? ' 외' : ''}` : e === 0 ? '-' : '…'}</th>`; }).join('')}<th class="ftr">이 층 실거래</th></tr>`;
     // 건물 외벽: 호가 있는 칸의 바깥쪽(왼·오른·위)에 진한 선
     const has = (f, l) => at.has(`${f}|${l}`);
@@ -1930,13 +1945,13 @@ window.Danji = (() => {
       const memo = st.info, pr = st.pr;
       const li = lines.indexOf(l), a = arOf(u), g = a ? gOf(a) : -1, lm = LM[l];
       const edge = [!has(f, lines[li - 1]) ? 'bL' : '', !has(f, lines[li + 1]) ? 'bR' : '', (floors.indexOf(f) === 0 || !has(floors[floors.indexOf(f) - 1], l)) ? 'bT' : ''].join(' ');
-      const odd = a && lm && Math.abs(a - lm.a) >= 1 ? `<em>${supPy({ a }).v}평</em>` : '';
+      const odd = a && lm && Math.abs(a - lm.a) >= 1 ? `<em>${supPy({ a, pnu }).v}평</em>` : '';
       return `<td class="${edge}"><button type="button" class="cell ${cls}"${sty} data-ho="${esc(u.ho)}" title="${esc(dong)} ${esc(u.ho)}${a ? ` · 전용 ${a}㎡ (${(a / PY).toFixed(1)}평)` : ''}">${esc(normH(u.ho))}${pr ? `<span class="pr">${esc(pr)}</span>` : ''}${st.exp ? `<i class="xdot" title="만기 ${st.dl >= 0 ? 'D-' + st.dl : '지남'}"></i>` : ''}${memo ? '<i class="mdot"></i>' : ''}${odd}${g >= 0 ? `<i class="abar" style="background:${ACOL[g % ACOL.length]}"></i>` : ''}</button></td>`;
     }).join('')}<td class="ftr">${(byFloor.get(f) || []).slice(0, 2).map(r => `<span class="${r.kind === 'apt' ? '' : 'j'}">${r.kind === 'apt' ? '매' : r.rent ? '월' : '전'} ${r.kind === 'apt' ? shortWon(r.price) : shortWon(r.deposit)} · ${Math.round(r.ex)}㎡ · ${esc(r.date.slice(2, 7))}</span>`).join('')}</td></tr>`).join('');
     const want = (C.want || {})[C.cur], got = U.filter(u => digits(u.ho)).length;
     const cnt = `<p class="note">건축물대장 호 ${got.toLocaleString()}개${want ? ` / 표제부 기준 ${want.toLocaleString()}호${got < want ? ' · 일부 호가 공공데이터에 없어 빈칸으로 보일 수 있습니다' : ''}` : ''}</p>`;
     const part = C.partial && C.partial[C.cur] ? '<div class="muted" style="margin-bottom:6px">공공데이터 응답이 느려 호 목록 일부만 받았습니다. <button type="button" class="lnk" id="dj_retry">나머지 다시 불러오기</button></div>' : '';
-    const legend = `<div class="aleg">${groups.map((g, i) => `<span><i style="background:${ACOL[i % ACOL.length]}"></i>${supPy({ a: g.a }).v}평</span>`).join('')}${groups.length ? '' : AR === 'loading' ? '<span class="note">호별 면적을 불러오는 중…</span>' : ''}<span><u class="k-sale"></u>매매</span><span><u class="k-jeonse"></u>전세</span><span><u class="k-wolse"></u>월세</span><span class="note">꽉 채움 = 내 매물 · 테두리 = 타부동산 · 흐림 = 보류 · 회색✓ = 최근 계약 · ● 만기 임박</span></div>`;
+    const legend = `<div class="aleg">${groups.map((g, i) => `<span><i style="background:${ACOL[i % ACOL.length]}"></i>${supPy({ a: g.a, pnu }).v}평</span>`).join('')}${groups.length ? '' : AR === 'loading' ? '<span class="note">호별 면적을 불러오는 중…</span>' : ''}<span><u class="k-sale"></u>매매</span><span><u class="k-jeonse"></u>전세</span><span><u class="k-wolse"></u>월세</span><span class="note">꽉 채움 = 내 매물 · 테두리 = 타부동산 · 흐림 = 보류 · 회색✓ = 최근 계약 · ● 만기 임박</span></div>`;
     const ground = `<tr class="gnd"><th></th><td colspan="${lines.length}"><i></i></td><td class="ftr"></td></tr>`;
     box.innerHTML = part + cnt + legend + `<div class="scroll"><table class="grid bldg"><thead>${head}</thead><tbody>${body}${ground}</tbody></table></div>`;
     if ($('dj_retry')) $('dj_retry').onclick = retry;

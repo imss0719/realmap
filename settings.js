@@ -29,7 +29,8 @@ window.Sett = (() => {
   const seen = () => { try { return localStorage.getItem('rm.qseen') || ''; } catch { return ''; } };
   const newRep = () => ((hp && hp.qnas) || []).filter(q => q.reply && q.rat > seen()).length;   // 아직 안 본 답변 수 (메뉴 빨간 숫자)
 
-  const menu = () => isStaff() ? [...MENU_ST, ['mine', '내 소속', '']] : [...MENU, ['staff', '직원 관리', '']];
+  const isOp = () => !!(H && H.me() && H.me().op) && !isStaff();
+  const menu = () => isStaff() ? [...MENU_ST, ['mine', '내 소속', '']] : [...MENU, ['staff', '직원 관리', ''], ...(isOp() ? [['pyt', '단지 평형표', '운영자만']] : [])];   // 10/30 운영자만 보임
   function mount(box, host) { H = host; el = box; try { sec = 'office'; /* 10/28 설정은 늘 '우리 사무소'부터 */ } catch { /* 무시 */ } if (!menu().some(m => m[0] === sec)) sec = menu()[0][0]; draw(); if (!hp) loadHp().then(() => draw()); }
   function refresh() { if (el && !el.contains(document.activeElement)) draw(); }   // 글을 쓰는 중이면 다시 그리지 않음
   function stale() { log = null; cxs = null; cus = null; if (el && !el.hidden) draw(); }   // 엑셀 불러오기 뒤 기록·숫자 새로
@@ -38,10 +39,10 @@ window.Sett = (() => {
     const b = H.bk() || {}, nr = newRep(), wn = sf && sf.list ? sf.list.filter(m => m.st === 'wait').length : 0;
     const sub = { office: b.verified ? '확인됨' : b.office ? '확인 전' : '', plan: (H.plan() || {}).name || '', staff: sf && sf.list ? `${sf.used}명` : '', mine: ((H.me() || {}).staff || {}).name || '' };
     if (!menu().some(m => m[0] === sec)) sec = menu()[0][0];
-    el.innerHTML = `<div class="st-w"><nav class="st-n">${menu().map(([k, t, d]) => `${k === 'staff' || k === 'mine' ? '<hr>' : ''}<button type="button" data-s="${k}" aria-pressed="${sec === k}"><b>${t}</b>${(k === 'help' && nr) || (k === 'staff' && wn) ? `<em>${k === 'help' ? nr : wn}</em>` : `<small>${esc(sub[k] || d)}</small>`}</button>`).join('')}
+    el.innerHTML = `<div class="st-w"><nav class="st-n">${menu().map(([k, t, d]) => `${k === 'staff' || k === 'mine' || k === 'pyt' ? '<hr>' : ''}<button type="button" data-s="${k}" aria-pressed="${sec === k}"><b>${t}</b>${(k === 'help' && nr) || (k === 'staff' && wn) ? `<em>${k === 'help' ? nr : wn}</em>` : `<small>${esc(sub[k] || d)}</small>`}</button>`).join('')}
       </nav><div class="st-m" id="stM"></div></div>`;
     el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => go(b.dataset.s));
-    ({ office, excel, plan, help, acct, staff, mine })[sec]($('stM'));
+    ({ office, excel, plan, help, acct, staff, mine, pyt })[sec]($('stM'));
     if (!isStaff() && !sf) loadSf().then(() => draw());
   }
 
@@ -353,6 +354,79 @@ window.Sett = (() => {
       rw('권한 바꾸기', '<small>대표님이 [설정 → 직원 관리]에서 정합니다</small>'))}
       ${pn('사무소에서 나가기', '', rw('나가기', '<small>나가면 이 사무소 장부를 더 볼 수 없습니다. 내 카카오 계정에는 자료가 남지 않습니다.</small>', B('stLeave', '나가기', 'r')), 'q')}</div>`;
     $('stLeave').onclick = async () => { if (!confirm(`${me.office || '이 사무소'}에서 나갈까요?`)) return; try { await H.api('/api/auth?action=staff', H.post({ op: 'leave' })); location.replace('/pro.html'); } catch (e) { H.toast(e.message, 4000); } };
+  }
+
+  // ---------- 10/30 운영자: 단지 평형표 — 단지마다 전용면적 → 공급평·타입 (모든 회원 아파트 화면에 공통 적용) ----------
+  //   단지 검색(카카오) → 필지 PNU → 동 목록(/api/units scan) → 동마다 호별 전용면적(/api/units areas) → 면적별 호 수
+  //   저장: /api/auth?action=pyt (운영자만) · 회원이 라인·호에 직접 적은 값이 있으면 그게 먼저
+  const PT = { q: '', res: null, cur: null, list: null, busy: '' };
+  const estPy = a => Math.round(a * (a <= 60 ? 1.36 : a <= 85 ? 1.33 : 1.27) / 3.3058);
+  function pyt(m) {
+    if (!isOp()) { m.innerHTML = ''; return; }
+    const c = PT.cur;
+    const rows = c && c.rows ? c.rows : [];
+    const tbl = c ? (rows.length ? `<table class="st-tb pyt"><tr><th>전용면적</th><th>호 수</th><th>평형</th><th>타입</th><th>지금 화면에 나오는 값</th><th></th></tr>${rows.map((r, i) => {
+      const v = c.val[r.k] || {}, now = v.py ? `<span class="ok">${v.py}평${v.t ? ' · ' + esc(v.t) : ''} ✓</span>` : `<i class="em">${estPy(r.a)}평 (추정)</i>`;
+      return `<tr><td><b>${r.k}㎡</b></td><td>${r.n ? r.n.toLocaleString() + '호' : '<i class="em">직접 추가</i>'}</td><td><input class="si" style="width:56px" data-py="${i}" value="${v.py || ''}" placeholder="${estPy(r.a)}" inputmode="numeric" maxlength="3"> 평</td><td><input class="si" style="width:70px" data-ty="${i}" value="${esc(v.t || '')}" placeholder="예: 59A" maxlength="8"></td><td>${now}</td><td>${r.n ? '' : `<button type="button" class="sb r" data-rm="${i}">빼기</button>`}</td></tr>`;
+    }).join('')}</table>` : `<p class="sp-e">${PT.busy || '전용면적을 받지 못했습니다. 아래에서 직접 추가해 주세요.'}</p>`) : '';
+    const L = PT.list;
+    m.innerHTML = `${pn('단지 평형표', '운영자만 보입니다 · 저장하면 모든 회원 화면에 바로 적용', `
+      <div class="sr"><b>단지 찾기</b><span><input class="si" id="ptQ" style="width:260px" placeholder="단지 이름이나 주소 (예: ○○래미안)" value="${esc(PT.q)}"> ${B('ptGo', '찾기', 'n')}</span><span></span></div>
+      ${PT.res ? `<div class="sp-n">${PT.res.length ? PT.res.map((r, i) => `<button type="button" class="sb" data-pr="${i}" style="margin:2px 4px 2px 0">${esc(r.t)} <small style="font-weight:500;color:#94A0AD">&nbsp;${esc(r.s)}</small></button>`).join('') : '검색 결과가 없습니다.'}</div>` : ''}`)}
+      ${c ? pn(esc(c.n || '이름 없는 단지'), `${esc(c.addr || '')}${c.dn ? ` · ${c.dn}개 동` : ''}`, `${tbl}
+        <div class="sr"><b>면적 직접 추가</b><span><input class="si" id="ptAdd" style="width:90px" placeholder="예: 84.97" inputmode="decimal"> ㎡ ${B('ptAddB', '추가')}</span><span class="a">${B('ptSave', '저장', 'y')}${c.saved ? B('ptDel', '이 단지 평형표 지우기', 'r') : ''}</span></div>
+        <p class="sp-n">평형을 비우면 그 면적은 추정값으로 나옵니다. 회원이 라인·호에 직접 적은 평형이 있으면 그 값이 먼저입니다.</p>`) : ''}
+      ${pn('입력한 단지', L ? `${L.length}곳` : '', L ? tb(['단지', '면적 수', '고친 날', ''], L.map((x, i) => `<tr><td>${esc(x.n || x.pnu)}</td><td>${x.k}</td><td>${ymd(x.at)}</td><td><button type="button" class="sb" data-pl="${i}">열기</button></td></tr>`), '아직 입력한 단지가 없습니다.') : '<p class="sp-e">불러오는 중…</p>')}`;
+    const q = $('ptQ'), go = () => ptSearch(q.value.trim());
+    q.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) go(); }; $('ptGo').onclick = go;
+    m.querySelectorAll('[data-pr]').forEach(b => b.onclick = () => ptOpen(PT.res[+b.dataset.pr]));
+    m.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const x = PT.list[+b.dataset.pl]; ptOpen({ pnu: x.pnu, t: x.n }); });
+    const keep = () => m.querySelectorAll('[data-py],[data-ty]').forEach(i => { const r = rows[+(i.dataset.py ?? i.dataset.ty)], v = c.val[r.k] || (c.val[r.k] = {}); if (i.dataset.py != null) v.py = +(i.value.replace(/\D/g, '') || 0) || ''; else v.t = i.value.trim(); });
+    m.querySelectorAll('[data-py],[data-ty]').forEach(i => { i.oninput = keep; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) ptSave(); }; });
+    m.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { keep(); const r = rows[+b.dataset.rm]; delete c.val[r.k]; c.rows = rows.filter(z => z !== r); draw(); });
+    if ($('ptAddB')) $('ptAddB').onclick = () => { keep(); const a = Math.round(parseFloat($('ptAdd').value) * 100) / 100; if (!(a > 5 && a < 500)) return H.toast('전용면적을 84.97처럼 ㎡로 적어 주세요'); const k = a.toFixed(2); if (!rows.some(r => r.k === k)) { c.rows = [...rows, { k, a, n: 0 }].sort((x, y) => x.a - y.a); } draw(); };
+    if ($('ptSave')) $('ptSave').onclick = () => { keep(); ptSave(); };
+    if ($('ptDel')) $('ptDel').onclick = async () => { if (!confirm('이 단지의 평형표를 지울까요? 회원 화면은 다시 추정값으로 나옵니다.')) return; try { await H.api('/api/auth?action=pyt', H.post({ pnu: c.pnu, a: {} })); c.val = {}; c.saved = false; PT.list = null; H.toast('지웠습니다'); draw(); } catch (e) { H.toast(e.message, 4000); } };
+    if (!L) H.api('/api/auth?action=pyt&all=1').then(j => { PT.list = j.list || []; if (sec === 'pyt') draw(); }).catch(() => { PT.list = []; });
+  }
+  function ptSearch(q) {
+    PT.q = q; if (!q) return;
+    if (!(window.kakao && kakao.maps && kakao.maps.services)) return H.toast('검색을 준비하고 있습니다. 잠시 후 다시 눌러 주세요');
+    new kakao.maps.services.Places().keywordSearch(q, (r, st) => { PT.res = st === 'OK' ? r.slice(0, 8).map(a => ({ t: a.place_name, s: a.address_name, lat: +a.y, lng: +a.x })) : []; draw(); });
+  }
+  async function ptOpen(r) {
+    PT.res = null; PT.busy = '단지 정보를 확인하는 중…';
+    const c = PT.cur = { n: r.t || '', addr: r.s || '', pnu: r.pnu || '', rows: [], val: {}, dn: 0, saved: false }; draw();
+    try {
+      if (!c.pnu) { const p = await H.api(`/api/parcel?lat=${r.lat}&lng=${r.lng}`); c.pnu = p.bldPnu || p.pnu; c.addr = p.addr || c.addr; }
+      const j = await H.api(`/api/auth?action=pyt&p=${c.pnu}`), v = (j.map || {})[c.pnu];
+      if (v) { c.val = JSON.parse(JSON.stringify(v.a || {})); c.saved = true; if (!c.n) c.n = v.n || ''; }
+      // 동 목록
+      PT.busy = '동 목록을 받는 중…'; if (PT.cur === c) draw();
+      const dongs = new Set(); let from = 1;
+      for (let i = 0; i < 80; i++) {
+        const s = await H.api(`/api/units?pnu=${c.pnu}&scan=1&from=${from}`);
+        if (s.cached) { (s.dongs || []).forEach(d => d && dongs.add(d)); break; }
+        (s.items || []).forEach(x => { const d = String(x.dongNm || '').trim(); if (d) dongs.add(d); });
+        if (s.done || !s.pages) break; from = s.next || from + 1;
+        if (PT.cur !== c) return;
+      }
+      c.dn = dongs.size;
+      // 동마다 호별 전용면적 → 면적별 호 수
+      const cnt = new Map(), D = [...dongs]; let k = 0;
+      const one = async () => { while (k < D.length) { const d = D[k++]; PT.busy = `호별 전용면적을 받는 중… (${k}/${D.length}동)`; if (PT.cur === c && sec === 'pyt') draw(); try { const a = (await H.api(`/api/units?pnu=${c.pnu}&dong=${encodeURIComponent(d)}&areas=1`)).areas || {}; Object.values(a).forEach(x => { if (x > 5) { const kk = (+x).toFixed(2); cnt.set(kk, (cnt.get(kk) || 0) + 1); } }); } catch { /* 그 동은 건너뜀 */ } } };
+      await Promise.all([one(), one(), one()]);
+      const ks = new Set([...cnt.keys(), ...Object.keys(c.val)]);
+      c.rows = [...ks].map(kk => ({ k: kk, a: +kk, n: cnt.get(kk) || 0 })).sort((x, y) => x.a - y.a);
+      PT.busy = '';
+    } catch (e) { PT.busy = ''; H.toast(e.message || '단지를 열지 못했습니다', 4000); }
+    if (PT.cur === c && sec === 'pyt') draw();
+  }
+  async function ptSave() {
+    const c = PT.cur; if (!c || !c.pnu) return;
+    const a = {}; for (const [kk, v] of Object.entries(c.val)) if (v && (v.py || v.t)) a[kk] = { py: +v.py || 0, t: v.t || '' };
+    try { const j = await H.api('/api/auth?action=pyt', H.post({ pnu: c.pnu, n: c.n, a })); c.val = JSON.parse(JSON.stringify(j.a || {})); c.saved = !!Object.keys(c.val).length; PT.list = null; H.toast(c.saved ? '저장했습니다. 모든 회원 화면에 적용됩니다' : '비어 있어 이 단지 평형표를 지웠습니다', 3000); draw(); }
+    catch (e) { H.toast(e.message, 4000); }
   }
   return { mount, refresh, stale, go };
 })();
