@@ -339,7 +339,7 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
     const join = {}; M.rows.forEach(r => { const d = kday(r.joined); if (d) join[d] = (join[d] || 0) + 1; });
     const j30 = st.days.reduce((a, x) => a + (join[x.d] || 0), 0), j7 = st.days.slice(0, 7).reduce((a, x) => a + (join[x.d] || 0), 0);
     const s1 = sumOf(st, 1, 'src'), s7 = sumOf(st, 7, 'src'), s30 = sumOf(st, 30, 'src'), sk = Object.keys(SRC).filter(k => s30[k]).sort((a, b) => s30[b] - s30[a]), stot = sk.reduce((a, k) => a + s30[k], 0) || 1;
-    const g1 = sumOf(st, 1, 'gu'), g7 = sumOf(st, 7, 'gu'), g30 = sumOf(st, 30, 'gu'), gk = Object.keys(g30).sort((a, b) => g30[b] - g30[a]).slice(0, 15), gtot = gk.reduce((a, k) => a + g30[k], 0) || 1, WARM = ['11440', '11410', '11380'];
+    const g1 = sumOf(st, 1, 'gu'), g7 = sumOf(st, 7, 'gu'), g30 = sumOf(st, 30, 'gu'), gk = Object.keys(g30).sort((a, b) => (g1[b] || 0) - (g1[a] || 0) || (g7[b] || 0) - (g7[a] || 0) || g30[b] - g30[a]).slice(0, 15)   /* 10/30 선배: 오늘 조회 많은 순 (같으면 7일 → 30일) */, gtot = gk.reduce((a, k) => a + g30[k], 0) || 1, WARM = ['11440', '11410', '11380'];
     const pct = st.maxKeys ? Math.round(st.keys / st.maxKeys * 100) : 0;
     const pg30 = sumOf(st, 30, 'spg'), pg7 = sumOf(st, 7, 'spg'), ss30 = sumOf(st, 30, 'ssrc'), top = Object.keys(pg30).sort((a, b) => pg30[b] - pg30[a]).slice(0, 15), ssk = Object.keys(ss30).sort((a, b) => ss30[b] - ss30[a]), sstot = ssk.reduce((a, k) => a + ss30[k], 0) || 1;
     const spv30 = st.days.reduce((a, x) => a + (x.spv || 0), 0), toMap = st.days.reduce((a, x) => a + ((x.src || {}).seoul || 0), 0);
