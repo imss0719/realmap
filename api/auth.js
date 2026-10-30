@@ -724,6 +724,9 @@ export default async function (req, res) {
       for (let i = 0; i < raw.length; i += 2) { try { const v = JSON.parse(raw[i + 1]); if (v.exp > now) items.push(v); else if (v.exp < gone) old.push(raw[i]); } catch { old.push(raw[i]); } }
       // 게시 기간이 끝나고 30일 더 지난 매물은 공개 목록에서 지웁니다 (매물장에서 '연장'하면 다시 올라감)
       if (old.length) try { await redis(['HDEL', PUB_KEY, ...old]); } catch { /* 다음에 */ }
+      // 10/30 ?bb=남,서,북,동 (위도·경도 상자): 정비사업 구역 페이지는 그 근처 매물만 받음 (없으면 예전처럼 전체 · 지도·홍보 페이지)
+      const bb = String(req.query.bb || '').split(',').map(Number);
+      if (bb.length === 4 && bb.every(Number.isFinite)) return send(res, 200, { ok: true, items: items.filter(v => v.lat >= bb[0] && v.lat <= bb[2] && v.lng >= bb[1] && v.lng <= bb[3]) }, 60);
       return send(res, 200, { ok: true, items }, 60);
     }
 
