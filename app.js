@@ -1756,7 +1756,6 @@
     const list = atchList();
     if (list.length) {
       return `<section><h2>여러 필지에 걸친 건물<span>${list.length + 1}개 필지</span></h2>
-        <p class="note" style="margin-top:0">이 건물은 대표 필지와 함께 아래 필지에 걸쳐 지어져 있습니다. 지도에는 점선으로 함께 표시했습니다. 건축물대장의 대지면적은 묶인 필지 전체 기준입니다.</p>
         <div class="glist"><span class="g main">${esc(S.sel.jibun || pnuJibun(S.sel.pnu)).replace(/[가-힣]+$/, '')} <small>대표</small></span>${list.map(a => `<button class="g" data-gp="${a.pnu}">${esc(a.jibun)}</button>`).join('')}</div></section>`;
     }
     if (!titles().length && S.sel.bldPnu && S.sel.bldOk && S.d.bld) {
@@ -3019,13 +3018,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     let V = LP.f === 'all' ? L.slice() : L.filter(x => x.kind === LP.f);
     if (LP.sort === 'new') V.sort((a, b) => String(b.at).localeCompare(String(a.at)));
     else V.sort((a, b) => (lsMain(a) - lsMain(b)) * (LP.sort === 'low' ? 1 : -1));
-    const offices = new Set(L.map(x => x.bk.regno || x.bk.office)).size;
     const sort = L.length > 1 ? `<select data-lsort aria-label="정렬"><option value="new"${LP.sort === 'new' ? ' selected' : ''}>최신순</option><option value="low"${LP.sort === 'low' ? ' selected' : ''}>낮은 가격순</option><option value="high"${LP.sort === 'high' ? ' selected' : ''}>높은 가격순</option></select>` : '';
     const chips = kinds.length > 1 ? `<div class="lp-f" role="group" aria-label="거래 종류">${[['all', '전체', ''], ...kinds.map(k => [k, LKIND[k], cnt(k)])].map(([k, t, c]) => `<button type="button" data-lf="${k}" aria-pressed="${LP.f === k}">${t}${c ? ' ' + c : ''}</button>`).join('')}</div>` : '<span class="lp-sp"></span>';
     return `<div class="lp-h"><b>중개사 매물 <em>${L.length}</em>건</b><span class="lp-sp"></span>${sort}${closeBtn ? '<button type="button" class="lp-x" data-lclose aria-label="매물 창 닫기">×</button>' : ''}</div>
       ${kinds.length > 1 ? `<div class="lp-tl">${chips}</div>` : ''}
       <div class="lp-list">${V.map(lsCard).join('')}</div>
-      <p class="lnote">${offices > 1 ? `부동산 ${offices}곳이 올린 매물입니다. ` : ''}중개사무소가 리얼맵에 올린 광고입니다. 실거래가가 아니며, 거래 조건은 중개사무소에 확인해 주세요.</p>`;
+`;   // 10/30 선배: 아래 안내글(중개사 광고·실거래 아님) 뺌
   }
   // 목록 안 버튼들 (펼치기·거르기·정렬·번호 복사·닫기)
   function lsWire(box, redraw) {
@@ -3041,7 +3039,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (!p) return L;
     if (LP.pnu !== p.pnu) { LP.pnu = p.pnu; LP.closed = false; LP.f = 'all'; LP.n = -1; S.mtab = 'info'; }
     if (LP.n !== L.length) { // 처음 고름 · 매물 목록이 늦게 도착함
-      LP.n = L.length; LP.exp = new Set(L.length === 1 ? [L[0].k] : []);
+      LP.n = L.length; LP.exp = new Set();   // 10/30 선배: 매물 카드는 처음엔 늘 접힌 채로 (1건이어도)
       LP.open = L.length > 0 && !LP.closed;
     }
     return L;
@@ -3065,7 +3063,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function lsSection() {
     const L = lsHere(); if (!L.length) return '';
     if (mobile()) return '';
-    return `<div class="blk lsec" id="sec-lst"><button type="button" class="lsopen" data-lopen><span><b>중개사 매물 ${L.length}건</b><small>${LP.open ? '오른쪽 매물 창에서 보고 있습니다' : '매물 창 열기'}</small></span><span aria-hidden="true">›</span></button></div>`;
+    return `<div class="blk lsec" id="sec-lst"><button type="button" class="lsopen" data-lopen><span><b>중개사 매물 ${L.length}건</b>${LP.open ? '' : '<small>매물 창 열기</small>'}</span><span aria-hidden="true">›</span></button></div>`;
   }
 
   // ---------- 검색 ----------
