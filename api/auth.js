@@ -243,7 +243,7 @@ export function adMissing(x, bk) {
   if (RESID.includes(tbase(x))) {
     if (a.rooms == null || a.rooms === '') miss.push('방 수');
     if (a.baths == null || a.baths === '') miss.push('욕실 수');
-    miss.push(...mgMiss(x));   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 상가·사무실 등 비주거는 관리비 필수 아님
+    if (x.kind !== 'presale') miss.push(...mgMiss(x));   // 10/31 분양권은 입주 전이라 관리비가 정해지지 않음 → 필수 아님   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 상가·사무실 등 비주거는 관리비 필수 아님
   }
   return miss;
 }
