@@ -674,3 +674,4 @@
   - listings.html 맨 위: 휴대폰(화면 짧은 쪽 760 미만)으로 주소에 아무것도 없이 열면 /m.html로 · rm.pc=1이면 PC 화면 그대로 + 왼쪽 아래 [📱 휴대폰 화면] 버튼.
 - 10/30 회색 점 비율 30 → 50%(offices-seoul.mjs RATE, 동마다 최대 20건물) · 화면 칸(96px, 휴대폰 84px) 하나에 건물 2곳 이상이면 '🏠 부동산 n' 묶음 하나 → 누르면 목록 카드(#ofCard .gl).
 - 10/30 휴대폰 장부 '홈 화면에 추가'를 크롬이 앱 설치(WebAPK)로 처리 → Google Play 프로텍트가 '안전하지 않은 앱 차단'. 매니페스트 연결을 m.html·listings.html에서 빼서 그냥 바로가기 아이콘으로(⋮ → 홈 화면에 추가 / 삼성 인터넷 ≡ → 현재 페이지 추가). 예전 m-sw.js 서비스워커는 m.html이 지움. m.webmanifest·m-sw.js 파일은 남겨 둠(안 씀).
+- 10/30 선배 결정 "방법이 기기마다 다르면 안 됨": 손가락(터치)도 PC처럼 한 번 = 줄 선택, 두 번(450ms 안) = 입력창 (danji.js wireLedRows S.tap · board.js B.tap). listings.html 표에 touch-action:manipulation(두 번 누르기가 확대로 안 먹히게).

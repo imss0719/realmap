@@ -445,13 +445,13 @@ window.Board = (() => {
     T.querySelectorAll('th[data-sort]').forEach(h => h.onclick = () => { const s = h.dataset.sort; if (B.sort === s) B.dir *= -1; else { B.sort = s; B.dir = ['at', 'pr', 'ar', 'memo', 'h'].includes(s) ? -1 : 1; } keep(); refresh(); });
     T.querySelectorAll('a[data-call]').forEach(a => a.onclick = e => { e.stopPropagation(); callLog(a.dataset.call); });
     T.querySelectorAll('[data-pubm]').forEach(b => b.onclick = e => { e.stopPropagation(); H.pubClick(b.dataset.pubm, b); });
-    // 10/29 한 번 누르면 줄 선택만 · 두 번(더블클릭)·Enter = 입력창 (손가락 화면은 한 번에 엶)
+    // 10/29 한 번 누르면 줄 선택만 · 두 번(더블클릭)·Enter = 입력창 · 10/30 손가락도 두 번(기기마다 같게)
     T.querySelectorAll('tr[data-id]').forEach(r => {
       r.onpointerup = e => { r._pt = e.pointerType; };
       r.onclick = e => {
         if (e.target.closest('input,button,a,select,textarea')) return;
         selRow(r.dataset.id);
-        if (r._pt === 'touch') { openPanel(r.dataset.id); H.focus(r.dataset.id); }
+        if (r._pt === 'touch') { const t = Date.now(); if (B.tap && B.tap.k === r.dataset.id && t - B.tap.t < 450) { B.tap = null; openPanel(r.dataset.id); H.focus(r.dataset.id); } else B.tap = { k: r.dataset.id, t }; }   // 10/30 손가락도 두 번 눌러야 엶 (기기마다 같게)
       };
       r.ondblclick = e => {
         if (e.target.closest('input,button,a,select,textarea')) return;

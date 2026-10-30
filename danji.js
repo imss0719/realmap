@@ -1296,13 +1296,13 @@ window.Danji = (() => {
   // 줄(칸)을 한 번 누르면 오른쪽 입력창 · 고칠 수 있는 칸을 두 번 누르면 예전처럼 표에서 바로 입력 · [매물장으로] = 입력창의 '매물' 칸을 열어 줌
   function wireLedRows(cx, root, ro) {
     root.querySelectorAll('td[data-c]').forEach(td => {
-      // 10/29 한 번 누르면 줄 선택만 · 두 번(더블클릭)이나 Enter = 입력창 · 손가락 화면은 한 번에 엶
+      // 10/29 한 번 누르면 줄 선택만 · 두 번(더블클릭)이나 Enter = 입력창 · 10/30 손가락 화면도 두 번 눌러야 엶(기기마다 같게)
       td.onpointerup = e => { td._pt = e.pointerType; };
       const rowX = () => { const tr = td.closest('tr[data-key]'); return tr && S.rows[+tr.dataset.i]; };
       td.onclick = e => {
         if (td.classList.contains('editing') || e.target.closest('a,button,input,select')) return;
         const x = rowX(); if (!x) return;
-        if (td._pt === 'touch') openPanel(x);
+        if (td._pt === 'touch') { const k = td.closest('tr[data-key]').dataset.key, t = Date.now(); if (S.tap && S.tap.k === k && t - S.tap.t < 450) { S.tap = null; openPanel(x); } else S.tap = { k, t }; }   // 10/30 선배 결정: 기기마다 같게 — 손가락도 두 번 눌러야 엶
       };
       td.ondblclick = e => {
         if (td.classList.contains('editing') || e.target.closest('a,button,input,select')) return;
