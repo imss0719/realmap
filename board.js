@@ -545,14 +545,14 @@ window.Board = (() => {
     const pr = mainP(x) ? `${X.KIND[x.kind]} ${x.kind === 'wolse' ? `${cw(x.deposit) || 0}/${x.rent || '-'}` : cw(mainP(x))}` : X.KIND[x.kind];
     P.innerHTML = `<div class="hp-h"><b>${esc(title)}</b><span>${esc(chip(x))} · ${esc(pr)} · ${esc(X.STAT[x.status])}</span><button type="button" class="hp-x" id="bdhp_x" aria-label="닫기">×</button></div>
       ${cs.length ? `<div class="hp-tel">${cs.map((c, i) => `<a class="tl" href="tel:${esc(String(c.phone || '').replace(/[^\d+]/g, ''))}" data-call="${x.id}:${i}">☎ ${esc([c.role, c.name].filter(Boolean).join(' '))} ${esc(c.phone || '')}</a>`).join('')}</div>` : ''}
-      ${RO ? '' : `<div class="hjmemo"><input class="hjin sm" id="bdhp_in" data-fk="hp:${x.id}" placeholder="기록 남기기 (예: 임차인 통화 — 3월 이사) · Enter" maxlength="500"><button type="button" class="btn dark sm" id="bdhp_add">추가</button></div>`}
+      ${RO ? '' : `<div class="hjmemo"><input class="hjin sm" id="bdhp_in" data-fk="hp:${x.id}" placeholder="기록 남기기 (예: 임차인 통화 — 3월 이사) 쓰고 [추가]" maxlength="500"><button type="button" class="btn dark sm" id="bdhp_add">추가</button></div>`}
       ${L.length ? `<ul class="hjhist">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button>`}</li>`; }).join('')}</ul>` : '<p class="note">아직 기록이 없습니다.</p>'}
       <p class="note">가격·상태를 바꾸거나 전화를 걸면 자동으로 남습니다(회색).</p>`;
     $('bdhp_x').onclick = () => { B.hist = null; refresh(); };
     P.querySelectorAll('[data-call]').forEach(a => a.onclick = () => callLog(a.dataset.call));
     if (RO) return;
     const add = () => { const t = $('bdhp_in').value.trim(); if (!t) return $('bdhp_in').focus(); $('bdhp_in').value = ''; saveItem(x.id, it => { it.memo = X.memoAdd(it.memo, t); }, '기록했습니다'); };
-    $('bdhp_add').onclick = add; $('bdhp_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } };
+    $('bdhp_add').onclick = add; $('bdhp_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); };   // 10/30 선배: 기록은 [추가]를 눌렀을 때만 (Enter로는 안 들어감)
     P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => { if (!confirm('이 기록을 지울까요?')) return; const i = +b.dataset.mdel; saveItem(x.id, it => { const a = X.memoParse(it.memo); a.splice(i, 1); it.memo = memoJoin(a); }); });
     P.querySelectorAll('[data-medit]').forEach(b => b.onclick = () => {
       const i = +b.dataset.medit, sp = P.querySelector(`.hx[data-hi="${i}"]`), e0 = L[i]; if (!sp || !e0) return;
@@ -724,7 +724,7 @@ window.Board = (() => {
     body += panelInfo(x, RO);   // 10/29 접지 않음: 직접 넣는 칸만 칸으로, 대장 자동값은 한 줄 글자 + [자동입력사항 고치기]
     // 기록
     const L = X.memoParse(x.memo);
-    body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="통화 내용 · Enter" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
+    body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="기록 내용을 쓰고 [추가]" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
     body += L.length ? `<ul class="rph">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `<span>${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button></span>`}</li>`; }).join('')}</ul>` : '';
     const cu = H.custFor && (H.custFor(x) || []).length ? custBox(x) : '';   // 맞는 고객이 있을 때만
     W.innerHTML = `<aside class="rpanel rpwin" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}${x.no ? (RO ? `<small class="rpno">No. ${esc(x.no)}</small>` : `<button type="button" class="rpno" id="bdrp_no" title="매물번호 · 누르면 고치기 (규칙은 설정 → 우리 사무소)">No. ${esc(x.no)}</button>`) : ''}${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpdh" data-a="del" title="이 매물 삭제">삭제</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
@@ -783,7 +783,7 @@ window.Board = (() => {
     });
     // 기록
     const add = () => { const t = $('bdrp_hin').value.trim(); if (!t) return $('bdrp_hin').focus(); $('bdrp_hin').value = ''; saveItem(id, it => { it.memo = X.memoAdd(it.memo, t); }, '기록했습니다'); };
-    if ($('bdrp_hadd')) { $('bdrp_hadd').onclick = add; $('bdrp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }; }
+    if ($('bdrp_hadd')) { $('bdrp_hadd').onclick = add; $('bdrp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); }; }   // 10/30 선배: 기록은 [추가]를 눌렀을 때만
     P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => { if (!confirm('이 기록을 지울까요?')) return; const i = +b.dataset.mdel; saveItem(id, it => { const a = X.memoParse(it.memo); a.splice(i, 1); it.memo = memoJoin(a); }); });
     P.querySelectorAll('[data-medit]').forEach(b => b.onclick = () => {
       const L = X.memoParse(x.memo), i = +b.dataset.medit, sp = P.querySelector(`.hx[data-hi="${i}"]`), e0 = L[i]; if (!sp || !e0) return;

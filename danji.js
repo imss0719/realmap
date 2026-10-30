@@ -1424,7 +1424,7 @@ window.Danji = (() => {
       ${F1('옵션', v('opt', r.opt || '', '', 'maxlength="200"'))}
       ${F1('챙길 것', v('imp', r.imp || '', '', 'maxlength="100" title="앞에 날짜를 쓰면 알림 (예: 11/15 중도금)"'))}
       ${F1('메모', `<textarea class="rpi" data-f="note" rows="2" maxlength="300" ${dis}>${esc(r.note || '')}</textarea>`)}
-      ${F1('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="통화 내용 · Enter" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
+      ${F1('기록', ro ? '' : '<div class="rpin2 h"><input class="rpi" id="rp_hin" placeholder="기록 내용을 쓰고 [추가]" maxlength="500"><button type="button" class="rpb sm" id="rp_hadd">추가</button></div>')}
       </div>
       ${R0 && R0.err ? `<p class="rpn">${esc(R0.err)}</p>` : !R0 && !H.length ? '<p class="rpn">불러오는 중…</p>' : H.length ? `<ul class="rph">${H.map((h, i) => `<li class="e-${h.e}"><span class="t">${esc(fmtT(h.t).replace(new RegExp('^' + String(new Date().getFullYear()).slice(2) + '\\.'), ''))}</span><span class="hx">${esc(h.x)}${h.w ? ` <small>· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small>(수정됨)</small>` : ''}</span>${R0 && h.e === 'memo' && !ro ? `<button type="button" class="x" data-rpmdel="${i}" aria-label="지우기">✕</button>` : ''}</li>`).join('')}</ul>` : ''}
       </div>
@@ -1506,7 +1506,7 @@ window.Danji = (() => {
     }
     // 상담 기록
     const add = () => { const t = $('rp_hin').value.trim(); if (!t) return $('rp_hin').focus(); $('rp_hin').value = ''; actRow(cx, x, 'memo', { text: t }); };
-    if ($('rp_hadd')) { $('rp_hadd').onclick = add; $('rp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }; }
+    if ($('rp_hadd')) { $('rp_hadd').onclick = add; $('rp_hin').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); }; }   // 10/30 선배: 기록은 [추가]를 눌렀을 때만
     P.querySelectorAll('[data-rpundo]').forEach(b => b.onclick = () => { if (confirm('가장 최근 기록을 되돌릴까요? 그 전 상태로 돌아갑니다.')) actRow(cx, x, 'undo', {}); });
     P.querySelectorAll('[data-rpmdel]').forEach(b => b.onclick = () => { if (confirm('이 기록을 지울까요?')) actRow(cx, x, 'mdel', { i: +b.dataset.rpmdel }); });
   }
@@ -1542,7 +1542,7 @@ window.Danji = (() => {
     const oldMemo = S.cx.memos[memoKey(x.cx, x.pnu, x.dn, x.ho)];
     const ro = !!(S.L[x.cx.id] && S.L[x.cx.id].err);
     return `<div class="hbox">
-      ${ro ? '' : `<div class="hjmemo"><input class="hjin sm" id="hr_in" placeholder="기록 남기기 (예: 집주인 통화 — 3월에 결정) · Enter" maxlength="500"><button type="button" class="btn dark sm" id="hr_add">추가</button></div>`}
+      ${ro ? '' : `<div class="hjmemo"><input class="hjin sm" id="hr_in" placeholder="기록 남기기 (예: 집주인 통화 — 3월에 결정) 쓰고 [추가]" maxlength="500"><button type="button" class="btn dark sm" id="hr_add">추가</button></div>`}
       ${!R ? '<div class="loading">기록을 불러오는 중…</div>' : R.hist.length ? `<ul class="hjhist">${R.hist.map((h, i) => `<li class="e-${h.e}"><span class="t">${fmtT(h.t)}</span><span class="hx" data-hi="${i}">${esc(h.x)}${h.w ? ` <small class="ed">· ${esc(h.w)}</small>` : ''}${h.ed ? ` <small class="ed">(수정됨 ${fmtT(h.ed)})</small>` : ''}</span>${i === 0 && canUndo && !ro ? '<button type="button" class="un" data-undo>되돌리기</button>' : ''}${h.e === 'memo' && !ro ? `<button type="button" class="un" data-medit="${i}">고치기</button><button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button>` : ''}</li>`).join('')}</ul>` : '<p class="note">아직 기록이 없습니다.</p>'}
       ${oldMemo ? `<p class="note">예전 메모 (이 호를 처음 저장할 때 기록으로 옮겨집니다)</p>${memoListHtml(oldMemo.t, String(oldMemo.up).slice(2, 10).replace(/-/g, '.'), '')}` : ''}
       ${R && R.deal ? `<p class="note">최근 계약: ${KN[R.deal.k]} ${R.deal.k === 'wolse' ? `${wonFull(R.deal.a)}/${R.deal.r}` : wonFull(R.deal.a)} · ${esc(String(R.deal.d).slice(2).replace(/-/g, '.'))}${R.deal.by === 'other' ? ' · 타사' : ' · 내 계약'}</p>` : ''}
@@ -1566,7 +1566,7 @@ window.Danji = (() => {
     const x = S.rows.find(z => z.key === S.hist); if (!x) return;
     cx = x.cx || cx;
     const add = () => { const t = $('hr_in').value.trim(); if (!t) return $('hr_in').focus(); actRow(cx, x, 'memo', { text: t }); };
-    if ($('hr_add')) { $('hr_add').onclick = add; $('hr_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) add(); }; }
+    if ($('hr_add')) { $('hr_add').onclick = add; $('hr_in').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); }; }   // 10/30 [추가]만
     document.querySelectorAll('#dj_hp [data-undo]').forEach(b => b.onclick = () => { if (confirm('가장 최근 기록을 되돌릴까요? 그 전 상태로 돌아갑니다.')) actRow(cx, x, 'undo', {}); });
     document.querySelectorAll('#dj_hp [data-mdel]').forEach(b => b.onclick = () => { if (confirm('이 기록을 지울까요?')) actRow(cx, x, 'mdel', { i: +b.dataset.mdel }); });
     // 상담 기록 고치기 (직접 쓴 기록만 · 고친 시각이 붙음) — 10/26
