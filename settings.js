@@ -359,34 +359,63 @@ window.Sett = (() => {
   // ---------- 10/30 운영자: 단지 평형표 — 단지마다 전용면적 → 공급평·타입 (모든 회원 아파트 화면에 공통 적용) ----------
   //   단지 검색(카카오) → 필지 PNU → 동 목록(/api/units scan) → 동마다 호별 전용면적(/api/units areas) → 면적별 호 수
   //   저장: /api/auth?action=pyt (운영자만) · 회원이 라인·호에 직접 적은 값이 있으면 그게 먼저
-  const PT = { q: '', res: null, cur: null, list: null, busy: '' };
+  const PT = { q: '', res: null, cur: null, list: null, busy: '', gu: '11440', guList: null, bulk: '' };
   const estPy = a => Math.round(a * (a <= 60 ? 1.36 : a <= 85 ? 1.33 : 1.27) / 3.3058);
+  // 10/30 서울 아파트 면적 데이터베이스 (data/apt/<구>.json · GitHub Actions apt-db가 만듦) — 단지를 열면 대장 값이 미리 채워짐
+  const GUS = { '11110': '종로구', '11140': '중구', '11170': '용산구', '11200': '성동구', '11215': '광진구', '11230': '동대문구', '11260': '중랑구', '11290': '성북구', '11305': '강북구', '11320': '도봉구', '11350': '노원구', '11380': '은평구', '11410': '서대문구', '11440': '마포구', '11470': '양천구', '11500': '강서구', '11530': '구로구', '11545': '금천구', '11560': '영등포구', '11590': '동작구', '11620': '관악구', '11650': '서초구', '11680': '강남구', '11710': '송파구', '11740': '강동구' };
+  const DBC = {};
+  const aptDb = gu => DBC[gu] || (DBC[gu] = fetch(`/data/apt/${gu}.json`).then(r => r.ok ? r.json() : null).catch(() => null));
   function pyt(m) {
     if (!isOp()) { m.innerHTML = ''; return; }
     const c = PT.cur;
     const rows = c && c.rows ? c.rows : [];
-    const tbl = c ? (rows.length ? `<table class="st-tb pyt"><tr><th>전용면적</th><th>호 수</th><th>평형</th><th>타입</th><th>지금 화면에 나오는 값</th><th></th></tr>${rows.map((r, i) => {
-      const v = c.val[r.k] || {}, now = v.py ? `<span class="ok">${v.py}평${v.t ? ' · ' + esc(v.t) : ''} ✓</span>` : `<i class="em">${estPy(r.a)}평 (추정)</i>`;
-      return `<tr><td><b>${r.k}㎡</b></td><td>${r.n ? r.n.toLocaleString() + '호' : '<i class="em">직접 추가</i>'}</td><td><input class="si" style="width:56px" data-py="${i}" value="${v.py || ''}" placeholder="${estPy(r.a)}" inputmode="numeric" maxlength="3"> 평</td><td><input class="si" style="width:70px" data-ty="${i}" value="${esc(v.t || '')}" placeholder="예: 59A" maxlength="8"></td><td>${now}</td><td>${r.n ? '' : `<button type="button" class="sb r" data-rm="${i}">빼기</button>`}</td></tr>`;
-    }).join('')}</table>` : `<p class="sp-e">${PT.busy || '전용면적을 받지 못했습니다. 아래에서 직접 추가해 주세요.'}</p>`) : '';
-    const L = PT.list;
+    const pyOf = r => { const v = c.val[r.k] || {}; return v.py || r.dpy || ''; };
+    const tbl = c ? (rows.length ? `<table class="st-tb pyt"><tr><th><input type="checkbox" id="ptAll"></th><th>전용면적</th><th>공급면적</th><th>공급평</th><th>세대</th><th>타입</th><th>평면도</th><th>지금 회원 화면</th><th></th></tr>${rows.map((r, i) => {
+      const v = c.val[r.k] || {}, py = pyOf(r), fromDb = !v.py && r.dpy;
+      const now = py ? `<span class="ok">${py}평${v.t ? ' · ' + esc(v.t) : ''}</span>` : `<i class="em">${estPy(r.a)}평 (추정)</i>`;
+      return `<tr><td><input type="checkbox" data-ck="${i}"></td><td><b>${r.k}㎡</b></td><td>${r.sup ? r.sup + '㎡' : '<i class="em">대장에 없음</i>'}</td><td><input class="si${fromDb ? ' db' : ''}" style="width:52px" data-py="${i}" value="${py}" placeholder="${estPy(r.a)}" inputmode="numeric" maxlength="3"> 평</td><td>${r.n ? r.n.toLocaleString() : '<i class="em">직접 추가</i>'}</td><td><input class="si" style="width:64px" data-ty="${i}" value="${esc(v.t || '')}" placeholder="예: 59A" maxlength="8"></td>
+        <td>${v.img ? `<a href="${esc(v.img)}" target="_blank" rel="noopener"><img class="pti" src="${esc(v.img)}" alt=""></a> <button type="button" class="sb r" data-imx="${i}">×</button>` : `<label class="sb" for="ptI${i}">＋ 올리기</label><input type="file" id="ptI${i}" data-img="${i}" accept="image/*" hidden>`}</td><td>${now}</td><td>${r.n ? '' : `<button type="button" class="sb r" data-rm="${i}">빼기</button>`}</td></tr>`;
+    }).join('')}</table>
+      <div class="sr"><b>같은 타입 묶기</b><span>체크한 줄을 <input class="si" id="ptBulk" style="width:70px" placeholder="예: 59A" maxlength="8" value="${esc(PT.bulk)}"> 타입으로 ${B('ptBulkB', '적용')}</span><span class="a"><small>같은 타입으로 적은 줄은 평면도도 같이 씁니다</small></span></div>` : `<p class="sp-e">${PT.busy || '전용면적을 받지 못했습니다. 아래에서 직접 추가해 주세요.'}</p>`) : '';
+    const L = PT.list, G = PT.guList;
+    const done = new Set((L || []).map(x => x.pnu));
     m.innerHTML = `${pn('단지 평형표', '운영자만 보입니다 · 저장하면 모든 회원 화면에 바로 적용', `
       <div class="sr"><b>단지 찾기</b><span><input class="si" id="ptQ" style="width:260px" placeholder="단지 이름이나 주소 (예: ○○래미안)" value="${esc(PT.q)}"> ${B('ptGo', '찾기', 'n')}</span><span></span></div>
       ${PT.res ? `<div class="sp-n">${PT.res.length ? PT.res.map((r, i) => `<button type="button" class="sb" data-pr="${i}" style="margin:2px 4px 2px 0">${esc(r.t)} <small style="font-weight:500;color:#94A0AD">&nbsp;${esc(r.s)}</small></button>`).join('') : '검색 결과가 없습니다.'}</div>` : ''}`)}
-      ${c ? pn(esc(c.n || '이름 없는 단지'), `${esc(c.addr || '')}${c.dn ? ` · ${c.dn}개 동` : ''}`, `${tbl}
+      ${c ? pn(esc(c.n || '이름 없는 단지'), `${esc(c.addr || '')}${c.y ? ` · ${c.y}년` : ''}${c.h ? ` · ${c.h.toLocaleString()}세대` : ''}${c.dn ? ` · ${c.dn}개 동` : ''}${c.db ? ' · <span class="tg bl">건축물대장 자동</span>' : ''}${c.nosup ? ' · <span class="tg y">대장에 공용면적 없음 — 공급평 직접</span>' : ''}`, `${tbl}
         <div class="sr"><b>면적 직접 추가</b><span><input class="si" id="ptAdd" style="width:90px" placeholder="예: 84.97" inputmode="decimal"> ㎡ ${B('ptAddB', '추가')}</span><span class="a">${B('ptSave', '저장', 'y')}${c.saved ? B('ptDel', '이 단지 평형표 지우기', 'r') : ''}</span></div>
-        <p class="sp-n">평형을 비우면 그 면적은 추정값으로 나옵니다. 회원이 라인·호에 직접 적은 평형이 있으면 그 값이 먼저입니다.</p>`) : ''}
+        <p class="sp-n">파란 칸은 건축물대장으로 계산한 공급평입니다(고칠 수 있음). 회원이 라인·호에 직접 적은 평형이 있으면 그 값이 먼저입니다.</p>`) : ''}
+      ${pn('단지 목록', `<select class="si" id="ptGu" style="width:120px">${Object.entries(GUS).map(([k, n]) => `<option value="${k}" ${PT.gu === k ? 'selected' : ''}>${n}</option>`).join('')}</select>${G && G.cx ? ` · ${Object.keys(G.cx).length}곳 · 입력 ${Object.keys(G.cx).filter(p => done.has(p)).length}곳` : ''}`,
+        G === undefined || G === 'loading' ? '<p class="sp-e">불러오는 중…</p>' : !G ? '<p class="sp-e">이 구는 아직 데이터베이스가 없습니다. GitHub Actions의 realmap-apt-db에서 이 구 코드로 실행해 주세요.</p>'
+        : `<div class="ptl">${Object.entries(G.cx).filter(([, v]) => v.t && v.t.length).sort((a, b) => b[1].h - a[1].h).map(([p, v]) => `<button type="button" class="sb${done.has(p) ? ' dn' : ''}" data-pg="${p}">${esc(v.n)} <small>${v.h}세대${done.has(p) ? ' · ✓' : ''}</small></button>`).join('')}</div>`)}
       ${pn('입력한 단지', L ? `${L.length}곳` : '', L ? tb(['단지', '면적 수', '고친 날', ''], L.map((x, i) => `<tr><td>${esc(x.n || x.pnu)}</td><td>${x.k}</td><td>${ymd(x.at)}</td><td><button type="button" class="sb" data-pl="${i}">열기</button></td></tr>`), '아직 입력한 단지가 없습니다.') : '<p class="sp-e">불러오는 중…</p>')}`;
+    m.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const x = PT.list[+b.dataset.pl]; ptOpen({ pnu: x.pnu, t: x.n }); window.scrollTo(0, 0); });
     const q = $('ptQ'), go = () => ptSearch(q.value.trim());
     q.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) go(); }; $('ptGo').onclick = go;
     m.querySelectorAll('[data-pr]').forEach(b => b.onclick = () => ptOpen(PT.res[+b.dataset.pr]));
-    m.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const x = PT.list[+b.dataset.pl]; ptOpen({ pnu: x.pnu, t: x.n }); });
-    const keep = () => m.querySelectorAll('[data-py],[data-ty]').forEach(i => { const r = rows[+(i.dataset.py ?? i.dataset.ty)], v = c.val[r.k] || (c.val[r.k] = {}); if (i.dataset.py != null) v.py = +(i.value.replace(/\D/g, '') || 0) || ''; else v.t = i.value.trim(); });
+    m.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => { ptOpen({ pnu: b.dataset.pg, t: G.cx[b.dataset.pg].n }); window.scrollTo(0, 0); });
+    $('ptGu').onchange = e => { PT.gu = e.target.value; PT.guList = 'loading'; draw(); aptDb(PT.gu).then(d => { PT.guList = d; if (sec === 'pyt') draw(); }); };
+    if (G === undefined) { PT.guList = 'loading'; aptDb(PT.gu).then(d => { PT.guList = d; if (sec === 'pyt') draw(); }); }
+    const keep = () => m.querySelectorAll('[data-py],[data-ty]').forEach(i => { const r = rows[+(i.dataset.py ?? i.dataset.ty)], v = c.val[r.k] || (c.val[r.k] = {}); if (i.dataset.py != null) { const n = +(i.value.replace(/\D/g, '') || 0) || ''; v.py = n && n !== r.dpy ? n : ''; } else v.t = i.value.trim(); });
     m.querySelectorAll('[data-py],[data-ty]').forEach(i => { i.oninput = keep; i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) ptSave(); }; });
+    if ($('ptAll')) $('ptAll').onchange = e => m.querySelectorAll('[data-ck]').forEach(x => { x.checked = e.target.checked; });
+    if ($('ptBulkB')) $('ptBulkB').onclick = () => { keep(); const t = $('ptBulk').value.trim(); PT.bulk = t; const ck = [...m.querySelectorAll('[data-ck]:checked')].map(x => rows[+x.dataset.ck]); if (!ck.length) return H.toast('묶을 줄을 먼저 체크해 주세요'); if (!t) return H.toast('타입 이름을 적어 주세요 (예: 59A)'); ck.forEach(r => { (c.val[r.k] = c.val[r.k] || {}).t = t; }); draw(); };
     m.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { keep(); const r = rows[+b.dataset.rm]; delete c.val[r.k]; c.rows = rows.filter(z => z !== r); draw(); });
+    m.querySelectorAll('[data-imx]').forEach(b => b.onclick = () => { keep(); const r = rows[+b.dataset.imx], v = c.val[r.k]; const t = v && v.t; rows.forEach(z => { const w = c.val[z.k]; if (w && (z === r || (t && w.t === t))) delete w.img; }); draw(); });
+    m.querySelectorAll('[data-img]').forEach(inp => inp.onchange = async e => {
+      keep(); const f = e.target.files[0]; e.target.value = ''; if (!f) return; const r = rows[+inp.dataset.img];
+      try {
+        const src = await createImageBitmap(f), k = Math.min(1, 1800 / Math.max(src.width, src.height)), cv = document.createElement('canvas');
+        cv.width = Math.round(src.width * k); cv.height = Math.round(src.height * k); const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(src, 0, 0, cv.width, cv.height);
+        const j = await H.api('/api/auth?action=listing&op=photo', H.post({ data: cv.toDataURL('image/jpeg', 0.88) }));
+        const v = c.val[r.k] = c.val[r.k] || {}; v.img = j.url;
+        if (v.t) rows.forEach(z => { const w = c.val[z.k]; if (w && w.t === v.t && !w.img) w.img = j.url; });   // 같은 타입 줄에도
+        H.toast('평면도를 올렸습니다. [저장]을 눌러야 회원 화면에 들어갑니다', 3500); draw();
+      } catch (er) { H.toast(er.message || '사진을 올리지 못했습니다', 4000); }
+    });
     if ($('ptAddB')) $('ptAddB').onclick = () => { keep(); const a = Math.round(parseFloat($('ptAdd').value) * 100) / 100; if (!(a > 5 && a < 500)) return H.toast('전용면적을 84.97처럼 ㎡로 적어 주세요'); const k = a.toFixed(2); if (!rows.some(r => r.k === k)) { c.rows = [...rows, { k, a, n: 0 }].sort((x, y) => x.a - y.a); } draw(); };
     if ($('ptSave')) $('ptSave').onclick = () => { keep(); ptSave(); };
-    if ($('ptDel')) $('ptDel').onclick = async () => { if (!confirm('이 단지의 평형표를 지울까요? 회원 화면은 다시 추정값으로 나옵니다.')) return; try { await H.api('/api/auth?action=pyt', H.post({ pnu: c.pnu, a: {} })); c.val = {}; c.saved = false; PT.list = null; H.toast('지웠습니다'); draw(); } catch (e) { H.toast(e.message, 4000); } };
+    if ($('ptDel')) $('ptDel').onclick = async () => { if (!confirm('이 단지의 평형표를 지울까요? 회원 화면은 다시 데이터베이스·추정값으로 나옵니다.')) return; try { await H.api('/api/auth?action=pyt', H.post({ pnu: c.pnu, a: {} })); c.val = {}; c.saved = false; PT.list = null; H.toast('지웠습니다'); draw(); } catch (e) { H.toast(e.message, 4000); } };
     if (!L) H.api('/api/auth?action=pyt&all=1').then(j => { PT.list = j.list || []; if (sec === 'pyt') draw(); }).catch(() => { PT.list = []; });
   }
   function ptSearch(q) {
@@ -401,6 +430,16 @@ window.Sett = (() => {
       if (!c.pnu) { const p = await H.api(`/api/parcel?lat=${r.lat}&lng=${r.lng}`); c.pnu = p.bldPnu || p.pnu; c.addr = p.addr || c.addr; }
       const j = await H.api(`/api/auth?action=pyt&p=${c.pnu}`), v = (j.map || {})[c.pnu];
       if (v) { c.val = JSON.parse(JSON.stringify(v.a || {})); c.saved = true; if (!c.n) c.n = v.n || ''; }
+      // 10/30 데이터베이스에 있으면 그대로 (대장 공급면적·공급평 · 소수점이 다른 전용은 모두 따로)
+      const db = await aptDb(c.pnu.slice(0, 5)), e = db && db.cx && db.cx[c.pnu];
+      if (e && e.t && e.t.length) {
+        Object.assign(c, { db: true, y: e.y, h: e.h, dn: e.d, nosup: !!e.nosup }); if (!c.n) c.n = e.n;
+        c.rows = e.t.map(z => ({ k: z.ex.toFixed(2), a: z.ex, sup: z.sup, dpy: z.py || '', n: z.h }));
+        Object.keys(c.val).filter(kk => !c.rows.some(z => z.k === kk)).forEach(kk => c.rows.push({ k: kk, a: +kk, n: 0 }));
+        c.rows.sort((x, y) => x.a - y.a || (x.sup || 0) - (y.sup || 0));
+        c.rows.forEach(r => { const v = c.val[r.k]; if (v && v.py && v.py === r.dpy) v.py = ''; });   // 저장값이 대장 값과 같으면 파란 칸으로
+        PT.busy = ''; if (PT.cur === c && sec === 'pyt') draw(); return;
+      }
       // 동 목록
       PT.busy = '동 목록을 받는 중…'; if (PT.cur === c) draw();
       const dongs = new Set(); let from = 1;
@@ -424,8 +463,11 @@ window.Sett = (() => {
   }
   async function ptSave() {
     const c = PT.cur; if (!c || !c.pnu) return;
-    const a = {}; for (const [kk, v] of Object.entries(c.val)) if (v && (v.py || v.t)) a[kk] = { py: +v.py || 0, t: v.t || '' };
-    try { const j = await H.api('/api/auth?action=pyt', H.post({ pnu: c.pnu, n: c.n, a })); c.val = JSON.parse(JSON.stringify(j.a || {})); c.saved = !!Object.keys(c.val).length; PT.list = null; H.toast(c.saved ? '저장했습니다. 모든 회원 화면에 적용됩니다' : '비어 있어 이 단지 평형표를 지웠습니다', 3000); draw(); }
+    // 10/30 공급평: 직접 고친 값 → 없으면 데이터베이스 값 · 같은 타입은 평면도를 같이
+    const imgOf = {}; Object.values(c.val).forEach(v => { if (v && v.t && v.img) imgOf[v.t] = imgOf[v.t] || v.img; });
+    const a = {};
+    for (const r of c.rows) { const v = c.val[r.k] || {}, py = +v.py || +r.dpy || 0, img = v.img || (v.t && imgOf[v.t]) || ''; if (py || v.t || img) a[r.k] = { py, t: v.t || '', img }; }
+    try { const j = await H.api('/api/auth?action=pyt', H.post({ pnu: c.pnu, n: c.n, a })); c.val = JSON.parse(JSON.stringify(j.a || {})); c.rows.forEach(r => { const v = c.val[r.k]; if (v && v.py === r.dpy) v.py = ''; }); c.saved = !!Object.keys(c.val).length; PT.list = null; H.toast(c.saved ? '저장했습니다. 모든 회원 화면에 적용됩니다' : '비어 있어 이 단지 평형표를 지웠습니다', 3000); draw(); }
     catch (e) { H.toast(e.message, 4000); }
   }
   return { mount, refresh, stale, go };
