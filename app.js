@@ -2674,7 +2674,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      if (placed.some(q => Math.abs(q.x - pt.x) < 64 && Math.abs(q.y - pt.y) < 36)) continue;
+      if (placed.some(q => Math.abs(q.x - pt.x) < 62 && Math.abs(q.y - pt.y) < 24)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push(pt); show.add(x.id);
       let o = T.ovs.get(x.id);
       if (!o) {
@@ -2682,9 +2682,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         el.type = 'button'; el.className = `tlabel k-${x.k}`;
         el.title = `[${TK[x.k]}] ${x.n || ''} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}${x.ar > 10 ? ` (평당 ${n(Math.round(x.p / (x.ar / 3.305785) / 10) * 10)}만원, 전용 기준)` : ''}`;
         const py = T.mode === 'py' && x.ar > 10 ? x.p / (x.ar / 3.305785) : 0; // 평당가 (전용 기준, 만원)
-        el.innerHTML = py ? `<b><i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만</b><small>${Math.round(x.ar)}㎡ · ${eok(x.p)}</small>` : `<b>${eok(x.p)}</b><small>${x.ar ? Math.round(x.ar) + '㎡' : ''} · ${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;
+        el.innerHTML = py ? `<b><i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>` : `<b>${eok(x.p)}</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;   // 10/30 시안 C: 한 줄 알약 (가격 · 거래 연월) · 면적은 title·누르면
         el.onclick = ev => { ev.stopPropagation(); pick(x.lat, x.lng); };
-        o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.15, zIndex: 3, clickable: true });
+        o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.2, zIndex: 3, clickable: true });
         T.ovs.set(x.id, o);
       }
       if (!o.getMap()) o.setMap(S.map);
