@@ -1,0 +1,10 @@
+/* 경기 정비사업 — 서울 seoul.css 위에 더하는 것만 (scripts/gg-pages.mjs가 만듦) */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;padding:10px 12px}
+.sg a{display:grid;grid-template-columns:1fr auto;gap:3px 8px;align-items:center;text-decoration:none;padding:7px 10px;border:1px solid var(--line2);border-radius:7px}.sg a:hover{border-color:var(--accent);background:#FFFBEB}
+.sg a span{font-weight:800;font-size:13px}.sg a em{font-style:normal;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}.sg a .sbar{grid-column:1/-1;height:5px;min-width:0}
+@media (prefers-color-scheme:dark){.sg a:hover{background:#2A2614}}
+.tl{list-style:none;margin:0;padding:4px 0}.tl li{display:grid;grid-template-columns:130px 1fr;gap:8px;padding:5px 12px;border-bottom:1px dashed var(--line2);font-size:13px}.tl li:last-child{border-bottom:0}
+.tl li b{color:var(--muted);font-weight:700}.tl li span{font-weight:700;font-variant-numeric:tabular-nums}.tl li.cur b,.tl li.cur span{color:#D9480F;font-weight:800}
+.zt.mx th,.zt.mx td{height:29px}.zt.mx tr.old td{color:var(--muted);font-size:12.5px}
+.two.one{grid-template-columns:1fr}
+@media (max-width:760px){.zt.mx td{padding:0 5px;font-size:12px}.zt.mx th{font-size:10.5px;padding:0 4px;white-space:normal;line-height:1.2}.tl li{grid-template-columns:110px 1fr}}

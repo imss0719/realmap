@@ -6,3 +6,4 @@ Disallow: /listings.html
 Disallow: /api/
 
 Sitemap: https://realmap.online/sitemap.xml
+Sitemap: https://realmap.online/sitemap-gg.xml
