@@ -1512,7 +1512,7 @@ window.Danji = (() => {
       if (el.tagName === 'INPUT') el.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); go(); el.blur(); } };
     });
     if (S.pkDraft) P.querySelectorAll('#rp_dpr [data-f]').forEach(i => i.addEventListener('input', () => { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[i.dataset.f]; S.pkDraft.vals[k] = +(i.value.replace(/\D/g, '') || 0); }));
-    P.querySelectorAll('[data-g="mvq"] [data-v]').forEach(b => b.onclick = () => { const v0 = b.dataset.v; save(D => { const m = mvParse(D.moveIn); D.moveIn = mvJoin(m.date, m.q === v0 ? '' : v0); }); setTimeout(() => drawPanel(true), 0); });   // 10/29 입주 즉시·협의 · 10/30 협의는 날짜와 같이
+    P.querySelectorAll('[data-g="mvq"] [data-v]').forEach(b => b.onclick = () => { const v0 = b.dataset.v, nq = mvParse(r.moveIn).q === v0 ? '' : v0; save(D => { D.moveIn = mvJoin(mvParse(D.moveIn).date, nq); }); setTimeout(() => drawPanel(true), 0); });   // 10/29 입주 즉시·협의 · 10/30 협의는 날짜와 같이 · 10/30 고침: 켜기/끄기를 누르기 전에 정함 (saveRow가 두 번 적용해 도로 풀리던 것)
     // 거주
     P.querySelectorAll('[data-g="live"] [data-v]').forEach(b => b.onclick = () => { if ((r.live || '') === b.dataset.v) return; save(D => { D.live = b.dataset.v; }); setTimeout(() => drawPanel(true), 0); });   // 이미 고른 것을 다시 눌러도 그대로
     // 연락처: 고치면 바로 저장
