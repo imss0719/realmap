@@ -57,6 +57,7 @@ F.gu = best(/^[가-힣]+구$/, [F.name, F.st]);
 F.dong = best(/^[가-힣0-9]+(동|가|로)\d*가?$/, [F.name, F.st, F.gu]);
 F.bon = keys.find(k => /BOBN|BONBEON|MNNM|MAIN_?NO|BONBUN/i.test(k)) || '';
 F.bu = keys.find(k => /BUBN|BUBEON|SLNO|SUB_?NO|BUBUN/i.test(k)) || '';
+F.tel = best(/^0\d{1,2}[-) ]?\d{3,4}-?\d{4}$/, [F.reg, F.name, F.st]);   // 10/30 전화 (홍보 대상 목록용)
 console.log(`짐작한 항목: ${JSON.stringify(F)}`);
 if (!F.name || (!F.addr && !(F.gu && F.dong && F.bon))) { console.log('상호·주소 항목을 찾지 못했습니다. 위 항목 목록을 보고 스크립트를 고쳐야 합니다.'); process.exit(1); }
 if (F.st) { const m = {}; rows.forEach(r => { const v = r[F.st] ?? ''; m[v] = (m[v] || 0) + 1; }); console.log(`[상태] ${Object.entries(m).sort((a, b) => b[1] - a[1]).map(([v, n]) => `${v}:${n}`).join(' · ')}`); }
@@ -74,6 +75,10 @@ for (const r of live) {
   e.names.push(String(r[F.name] || '').trim()); e.regs.push(String(r[F.reg] || '').replace(/\D/g, ''));
 }
 console.log(`영업 중 ${live.length}곳 · 건물 ${B.size}곳`);
+// 10/30 선배 요청: 재개발 구역 근처 홍보 대상 목록용 — 영업 중 전체(상호·전화·주소·구·동·등록번호). 서울시 공개 자료 그대로.
+await writeFile('data/offices-seoul-all.json', JSON.stringify({ updated: new Date().toISOString().slice(0, 10), fields: ['상호', '전화', '주소', '구', '동', '등록번호'],
+  rows: live.map(r => [String(r[F.name] || '').trim(), String(r[F.tel] || '').trim(), String(r[F.addr] || jibun(r) || '').replace(/\s+/g, ' ').trim(), String(r[F.gu] || '').trim(), String(r[F.dong] || '').trim(), String(r[F.reg] || '').trim()]) }));
+console.log(`전체 목록 저장: ${live.length}곳 (전화 항목: ${F.tel || '못 찾음'})`);
 
 // 4) 고정 랜덤으로 일부만 (동마다 최대 PER_DONG)
 const hash = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) % 1000; };

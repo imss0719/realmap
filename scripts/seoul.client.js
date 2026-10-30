@@ -188,7 +188,18 @@
     const css = document.createElement('style');
     css.textContent = `.za .zl li{grid-template-columns:auto minmax(0,1fr) auto}.za .kd{font-size:11px;font-weight:800;color:#fff;border-radius:5px;padding:2px 6px}.za .k-sale{background:#C92A2A}.za .k-jeonse{background:#1C64C8}.za .k-wolse{background:#2B8A3E}.za .k-presale{background:#7048E8}
 .za .pr{font-weight:900}.za .zl small{grid-column:2/-1}.za .of{display:flex;align-items:center;gap:8px}.za .av{width:30px;height:30px;border-radius:50%;background:#CFD8E3 center/cover no-repeat;flex:none;display:grid;place-items:center;font-size:12px;font-weight:800;color:#5B6675}
-.za .em{padding:12px;text-align:center}.za .em p{margin:0 0 8px;font-size:13px;color:var(--muted)}.za .go{display:inline-block;background:var(--accent);color:#14212E;font-weight:800;text-decoration:none;border-radius:7px;padding:8px 14px;font-size:13.5px}.za .mo{display:block;padding:7px 12px;font-size:12px;color:var(--muted);text-decoration:none;border-top:1px solid var(--line)}.za .mo:hover{text-decoration:underline}.za .tel{font-size:12px;font-weight:800;text-decoration:none;color:var(--fg);white-space:nowrap}`;
+.za .em{padding:12px;text-align:center}.za .em p{margin:0 0 8px;font-size:13px;color:var(--muted)}.za .go{display:inline-block;background:var(--accent);color:#14212E;font-weight:800;text-decoration:none;border-radius:7px;padding:8px 14px;font-size:13.5px}.za .mo{display:block;padding:7px 12px;font-size:12px;color:var(--muted);text-decoration:none;border-top:1px solid var(--line)}.za .mo:hover{text-decoration:underline}.za .tel{font-size:12px;font-weight:800;text-decoration:none;color:var(--fg);white-space:nowrap}
+.zr .r1{padding:12px;border-bottom:1px solid var(--line2);background:linear-gradient(#FFFBEA,var(--surface))}.zr .bd{display:inline-block;font-size:11.5px;font-weight:900;background:#F2B705;color:#14212E;border-radius:999px;padding:1px 9px;margin-bottom:8px}
+.zr .h{display:flex;gap:10px;align-items:center}.zr .av1,.zr .av2{border-radius:50%;background:#FCE7C8 center/cover no-repeat;color:#A15C07;display:grid;place-items:center;font-weight:900;flex:none;border:3px solid #14212E}.zr .av1{width:56px;height:56px;font-size:16px}.zr .av2{width:40px;height:40px;font-size:12.5px;border-width:2px}
+.zr a.n{display:block;font-size:17px;font-weight:900;text-decoration:none}.zr .h small,.zr .t small{display:block;color:var(--muted);font-size:12px}
+.zr .ths{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:10px}.zr .th{position:relative;height:58px;border-radius:7px;background:#AFBBC8 center/cover no-repeat;text-decoration:none;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:4px 6px;overflow:hidden}.zr .th:before{content:"";position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.55))}.zr .th b,.zr .th small{position:relative;font-size:12px;line-height:1.2}.zr .th small{font-size:10.5px;opacity:.9}
+.zr .bt{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.zr .cb,.zr .cs{text-align:center;border-radius:8px;padding:9px;font-weight:800;font-size:13.5px;text-decoration:none}.zr .cb{background:#2F9E44;color:#fff}.zr .cs{background:var(--soft);border:1px solid var(--line)}
+.zr .r2{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line2)}.zr .r2 .t{flex:1;min-width:0}.zr .r2 .t a{font-weight:800;text-decoration:none;font-size:14.5px}.zr .bd2{font-size:11px;font-weight:900;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-right:5px}
+.zr .ci{background:#2F9E44;color:#fff;border-radius:7px;padding:6px 10px;text-decoration:none;font-size:13px}
+.zr .r3{display:flex;justify-content:space-between;padding:7px 12px;font-size:13px;border-bottom:1px solid var(--line2);text-decoration:none}.zr .r3 span{color:var(--muted)}
+.zr .inv{margin:10px 12px;border:2px dashed #F2B705;border-radius:10px;padding:10px;text-align:center;font-size:12.5px;background:#FFFDF3;color:#14212E}.zr .inv b{display:block;font-size:14px;margin-bottom:2px}.zr .inv a{display:inline-block;margin-top:7px;background:#F2B705;color:#14212E;border-radius:8px;padding:7px 14px;font-weight:900;text-decoration:none}
+.zr .emp{padding:14px 12px 6px;text-align:center}.zr .emp .cr{font-size:30px}.zr .emp>b{display:block;font-size:16px;margin:4px 0}.zr .emp p{margin:0 0 10px;color:var(--muted);font-size:13px}.zr .emp a{display:block;background:#F2B705;color:#14212E;border-radius:9px;padding:11px;font-weight:900;font-size:14.5px;text-decoration:none}
+.zr .rule{font-size:11.5px;color:var(--muted);padding:6px 12px 10px;margin:0}`;
     document.head.appendChild(css);
     const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
     const SD = ZR ? '41' : '11';
@@ -203,13 +214,16 @@
     const inside = (lat, lng) => rings.length ? rings.some(R => inRing(lng, lat, R)) : (cy ? dist(lat, lng, cy, cx) <= 250 : false);
     const L = ((P && P.items) || []).filter(x => x.lat && x.lng);
     const mine = L.filter(x => inside(x.lat, x.lng)).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
-    const OF = new Map();
+    // 10/30 선배 결정: 이 구역 중개사무소 순위 = 이 구역 안·근처(구역 가운데서 700m)에 광고 중인 매물 수 (같으면 최근 30일 새 매물 → 먼저 올린 곳)
+    //   1순위 큰 카드 · 2·3순위 중간 · 4순위~ 한 줄 · 매물 0건이면 안 보임 · 누구나 매물을 올리면 들어옴 (따로 신청 없음 · 보는 순간 계산)
+    const OF = new Map(), now30 = Date.now() - 30 * 864e5;
+    const near = x => inside(x.lat, x.lng) || (cy ? dist(x.lat, x.lng, cy, cx) <= 700 : false);
     for (const x of L) {
-      const b = x.bk || {}, r = String(b.regno || '').replace(/\D/g, ''); if (!r || !b.verified) continue;
-      const e = OF.get(r) || OF.set(r, { r, b, n: 0, d: b.lat ? dist(b.lat, b.lng, cy, cx) : 1e9 }).get(r);
-      if (inside(x.lat, x.lng)) e.n++;
+      const b = x.bk || {}, r = String(b.regno || '').replace(/\D/g, ''); if (!r || !b.verified || !near(x)) continue;
+      const e = OF.get(r) || OF.set(r, { r, b, n: 0, rc: 0, first: '9999', ls: [] }).get(r);
+      e.n++; e.ls.push(x); const t = String(x.at || ''); if (Date.parse(t) > now30) e.rc++; if (t && t < e.first) e.first = t;
     }
-    const offs = [...OF.values()].filter(e => e.n || (e.b.lat && (inside(e.b.lat, e.b.lng) || e.d <= 700))).sort((a, b) => b.n - a.n || a.d - b.d).slice(0, 8);
+    const offs = [...OF.values()].sort((a, b) => b.n - a.n || b.rc - a.rc || a.first.localeCompare(b.first));
     const man = v => { v = +v || 0; if (!v) return ''; if (v >= 10000) { const e = Math.floor(v / 10000), m = v % 10000; return e + '억' + (m ? ' ' + m.toLocaleString() : ''); } return v.toLocaleString() + '만'; };
     const price = x => x.kind === 'sale' || x.kind === 'presale' ? man(x.price) : x.kind === 'jeonse' ? man(x.deposit) : `${man(x.deposit) || 0}/${(+x.rent || 0).toLocaleString()}`;
     const KN = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
@@ -221,11 +235,22 @@
     s1.innerHTML = `<h2>이 구역 매물 <small>${mine.length ? mine.length + '건 · 중개사무소가 올린 광고' : ''}</small></h2>` + (mine.length
       ? `<ul class="zl">${mine.slice(0, 8).map(x => `<li><span class="kd k-${esc(x.kind)}">${KN[x.kind] || ''}</span><a href="/?pnu=${esc(x.pnu)}&lst=1">${esc(price(x))} · ${esc((x.ptype === '기타' && x.ptypeTx) || x.ptype || '')}</a><span></span><small>${esc([x.bname || '', x.area ? Math.round(x.area / 3.3058) + '평' : '', short((x.bk || {}).office)].filter(Boolean).join(' · '))}</small></li>`).join('')}</ul>${mine.length > 8 ? `<a class="mo" href="${esc(act.querySelector('a.cta') ? act.querySelector('a.cta').getAttribute('href') : '/')}">지도에서 ${mine.length}건 모두 보기 ›</a>` : ''}<a class="mo" href="${PROMO}">중개사이신가요? 이 구역에 매물 무료로 올리기 ›</a>`
       : `<div class="em"><p>아직 이 구역에 올라온 매물이 없습니다.<br>가장 먼저 올리면 이 자리에 보입니다.</p><a class="go" href="${PROMO}?go=1">내 물건 등록하기 (무료)</a></div>`);
-    const s2 = document.createElement('section'); s2.className = 'pn za';
-    s2.innerHTML = `<h2>이 구역 중개사무소</h2>` + (offs.length
-      ? `<ul class="zl">${offs.map(e => `<li><span class="of">${av(e.b)}</span><a href="/office.html?r=${e.r}">${esc(short(e.b.office))}</a>${tel(e.b.mobile || e.b.tel)}<small>${e.n ? `이 구역 매물 ${e.n}건` : '구역 가까이'}${e.b.addr ? ' · ' + esc(String(e.b.addr).replace(/^서울(특별시)?\s*/, '').split(' ').slice(0, 3).join(' ')) : ''}</small></li>`).join('')}</ul><a class="mo" href="${PROMO}">이 구역 중개사무소로 내 사무실 올리기 ›</a>`
-      : `<div class="em"><p>이 구역을 맡을 중개사무소를 찾고 있습니다.<br>등록하면 이 구역을 보는 분들께 사무소가 보입니다.</p><a class="go" href="${PROMO}?go=1">내 사무실 등록하기 (무료)</a></div>`);
-    act.after(s1, s2);
+    const s2 = document.createElement('section'); s2.className = 'pn za zr';
+    const thumb = x => `<a class="th" href="/?pnu=${esc(x.pnu)}&lst=1"${x.photos && x.photos[0] ? ` style="background-image:url('${esc(x.photos[0])}')"` : ''}><b>${esc(price(x))}</b><small>${KN[x.kind] || ''}</small></a>`;
+    const telBtn = (b, big) => { const d = String(b.mobile || b.tel || '').replace(/\D/g, ''); return d ? `<a class="${big ? 'cb' : 'ci'}" href="tel:${d}">📞${big ? ' 전화' : ''}</a>` : ''; };
+    const avN = (b, cls) => b.photo ? `<span class="${cls}" style="background-image:url('${esc(b.photo)}')"></span>` : `<span class="${cls}">${esc(short(b.office).replace(/\s/g, '').slice(0, 2) || '중')}</span>`;
+    const where = b => b.addr ? esc(String(b.addr).replace(/^(서울(특별시)?|경기(도)?)\s*/, '').split(' ').slice(0, 2).join(' ')) : '';
+    const top = offs[0];
+    s2.innerHTML = `<h2>이 구역 중개사무소 ${offs.length ? `<small>${offs.length}곳 · 매물 많은 순</small>` : ''}</h2>` + (offs.length
+      ? `<div class="r1"><span class="bd">👑 1순위 · 이 구역 대표</span><div class="h">${avN(top.b, 'av1')}<div><a class="n" href="/office.html?r=${top.r}">${esc(top.b.office)}</a><small>이 구역 매물 ${top.n}건${where(top.b) ? ' · ' + where(top.b) : ''}</small></div></div>
+        <div class="ths">${top.ls.slice().sort((a, b) => ((b.photos || []).length ? 1 : 0) - ((a.photos || []).length ? 1 : 0) || String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 3).map(thumb).join('')}</div>
+        <div class="bt">${telBtn(top.b, true)}<a class="cs" href="/office.html?r=${top.r}">소개 보기</a></div></div>`
+        + offs.slice(1, 3).map((e, i) => `<div class="r2">${avN(e.b, 'av2')}<div class="t"><span class="bd2">${i + 2}순위</span><a href="/office.html?r=${e.r}">${esc(short(e.b.office))}</a><small>매물 ${e.n}건${where(e.b) ? ' · ' + where(e.b) : ''}</small></div>${telBtn(e.b)}</div>`).join('')
+        + offs.slice(3, 12).map(e => `<a class="r3" href="/office.html?r=${e.r}"><b>${esc(short(e.b.office))}</b><span>매물 ${e.n}건 ›</span></a>`).join('')
+        + `<div class="inv"><b>1순위가 되고 싶으세요?</b>이 구역 매물을 더 올리면 순위가 올라갑니다.<a href="${PROMO}?go=1">내 매물 올리기 (무료)</a></div>`
+      : `<div class="emp"><div class="cr">👑</div><b>1순위 자리가 비어 있습니다</b><p>지금 이 구역에 매물을 올리면<br>이 페이지 맨 위에 <b>대표 중개사무소</b>로 크게 소개됩니다.</p><a href="${PROMO}?go=1">무료로 이 구역 등록하기</a></div>`)
+      + '<p class="rule">순위는 이 구역 안·근처 광고 매물 수로 정해지고 매물이 바뀌면 바로 바뀝니다 · 매물 10건까지 무료</p>';
+    act.after(s2, s1);   // 10/30 중개사무소(순위) 먼저
     try { calc(row, PA, PB, act, s2); } catch (e) { /* 계산기는 없어도 페이지는 그대로 */ }
   })();
 
