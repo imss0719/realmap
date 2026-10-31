@@ -934,7 +934,7 @@ window.Danji = (() => {
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt big${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr>${h2 ? `<tr>${h2}</tr>` : ''}</thead>
       <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물로 올린 호가 없습니다. [전체]에서 줄 맨 앞 ○를 누르면 매물이 됩니다.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       ${ro || ALL ? '' : '<div class="addho"><span>＋ 호 추가</span><input id="dj_addHo" class="hjin" placeholder="예) 103-1502 쓰고 Enter" autocomplete="off"></div>'}
-      <p class="note">${nAll > rows.length ? `${nAll.toLocaleString()}호 중 ${rows.length.toLocaleString()}호 <button type="button" class="lnk" id="dj_more">300호 더 보기</button> · 동을 누르면 그 동만 모두` : `${rows.length}호`}</p>`;
+      ${nAll > rows.length ? `<p class="note">${nAll.toLocaleString()}호 중 ${rows.length.toLocaleString()}호 <button type="button" class="lnk" id="dj_more">300호 더 보기</button></p>` : ''}`;   // 10/31 선배: 표 아래 'n호'는 뺌
     if ($('dj_more')) $('dj_more').onclick = () => { S.lim = (S.lim || 300) + 300; drawTable(cx); };
     stickHead(box);
     const redo = () => { drawTable(cx); if (!ALL) drawCxMap(cx, MM); };
