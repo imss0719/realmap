@@ -326,6 +326,15 @@ async function lsFromLedger(uid, { key, st, pr, rm = 0, bt = 0, mg = 0, mv = '',
   if (hit) { const bk = await loadBk(uid), P = await planOf(uid); const it2 = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, it2); }
   return hit;
 }
+// 10/31 단지 목록(realmap:cx) 잠금: 대표·직원이 동시에 고쳐도 서로 덮어쓰지 않게 — 읽기→고치기→쓰기를 한 사람씩 (5초 지나면 저절로 풀림)
+async function cxLock(uid) {
+  const lk = `realmap:cxlk:${uid}`, tok = crypto.randomBytes(6).toString('hex');
+  for (let i = 0; i < 30; i++) {
+    try { if ((await redis(['SET', lk, tok, 'NX', 'PX', 5000])) === 'OK') return async () => { try { if ((await redis(['GET', lk])) === tok) await redis(['DEL', lk]); } catch { /* 저절로 풀림 */ } }; } catch { break; }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return async () => {};   // 잠금을 못 잡아도 저장은 진행 (예전과 같음)
+}
 async function ledgerFromLs(uid, op, x) {
   if (!x || !Array.isArray(x.places) || x.kind === 'presale' || !['아파트', '오피스텔'].includes(tbase(x))) return false;
   const p = x.places.find(q => q.pnu && q.ho); if (!p) return false;
@@ -366,7 +375,13 @@ async function syncLineDir(uid, rec, prev, items) {
   const v = rec.ad.dir.replace(/향$/, '');
   let dirty = false;
   for (const c of cxs) { c.dir = c.dir || {}; if (c.dir[keys[0]] !== v) { c.dir[keys[0]] = v; dirty = true; } }
-  if (dirty) await redis(['SET', ck, JSON.stringify(d)]);
+  if (dirty) {   // 10/31 쓰기 직전에 최신 목록을 다시 읽어 방향만 고침
+    const unlock = await cxLock(uid);
+    try {
+      let f = null; try { const w = await redis(['GET', ck]); f = w ? JSON.parse(w) : null; } catch { f = null; }
+      if (f && Array.isArray(f.items)) { for (const c of f.items) if ((c.places || []).some(p => p.pnu === p0.pnu)) { c.dir = c.dir || {}; c.dir[keys[0]] = v; } await redis(['SET', ck, JSON.stringify(f)]); }
+    } finally { await unlock(); }
+  }
   return dirty;
 }
 function cleanAd(a) {
@@ -617,6 +632,8 @@ export default async function (req, res) {
       const P = await planOf(s.id);
       if (!P.started) return fail(res, 403, 'start', '중개사 서비스를 먼저 시작해 주세요.');
       const key = `realmap:cx:${s.id}`;
+      const unlock = req.method === 'POST' ? await cxLock(s.id) : async () => {};   // 10/31 잠금을 잡은 뒤에 읽음 (동시에 고쳐도 한쪽이 사라지지 않게)
+      try {
       let d; try { const v = await redis(['GET', key]); d = v ? JSON.parse(v) : null; } catch { d = null; }
       d = d || { items: [], memos: {} };
       if (req.method !== 'POST') return send(res, 200, { ok: true, ...d });
@@ -682,6 +699,7 @@ export default async function (req, res) {
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
       await redis(['SET', key, JSON.stringify(d)]);
       return send(res, 200, { ok: true, ...d });
+      } finally { await unlock(); }
     }
 
     // 단지 장부 — 호실 장부 (확인된 중개사무소만, 암호화 저장) → api/_ledger.js
@@ -719,7 +737,7 @@ export default async function (req, res) {
       if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
       if (req.method === 'POST') { const cid = String(req.query.id || body.id || ''); if (d.items.some(x => x.id === cid) && !cxOpen(d.items, P).has(cid)) return fail(res, 403, 'cxlock', `이 단지는 보기만 됩니다. ${cxFull(P)}`, { plan: planView(P) }); }
       if (body.op === 'wipe' && s.staff && !can(s, await permOf(redis, s.id), 'del')) return noPerm(res, '호 장부 지우기');
-      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null, onSt: ch => lsFromLedger(s.id, ch),
+      return ledger({ redis, uid: s.id, cx: d, saveCx: async () => { const unlock = await cxLock(s.id); try { let f = null; try { const w = await redis(['GET', ck]); f = w ? JSON.parse(w) : null; } catch { f = null; } if (f) { f.memos = d.memos; await redis(['SET', ck, JSON.stringify(f)]); } } finally { await unlock(); } },   // 10/31 최신 목록에 메모만 반영 send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null, onSt: ch => lsFromLedger(s.id, ch),
         // 10/31 광고 권한이 없는 직원: 지도에 광고 중인 호의 매물 칸(상태·가격·방·관리비 등)은 못 고침
         guard: s.staff ? async key => { if (can(s, await permOf(redis, s.id), 'pub')) return ''; const x = lsAt((await lsLoad(redis, s.id)).items, key); return x && x.pub && x.pub.on && x.status === 'on' ? '리얼맵 지도에 광고 중인 매물은 광고 권한이 있는 대표님·소속공인중개사님만 고칠 수 있습니다 (공인중개사법 제18조의2).' : ''; } : null });
     }
