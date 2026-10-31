@@ -220,11 +220,13 @@ window.RpWin = (() => {
   addEventListener('resize', () => document.querySelectorAll('.rpanel.rpwin').forEach(place));
   return { place, drag };
 })();
-window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n = Number(t); if (!t || !Number.isFinite(n) || !n) return ''; const a = Math.abs(n), e = Math.floor(a / 10000), m = a % 10000; return (n < 0 ? '−' : '') + (e ? `${e}억` : '') + (m ? `${e ? ' ' : ''}${m.toLocaleString()}만` : ''); };
+// 10/31 관리비 25.5만처럼 소수점도 읽어 줌
+window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n = Number(t); if (!t || !Number.isFinite(n) || !n) return ''; const a = Math.abs(n), e = Math.floor(a / 10000), m = Math.round(a % 10000 * 100) / 100; return (n < 0 ? '−' : '') + (e ? `${e}억` : '') + (m ? `${e ? ' ' : ''}${m.toLocaleString()}만` : ''); };
   document.addEventListener('input', e => {
     const el = e.target;
     if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-won')) return;
-    let v = el.value.replace(el.dataset.won === 'neg' ? /[^\d-]/g : /\D/g, ''); if (el.dataset.won === 'neg') v = v.replace(/(?!^)-/g, '');
+    let v = el.value.replace(el.dataset.won === 'neg' ? /[^\d-]/g : el.dataset.won === 'dec' ? /[^\d.]/g : /\D/g, ''); if (el.dataset.won === 'neg') v = v.replace(/(?!^)-/g, '');
+    if (el.dataset.won === 'dec') v = v.replace(/^(\d*\.?\d{0,2}).*$/, '$1');   // 10/31 관리비는 소수점 둘째 자리까지 (25.5 → 25.5만원 · 예전엔 255로 붙던 것)
     if (v !== el.value) el.value = v;
     const w = el.closest('.wonw'), h = w && w.querySelector('.wonh'); if (h) h.textContent = window.wonH(v);
   }, true);
@@ -1230,7 +1232,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d-]/g, ''); const n =
       case 'dir': return chips('dir', DIRS, a.dir);
       case 'movein': return `${chips('movein', ['즉시입주', '협의'], a.movein)}${inp('movein', ['즉시입주', '협의'].includes(a.movein) ? '' : a.movein, '또는 날짜', 'maxlength="20"')}`;
       case 'rb': return `<div class="prow">방 ${inp('rooms', a.rooms, '', 'inputmode="numeric" maxlength="2" style="width:70px"')} 욕실 ${inp('baths', a.baths, '', 'inputmode="numeric" maxlength="2" style="width:70px"')}</div>`;
-      case 'mgmt': { const amt = `<span class="wonw">월 ${inp('$mgmt', x.mgmt, '', 'inputmode="numeric" data-won style="width:90px"')} 만원 <i class="wonh">${esc(window.wonH(x.mgmt))}</i></span>`; if (window.Mg && RESID.includes(tbase(x))) return `<div class="mgbox ps">${Mg.rows(a, amt, { row: (t, h, c) => `<div class="mgrow${c}"><span>${t}</span><div>${h}</div></div>` })}</div>`; return `<div class="prow">${amt}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>`; }   // 10/30 주거용 = 세분화 · 비주거 = 월평균 금액 하나
+      case 'mgmt': { const amt = `<span class="wonw">월 ${inp('$mgmt', x.mgmt, '', 'inputmode="decimal" data-won="dec" style="width:90px"')} 만원 <i class="wonh">${esc(window.wonH(x.mgmt))}</i></span>`; if (window.Mg && RESID.includes(tbase(x))) return `<div class="mgbox ps">${Mg.rows(a, amt, { row: (t, h, c) => `<div class="mgrow${c}"><span>${t}</span><div>${h}</div></div>` })}</div>`; return `<div class="prow">${amt}<label class="pck"><input type="checkbox" data-pb="nomgmt" ${a.nomgmt ? 'checked' : ''}>관리비 없음</label></div>`; }   // 10/30 주거용 = 세분화 · 비주거 = 월평균 금액 하나
       case 'fl': return `<div class="prow">${inp('fl', a.fl, isWhole(x) ? '전체' : '', 'maxlength="8" style="width:110px"')} 층 / 총 ${inp('tfl', a.tfl, '', 'inputmode="numeric" maxlength="3" style="width:80px"')} 층</div>`;
       case 'use': return inp('use', a.use, '', 'maxlength="40"');
       case 'appr': return inp('appr', a.appr, '연.월.일', 'maxlength="10"');

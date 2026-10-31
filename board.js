@@ -701,7 +701,7 @@ window.Board = (() => {
     // 거래 · 가격
     const kinds = cat === 'pre' ? [['presale', '분양권']] : [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']];
     // 10/29 금액은 만원 단위 숫자만 · 옆에 '21억 5,000만'처럼 읽어 줌 (예시 글씨 없음)
-    const won = (key, v, neg = false) => { const n = v ? Math.round(+v) : ''; return `<span class="wonw"><input class="rpi rpw" data-fk="p:${id}:${key}" data-pv="${key}" data-won${neg ? '="neg"' : ''} value="${n}" inputmode="numeric" ${dis}><i class="u">만원</i><i class="wonh">${esc(window.wonH ? window.wonH(n) : '')}</i></span>`; };
+    const won = (key, v, neg = false) => { const dec = key === '$mgmt', n = v ? (dec ? Math.round(+v * 100) / 100 : Math.round(+v)) : ''; return `<span class="wonw"><input class="rpi rpw" data-fk="p:${id}:${key}" data-pv="${key}" data-won${neg ? '="neg"' : dec ? '="dec"' : ''} value="${n}" inputmode="${dec ? 'decimal' : 'numeric'}" ${dis}><i class="u">만원</i><i class="wonh">${esc(window.wonH ? window.wonH(n) : '')}</i></span>`; };
     let body = '';   // 10/29 상태 칸(진행·보류·거래완료) 없앰 — 매물번호는 제목줄로
     // 10/29 금액 칸은 두 개씩 한 줄 (거래 | 첫 금액 · 나머지 둘씩)
     // 10/30 선배: 'n칸 남음' 대신 비어 있는 칸 자체를 노랗게 (관리비·가격도) — 화면에 다 보이게

@@ -1455,7 +1455,7 @@ window.Danji = (() => {
     S.pkDraft = null;
     const isMk = !!s.src && !s.done, dis = ro ? 'disabled' : '', mdis = ro || !isMk ? 'disabled' : '', k0 = isMk ? (s.k || [])[0] || '' : '';
     const seg1 = (g, list, cur, d) => `<span class="rpseg" data-g="${g}">${list.map(([k, t]) => `<button type="button" data-v="${k}" aria-pressed="${cur === k}" ${d}>${t}</button>`).join('')}</span>`;
-    const W = (f, val, w = 74, d = dis) => `<span class="wonw"><input class="rpi rpw" data-f="${f}" data-won value="${val ? esc(String(val)) : ''}" inputmode="numeric" style="width:${w}px" ${d}><i class="wonh">${esc(window.wonH ? window.wonH(val) : '')}</i></span>`;
+    const W = (f, val, w = 74, d = dis) => `<span class="wonw"><input class="rpi rpw" data-f="${f}" data-won${f === 'mg' ? '="dec"' : ''} value="${val ? esc(String(val)) : ''}" inputmode="${f === 'mg' ? 'decimal' : 'numeric'}" style="width:${w}px" ${d}><i class="wonh">${esc(window.wonH ? window.wonH(val) : '')}</i></span>`;
     const F1 = (t, h, c = '') => `<div class="fr f1 ${c}"><b>${t}</b><div>${h}</div></div>`;
     const F2 = (t1, h1, t2, h2, c = '') => `<div class="fr f2 ${c}"><b>${t1}</b><div>${h1}</div><b>${t2}</b><div>${h2}</div></div>`;
     const prLb = { sale: '매매가', jeonse: '전세가', wolse: '보증·월세' }[k0] || '가격';
@@ -1516,7 +1516,8 @@ window.Danji = (() => {
         const val = el.value; if (val === el.dataset.last) return; el.dataset.last = val;
         if (f === 'ty' || f === 'py' || f === 'dir') return ltSave(cx, x, f, val, S.pkOne);
         if (f === 'cd' || f === 'cr') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; if (n && !D.live) D.live = 'tenant'; }); }
-        if (f === 'rm' || f === 'bt' || f === 'mg' || f === 'ln') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; }); }   // 10/29 방·욕실·관리비 · 10/30 융자
+        if (f === 'mg') { const n = Math.round((parseFloat(String(val).replace(/[^\d.]/g, '')) || 0) * 100) / 100; return save(D => { D.mg = n > 0 ? n : 0; }); }   // 10/31 고침: 관리비 소수점 (25.5가 255로 저장되던 것)
+        if (f === 'rm' || f === 'bt' || f === 'ln') { const n = +(String(val).replace(/\D/g, '') || 0); return save(D => { D[f] = n || 0; }); }   // 10/29 방·욕실·관리비 · 10/30 융자
         if (f === 'mv') return save(D => { const m = mvParse(val), q0 = mvParse(D.moveIn).q; D.moveIn = mvJoin(m.date, m.q || q0); });
         if (f === 'exp') return save(D => { D.exp = val; });
         if (f === 'ps' || f === 'pj' || f === 'pwd' || f === 'pwr') { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[f], n = +(String(val).replace(/\D/g, '') || 0); if (S.pkDraft) { S.pkDraft.vals[k] = n || 0; return; } return save(D => { D.pr = { ...D.pr, [k]: n || 0 }; }); }
