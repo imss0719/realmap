@@ -1091,7 +1091,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       const meta = [x.ptype === '기타' ? x.ptypeTx || '기타' : x.ptype, x.area ? `${(x.area / 3.3058).toFixed(1).replace(/\.0$/, '')}평` : '', (x.ad || {}).dir || ''].filter(Boolean).join(' · ');
       const st = lv ? `<span class="st ${d <= 7 ? 'ex' : 'on'}">${d <= 7 ? `만료 D-${d} · ` : '● 게시 중 · '}${ymd(x.pub.exp).slice(5)}까지</span>` : `<span class="st gr">게시 기간 끝남 · ${ymd(x.pub.exp).slice(5)}</span>`;
       // 10/30 선배: 내 광고는 사진 올리기·내리기만 — 정보는 보여 주기만 · 고치기는 매물장 입력창
-      const acts = lv ? `<button type="button" class="y" data-ax="photo" data-id="${x.id}">📷 사진 변경</button><button type="button" data-ax="fix" data-id="${x.id}">매물장에서 고치기</button><button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
+      const acts = lv ? `<button type="button" class="y" data-ax="send" data-id="${x.id}">💬 손님에게 보내기</button><button type="button" data-ax="photo" data-id="${x.id}">📷 사진 변경</button><button type="button" data-ax="fix" data-id="${x.id}">매물장에서 고치기</button><button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
         : `<button type="button" class="y" data-ax="pub" data-id="${x.id}">다시 게시 (30일)</button><button type="button" data-ax="fix" data-id="${x.id}">매물장에서 고치기</button>`;
       const a0 = x.ad || {}, info = [x.area ? `면적 ${x.area}㎡` : '', a0.fl || a0.tfl ? `${a0.fl || '?'}${/^\d+$/.test(a0.fl || '') ? '층' : ''} / ${a0.tfl ? a0.tfl + '층' : '?'}` : '', a0.movein || '', x.mgmt ? `관리비 ${x.mgmt}만` : a0.nomgmt ? '관리비 없음' : '', a0.park ? `주차 ${a0.park}` : '', x.no ? `No. ${x.no}` : ''].filter(Boolean).join(' · ');
       return `<div class="adc${lv ? '' : ' end'}"><a class="ph"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}${lv ? ` href="/?pnu=${esc(x.pnu || p0.pnu)}&lst=1" target="_blank" rel="noopener" title="지도에서 손님이 보는 모습"` : ''}>${ph ? '' : '사진 없음'}</a>
@@ -1122,6 +1122,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       const it = S.items.find(i => i.id === x.dataset.id); if (!it) return;
       const a = x.dataset.ax;
       if (a === 'edit' || a === 'photo') return pubSheet(it, true);
+      if (a === 'send') return shareOf(it);   /* 11/1 선배: 내 광고 [손님에게 보내기] — 지도 없이 이 매물 정보만 보이는 링크 */
       if (a === 'fix') return fixInLedger(it);
       if (a === 'pub') return pubSheet(it);
       if (a === 'renew') return pubOp(it.id, 'renew');
@@ -1474,7 +1475,8 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
   // 리얼맵 지도에 게시한 매물: 손님에게 보낼 링크
   async function shareOf(x) {
     if (!x) return;
-    const url = `${location.origin}/?pnu=${x.pnu}&lst=1`, title = `[리얼맵] ${x.bname || x.addr} ${KIND[x.kind]} ${priceText(x)}`;
+    const reg = String((S.bk || {}).regno || '').replace(/\D/g, '');   /* 11/1 등록번호 확인된 사무소: 중개사 소개 페이지 맨 위에 이 매물만 (다른 부동산 매물 안 보임) */
+    const url = S.bk && S.bk.verified && reg ? `${location.origin}/office.html?r=${reg}&ad=${encodeURIComponent(x.id)}` : `${location.origin}/?pnu=${x.pnu}&lst=1`, title = `[리얼맵] ${x.bname || x.addr} ${KIND[x.kind]} ${priceText(x)}`;
     if (navigator.share && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) { try { await navigator.share({ title, text: title, url }); return; } catch { /* 취소 */ } }
     try { await navigator.clipboard.writeText(`${title}\n${url}`); toast('링크를 복사했습니다. 카톡에 붙여 넣으세요'); } catch { prompt('이 링크를 복사해 주세요', url); }
   }
