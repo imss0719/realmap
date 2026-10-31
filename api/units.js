@@ -86,6 +86,38 @@ export default handler(async (req, res) => {
     return send(res, 200, { ok: true, total, pages, from, next, done, items }, 0);
   }
 
+  // 10/31 동 하나의 호별 공급면적: GET /api/units?pnu=...&dong=101동&sup=1 → { sup: { '1203': [59.92, 80.19], ... } } (전용, 공급)
+  //   건축물대장 전유공용면적에서 그 호의 전용 + 주거공용(외벽·계단실 등). 주차장·관리사무소·커뮤니티 같은 기타 공용은 계약면적에만 들어가므로 뺌
+  //   공용면적이 없거나(오래된 단지) 공급/전용 비율이 1.1~1.6 밖이면 그 호는 빼서 화면이 추정값(회색)으로 보여 줌
+  if (!ho && dong && req.query.sup) {
+    const D = String(dong).trim();
+    const hk = s => String(s || '').replace(/\D/g, '') || String(s || '').replace(/\s|호$/g, '');
+    const ETC = /주차|기계|전기실|발전|관리사무|경비|노인|경로|보육|어린이집|주민|커뮤니|휘트니스|헬스|독서|작은도서관|근린|상가|부대|복리|저수조|물탱크|정화조|펌프|쓰레기|자전거|창고|방재|중앙감시|MDF|변전/;
+    const sum = (rows, keep) => {
+      const U = {};
+      for (const x of rows) {
+        if (!keep(x)) continue;
+        const k = hk(x.hoNm), a = num(x.area) || 0, gb = String(x.exposPubuseGbCdNm || ''), nm = `${x.mainPurpsCdNm || ''} ${x.etcPurps || ''}`;
+        if (!k || !a) continue;
+        const u = U[k] || (U[k] = { ex: 0, co: 0 });
+        if (/전유/.test(gb)) u.ex += a; else if (/공용/.test(gb) && !ETC.test(nm)) u.co += a;
+      }
+      const out = {};
+      for (const [k, u] of Object.entries(U)) { const sp = u.ex + u.co, r = sp / (u.ex || 1); if (u.ex > 10 && u.co >= 1 && r >= 1.1 && r <= 1.6) out[k] = [Math.round(u.ex * 100) / 100, Math.round(sp * 100) / 100]; }
+      return out;
+    };
+    let r = null;
+    try {
+      r = await cached(`unitsup:${P.pnu}:${D}`, 7 * 86400e3, async () => {
+        let out = sum(await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: D }, { maxPages: 30 }), x => !String(x.dongNm || '').trim() || sameTok(x.dongNm, D));
+        if (!Object.keys(out).length && /^\d/.test(D)) out = sum((await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', q, { maxPages: 60 })).map(splitRow), x => sameTok(x.dongNm, D));   // 호 이름에 동이 붙은 단지
+        if (!Object.keys(out).length) throw new Error('none');   // 못 찾은 결과는 저장하지 않음 (잠깐 실패한 것을 7일 동안 붙잡지 않게)
+        return { a: out };
+      });
+    } catch { r = null; }
+    return send(res, 200, { ok: true, pnu: P.pnu, dong: D, sup: r ? r.a : {} }, r ? 86400 : 0);
+  }
+
   // 동 하나의 호별 전용면적: GET /api/units?pnu=...&dong=101동&areas=1 → { areas: { '1203': 84.97, ... } }
   //   단지 배치표가 층마다 다른 평형을 표시하는 데 씀. 브이월드 공동주택가격(동 전체 한 번에) → 없으면 건축물대장 전유부(쪽 단위)
   if (!ho && dong && req.query.areas) {
