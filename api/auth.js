@@ -128,7 +128,8 @@ async function checkOffice(bk) {
 const SMS = { key: process.env.SOLAPI_KEY || '', secret: process.env.SOLAPI_SECRET || '', from: String(process.env.SMS_FROM || '').replace(/\D/g, '') };
 const smsOn = () => !!(SMS.key && SMS.secret && SMS.from);
 // 운영자 휴대폰으로 알림 문자 (입금 신청·새 문의) — Vercel 환경변수 ADMIN_PHONE 이 있을 때만 · 실패해도 무시
-export async function opSms(text) { const to = String(process.env.ADMIN_PHONE || '').replace(/\D/g, ''); if (!smsOn() || !/^01\d{8,9}$/.test(to)) return; try { await sendSms(to, text); } catch { /* 무시 */ } }
+//   10/31 once: 같은 일로 같은 사람이 되풀이하면 하루 한 번만 (신청·취소 반복으로 문자 비용이 새지 않게 · 내용은 운영 페이지에 그대로 쌓임)
+export async function opSms(text, once = '') { const to = String(process.env.ADMIN_PHONE || '').replace(/\D/g, ''); if (!smsOn() || !/^01\d{8,9}$/.test(to)) return; try { if (once && (await redis(['SET', `realmap:smsonce:${once}`, '1', 'EX', 86400, 'NX'])) !== 'OK') return; } catch { /* 저장소 문제면 그냥 보냄 */ } try { await sendSms(to, text); } catch { /* 무시 */ } }
 // 요금제 가격(부가세 포함, 원) · 계좌이체 기간 — 12개월은 10개월 값
 export const PRICE = { basic: 9900, premium: 19900, vip: 29900 };
 export const PAY_MON = [1, 6, 12];
@@ -807,7 +808,7 @@ export default async function (req, res) {
       const W = ['평일 오전', '평일 오후', '평일 저녁', '주말'], when = (Array.isArray(body.when) ? body.when : []).filter(x => W.includes(x));
       const rec = { id: Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), at: new Date().toISOString(), office: t(body.office, 40), name: t(body.name, 20), phone: phone.replace(/^(0\d{1,2})(\d{3,4})(\d{4})$/, '$1-$2-$3'), area: t(body.area, 40), when, memo: t(body.memo, 500), st: 'new', note: '' };
       await redis(['HSET', 'realmap:visit', rec.id, JSON.stringify(rec)]);
-      await opSms(`[리얼맵] 방문 설명 신청 · ${(rec.office || rec.name).slice(0, 16)} · ${rec.phone} · ${rec.area.slice(0, 12)}`);
+      await opSms(`[리얼맵] 방문 설명 신청 · ${(rec.office || rec.name).slice(0, 16)} · ${rec.phone} · ${rec.area.slice(0, 12)}`, `visit:${phone}`);
       return send(res, 200, { ok: true });
     }
 
@@ -835,7 +836,7 @@ export default async function (req, res) {
         const rc = body.rcpt && ['cash', 'tax'].includes(body.rcpt.t) ? { t: body.rcpt.t, no: t(body.rcpt.no, 30).replace(/[^\d-]/g, '') } : null;
         const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), kind: 'seat', plan: P.plan, seats: n, mon, amt: SEAT * n * mon, payer: t(body.payer, 30) || who, office: who, rcpt: rc, st: 'wait' };
         await redis(['HSET', 'realmap:pays', rec.id, JSON.stringify(rec)]);
-        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · 직원 자리 ${n}명 × ${mon}개월 ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`);
+        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · 직원 자리 ${n}명 × ${mon}개월 ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`, `pay:${s.id}`);
         return send(res, 200, { ok: true, pay: rec });
       }
       if (body.op === 'pay') {
@@ -847,7 +848,7 @@ export default async function (req, res) {
         // 직원 자리는 요금제와 같은 기간으로 같이 냄 (12개월은 요금제처럼 10개월 값)
         const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), plan, mon, seats, amt: payAmt(plan, mon) + SEAT * seats * (mon === 12 ? 10 : mon), payer: t(body.payer, 30) || who, office: who, rcpt: rc, st: 'wait' };
         await redis(['HSET', 'realmap:pays', rec.id, JSON.stringify(rec)]);
-        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · ${PLANS[plan].name} ${mon}개월${seats ? ` + 직원 ${seats}명` : ''} ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`);
+        await opSms(`[리얼맵] 입금 신청 · ${who.slice(0, 20)} · ${PLANS[plan].name} ${mon}개월${seats ? ` + 직원 ${seats}명` : ''} ${rec.amt.toLocaleString()}원 (입금자 ${rec.payer.slice(0, 12)})`, `pay:${s.id}`);
         return send(res, 200, { ok: true, pay: rec });
       }
       if (body.op === 'paycancel') {
@@ -866,7 +867,7 @@ export default async function (req, res) {
         const CATS = ['사용법', '오류', '요금·결제', '기타'], img = String(body.img || '');
         const rec = { id: nid(), uid: s.id, at: new Date().toISOString(), office: who, cat: CATS.includes(body.cat) ? body.cat : '기타', text, img: ownPhoto(img, s.id) ? img : '', reply: '', rat: '' };
         await redis(['HSET', 'realmap:qna', rec.id, JSON.stringify(rec)]);
-        await opSms(`[리얼맵] 새 문의 · ${who.slice(0, 20)} · ${rec.cat}`);
+        await opSms(`[리얼맵] 새 문의 · ${who.slice(0, 20)} · ${rec.cat}`, `qna:${s.id}`);
         return send(res, 200, { ok: true, qna: rec });
       }
       return fail(res, 400, 'op', '알 수 없는 요청입니다.');

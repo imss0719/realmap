@@ -92,7 +92,8 @@ export async function staffApi({ redis, s, req, res, send, fail, planOf, loadBk,
     const m = { uid: String(s.id), name, role: prev && prev.st === 'on' && prev.role ? prev.role : role, phone: phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'), st: prev && prev.st === 'on' ? 'on' : 'wait', at: (prev && prev.at) || new Date().toISOString(), okAt: (prev && prev.okAt) || '', nick: s.n || '' };
     await redis(['HSET', `realmap:staff:${o}`, String(s.id), JSON.stringify(m)]);
     await redis(['SET', `realmap:staffof:${s.id}`, JSON.stringify({ o: String(o), st: m.st })]);
-    if (m.st === 'wait' && !prev) { await note(o, { k: 'staff', name, role, uid: String(s.id) }); await smsTo(o, `[리얼맵] ${name}님(${ROLE[role]})이 중개장부 직원 참여를 신청했습니다. [설정 → 직원 관리]에서 승인해 주세요.`); }
+    // 10/31 참여 신청·나가기를 되풀이해도 대표님 문자는 하루 한 번 (알림 목록에는 그대로 남음)
+    if (m.st === 'wait' && !prev) { await note(o, { k: 'staff', name, role, uid: String(s.id) }); if ((await redis(['SET', `realmap:smsonce:staff:${o}:${s.id}`, '1', 'EX', 86400, 'NX']).catch(() => 'OK')) === 'OK') await smsTo(o, `[리얼맵] ${name}님(${ROLE[role]})이 중개장부 직원 참여를 신청했습니다. [설정 → 직원 관리]에서 승인해 주세요.`); }
     return send(res, 200, { ok: true, mine: await mineOf(redis, s.id, loadBk) });
   }
   if (body.op === 'leave') { await leave(redis, s.id); return send(res, 200, { ok: true }); }
