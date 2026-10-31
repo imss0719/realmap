@@ -1763,7 +1763,7 @@ window.Danji = (() => {
       try { const j = await api(`/api/auth?action=hj&id=${encodeURIComponent(cx.id)}`); st.units = j.units || {}; st.err = null; }
       catch (e) { st.units = null; st.err = e.message || '장부를 불러오지 못했습니다.'; st.code = e.code; }
       st.p = null;
-      if (S.cur === '__all' && $('dj_cxBody')) drawAll();
+      if (S.cur === '__all' && $('dj_cxBody')) { drawAll(); drawTree(); }   // 10/31 고침: 왼쪽 단지 목록의 매물 숫자도 다시 (모든 단지 화면에서 숫자가 비어 있던 것)
       else if (S.cur === cx.id && S.C[cx.id] && S.C[cx.id].dongs && $('dj_cxBody')) drawComplex(cx);
       else drawTree();   // 다른 단지 장부가 들어오면 왼쪽 목록 숫자만
     })();

@@ -1424,7 +1424,17 @@ window.Board = (() => {
       let units = j.units || [];
       if (!byDong) { const ds = [...new Set(units.map(u => String(u.dong || '').trim()))]; cur = (o.dong && X.dongPick(ds, o.dong)) || ds.find(d => /\d/.test(d)) || ds[0] || ''; units = units.filter(u => String(u.dong || '').trim() === cur); }
       const hn = String(o.ho).replace(/호$/, '').toUpperCase();
-      const hit = units.find(u => String(u.ho).replace(/호$/, '').toUpperCase() === hn) || units.find(u => X.hoEq(u.ho, o.ho) && !/^b|지하/i.test(u.ho));
+      const findHo = us => us.find(u => String(u.ho).replace(/호$/, '').toUpperCase() === hn) || us.find(u => X.hoEq(u.ho, o.ho) && !/^b|지하/i.test(u.ho));
+      let hit = findHo(units);
+      // 10/31 고침: 고른 동에 그 호가 없으면(예: 단지 이름으로 된 상가동) 다른 동에서 찾아봄 — 한 동에만 있으면 그 동, 여러 동이면 비워 두고 고르게 (단지 이름이 동 칸에 들어가던 것)
+      if (!hit) {
+        let cands = byDong ? dongs : [];
+        if (!cands.length) { const sc = await H.api(`/api/units?pnu=${D.pnu}&scan=1&from=1`).catch(() => ({})); cands = sc.dongs || [...new Set((sc.items || []).map(u => String(u.dongNm || '').trim()).filter(Boolean))]; }
+        cands = cands.filter(d => d !== cur).sort((x, y) => (/\d/.test(y) ? 1 : 0) - (/\d/.test(x) ? 1 : 0)).slice(0, 12);
+        const has = [];
+        for (const d of cands) { const r = await H.api(`/api/units?pnu=${D.pnu}&dong=${encodeURIComponent(d)}`).catch(() => ({ units: [] })); const h2 = findHo(r.units || []); if (h2) has.push([d, h2]); if (has.length > 1) break; }
+        if (has.length === 1) { [cur, hit] = has[0]; } else cur = '';
+      }
       D.dong = cur || o.dong || ''; D.ho = hit ? hit.ho : String(o.ho);
       if (hit && hit.flr != null) D.fl = (hit.flrGb === '지하' ? 'B' : '') + hit.flr;
       if (!o.area && hit) { try { const u = await H.api(`/api/units?pnu=${D.pnu}&dong=${encodeURIComponent(cur)}&ho=${encodeURIComponent(hit.ho)}`); const ex = ((u.area && u.area.ok && u.area.data) || []).filter(r => /전유/.test(r.gb || '')); const sum = ex.reduce((a, r) => a + (r.area || 0), 0); if (sum) D.area = Math.round(sum * 100) / 100; if (ex[0]) D.uUse = (ex[0].etcUse && ex[0].etcUse.length <= 14 ? ex[0].etcUse : ex[0].use) || ''; } catch { /* 면적은 직접 */ } }
