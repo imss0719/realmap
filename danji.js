@@ -333,7 +333,7 @@ window.Danji = (() => {
     const sorted = ds => ds.map(dongBtn).sort((p, q) => (q.m.m + q.m.o) - (p.m.m + p.m.o) || q.m.e - p.m.e).map(z => z.html).join('');
     const G = subOf(c, C); if (!G) return sorted(C.dongs);   // 10/28 1단지·2단지는 폴더처럼 (체크박스 없음)
     S.gopen = S.gopen || new Set(); const sel = gOn(C) || [];
-    return G.map(g => { const op = S.gopen.has(c.id + '|' + g.k) || !sel.length;   /* 10/31 선배: 단지를 펼치면 1단지·2단지… 아래 동까지 모두 펼침 (하위 단지를 고르면 그 단지만) */ return `<div class="tn g${sel.includes(g.k) ? ' on' : ''}"><button type="button" data-tgo="${g.k}"><span class="ar">${op ? '▾' : '▸'}</span>${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
+    return G.map(g => { const op = true;   /* 10/31 선배: 1단지·2단지는 접지 않고 늘 아래 동까지 펼침 (누르면 표만 그 단지로) */ return `<div class="tn g${sel.includes(g.k) ? ' on' : ''}"><button type="button" data-tgo="${g.k}">${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
   }
   // 하위 단지 고르기 (탐색기 체크 · 표 위 칩 같은 것)
   function pickSub(cx, k) {
@@ -385,7 +385,7 @@ window.Danji = (() => {
     T.innerHTML = `<div class="tth"><b>아파트·오피</b>${inO ? '' : bookTog()}</div>
       <button type="button" class="tn all${S.cur === '__all' && !multiOn() && !inO ? ' on' : ''}" data-tall>전체<span class="ct">${(() => { const ns = S.cx.items.map(cxN); return ns.some(v => v < 0) ? '' : ns.reduce((p, v) => p + v, 0) + orphItems().filter(x => x.status === 'on').length; })()}</span></button>
       ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur && !inO; const n = cnt(c);
-        const fo = op;   // 펼친 단지 = 지금 단지 (10/31 선배: 다시 눌러 접기는 없앰)
+        const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         const ck = allMode || (multiOn() ? S.multi.has(c.id) : !S.adding && c.id === S.cur);   // 10/28: 지금 표에 나오는 단지 = 체크 (모든 단지면 전부 · 하나면 그 단지)
         return `<div class="tn${op ? ' on' : ''}"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button>${S.delMode ? `<button type="button" class="tdel" data-tdel="${c.id}">빼기</button>` : `<span class="ct"${S.L[c.id] && S.L[c.id].err ? ` title="${esc(S.L[c.id].err)}" style="color:#C92A2A"` : ''}>${S.L[c.id] && S.L[c.id].err ? '!' : n === '' ? '' : n}</span>`}</div>
         ${fo && C && C.dongs && !S.delMode ? treeDongs(c, C) + `<div class="tmore"><button type="button" data-tren>이름 바꾸기</button> · <button type="button" data-taddpl>빠진 동 더하기</button></div>` : ''}`; }).join('')}
@@ -395,7 +395,7 @@ window.Danji = (() => {
     T.querySelector('[data-tall]').onclick = () => { S.multi.clear(); saveMulti(); S.cur = '__all'; S.adding = false; draw(); };
     T.querySelectorAll('[data-tcx]').forEach(b => b.onclick = () => {
       S.fold = S.fold || new Set(); const id = b.dataset.tcx;
-      if (S.cur === id && !S.adding) { const C0 = S.C[id]; if (C0 && C0.view === 'dong') { C0.view = 'all'; if (C0.gsel) C0.gsel = []; S.hist = null; return draw(); } return; }   // 10/31 지금 단지를 다시 누르면 접지 않고, 동을 보고 있었으면 단지 전체 표로
+      if (S.cur === id && !S.adding) { S.fold.has(id) ? S.fold.delete(id) : S.fold.add(id); return drawTree(); }   // 지금 단지 → 접기·펼치기만
       S.fold.delete(id); S.multi.clear(); saveMulti(); S.cur = id; S.adding = false; S.hist = null; draw();
     });
     T.querySelectorAll('[data-tck]').forEach(b => b.onchange = () => { const id = b.dataset.tck;
