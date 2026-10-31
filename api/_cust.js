@@ -65,7 +65,13 @@ export async function cust({ redis, uid, P, send, fail, req, res, body = {}, who
   if (!c) return fail(res, 404, 'none', '고객을 찾지 못했습니다.');
   if (op === 'status') { if (!ST.includes(body.status)) return fail(res, 400, 'status', '상태가 올바르지 않습니다.'); c.status = body.status; }
   else if (op === 'memo') { const t = str(body.text, 300); if (!t) return fail(res, 400, 'memo', '메모를 입력해 주세요.'); c.memo = `[${memoNow()}] ${t}${who ? ` · ${who.n}` : ''}${c.memo ? '\n' + c.memo : ''}`.slice(0, 5000); c.last = new Date().toISOString(); }
-  else if (op === 'mdel') { const L = String(c.memo || '').split(/\n(?=\[\d{2}\.\d{2}\.\d{2} \d{2}:\d{2}\] )/); L.splice(Number(body.i) || 0, 1); c.memo = L.join('\n'); }
+  else if (op === 'mdel') {   // 10/31 고침: 번호가 이상하면 맨 위(최근) 기록을 지우던 것 → 번호·내용이 맞는 기록만 (다른 직원이 그 사이 기록을 남겨 번호가 밀려도 내용으로 찾음)
+    const L = String(c.memo || '').split(/\n(?=\[\d{2}\.\d{2}\.\d{2} \d{2}:\d{2}\] )/), n = Number(body.i), x = str(body.x, 300);
+    let i = Number.isInteger(n) && n >= 0 && n < L.length ? n : -1;
+    if (x && (i < 0 || !L[i].includes(x))) i = L.findIndex(l => l.includes(x));
+    if (i < 0) return fail(res, 404, 'nomemo', '지울 기록을 찾지 못했습니다. 화면을 새로 고친 뒤 다시 지워 주세요.');
+    L.splice(i, 1); c.memo = L.join('\n');
+  }
   else if (op === 'called') c.last = new Date().toISOString();
   else if (op === 'del') { await redis(['HDEL', H, c.id]); return send(res, 200, { ok: true, items: await all(), limit }); }
   else return fail(res, 400, 'op', '알 수 없는 요청입니다.');

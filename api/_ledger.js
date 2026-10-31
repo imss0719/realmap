@@ -284,13 +284,15 @@ export async function clearHist(redis, uid) {
   let n = 0;
   for (const id of ids) {
     const H = `realmap:hj:${uid}:${id}`, raw = (await redis(['HGETALL', H])) || [];
-    const arr = Array.isArray(raw) ? raw : Object.entries(raw).flat();
+    const arr = Array.isArray(raw) ? raw : Object.entries(raw).flat(), put = [];
     for (let i = 0; i + 1 < arr.length; i += 2) {
       let r; try { r = { ...EMPTY(), ...unseal(arr[i + 1]) }; } catch { continue; }
       if (!r.hist || !r.hist.length) continue;
       n += r.hist.length; r.hist = [];
-      await redis(['HSET', H, arr[i], seal(r)]);
+      put.push(arr[i], seal(r));
     }
+    // 10/31 고침: 호마다 한 번씩 저장하던 것을 단지마다 200호씩 묶어서 (장부가 크면 시간 초과로 절반만 지워지던 것)
+    for (let j = 0; j < put.length; j += 400) await redis(['HSET', H, ...put.slice(j, j + 400)]);
   }
   return n;
 }

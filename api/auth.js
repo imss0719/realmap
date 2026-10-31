@@ -64,7 +64,10 @@ function readOnlyIds(items, P) {
 // 체험 시작 (중개사 서비스를 해지했다가 다시 시작하면 체험 없이 무료로) — 가입 확인 통과 또는 운영자 승인 때
 export async function startTrial(uid) {
   const now = Date.now();
-  const used = await redis(['SISMEMBER', 'realmap:trialused', String(uid)]).catch(() => 0);
+  // 10/31 탈퇴 후 다시 가입해도 같은 중개사무소(등록번호)는 체험 한 번만 — 등록번호는 공개된 사업자 정보라 탈퇴해도 남김 (카카오 계정 기록은 탈퇴 때 지움)
+  const bk = await loadBk(uid).catch(() => null), rd = digitsOf(bk && bk.regno);
+  const used = (await redis(['SISMEMBER', 'realmap:trialused', String(uid)]).catch(() => 0)) || (rd.length >= 10 && (await redis(['SISMEMBER', 'realmap:trialreg', rd]).catch(() => 0)));
+  if (!used && rd.length >= 10) await redis(['SADD', 'realmap:trialreg', rd]).catch(() => 0);
   await redis(['SET', `realmap:plan:${uid}`, JSON.stringify(used ? { plan: 'free', trialUsed: true, at: new Date(now).toISOString() } : { plan: 'trial', until: new Date(now + TRIAL_DAYS * 86400e3).toISOString(), trialUsed: true, at: new Date(now).toISOString() })]);
 }
 // 단지 장부 한도: 등록한 순서대로 앞의 P.cx곳만 입력 가능, 넘는 단지는 보기만 (요금제를 내렸을 때)
@@ -244,7 +247,7 @@ export function adMissing(x, bk) {
   if (RESID.includes(tbase(x))) {
     if (a.rooms == null || a.rooms === '') miss.push('방 수');
     if (a.baths == null || a.baths === '') miss.push('욕실 수');
-    miss.push(...mgMiss(x));   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 상가·사무실 등 비주거는 관리비 필수 아님
+    if (x.kind !== 'presale') miss.push(...mgMiss(x));   // 10/31 분양권은 입주 전이라 관리비 필수 아님 · 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 상가·사무실 등 비주거는 관리비 필수 아님
   }
   return miss;
 }
@@ -263,7 +266,7 @@ function pubSummary(uid, x, bk) {
   const a = x.ad || {}, p0 = (x.places && x.places[0]) || {};
   return {
     k: `${uid}:${x.id}`, no: x.no || '', kind: x.kind, ptype: x.ptype, ptypeTx: x.ptypeTx || '', pbase: tbase(x), form: a.form || '',
-    price: x.price || null, deposit: x.deposit || null, rent: x.rent || null, pr: x.pr || null, mgmt: x.mgmt || null, premium: x.premium || null, nomgmt: !!a.nomgmt,
+    price: x.price || null, deposit: x.deposit || null, rent: x.rent || null, pr: x.pr || null, mgmt: (a.mg2 && a.mg2.t === 'na') ? null : x.mgmt || null, premium: x.premium || null, nomgmt: !!a.nomgmt,
     area: x.area || null, ak: p0.land ? 'land' : p0.ak || 'ex', n: (x.places || []).length || 1,
     pnu: x.pnu, lat: x.lat, lng: x.lng, addr: x.addr, road: x.road || '', bname: x.bname || '',
     dong: ['아파트', '오피스텔'].includes(tbase(x)) ? (p0.dong || '') : '',   // 호수는 공개하지 않음
@@ -1114,7 +1117,12 @@ export default async function (req, res) {
       if (prevBk && prevBk.lat && prevBk.addr === bk.addr) { bk.lat = prevBk.lat; bk.lng = prevBk.lng; if (prevBk.posv) bk.posv = prevBk.posv; }   // 10/29 사무소 좌표는 주소가 그대로일 때만 유지 (바뀌면 화면이 다시 찾아 bkpos로 보냄)   // 10/28 첫 화면(내 광고) 설정은 정보 수정 때도 유지
       if (body.bk && ['ads', 'book'].includes(body.bk.home)) bk.home = body.bk.home;
       if (!P.op && !(await mobileOk(s.id, bk, prevBk))) return fail(res, 400, 'sms', SMS_NEED);
-      if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
+      const sameAddr = !prevBk || String(prevBk.addr || '').replace(/\s/g, '') === String(bk.addr || '').replace(/\s/g, '');   // 10/31 사무소 주소를 바꾸면 국가 자료로 다시 확인 (예전엔 확인 배지가 그대로 남던 것)
+      if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo) && !sameAddr && !P.op) {
+        const v = await verifyBk(s.id, bk);
+        if (v.st === 'error') Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });   // 국가 자료 조회가 안 되면 일단 유지 (다음 저장 때 다시 확인)
+        else if (v.st !== 'ok') return fail(res, 400, 'verify', `사무소 주소를 바꾸셨는데 ${v.msg || '등록 정보를 확인하지 못했습니다.'} 이전 등록을 마치셨다면 등록증의 새 등록번호로 입력해 주세요.`);
+      } else if (prevBk && prevBk.verified && digitsOf(prevBk.regno) === digitsOf(bk.regno) && nmOf(prevBk.ceo) === nmOf(bk.ceo)) {
         Object.assign(bk, { verified: prevBk.verified, vby: prevBk.vby || 'op', regno: prevBk.regno });
         if (prevBk.vby === 'auto') bk.office = prevBk.office;
       } else if (P.op) {   // 10/29 운영자도 등록번호를 국가 자료로 확인해 둠 (확인되면 소개 페이지·확인 배지) — 안 돼도 저장은 그대로
@@ -1304,8 +1312,8 @@ export default async function (req, res) {
         if (x && x.pub) x.pub.on = false;
       } else if (body.op === 'histclear') {   // 10/30 선배 요청: 지금까지의 기록 모두 지우기 (매물 기록 + 아파트 호 기록 · 대표만)
         let n = 0; items.forEach(x => { if (x.memo) { n++; x.memo = ''; } });
+        await save();   // 10/31 매물 기록을 먼저 저장 (단지 장부 쪽이 오래 걸려도 매물 기록은 확실히 지워지게 · 다시 누르면 남은 것만 이어서 지움)
         const h = await clearHist(redis, s.id).catch(() => 0);
-        await save();
         return send(res, 200, { ok: true, items, cleared: { ls: n, hj: h } });
       } else if (body.op === 'del') {
         const gone = items.find(x => x.id === id); body._gone = gone;
