@@ -116,7 +116,7 @@ window.Danji = (() => {
   function draw() {
     const W = $('dj_wrap'); if (!W) return;
     if (S.pk && (S.adding || (S.cur !== '__all' && S.pk.cx !== S.cur))) closePanel();   // 다른 단지·매물장으로 가면 입력창 닫기
-    const chips = `<div class="djcap"><b>아파트·오피스텔</b><span>단지·건물별 동·호 장부</span></div><div class="chips">${S.cx.items.length >= 2 ? `<button type="button" data-cx="__all" class="allcx" aria-pressed="${S.cur === '__all' && !S.adding}">모든 단지</button>` : ''}${S.cx.items.map(c => `<button type="button" data-cx="${c.id}" aria-pressed="${c.id === S.cur && !S.adding}">${esc(c.name)}</button>`).join('')}<button type="button" class="add" id="dj_addBtn" aria-pressed="${S.adding === true}">＋ 단지 추가</button></div>`;
+    const chips = `<div class="djcap"><b>아파트·오피스텔</b><span>단지·건물별 동·호 장부</span></div><div class="chips">${S.cx.items.length >= 2 ? `<button type="button" data-cx="__all" class="allcx" aria-pressed="${S.cur === '__all' && !S.adding}">전체</button>` : ''}${S.cx.items.map(c => `<button type="button" data-cx="${c.id}" aria-pressed="${c.id === S.cur && !S.adding}">${esc(c.name)}</button>`).join('')}<button type="button" class="add" id="dj_addBtn" aria-pressed="${S.adding === true}">＋ 단지 추가</button></div>`;
     // 넓은 화면: 왼쪽 단지 목록(폴더) + 오른쪽 내용 · 좁은 화면: 위쪽 단지 버튼 (10/26)
     // 10/26: 단지 고르기는 왼쪽 목록 + 머리의 드롭메뉴로. 위쪽 단지 버튼 줄은 단지 추가 화면에서만
     const lay = inner => `<div class="djlay${S.cx.items.length ? ' hastree' : ''}"><aside class="djtree" id="dj_tree"></aside><div class="djmain">${S.adding || !S.cx.items.length ? chips : ''}${inner}</div></div>`;
@@ -249,6 +249,7 @@ window.Danji = (() => {
       if (!n) continue; // 다 받았는데 이 이름으로는 없음 → 누르면 동 이름으로 따로 찾기
       C.units[key] = [...m.values()].sort((a, b) => (b.flr ?? 0) - (a.flr ?? 0) || natc(a.ho, b.ho));
       C.want = C.want || {}; C.want[key] = want;
+      if (S.cur === cx.id && C.view !== 'dong') soonTable(cx);   // 10/31 단지 전체 표에 새로 받은 동의 호를 더함
     }
     if (S.cur !== cx.id || S.C[cx.id] !== C) return;
     const wait = d => { const p = C.scan && C.scan.per[d.pnu]; return !!p && !p.done && !p.cached && !Array.isArray(C.units[d.pnu + '|' + d.dong]); };
@@ -269,7 +270,7 @@ window.Danji = (() => {
   // ---------- 단지 화면: 요약 + 표 (엑셀처럼 칸을 눌러 바로 입력) ----------
   // 처음 = 단지 전체(장부에 뭐라도 적힌 호 + 매물장 매물이 있는 호) · 동을 누르면 그 동의 모든 호(빈 줄 포함)
   // 동 그림(층 × 라인)은 [현황판 보기]를 눌렀을 때만.
-  const AX = { id: '__all', name: '모든 단지', all: true, places: [], dir: {} };   // '모든 단지' 보기용 가짜 단지
+  const AX = { id: '__all', name: '전체', all: true, places: [], dir: {} };   // '모든 단지' 보기용 가짜 단지
   // 거르기 (10/26 누적): k 거래(매매·전세·월세) · s 상태(매물·보류·계약됨) · c 챙길 것(만기 임박·꼭 챙길 것·표시한 줄) · t 타입 · a 평형
   //   같은 묶음 안은 '또는', 묶음끼리는 '그리고'. 아무것도 안 고르면 전부
   // 10/28 관리장부(LED) / 매물장 — 거르기는 장부마다 따로 (관리장부 '모든 단지'는 적어 둔 호 전부, 매물장 '모든 단지'는 매물만)
@@ -381,8 +382,8 @@ window.Danji = (() => {
     const cnt = c => { if (!S.L[c.id]) { loadLedger(c); return ''; } const n = cxN(c); return n < 0 ? '' : n; };   // 숫자 = 매물(내+타)
     const cur = S.cx.items.find(c => c.id === S.cur), C = cur && S.C[cur.id];
     const allMode = S.cur === '__all' && !multiOn() && !S.adding && !inO;
-    T.innerHTML = `<div class="tth"><b>단지</b>${inO ? '' : bookTog()}</div>
-      <button type="button" class="tn all${S.cur === '__all' && !multiOn() && !inO ? ' on' : ''}" data-tall>모든 단지<span class="ct">${(() => { const ns = S.cx.items.map(cxN); return ns.some(v => v < 0) ? '' : ns.reduce((p, v) => p + v, 0) + orphItems().filter(x => x.status === 'on').length; })()}</span></button>
+    T.innerHTML = `<div class="tth"><b>아파트·오피</b>${inO ? '' : bookTog()}</div>
+      <button type="button" class="tn all${S.cur === '__all' && !multiOn() && !inO ? ' on' : ''}" data-tall>전체<span class="ct">${(() => { const ns = S.cx.items.map(cxN); return ns.some(v => v < 0) ? '' : ns.reduce((p, v) => p + v, 0) + orphItems().filter(x => x.status === 'on').length; })()}</span></button>
       ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur && !inO; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         const ck = allMode || (multiOn() ? S.multi.has(c.id) : !S.adding && c.id === S.cur);   // 10/28: 지금 표에 나오는 단지 = 체크 (모든 단지면 전부 · 하나면 그 단지)
@@ -402,7 +403,7 @@ window.Danji = (() => {
       const ids = S.cx.items.map(c => c.id);
       const sel = new Set(allMode ? ids : multiOn() ? [...S.multi].filter(x => ids.includes(x)) : S.cur && S.cur !== '__all' && !S.adding ? [S.cur] : []);
       if (b.checked) sel.add(id); else sel.delete(id);
-      if (!sel.size) { b.checked = true; return toast('보고 있는 단지가 하나는 있어야 합니다. 다른 단지를 체크하거나 [모든 단지]를 눌러 주세요', 3500); }
+      if (!sel.size) { b.checked = true; return toast('보고 있는 단지가 하나는 있어야 합니다. 다른 단지를 체크하거나 [전체]를 눌러 주세요', 3500); }
       S.multi.clear();
       if (sel.size >= 2 && sel.size < ids.length) { sel.forEach(x => S.multi.add(x)); S.cur = '__all'; }
       else if (sel.size === 1) S.cur = [...sel][0];
@@ -480,7 +481,7 @@ window.Danji = (() => {
   function drawComplex(cx) {
     const C = S.C[cx.id];
     if (!C) { loadComplex(cx); $('dj_cxBody').innerHTML = '<div class="card loading">단지 정보를 불러오는 중…</div>'; return; }
-    if (S.lastCx !== cx.id) { S.lastCx = cx.id; C.view = 'all'; TF().cf = null; }   // 10/28 다른 단지로 오면 항상 그 단지의 전체 동부터
+    if (S.lastCx !== cx.id) { S.lastCx = cx.id; C.view = 'all'; TF().cf = null; S.lim = 0; }   // 10/28 다른 단지로 오면 항상 그 단지의 전체 동부터
     if (S.ed) { S.redraw = true; return; }                  // 입력 중에는 다시 그리지 않음 (끝나면 그림)
     if (!S.L[cx.id]) loadLedger(cx);
     const MM = mineMap(cx);
@@ -601,7 +602,7 @@ window.Danji = (() => {
   function cxSelHtml(cur) {
     const multi = cur === '__all' && multiOn(), c0 = S.cx.items.find(c => c.id === cur);
     // 10/28 넓은 화면: 고르기는 왼쪽 단지 목록에서만 → 여기는 이름만 · 좁은 화면(목록이 숨음)에서만 드롭메뉴
-    return `<b class="cxtt">${esc(multi ? allList().map(c => c.name).join(' + ') : cur === '__all' ? '모든 단지' : c0 ? c0.name : '')}</b><select id="dj_cxSel" class="cxsel" aria-label="단지 고르기">${multi ? `<option value="__all" selected>${esc(allList().map(c => c.name).join(' + '))}</option>` : ''}${S.cx.items.length >= 2 && !multi ? `<option value="__all"${cur === '__all' ? ' selected' : ''}>모든 단지 (${S.cx.items.length}곳)</option>` : ''}${cxSorted().map(c => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="__add">＋ 단지 추가…</option></select>`;
+    return `<b class="cxtt">${esc(multi ? allList().map(c => c.name).join(' + ') : cur === '__all' ? '전체' : c0 ? c0.name : '')}</b><select id="dj_cxSel" class="cxsel" aria-label="단지 고르기">${multi ? `<option value="__all" selected>${esc(allList().map(c => c.name).join(' + '))}</option>` : ''}${S.cx.items.length >= 2 && !multi ? `<option value="__all"${cur === '__all' ? ' selected' : ''}>전체 (${S.cx.items.length}곳)</option>` : ''}${cxSorted().map(c => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="__add">＋ 단지 추가…</option></select>`;
   }
   function wireCxSel() {
     const el = $('dj_cxSel'); if (!el) return;
@@ -659,6 +660,16 @@ window.Danji = (() => {
     for (const mk of Object.keys(S.cx.memos || {})) { if (!mk.startsWith(cx.id + '|')) continue; const [, p0, dn, h] = mk.split('|'); const p = pnuFor(p0, dn), kk = `${p}|${dn}|${h}`; if (!seen.has(kk)) seen.set(kk, [p, dn, h]); }   // 예전 호별 메모만 있는 호
     for (const k of (S.extra && S.extra[cx.id]) || []) { const [p, dn, h] = k.split('|'); if (!seen.has(k)) seen.set(k, [p, dn, h]); }
     return [...seen.values()].map(([p, dn, h]) => rowOf(cx, C, MM, p, (dongOf(C, dn) || {}).dong || dn, h));
+  }
+  // 10/31 선배: 단지를 누르면 그 단지의 모든 호 (받아 온 동부터 차례로) + 장부·매물에만 있는 호
+  function rowsCx(cx, C, MM) {
+    const out = [], seen = new Set();
+    for (const d of C.dongs || []) {
+      const U = C.units && C.units[d.pnu + '|' + d.dong]; if (!Array.isArray(U)) continue;
+      for (const u of U) { if (u.flrGb === '지하' || !digits(u.ho)) continue; const r = rowOf(cx, C, MM, d.pnu, d.dong, u.ho); if (!seen.has(r.key)) { seen.add(r.key); out.push(r); } }
+    }
+    for (const r of rowsAll(cx, C, MM)) if (!seen.has(r.key)) { seen.add(r.key); out.push(r); }
+    return out;
   }
   function rowsDong(cx, C, MM) {
     const U = C.units[C.cur]; if (!Array.isArray(U)) return null;
@@ -889,14 +900,18 @@ window.Danji = (() => {
       rows = rowsDong(cx, C, MM);
       if (!rows) { box.innerHTML = '<div class="loading">이 동의 호 목록을 받는 중입니다…</div>'; return; }
       if (!fOn(F)) { /* 동 화면은 빈 줄까지 */ } else rows = rows.filter(x => pass(x, F));
-    } else rows = rowsAll(cx, C, MM).filter(x => pass(x, F));
+    } else rows = (ALL ? rowsAll(cx, C, MM) : rowsCx(cx, C, MM)).filter(x => pass(x, F));   // 10/31 단지 = 모든 호
     { const gs = !ALL && gOn(C); if (gs) rows = rows.filter(x => inSub(C, gs, x.pnu, x.dn)); }   // 고른 하위 단지만 (10/26)
-    const base = ALL ? allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
-    if (!ALL) needAreas(cx, C, base);
-    else allList().forEach(c => { const Cc = CI(c); if (Cc.dongs) { const rs = base.filter(x => x.cx === c); if (rs.length) needAreas(c, Cc, rs); } });
-    { const re = () => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); };   // 10/31 평형(공급면적)
-      if (!ALL) needSups(C, base, re); else allList().forEach(c => { const rs = base.filter(x => x.cx === c); if (rs.length) needSups(CI(c), rs, re); }); }
+    const base = ALL ? allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsCx(cx, C, MM);
     sortRows(rows, F.sort === 'fl' && C.view !== 'dong' ? 'dh' : F.sort);
+    // 10/31 단지 전체(모든 호)는 큰 단지면 수천 호 → 300호씩 보여 주고 [더 보기] (화면이 멈추지 않게)
+    const nAll = rows.length, LIM = S.lim || 300;
+    if (!ALL && C.view !== 'dong' && rows.length > LIM) rows = rows.slice(0, LIM);
+    // 호별 면적·공급면적은 보이는 줄의 동만 받음
+    if (!ALL) needAreas(cx, C, rows);
+    else allList().forEach(c => { const Cc = CI(c); if (Cc.dongs) { const rs = base.filter(x => x.cx === c); if (rs.length) needAreas(c, Cc, rs); } });
+    { const re = () => soonTable(cx);   // 10/31 평형(공급면적)
+      if (!ALL) needSups(C, rows, re); else allList().forEach(c => { const rs = base.filter(x => x.cx === c); if (rs.length) needSups(CI(c), rs, re); }); }
     // 동 화면에서 층이 바뀌는 줄 위에 구분선
     const flo = x => Math.floor(+x.ho / 100);
     rows.forEach((x, i) => { x.fs = C.view === 'dong' && (F.sort === 'dh' || F.sort === 'fl') && i > 0 && flo(x) !== flo(rows[i - 1]); });
@@ -914,7 +929,8 @@ window.Danji = (() => {
     box.innerHTML = `<div class="tbw" id="dj_tbw"><table class="xt big${ALL ? ' allx' : ''}"><thead><tr>${h1}</tr>${h2 ? `<tr>${h2}</tr>` : ''}</thead>
       <tbody>${rows.map((x, i) => rowHtml(x, i)).join('') || `<tr><td colspan="${vc.length}" class="empty">${F.cf && Object.values(F.cf).some(Boolean) ? '표 머리 아래 ▾로 고른 조건에 맞는 호가 없습니다. <button type="button" class="lnk" id="dj_cfclr">조건 모두 풀기</button>' : !LED() ? '아직 매물로 올린 호가 없습니다. [전체]에서 줄 맨 앞 ○를 누르면 매물이 됩니다.' : ALL ? '아직 적어 둔 호가 없습니다. 왼쪽에서 단지를 고른 뒤 호를 적어 보세요.' : C.view === 'all' ? '아직 적어 둔 호가 없습니다. 위 칸에 "102-1503"처럼 호를 넣거나, 동을 눌러 빈 줄부터 채워 보세요.' : '이 동에 맞는 호가 없습니다.'}</td></tr>`}</tbody></table></div>
       ${ro || ALL ? '' : '<div class="addho"><span>＋ 호 추가</span><input id="dj_addHo" class="hjin" placeholder="예) 103-1502 쓰고 Enter" autocomplete="off"></div>'}
-      <p class="note">${rows.length}호</p>`;
+      <p class="note">${nAll > rows.length ? `${nAll.toLocaleString()}호 중 ${rows.length.toLocaleString()}호 <button type="button" class="lnk" id="dj_more">300호 더 보기</button> · 동을 누르면 그 동만 모두` : `${rows.length}호`}</p>`;
+    if ($('dj_more')) $('dj_more').onclick = () => { S.lim = (S.lim || 300) + 300; drawTable(cx); };
     stickHead(box);
     const redo = () => { drawTable(cx); if (!ALL) drawCxMap(cx, MM); };
     tbf.querySelectorAll('[data-fg]').forEach(el => { const go = () => { const g = el.dataset.fg, v = g === 'a' ? +el.dataset.v : el.dataset.v; F[g] = F[g].includes(v) ? F[g].filter(z => z !== v) : [...F[g], v]; redo(); }; if (el.tagName === 'INPUT') el.onchange = go; else el.onclick = go; });
@@ -1039,10 +1055,15 @@ window.Danji = (() => {
       const k = d.pnu + '|' + d.dong; if (C.areas[k] !== undefined) continue;
       C.areas[k] = 'loading';
       api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&areas=1`).then(j => { C.areas[k] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[k] = {}; })
-        .then(() => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); });
+        .then(() => soonTable(S.cur === '__all' ? AX : cx));   // 10/31 모아서 한 번에
     }
   }
 
+  // 10/31 표 다시 그리기를 잠깐 모아서 한 번에 (동마다 자료가 들어올 때마다 큰 표를 다시 그리지 않게)
+  function soonTable(cx) { clearTimeout(S.tblT); S.tblT = setTimeout(() => { if (S.ed) return; if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); }, 250); }
+  // 공급면적 요청은 한 번에 2개씩 (공공데이터 한도에 걸리지 않게)
+  const SQ = { q: [], n: 0 };
+  function supNext() { while (SQ.n < 2 && SQ.q.length) { const f = SQ.q.shift(); SQ.n++; f().finally(() => { SQ.n--; supNext(); }); } }
   // 10/31 호별 공급면적 (건축물대장 전용 + 주거공용) → 평형을 그 호 값으로 — 동 목록을 기다리지 않고 장부의 필지·동으로 바로 받음 (동마다 한 번)
   function needSups(C, rows, redraw) {
     C.sups = C.sups || {};
@@ -1050,7 +1071,7 @@ window.Danji = (() => {
       const k = `${x.pnu}|${x.dn}`; if (!x.pnu || !x.dn || C.sups[k] !== undefined) continue;
       const d = dongOf(C, x.dn), dong = d ? d.dong : /^\d+$/.test(x.dn) ? x.dn + '동' : x.dn;
       C.sups[k] = 'loading';
-      api(`/api/units?pnu=${d ? d.pnu : x.pnu}&dong=${encodeURIComponent(dong)}&sup=1`).then(j => { C.sups[k] = j.sup || {}; }).catch(() => { C.sups[k] = {}; }).then(redraw);
+      SQ.q.push(() => api(`/api/units?pnu=${d ? d.pnu : x.pnu}&dong=${encodeURIComponent(dong)}&sup=1`).then(j => { C.sups[k] = j.sup || {}; }).catch(() => { C.sups[k] = {}; }).then(redraw)); supNext();
     }
   }
   // ---------- 저장 (같은 호는 차례대로) ----------
