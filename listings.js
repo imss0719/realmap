@@ -1456,7 +1456,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       price: x.kind === 'presale' ? manTx((x.price || 0) + (x.pr || 0)) : x.kind === 'sale' ? manTx(x.price) : '',
       jeonse: x.kind === 'jeonse' ? manTx(x.deposit) : '', deposit: x.kind === 'wolse' ? manTx(x.deposit) : '', rent: x.kind === 'wolse' ? manTx(x.rent) : '',
       incDep: x.kind === 'sale' ? manTx(x.curDep) : '', incRent: x.kind === 'sale' ? manTx(x.curRent) : '',
-      fee: (a.mg2 || {}).t === 'na' ? (a.mg2.na === 'none' ? '없음' : '확인불가') : x.mgmt ? `${x.mgmt.toLocaleString()}만원` : a.nomgmt ? '없음' : '',   // 10/31 확인불가·없음이면 예전 금액 대신 moveIn: a.movein || '',
+      fee: (a.mg2 || {}).t === 'na' ? (a.mg2.na === 'none' ? '없음' : '확인불가') : x.mgmt ? `${x.mgmt.toLocaleString()}만원` : a.nomgmt ? '없음' : '', moveIn: a.movein || '',   // 10/31 fee: 확인불가·없음이면 예전 금액 대신
       exArea: x.area ? `${x.area}㎡` : '', rooms: a.rooms != null && a.rooms !== '' ? `방${a.rooms}${a.baths != null && a.baths !== '' ? ' · 욕실' + a.baths : ''}` : '',
       floor: fl, dir: a.dir || '', park: a.park || '', premium: x.premium ? manTx(x.premium) : '', rentroll: rr,
       title: [x.bname || (x.addr || '').split(' ').slice(-1)[0], dong].filter(Boolean).join(' '), intro: (a.desc || '').split('\n')[0].slice(0, 80),
