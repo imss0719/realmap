@@ -74,7 +74,7 @@ function clean(b) {
     ar: (n => Number.isFinite(n) && n > 5 && n < 1000 ? Math.round(n * 100) / 100 : 0)(Number(b.ar)),   // 직접 적은 전용면적(㎡) — 건축물대장 면적이 없을 때
     live: LV[b.live] ? b.live : '',
     exp: day(b.exp), moveIn: str(b.moveIn, 30), opt: str(b.opt, 200),
-    rm: (n => Number.isInteger(n) && n > 0 && n < 30 ? n : 0)(Number(b.rm)), bt: (n => Number.isInteger(n) && n > 0 && n < 30 ? n : 0)(Number(b.bt)), mg: man(b.mg),   // 10/29 매물 칸: 방·욕실·관리비(만원) — 리얼맵 광고 필수
+    rm: (n => Number.isInteger(n) && n > 0 && n < 30 ? n : 0)(Number(b.rm)), bt: (n => Number.isInteger(n) && n > 0 && n < 30 ? n : 0)(Number(b.bt)), mg: (n => Number.isFinite(n) && n > 0 && n < 1e6 ? Math.round(n * 100) / 100 : 0)(Number(b.mg)),   /* 10/31 관리비는 소수점 유지 (25.5만원) */   // 10/29 매물 칸: 방·욕실·관리비(만원) — 리얼맵 광고 필수
     mgd: mgClean(b.mgd), ln: man(b.ln), lnr: ['hide', 'none', 'lt30', 'ge30'].includes(b.lnr) ? b.lnr : '',   // 10/30 관리비 세분화 · 융자(만원·표시 방법)
     tels: (Array.isArray(b.tels) ? b.tels : []).slice(0, 4).map(t => { const o = { l: str(t && t.l, 10), n: str(t && t.n, 20).replace(/[^\d\-+ ]/g, '') }, m = str(t && t.m, 20); return m ? { ...o, m } : o; }).filter(t => t.n || t.m || (t.l && !/^(소유자|소유주|세입자|임차인|연락처|집주인)$/.test(t.l))),   // 10/28 번호 없이 이름만 있어도 남김
     note: str(b.note, 300),
