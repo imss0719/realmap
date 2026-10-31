@@ -91,7 +91,7 @@
     draw(); poll();
     // 고객관리: 화면을 열지 않아도 매물 상세의 '맞는 고객'·알림에 쓰도록 미리 불러 둠
     if (window.Cust) Cust.init(custHost()).then(() => { if (S.mode === 'list') draw(); }).catch(() => {});
-    // 알림 (거래 의심 · 만기 · 리얼맵 게시 기간 · 고객)
+    // 알림 (10/31 정리: 고객 매칭 · 광고 기간 끝남 · 리얼맵 소식)
     if (window.Alarm) Alarm.mount({ tbase, goCust, help: () => api('/api/auth?action=help'), goSet: s => { setMode('set'); if (window.Sett) Sett.go(s, true); }, cust: () => window.Cust ? Cust.ready().then(() => Cust.snapshot()) : Promise.resolve([]), items: () => S.items, plan: () => S.plan || {}, api, name: x => [x.bname || (x.addr || '').split(' ').slice(-2).join(' '), ((x.places && x.places[0]) || {}).dong ? x.places[0].dong + '동' : '', ((x.places && x.places[0]) || {}).ho ? x.places[0].ho + (/(층|호)$/.test(x.places[0].ho) ? '' : '호') : ''].filter(Boolean).join(' '),
       goList: id => { setMode('list'); setTimeout(() => window.Board && Board.reveal(id), 80); }, goDanji: (cx, key) => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(cx, key), 50); } });
     const qs = new URLSearchParams(location.search), add = qs.get('add'), edit = qs.get('edit'), cxadd = qs.get('cxadd');
@@ -1103,7 +1103,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><div class="adq2" id="adNew"><b>매물 올리기</b><div class="tys">${AD_TY.map(([k, t]) => `<button type="button" data-aty="${k}" aria-pressed="${S.adTy === k}">${t}</button>`).join('')}</div><button type="button" class="go" id="adGo">＋ 올리기</button></div></div>
       ${g0 ? `<div class="adw">⚠ ${gap.length}건이 빈 칸(${esc(gm.slice(0, 2).join('·'))}${gm.length > 2 ? ' 등' : ''}) 때문에 지도에서 안 보입니다<span class="sp"></span><button type="button" id="adGap">채우기</button></div>` : ''}
       ${list.length ? `<div class="adl">${list.map(card).join('')}</div>` : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. 위에서 종류를 고르고 <b>[＋ 올리기]</b>를 누르면 매물장에서 등록한 뒤, 표의 <b>[리얼맵 등록]</b>에서 사진을 올려 게시합니다.</div>'}
-      <div class="adf">사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·만기 알림·고객관리는 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
+      <div class="adf">사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·고객관리·알림은 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
     // 10/30 선배: 내 광고에서는 유형만 고르고 [＋ 올리기] → 그 종류 매물장의 등록 칸으로 (정보는 매물장 입력창 한 곳에서만)
     box.querySelectorAll('[data-aty]').forEach(b => b.onclick = () => { S.adTy = b.dataset.aty; box.querySelectorAll('[data-aty]').forEach(z => z.setAttribute('aria-pressed', z === b)); });
     $('adGo').onclick = () => { if (!S.adTy) return toast('올릴 매물 종류를 먼저 골라 주세요'); goRegister(S.adTy); };

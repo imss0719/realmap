@@ -1,6 +1,8 @@
 // 리얼맵 매물장 알림 (10/25)
 // 위쪽 종 아이콘(안 읽은 수) · 오른쪽 아래 새 알림 카드 · 누르면 알림 내역 창. 이 브라우저에 기억합니다(rm.alarm).
-// 알림 종류
+// 10/31 선배: 알림 정리 — 거래 의심·세입자 만기·챙길 것·오래 연락 못 한 고객은 뺌 (만기·챙길 것은 표에 빨간색으로 보임)
+//   남은 것: 광고 기간이 끝났을 때 한 번 · 고객 맞는 매물/예산 안으로 (한 번씩) · 리얼맵 소식
+// (예전) 알림 종류
 //   deal  거래된 것 같습니다 — 실거래 신고 중 내 매물(매물장)·단지 장부의 내 매물/타부동산 매물과 같은 층·면적(또는 같은 필지·면적)인 거래
 //   exp   단지 장부 세입자 만기 — 6개월·3개월·1개월 전, 만기일 지남
 //   pub   리얼맵 게시 3일 안에 끝남 · 게시 기간 끝남
@@ -36,7 +38,8 @@ window.Alarm = (() => {
     run(false);
     clearInterval(mount.t); mount.t = setInterval(() => run(false), 30 * 60e3);
   }
-  function prune() { const now = Date.now(); A.list = A.list.filter(a => now - a.at < KEEP).slice(0, 200); }
+  const KEEP_T = ['pub', 'cust', 'note'];   // 10/31 남기는 알림 종류 (예전에 쌓인 다른 종류는 지움)
+  function prune() { const now = Date.now(); A.list = A.list.filter(a => now - a.at < KEEP && KEEP_T.includes(a.t)).slice(0, 200); }
   const unread = () => A.list.filter(a => !a.read).length;
   function badge() { const n = unread(), b = $('alN'); if (!b) return; b.hidden = !n; b.textContent = n > 99 ? '99+' : n; }
   function add(a) {
@@ -45,18 +48,19 @@ window.Alarm = (() => {
     return true;
   }
   const ICON = { deal: '⚠', exp: '⏰', pub: '📍', cust: '👤', imp: '⚑', note: '📢' };
-  const TABS = [['all', '전체'], ['imp', '챙길 것'], ['deal', '거래 의심'], ['exp', '만기'], ['cust', '고객'], ['pub', '리얼맵']];
+  const TABS = [['all', '전체'], ['cust', '고객'], ['pub', '리얼맵']];   // 10/31 '리얼맵' = 광고 기간 + 리얼맵 소식
   function itemHtml(a, i) {
     return `<div class="alit${a.read ? '' : ' un'}" data-ai="${i}"><span class="alic ${a.t}">${ICON[a.t] || '•'}</span><div><b>${esc(a.title)}</b><p>${esc(a.body)}</p><small>${md(a.at)}${a.sub ? ' · ' + esc(a.sub) : ''}</small>${a.go ? ` <span class="algo">${esc(a.goTx || '확인하기')} →</span>` : ''}</div>${a.read ? '' : '<i class="aldot"></i>'}</div>`;
   }
   function drawPanel() {
     const P = $('alPanel'); if (!P) return;
-    const L = A.list.filter(a => tab === 'all' || a.t === tab);
-    const cnt = k => A.list.filter(a => !a.read && (k === 'all' || a.t === k)).length;
-    P.innerHTML = `<div class="alh"><b>알림</b>${busy ? '<small>실거래 확인 중…</small>' : A.last ? `<small>실거래 확인 ${md(A.last)} ${new Date(A.last).toTimeString().slice(0, 5)}</small>` : ''}<button type="button" id="alAll">모두 읽음</button></div>
+    const inTab = (a, k) => k === 'all' || a.t === k || (k === 'pub' && a.t === 'note');
+    const L = A.list.filter(a => inTab(a, tab));
+    const cnt = k => A.list.filter(a => !a.read && inTab(a, k)).length;
+    P.innerHTML = `<div class="alh"><b>알림</b><button type="button" id="alAll">모두 읽음</button></div>
       <div class="altabs">${TABS.map(([k, t]) => `<button type="button" data-at="${k}" aria-pressed="${tab === k}">${t}${cnt(k) ? ' ' + cnt(k) : ''}</button>`).join('')}</div>
       <div class="allist">${L.length ? L.map(a => itemHtml(a, A.list.indexOf(a))).join('') : '<div class="alnone">알림이 없습니다</div>'}</div>
-      <div class="alft">실거래는 계약 후 최대 30일 뒤에 신고되어 알림도 그만큼 늦을 수 있습니다. 같은 층·면적 거래를 찾아 알려 드리는 것이라 꼭 확인해 주세요.</div>`;
+`;
     P.querySelectorAll('[data-at]').forEach(b => b.onclick = () => { tab = b.dataset.at; drawPanel(); });
     $('alAll').onclick = () => { A.list.forEach(a => { a.read = true; }); save(); badge(); drawPanel(); };
     P.querySelectorAll('[data-ai]').forEach(el => el.onclick = () => { const a = A.list[+el.dataset.ai]; if (!a) return; a.read = true; save(); badge(); drawPanel(); if (a.go) { P.hidden = true; go(a.go); } });
@@ -87,7 +91,6 @@ window.Alarm = (() => {
     for (const x of H.items()) {
       if (!(x.pub && x.pub.on) || x.status !== 'on') continue;
       const left = Date.parse(x.pub.exp) - now, nm = H.name(x);
-      if (left > 0 && left <= 3 * DAY) push({ id: `pub3:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시가 곧 끝납니다', body: `${nm} · ${md(x.pub.exp)}까지. 아직 거래 가능하면 연장해 주세요.`, go: { ls: x.id }, goTx: '이동' });
       if (left <= 0) push({ id: `pubx:${x.id}:${x.pub.exp.slice(0, 10)}`, t: 'pub', title: '리얼맵 게시 기간이 끝났습니다', body: `${nm} · 지도에서 내려갔습니다. 다시 게시하려면 [기간만료 ▾]를 눌러 주세요.`, go: { ls: x.id }, goTx: '이동' });
     }
     // 0) 리얼맵 소식 (10/27): 계좌이체 요금제가 켜짐·취소됨 · 문의 답변
@@ -98,17 +101,6 @@ window.Alarm = (() => {
       for (const n of (j.notes || []).filter(n => !n.k)) push({ id: `pn:${n.id}`, t: 'note', title: `운영자 혜택 · ${n.name} 요금제가 적용되었습니다`, body: `${n.until ? String(n.until).slice(0, 10).replace(/-/g, '.') + '까지' : '기한 없이'} 쓰실 수 있습니다. 화면을 새로 고치면 늘어난 한도가 바로 보입니다.`, go: { set: 'plan' }, goTx: '보기' });   // 운영자가 올려 준 요금제 (10/27)
       for (const q of j.qnas || []) if (q.reply) push({ id: `qna:${q.id}:${q.rat}`, t: 'note', title: '문의에 답변이 왔습니다', body: q.text.slice(0, 50), go: { set: 'help' }, goTx: '답변 보기' });
     } catch { /* 다음에 */ }
-    // 1-1) 꼭 챙길 것 (매물관리)
-    const impStep = d => { const dl = Math.round((Date.parse(d + 'T00:00:00+09:00') - now) / DAY); return { dl, step: dl < 0 ? (dl >= -3 ? 'x' : null) : dl === 0 ? 0 : dl <= 1 ? 1 : dl <= 7 ? 7 : null }; };
-    const impPush = (key, lab, txt, d, go) => { const { dl, step } = impStep(d); if (step == null) return; push({ id: `imp:${key}:${d}:${step}`, t: 'imp', title: step === 'x' ? `챙길 날짜가 지났습니다 · ${lab}` : step === 0 ? `오늘 챙길 것 · ${lab}` : `${step === 1 ? '내일' : '7일 안'} 챙길 것 · ${lab}`, body: `${txt} (${d.slice(5).replace('-', '/')}${dl ? `, D${dl > 0 ? '-' + dl : '+' + -dl}` : ''})`, go, goTx: '이동' }); };
-    for (const x of H.items()) if (x.imp && x.impd && x.status !== 'done') impPush(`ls:${x.id}`, H.name(x), x.imp, x.impd, { ls: x.id });
-    // 매물의 만기일 (10/26 — 상가·건물 등 표의 '만기일' 칸): 6개월 · 3개월 · 1개월 전 · 지난 뒤 한 달
-    for (const x of H.items()) {
-      if (!x.exp || x.status === 'done') continue;
-      const dl = Math.round((Date.parse(x.exp + 'T00:00:00+09:00') - now) / DAY), step = dl < 0 ? (dl >= -30 ? 0 : null) : dl <= 30 ? 30 : dl <= 90 ? 90 : dl <= 183 ? 180 : null;
-      if (step == null) continue;
-      push({ id: `lexp:${x.id}:${x.exp}:${step}`, t: 'exp', title: step === 0 ? '만기일이 지났습니다' : `만기 ${step === 180 ? '6개월' : step === 90 ? '3개월' : '1개월'} 전`, body: `${H.name(x)} 만기 ${x.exp.replace(/-/g, '.')} (D${dl >= 0 ? '-' + dl : '+' + -dl}). 재계약·이사 의향을 확인해 보세요.`, go: { ls: x.id }, goTx: '이동' });
-    }
     // 1-2) 고객관리: 맞는 매물이 새로 생김 · 예산 안으로 내려옴 · 오래 연락 못 한 고객
     // 처음 실행하거나 새로 등록한 고객은 지금 맞는 매물을 조용히 기억만 하고, 그 뒤에 새로 맞는 것만 알림
     try {
@@ -122,39 +114,15 @@ window.Alarm = (() => {
           if (first || !prev) continue;
           const was = prev[z.key];
           if (!was) push({ id: `cm:${c.id}:${z.key}`, t: 'cust', title: `${nm} 고객에게 맞는 매물`, body: `${z.label}${z.g === 'over' ? ' (예산을 조금 넘음)' : ''} — 조건에 새로 맞습니다.`, go: z.go, goTx: '이동' });
-          else if (was === 'over' && z.g === 'ok') push({ id: `cmd:${c.id}:${z.key}:${new Date().toISOString().slice(0, 10)}`, t: 'cust', title: `${nm} 고객 예산 안으로 들어왔습니다`, body: `${z.label} — 가격이 예산 안으로 내려왔습니다.`, go: z.go, goTx: '이동' });
+          else if (was === 'over' && z.g === 'ok') push({ id: `cmd:${c.id}:${z.key}`, t: 'cust', title: `${nm} 고객 예산 안으로 들어왔습니다`, body: `${z.label} — 가격이 예산 안으로 내려왔습니다.`, go: z.go, goTx: '이동' });
         }
         cm[c.id] = { u: c.up, m: cur };
-        const base = c.last || c.at, d = Math.floor((now - Date.parse(base)) / DAY);
-        if (d >= 30) push({ id: `cold:${c.id}:${String(base).slice(0, 10)}`, t: 'cust', title: '오래 연락 못 한 고객', body: `${nm}${c.phone ? ' ' + c.phone : ''} · 마지막 연락 ${d}일 전. 새로 나온 매물을 안내해 보세요.`, go: { cu: c.id }, goTx: '이동' });
       }
       A.cm = cm;
     } catch { /* 고객관리를 못 쓰는 회원 */ }
     if (lite) { prune(); save(); badge(); drawIfOpen(); toast(fresh); return; }
-    // 2) 단지 장부: 만기 · 거래 의심
-    let cxs = [];
-    try { const j = await H.api('/api/auth?action=cx'); cxs = (j.items || []).slice(0, Math.max(0, (H.plan().cx || 10))); } catch { cxs = []; }
-    const LED = {};
-    await Promise.all(cxs.map(async c => { try { LED[c.id] = (await H.api(`/api/auth?action=hj&id=${encodeURIComponent(c.id)}`)).units || {}; } catch { LED[c.id] = null; } }));
-    for (const c of cxs) {
-      const U = LED[c.id]; if (!U) continue;
-      for (const [key, r] of Object.entries(U)) {
-        if (r && r.imp && r.impd) { const [, dn0, ho0] = key.split('|'); impPush(`cx:${c.id}:${key}`, `${c.name} ${dn0}-${ho0}`, r.imp, r.impd, { cx: c.id, key }); }
-        if (!r || !r.exp) continue;   // 10/26: 계약 기록 뒤에도 새 만기로 알림 (계약하면 만기가 새 계약 만기로 바뀜)
-        const dl = Math.round((Date.parse(r.exp) - now) / DAY), [, dn, ho] = key.split('|'), lab = `${c.name} ${dn}-${ho}`;
-        const step = dl < 0 ? (dl >= -30 ? 0 : null) : dl <= 30 ? 30 : dl <= 90 ? 90 : dl <= 183 ? 180 : null;
-        if (step == null) continue;
-        push({ id: `exp:${c.id}:${key}:${r.exp}:${step}`, t: 'exp', title: step === 0 ? `만기일이 지났습니다 · ${dn}-${ho}` : `만기 ${step === 180 ? '6개월' : step === 90 ? '3개월' : '1개월'} 전 · ${dn}-${ho}`, body: `${lab} 세입자 만기 ${r.exp.replace(/-/g, '.')} (D${dl >= 0 ? '-' + dl : '+' + -dl}). 재계약·이사 의향을 확인해 보세요.`, go: { cx: c.id, key }, goTx: '이동' });
-      }
-    }
-    // 3) 실거래 확인 (6시간에 한 번)
-    if (force || now - (A.last || 0) > CHECK_EVERY) {
-      busy = true; drawIfOpen();
-      try { await checkDeals(cxs, LED, push); A.last = Date.now(); } catch { /* 다음에 */ }
-      busy = false;
-    }
     prune(); save(); badge(); drawIfOpen();
-    const PR = { imp: 0, deal: 1, cust: 2, exp: 3, pub: 4 };
+    const PR = { note: 0, cust: 1, pub: 2 };
     toast(fresh.sort((x, y) => PR[x.t] - PR[y.t]));
   }
   const drawIfOpen = () => { const P = $('alPanel'); if (P && !P.hidden) drawPanel(); };
@@ -164,45 +132,7 @@ window.Alarm = (() => {
   const floorOfHo = ho => { const d = digits(ho); return d.length >= 3 ? String(+d.slice(0, -2)) : ''; };
   const kindOf = t => /Rent$/.test(t.kind) ? (t.rent ? 'wolse' : 'jeonse') : 'sale';
   const priceTx = t => kindOf(t) === 'sale' ? `매매 ${won(t.price)}` : kindOf(t) === 'jeonse' ? `전세 ${won(t.deposit)}` : `월세 ${won(t.deposit)}/${t.rent}`;
-  async function checkDeals(cxs, LED, push) {
-    const since = Date.now() - 75 * DAY;
-    // 단지 장부: 내 매물·타부동산 매물이 걸린 호 ↔ 같은 층·면적(·동) 아파트 거래
-    await limit(cxs, 3, async c => {
-      const U = LED[c.id]; if (!U) return;
-      const rows = Object.entries(U).filter(([, r]) => r && r.st && r.st.src && !r.st.hold && !r.deal);
-      if (!rows.length) return;
-      const p0 = (c.places || [])[0]; if (!p0) return;
-      const j = await H.api(`/api/trades?${new URLSearchParams({ pnu: p0.pnu, kinds: 'apt,aptRent', months: 3, umd: umdOf(p0.addr), name: baseName(c.name), np: '1' })}`);
-      for (const t of (j.rows || []).filter(t => !t.cancel && tradeDay(t) >= since)) {
-        const k = kindOf(t);
-        for (const [key, r] of rows) {
-          const [, dn, ho] = key.split('|');
-          if (floorOfHo(ho) !== String(+digits(t.floor) || '')) continue;
-          if (t.aptDong && digits(t.aptDong) && digits(dn) && digits(t.aptDong) !== digits(dn)) continue;
-          if (r.ar && t.ex && !near(t.ex, r.ar)) continue;
-          if ((r.st.k || []).length && !(r.st.k || []).includes(k)) continue;
-          const mine = r.st.src === 'mine';
-          push({ id: `deal:${c.id}:${key}:${t.kind}:${t.date}:${t.price || t.deposit}`, t: 'deal', title: `거래된 것 같습니다 · ${mine ? '내 매물' : '타부동산 매물'}`, body: `${c.name} ${t.aptDong ? t.aptDong + ' ' : ''}${t.floor}층${t.ex ? ' ' + Math.round(t.ex) + '㎡' : ''} ${priceTx(t)} 신고 (계약 ${t.date}). 장부의 ${dn}-${ho}${mine ? '(내 매물)' : r.st.office ? `(${r.st.office})` : ''}와 같은 층${r.ar && t.ex ? '·면적' : ''}입니다.`, sub: '실거래', go: { cx: c.id, key }, goTx: '이동' });
-        }
-      }
-    });
-    // 매물장: 진행 중인 내 매물 ↔ 같은 필지 거래 (아파트·오피스텔·빌라는 층·면적까지, 나머지는 면적으로 한 번 더 확인)
-    const KMAP = { 아파트: 'apt,aptRent', 오피스텔: 'offi,offiRent', 빌라: 'rh,rhRent', 주택: 'sh,shRent', 상가: 'nrg', 사무실: 'nrg', 건물: 'nrg', '공장·창고': 'indu', 토지: 'land' };
-    const tb = x => (H.tbase ? H.tbase(x) : x.ptype);   // 10/26 세부 유형(주상복합·연립 …)은 원래 큰 유형으로
-    const ls = H.items().filter(x => x.status === 'on' && KMAP[tb(x)] && x.pnu).slice(0, 40);
-    await limit(ls, 3, async x => {
-      const p0 = (x.places && x.places[0]) || {}, unit = /아파트|오피스텔|빌라/.test(tb(x)), whole = p0.ak === 'tot' || tb(x) === '토지';
-      const area = tb(x) === '토지' ? x.area : whole ? (p0.site || x.area) : x.area;
-      const j = await H.api(`/api/trades?${new URLSearchParams({ pnu: p0.pnu || x.pnu, kinds: KMAP[tb(x)], months: 3, umd: umdOf(p0.addr || x.addr), ...(area ? { area } : {}), name: baseName(x.bname || ''), np: '1' })}`);
-      const after = Math.max(since, Date.parse(x.at || 0) - 14 * DAY);
-      for (const t of (j.rows || []).filter(t => !t.cancel && tradeDay(t) >= after)) {
-        if (unit) { if (!p0.ho || floorOfHo(p0.ho) !== String(+digits(t.floor) || '')) continue; if (x.area && t.ex && !near(t.ex, x.area)) continue; }
-        else if (t.approx === 'jibun') continue;                                  // 지번이 가려지고 면적도 확인 못 한 거래는 빼기
-        if (kindOf(t) !== (x.kind === 'presale' ? 'sale' : x.kind)) continue;
-        push({ id: `deal:ls:${x.id}:${t.kind}:${t.date}:${t.price || t.deposit}`, t: 'deal', title: '거래된 것 같습니다 · 내 매물', body: `${H.name(x)} — 같은 ${unit ? '층·면적' : t.approx ? '필지(면적 일치)' : '필지'}에서 ${priceTx(t)} 신고 (계약 ${t.date}). 내 매물(${x.kind === 'sale' ? '매매 ' + won(x.price) : x.kind === 'jeonse' ? '전세 ' + won(x.deposit) : '월세'})인지 확인해 보세요.`, sub: '실거래', go: { ls: x.id }, goTx: '이동' });
-      }
-    });
-  }
+  // 10/31 거래 의심(실거래 확인)은 뺌 — 예전 코드는 git 기록에 있음
   let softT = null;
   const soft = () => { clearTimeout(softT); softT = setTimeout(() => run(false, true), 2500); };
   return { mount, run: () => run(true), soft, _state: () => A };
