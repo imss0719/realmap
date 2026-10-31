@@ -243,7 +243,7 @@ export function adMissing(x, bk) {
   if (RESID.includes(tbase(x))) {
     if (a.rooms == null || a.rooms === '') miss.push('방 수');
     if (a.baths == null || a.baths === '') miss.push('욕실 수');
-    if (x.kind !== 'presale') miss.push(...mgMiss(x));   // 10/31 분양권은 입주 전이라 관리비가 정해지지 않음 → 필수 아님   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 상가·사무실 등 비주거는 관리비 필수 아님
+    miss.push(...mgMiss(x));   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 상가·사무실 등 비주거는 관리비 필수 아님
   }
   return miss;
 }
@@ -718,7 +718,9 @@ export default async function (req, res) {
       if (req.method === 'POST') { try { body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { body = {}; } }
       if (req.method === 'POST') { const cid = String(req.query.id || body.id || ''); if (d.items.some(x => x.id === cid) && !cxOpen(d.items, P).has(cid)) return fail(res, 403, 'cxlock', `이 단지는 보기만 됩니다. ${cxFull(P)}`, { plan: planView(P) }); }
       if (body.op === 'wipe' && s.staff && !can(s, await permOf(redis, s.id), 'del')) return noPerm(res, '호 장부 지우기');
-      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null, onSt: ch => lsFromLedger(s.id, ch) });
+      return ledger({ redis, uid: s.id, cx: d, saveCx: () => redis(['SET', ck, JSON.stringify(d)]), send, fail, req, res, body, who: req.method === 'POST' ? await whoOf(s) : null, onSt: ch => lsFromLedger(s.id, ch),
+        // 10/31 광고 권한이 없는 직원: 지도에 광고 중인 호의 매물 칸(상태·가격·방·관리비 등)은 못 고침
+        guard: s.staff ? async key => { if (can(s, await permOf(redis, s.id), 'pub')) return ''; const x = lsAt((await lsLoad(redis, s.id)).items, key); return x && x.pub && x.pub.on && x.status === 'on' ? '리얼맵 지도에 광고 중인 매물은 광고 권한이 있는 대표님·소속공인중개사님만 고칠 수 있습니다 (공인중개사법 제18조의2).' : ''; } : null });
     }
 
     // 지도에 게시된 매물 (누구나 볼 수 있음) — 1분 캐시
@@ -1176,6 +1178,8 @@ export default async function (req, res) {
       if (id && ro.has(id) && ['save', 'status', 'pub', 'renew'].includes(body.op)) return fail(res, 403, 'readonly', P.plan === 'free'
         ? `무료 이용은 최근 등록한 매물 ${P.ls}건만 수정할 수 있습니다. 이 매물은 보기와 엑셀 내려받기만 됩니다. Basic(월 9,900원)이면 모두 수정하실 수 있습니다.`
         : `${P.name} 요금제는 최근 등록한 매물 ${P.ls.toLocaleString()}건만 수정할 수 있습니다.`, { plan: planView(P) });
+      // 10/31 선배: 광고 권한이 없는 직원(중개보조원 등)은 지도에 광고 중인 매물을 고치지 못함 — 광고 중이 아닌 매물만
+      if (s.staff && id && ['save', 'status'].includes(body.op) && !can(s, tm.perm, 'pub')) { const x0 = items.find(x => x.id === id); if (x0 && x0.pub && x0.pub.on && x0.status === 'on') return fail(res, 403, 'publock', '리얼맵 지도에 광고 중인 매물은 광고 권한이 있는 대표님·소속공인중개사님만 고칠 수 있습니다 (공인중개사법 제18조의2).'); }
       // 매물 한 건 → 저장할 모양 (매물 카드 저장 · 엑셀 불러오기 같이 씀). imp = { ib: 묶음 번호, at: 등록일 } (엑셀 불러오기일 때만)
       const build = (it, prev, imp) => {
         const pnuOk = v => { const x = String(v || '').replace(/\D/g, ''); return /^\d{19}$/.test(x) ? x : ''; };

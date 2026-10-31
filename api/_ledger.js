@@ -126,7 +126,7 @@ function legacyMemo(t, up) {
 // ctx: { redis, uid, cx (단지 장부 JSON), saveCx(), send, fail, req, res }
 // who (10/28): 직원이 있는 사무소면 { id, n } — 기록마다 누가 했는지(w) 남기고, 다른 사람이 먼저 고친 호는 덮어쓰지 않음
 // onSt (10/28): 매물 상태·가격이 바뀌면 불림 → 같은 동·호의 매물 카드도 맞춤 (auth.js) · 돌려준 값이 true면 응답에 lsDirty
-export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, body = {}, who = null, onSt = null }) {
+export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, body = {}, who = null, onSt = null, guard = null }) {
   if (!KEY) return fail(res, 503, 'nokey', '단지 장부 암호화 설정(LEDGER_KEY)이 아직 안 되어 있습니다. 운영자에게 알려 주세요.');
   const id = str(req.query.id || body.id, 20).replace(/[^\w-]/g, '');
   if (!cx.items.some(x => x.id === id)) return fail(res, 404, 'nocx', '단지를 찾지 못했습니다.');
@@ -241,6 +241,8 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
     rec.hist.shift();
   } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
 
+  // 10/31 광고 중인 호의 매물 칸은 광고 권한이 있는 사람만 (guard가 이유를 돌려주면 저장하지 않음)
+  if (guard && JSON.stringify([rec.st, rec.pr, rec.rm || 0, rec.bt || 0, rec.mg || 0, rec.moveIn || '', rec.mgd || null, rec.ln || 0, rec.lnr || '']) !== stp0) { const why = await guard(key); if (why) return fail(res, 403, 'publock', why); }
   rec.up = now;
   if (who) { rec.by = who.id; rec.byn = who.n; }
   const empty = !rec.hist.length && !rec.st.src && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
