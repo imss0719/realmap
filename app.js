@@ -2290,7 +2290,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function tradeMapInit() {
     try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; if (v.mode === 'py') T.mode = 'py'; } } catch { /* 저장소 없음 */ }   // 10/30 종류 고르기 없앰 → 늘 아파트·빌라·오피스텔 모두
     // 거래가 · 평당가(전용 기준) 전환 — 고른 쪽을 기억
-    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); $('tSec').textContent = T.mode === 'py' ? '최근 6개월 매매 · 평당가 (전용 기준)' : '최근 6개월 매매 · 최근 거래가'; };
+    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); $('tSec').textContent = T.mode === 'py' ? '최근 6개월 매매 · 평당가 (전용 기준)' : '최근 6개월 매매 · 최근 실거래가'; };
     document.querySelectorAll('[data-tm]').forEach(b => b.onclick = () => { if (T.mode === b.dataset.tm) return; T.mode = b.dataset.tm; tmSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); drawTrades(); });
     tmSync();
     const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); };
