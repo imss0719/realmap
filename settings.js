@@ -383,7 +383,7 @@ window.Sett = (() => {
       <div class="sr"><b>단지 찾기</b><span><input class="si" id="ptQ" style="width:260px" placeholder="단지 이름이나 주소 (예: ○○래미안)" value="${esc(PT.q)}"> ${B('ptGo', '찾기', 'n')}</span><span></span></div>
       ${PT.res ? `<div class="sp-n">${PT.res.length ? PT.res.map((r, i) => `<button type="button" class="sb" data-pr="${i}" style="margin:2px 4px 2px 0">${esc(r.t)} <small style="font-weight:500;color:#94A0AD">&nbsp;${esc(r.s)}</small></button>`).join('') : '검색 결과가 없습니다.'}</div>` : ''}`)}
       ${c ? pn(esc(c.n || '이름 없는 단지'), `${esc(c.addr || '')}${c.y ? ` · ${c.y}년` : ''}${c.h ? ` · ${c.h.toLocaleString()}세대` : ''}${c.dn ? ` · ${c.dn}개 동` : ''}${c.db ? ' · <span class="tg bl">건축물대장 자동</span>' : ''}${c.nosup ? ' · <span class="tg y">대장에 공용면적 없음 — 공급평 직접</span>' : ''}`, `${tbl}
-        <div class="sr"><b>면적 직접 추가</b><span><input class="si" id="ptAdd" style="width:90px" placeholder="예: 84.97" inputmode="decimal"> ㎡ ${B('ptAddB', '추가')}</span><span class="a">${B('ptSave', '저장', 'y')}${c.saved ? B('ptDel', '이 단지 평형표 지우기', 'r') : ''}</span></div>
+        <div class="sr"><b>면적 직접 추가</b><span><input class="si" id="ptAdd" style="width:90px" placeholder="예: 84.97" inputmode="decimal"> ㎡ ${B('ptAddB', '추가')}</span><span class="a">${B('ptSave', PT.busy ? '불러오는 중…' : '저장', 'y', PT.busy || !c.ok ? 'disabled' : '')}${c.saved ? B('ptDel', '이 단지 평형표 지우기', 'r') : ''}</span></div>
         <p class="sp-n">파란 칸은 건축물대장으로 계산한 공급평입니다(고칠 수 있음). 회원이 라인·호에 직접 적은 평형이 있으면 그 값이 먼저입니다.</p>`) : ''}
       ${pn('단지 목록', `<select class="si" id="ptGu" style="width:120px">${Object.entries(GUS).map(([k, n]) => `<option value="${k}" ${PT.gu === k ? 'selected' : ''}>${n}</option>`).join('')}</select>${G && G.cx ? ` · ${Object.keys(G.cx).length}곳 · 입력 ${Object.keys(G.cx).filter(p => done.has(p)).length}곳` : ''}`,
         G === undefined || G === 'loading' ? '<p class="sp-e">불러오는 중…</p>' : !G ? '<p class="sp-e">이 구는 아직 데이터베이스가 없습니다. GitHub Actions의 realmap-apt-db에서 이 구 코드로 실행해 주세요.</p>'
@@ -428,7 +428,8 @@ window.Sett = (() => {
     const c = PT.cur = { n: r.t || '', addr: r.s || '', pnu: r.pnu || '', rows: [], val: {}, dn: 0, saved: false }; draw();
     try {
       if (!c.pnu) { const p = await H.api(`/api/parcel?lat=${r.lat}&lng=${r.lng}`); c.pnu = p.bldPnu || p.pnu; c.addr = p.addr || c.addr; }
-      const j = await H.api(`/api/auth?action=pyt&p=${c.pnu}`), v = (j.map || {})[c.pnu];
+      const j = await H.api(`/api/auth?action=pyt&p=${c.pnu}&_=${Date.now()}`), v = (j.map || {})[c.pnu];   // 10/31 방금 저장한 값을 받도록 (60초 캐시 건너뜀)
+      c.ok = true;   // 10/31 저장해 둔 평형표를 받은 뒤에만 [저장] 가능
       if (v) { c.val = JSON.parse(JSON.stringify(v.a || {})); c.saved = true; if (!c.n) c.n = v.n || ''; }
       // 10/30 데이터베이스에 있으면 그대로 (대장 공급면적·공급평 · 소수점이 다른 전용은 모두 따로)
       const db = await aptDb(c.pnu.slice(0, 5)), e = db && db.cx && db.cx[c.pnu];
@@ -463,10 +464,14 @@ window.Sett = (() => {
   }
   async function ptSave() {
     const c = PT.cur; if (!c || !c.pnu) return;
+    // 10/31 고침: 불러오는 중이거나 불러오지 못했을 때 저장하면 평형표가 통째로 지워지던 것
+    if (PT.busy) return H.toast('단지 정보를 불러오는 중입니다. 다 불러온 뒤에 저장해 주세요.');
+    if (!c.ok) return H.toast('저장해 둔 평형표를 불러오지 못해 저장하지 않았습니다. 단지를 다시 열어 주세요.', 4000);
     // 10/30 공급평: 직접 고친 값 → 없으면 데이터베이스 값 · 같은 타입은 평면도를 같이
     const imgOf = {}; Object.values(c.val).forEach(v => { if (v && v.t && v.img) imgOf[v.t] = imgOf[v.t] || v.img; });
     const a = {};
-    for (const r of c.rows) { const v = c.val[r.k] || {}, py = +v.py || +r.dpy || 0, img = v.img || (v.t && imgOf[v.t]) || ''; if (py || v.t || img) a[r.k] = { py, t: v.t || '', img }; }
+    const rows = [...c.rows, ...Object.keys(c.val).filter(k => !c.rows.some(r => r.k === k)).map(k => ({ k }))];   // 10/31 목록에 아직 없는 저장값도 그대로 보존
+    for (const r of rows) { const v = c.val[r.k] || {}, py = +v.py || +r.dpy || 0, img = v.img || (v.t && imgOf[v.t]) || ''; if (py || v.t || img) a[r.k] = { py, t: v.t || '', img }; }
     try { const j = await H.api('/api/auth?action=pyt', H.post({ pnu: c.pnu, n: c.n, a })); c.val = JSON.parse(JSON.stringify(j.a || {})); c.rows.forEach(r => { const v = c.val[r.k]; if (v && v.py === r.dpy) v.py = ''; }); c.saved = !!Object.keys(c.val).length; PT.list = null; H.toast(c.saved ? '저장했습니다. 모든 회원 화면에 적용됩니다' : '비어 있어 이 단지 평형표를 지웠습니다', 3000); draw(); }
     catch (e) { H.toast(e.message, 4000); }
   }
