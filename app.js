@@ -1956,7 +1956,8 @@
     const p = S.sel; if (!p) return '';
     const on = isFav(p.pnu), home = S.favs.home === p.pnu;
     const star = `<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l1.9 4 4.4.5-3.3 3 .9 4.3L8 11.2l-3.9 2.2.9-4.3-3.3-3 4.4-.5z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
-    const lsBtn = S.me.plan && S.me.plan.started ? `<a class="favbtn" href="/listings.html?add=${p.pnu}${p.c ? `&lat=${p.c.lat.toFixed(6)}&lng=${p.c.lng.toFixed(6)}` : ''}&t=${encodeURIComponent(p.addr || p.jibun || '')}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>여기 매물 광고하기</a>` : '';
+    // 10/31 휴대폰은 조회만 — [여기 매물 광고하기]는 PC에서만
+    const lsBtn = S.me.plan && S.me.plan.started && !matchMedia('(max-width:760px)').matches ? `<a class="favbtn" href="/listings.html?add=${p.pnu}${p.c ? `&lat=${p.c.lat.toFixed(6)}&lng=${p.c.lng.toFixed(6)}` : ''}&t=${encodeURIComponent(p.addr || p.jibun || '')}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>여기 매물 광고하기</a>` : '';
     return lsBtn + `<button class="favbtn${on ? ' on' : ''}" id="favBtn" type="button" aria-pressed="${on}" aria-label="${on ? '관심 부동산에서 빼기' : '관심 부동산으로 저장'}">${star}${on ? '저장됨' : '저장'}</button>`
       + (on ? `<button class="favbtn home${home ? ' on' : ''}" id="homeBtn" type="button" aria-pressed="${home}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 7.5L8 2.5l6 5V14H10v-4H6v4H2z" fill="${home ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>${home ? '우리 집' : '우리 집으로'}</button>` : '');
   }
