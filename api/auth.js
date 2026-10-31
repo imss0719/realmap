@@ -1027,9 +1027,10 @@ export default async function (req, res) {
       if (!okP(b.pnu)) return fail(res, 400, 'pnu', '단지 번호(PNU)를 확인해 주세요.');
       const a = {};
       for (const [k, v] of Object.entries(b.a || {}).slice(0, 60)) {
-        const ar = Math.round(parseFloat(k) * 100) / 100, py = Math.round(+((v || {}).py) || 0), t = String((v || {}).t || '').replace(/[^0-9A-Za-z가-힣\-]/g, '').slice(0, 8);
+        const [k1, k2] = String(k).split('|'), ar = Math.round(parseFloat(k1) * 100) / 100, sp = k2 ? Math.round(parseFloat(k2) * 100) / 100 : 0, py = Math.round(+((v || {}).py) || 0), t = String((v || {}).t || '').replace(/[^0-9A-Za-z가-힣\-]/g, '').slice(0, 8);
         const img = ownPhoto(String((v || {}).img || ''), ADMIN_ID) ? String(v.img) : '';   // 10/30 타입 평면도 (운영자가 올린 사진만)
-        if (ar > 5 && ar < 500 && (py > 0 && py < 300 || t || img)) a[ar.toFixed(2)] = { ...(py > 0 && py < 300 ? { py } : {}), ...(t ? { t } : {}), ...(img ? { img } : {}) };
+        if (ar > 5 && ar < 500 && (py > 0 && py < 300 || t || img)) a[ar.toFixed(2) + (sp > 5 && sp < 600 ? '|' + sp.toFixed(2) : '')] = {   // 10/31 '전용|공급' = 같은 전용의 세대 적은 줄 (회원 화면엔 '전용' 줄만)
+           ...(py > 0 && py < 300 ? { py } : {}), ...(t ? { t } : {}), ...(img ? { img } : {}) };
       }
       if (!Object.keys(a).length) await redis(['HDEL', K, b.pnu]);
       else await redis(['HSET', K, b.pnu, JSON.stringify({ n: String(b.n || '').slice(0, 40), a, at: new Date().toISOString() })]);

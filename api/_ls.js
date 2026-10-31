@@ -8,7 +8,8 @@
 // 1단계(지금): 새 방식으로 읽고 쓰되, 되돌리기 쉽게 예전 덩어리(realmap:ls)도 같이 저장(DUAL). 2단계: DUAL = false 로 끄고 백업 정리.
 import { seal, unseal, ledgerReady } from './_ledger.js';
 
-const DUAL = true;
+// 10/31 2단계: 예전 덩어리(평문 · 집주인 이름·연락처가 암호화 없이 남음) 같이 저장하던 것을 끔 — 남은 realmap:ls·lsbak 정리는 며칠 지켜본 뒤
+const DUAL = false;
 const K = { h: u => `realmap:lsh:${u}`, v: u => `realmap:lsv:${u}`, old: u => `realmap:ls:${u}`, bak: u => `realmap:lsbak:${u}` };
 const enc = x => (ledgerReady() ? seal(x) : 'p:' + JSON.stringify(x));   // 키가 없을 때(시범 서버 등)만 평문
 const dec = v => { const s = String(v || ''); try { return s.startsWith('v1:') ? unseal(s) : s.startsWith('p:') ? JSON.parse(s.slice(2)) : null; } catch { return null; } };
