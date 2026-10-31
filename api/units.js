@@ -106,6 +106,11 @@ export default handler(async (req, res) => {
       for (const [k, u] of Object.entries(U)) { const sp = u.ex + u.co, r = sp / (u.ex || 1); if (u.ex > 10 && u.co >= 1 && r >= 1.1 && r <= 1.6) out[k] = [Math.round(u.ex * 100) / 100, Math.round(sp * 100) / 100]; }
       return out;
     };
+    if (req.query.dbg) {   // 10/31 점검용: 받은 줄 수·실패 이유
+      try { const rows = await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: D }, { maxPages: 30 }); const k = rows.filter(x => !String(x.dongNm || '').trim() || sameTok(x.dongNm, D));
+        return send(res, 200, { ok: true, n: rows.length, keep: k.length, gb: [...new Set(rows.map(x => x.exposPubuseGbCdNm))], s: rows.slice(0, 3).map(x => [x.dongNm, x.hoNm, x.exposPubuseGbCdNm, x.mainPurpsCdNm, x.etcPurps, x.area]), out: Object.keys(sum(rows, x => !String(x.dongNm || '').trim() || sameTok(x.dongNm, D))).length }, 0);
+      } catch (e) { return send(res, 200, { ok: false, e: String(e && e.message || e).slice(0, 300) }, 0); }
+    }
     let r = null;
     try {
       r = await cached(`unitsup:${P.pnu}:${D}`, 7 * 86400e3, async () => {
