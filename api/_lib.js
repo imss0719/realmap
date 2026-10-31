@@ -45,7 +45,8 @@ export const ttlFor = (val, sec) => hasFail(val) ? 0 : sec;
 const R_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || Object.entries(process.env).find(([k]) => /_REST_API_URL$/.test(k))?.[1] || '';
 const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || Object.entries(process.env).find(([k]) => /_REST_API_TOKEN$/.test(k) && !/READ_ONLY/.test(k))?.[1] || '';
 // 키 앞부분별 보관 기간(일)
-const KEEP = { 'kaptl:': 30, 'kaptb:': 30, 'kaptd:': 30, 'kaptc:': 20, 'kaptt:': 20, 'bld:': 30, 'bldf:': 30, 'units:': 30, 'unitsd:': 30, 'units2:': 30, 'unitsd2:': 30, 'unitsd3:': 30, 'unitsp:': 2, 'unitar:': 30, 'unitsup:': 90, 'unit:': 30, 'land:': 7, 'stores:': 14, 'signm:': 30, 'bus:': 30, 'dongr:': 30 };   // dongr: 단지 동 위치 (parcel.js)
+// 10/31 선배: 동·호 목록·전용·공급면적(건축물대장)은 거의 안 바뀌므로 1년 보관 (회원 모두가 같이 씀 · 1년 지나면 다음에 열 때 새로 받음)
+const KEEP = { 'kaptl:': 30, 'kaptb:': 30, 'kaptd:': 30, 'kaptc:': 20, 'kaptt:': 20, 'bld:': 30, 'bldf:': 30, 'units:': 365, 'unitsd:': 365, 'units2:': 365, 'unitsd2:': 365, 'unitsd3:': 365, 'unitsp:': 2, 'unitar:': 365, 'unitsup:': 365, 'unit:': 30, 'land:': 7, 'stores:': 14, 'signm:': 30, 'bus:': 30, 'dongr:': 30 };   // dongr: 단지 동 위치 (parcel.js)
 const keepDays = key => { for (const p in KEEP) if (key.startsWith(p)) return KEEP[p]; return 0; };
 export async function rcmd(cmd, ms = 1500) {
   if (!R_URL || !R_TOKEN) return null;
@@ -59,7 +60,7 @@ export async function rcmd(cmd, ms = 1500) {
 
 // 창고가 넘치지 않게: 전체 키가 상한을 넘으면 새로 쌓지 않습니다 (회원 정보 자리를 항상 남겨 둠).
 // 보관 기간이 지나면 자동으로 지워지므로, 시간이 지나면 다시 쌓입니다.
-export const MAX_KEYS = 30000; // 10/24 Pay as You Go로 바꾸며 1만 5천 → 3만 (평균 5KB, 약 150MB 예상)
+export const MAX_KEYS = 200000;   // 10/31 3만 → 20만 (평균 5KB면 약 1GB — Upstash 종량제는 1GB까지 저장 무료) // 10/24 Pay as You Go로 바꾸며 1만 5천 → 3만 (평균 5KB, 약 150MB 예상)
 let room = { ok: true, at: 0 };
 async function roomLeft() {
   if (Date.now() - room.at < 10 * 60e3) return room.ok; // 10분에 한 번만 확인
