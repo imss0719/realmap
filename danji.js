@@ -1050,7 +1050,7 @@ window.Danji = (() => {
   }
   // mutate는 '값을 정하는' 함수여야 함(두 번 적용돼도 같은 결과) — 화면에 먼저 반영하고 서버에 차례로 저장
   function saveRow(cx, x, mutate) {
-    const L = S.L[cx.id];
+    const L = S.L[cx.id], back = L && L.units ? L.units[x.key] : undefined;   // 10/31 저장이 거절되면(광고 중인 매물) 되돌릴 값
     if (L && L.units) {
       const cur = L.units[x.key], D = fieldsOfSum(cur);
       if (!D.st.src && x.st.fromLs) { D.st = { src: 'mine', k: [...x.st.k], hold: x.st.hold, office: '' }; D.pr = { ...D.pr, ...Object.fromEntries(Object.entries(x.st.lsp || {}).filter(([k, v]) => v && !D.pr[k])) }; }   // 10/28 가격도 함께
@@ -1070,7 +1070,9 @@ window.Danji = (() => {
         if (j.lsDirty && S.host.refreshItems) S.host.refreshItems();   // 같은 호의 매물 카드도 바뀜
         putSum(cx, x.key, { ...EMPTY_REC(), ...j.rec });
         if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...j.rec }; setTimeout(() => drawPanel(), 0); }
-      } catch (e) { if (e.code === 'conflict' && e.data && e.data.rec) { putSum(cx, x.key, { ...EMPTY_REC(), ...e.data.rec }); if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...e.data.rec }; setTimeout(() => drawPanel(true), 0); } } toast(e.message, e.code === 'conflict' ? 6000 : 4000); }
+      } catch (e) {
+        if (e.code === 'publock' && L && L.units) { if (back) L.units[x.key] = back; else delete L.units[x.key]; if (S.pk && S.pk.key === x.key) { S.pkRec = back ? { ...EMPTY_REC(), ...back } : EMPTY_REC(); setTimeout(() => drawPanel(true), 0); } }   // 10/31 고친 것을 되돌림
+        if (e.code === 'conflict' && e.data && e.data.rec) { putSum(cx, x.key, { ...EMPTY_REC(), ...e.data.rec }); if (S.pk && S.pk.key === x.key) { S.pkRec = { ...EMPTY_REC(), ...e.data.rec }; setTimeout(() => drawPanel(true), 0); } } toast(e.message, e.code === 'conflict' ? 6000 : 4000); }
       redrawRow(cx, x.key); refreshDongs(cx);
     });
   }
