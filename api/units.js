@@ -114,8 +114,10 @@ export default handler(async (req, res) => {
     let r = null;
     try {
       r = await cached(`unitsup:${P.pnu}:${D}`, 7 * 86400e3, async () => {
-        let out = sum(await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', { ...q, dongNm: D }, { maxPages: 30 }), x => !String(x.dongNm || '').trim() || sameTok(x.dongNm, D));
-        if (!Object.keys(out).length && /^\d/.test(D)) out = sum((await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', q, { maxPages: 60 })).map(splitRow), x => sameTok(x.dongNm, D));   // 호 이름에 동이 붙은 단지
+        // 공공데이터가 잠깐 거절하면(동시에 여러 동을 받을 때 등) 1초 쉬고 두 번 더
+        const get = async (pr, mp) => { for (let i = 0; ; i++) { try { return await dataGoKrAll(HUB + 'getBrExposPubuseAreaInfo', pr, { maxPages: mp, concurrency: 2 }); } catch (e) { if (i >= 2) throw e; await new Promise(r => setTimeout(r, 1000 * (i + 1))); } } };
+        let out = sum(await get({ ...q, dongNm: D }, 30), x => !String(x.dongNm || '').trim() || sameTok(x.dongNm, D));
+        if (!Object.keys(out).length && /^\d/.test(D)) out = sum((await get(q, 60)).map(splitRow), x => sameTok(x.dongNm, D));   // 호 이름에 동이 붙은 단지
         if (!Object.keys(out).length) throw new Error('none');   // 못 찾은 결과는 저장하지 않음 (잠깐 실패한 것을 7일 동안 붙잡지 않게)
         return { a: out };
       });
