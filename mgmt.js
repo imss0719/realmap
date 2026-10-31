@@ -54,13 +54,13 @@ window.Mg = (() => {
   function rows(a, amt, o) {
     const mg = norm(a), d = o.dis || '', nd = o.nd || [];
     const seg = (attr, list, cur) => `<span class="rpseg">${list.map(([k, t]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" ${d}>${t}</button>`).join('')}</span>`;
-    const inp = (attr, v, w, ph = '') => `<input class="rpi" ${attr} value="${esc(v || '')}" placeholder="${esc(ph)}" style="width:${w}px" ${d}>`;
+    const inp = (attr, v, w, ph = '') => `<input class="rpi" ${attr} data-fk="mg:${attr}" value="${esc(v || '')}" placeholder="${esc(ph)}" style="width:${w}px" ${d}>`;
     const sel = (attr, L, cur, ph) => `<select class="rpi mgsel" ${attr} ${d}><option value="">${ph}</option>${Object.entries(L).map(([k, t]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
     const incH = `<span class="mginc">${Object.entries(INC).map(([k, t]) => `<label><input type="checkbox" data-mginc="${k}" ${(mg.inc || []).includes(k) ? 'checked' : ''} ${d}>${t}</label>`).join('')}</span>`;
     const ndc = k => nd.includes(k) ? ' nd' : '';
     let det = '', dl = '세부내역';
     if (mg.t === 'fix') {
-      det = `<span class="mgit">${Object.entries({ ...IT, gen: '공용', etc: '기타' }).map(([k, t]) => { const z = (mg.it || {})[k] || {}; return `<span><em>${t}</em><input class="rpi" data-mgit="${k}" value="${z.v || ''}" inputmode="decimal" style="width:42px" ${z.r ? 'disabled' : d}><i class="u">만</i><span class="rpseg sm"><button type="button" data-mgr="${k}" data-v="" aria-pressed="${!z.r && !!z.v}" ${d}>정액</button><button type="button" data-mgr="${k}" data-v="r" aria-pressed="${!!z.r}" ${d}>실비</button></span></span>`; }).join('')}</span><b class="mgsum">합계 월 ${sum(mg) ? sum(mg) + '만원' : '-'}</b>`;
+      det = `<span class="mgit">${Object.entries({ ...IT, gen: '공용', etc: '기타' }).map(([k, t]) => { const z = (mg.it || {})[k] || {}; return `<span><em>${t}</em><input class="rpi" data-mgit="${k}" data-fk="mg:it:${k}" value="${z.v || ''}" inputmode="decimal" style="width:42px" ${z.r ? 'disabled' : d}><i class="u">만</i><span class="rpseg sm"><button type="button" tabindex="-1" data-mgr="${k}" data-v="" aria-pressed="${!z.r && !!z.v}" ${d}>정액</button><button type="button" tabindex="-1" data-mgr="${k}" data-v="r" aria-pressed="${!!z.r}" ${d}>실비</button></span></span>`; }).join('')}</span><b class="mgsum">합계 월 ${sum(mg) ? sum(mg) + '만원' : '-'}</b>`;
     } else if (mg.t === 'etc') {
       det = `${sel('data-mgs', S, mg.s, '세부타입 선택')}${mg.s === 'etc' ? inp('data-mgstx', mg.sTx, 160, '기타 부과 사유 (필수)') : ''} ${amt}${incH}`;
     } else if (mg.t === 'nod') {
@@ -78,7 +78,9 @@ window.Mg = (() => {
     const up = f => { const mg = JSON.parse(JSON.stringify(norm(cur()))); f(mg); const c = clean(mg); save(c, c.t === 'fix' && sum(c) ? sum(c) : null); };   // 정액은 항목 합계가 관리비 금액 (항목이 비면 금액은 그대로)
     root.querySelectorAll('[data-mgt2]').forEach(b => b.onclick = () => up(m => { if (m.t !== b.dataset.mgt2) { m.t = b.dataset.mgt2; if (m.t === 'etc' && !m.s) m.s = 'rule'; if (m.t !== 'na' && !m.b) m.b = 'y1'; } }));
     root.querySelectorAll('[data-mgb]').forEach(b => b.onclick = () => up(m => { m.b = m.b === b.dataset.mgb && m.t === 'na' ? '' : b.dataset.mgb; }));
-    const ch = (sel, f) => root.querySelectorAll(sel).forEach(i => i.onchange = () => up(m => f(m, i)));
+    // 10/31 고침: 칸마다 data-fk(매물장 입력창이 다시 그려도 Tab으로 간 칸에 커서 유지) · 고르는 칸(세부타입·사유)은 고르면 바로 손을 떼서 '기타' 입력칸이 바로 나타나게
+    //   정액·실비 단추는 Tab에서 건너뜀 (항목 금액 칸끼리 Tab으로 이어 적게)
+    const ch = (sel, f) => root.querySelectorAll(sel).forEach(i => i.onchange = () => { if (i.tagName === 'SELECT') i.blur(); setTimeout(() => up(m => f(m, i)), 0); });   // setTimeout: Tab으로 다음 칸에 커서가 옮겨 간 뒤에 저장·다시 그리기
     ch('[data-mgbtx]', (m, i) => { m.bTx = i.value; });
     ch('[data-mgs]', (m, i) => { m.s = i.value; });
     ch('[data-mgstx]', (m, i) => { m.sTx = i.value; });
