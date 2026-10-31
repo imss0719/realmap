@@ -646,7 +646,8 @@ window.Danji = (() => {
     // 타입·공급평: 이 호만 따로 적은 값(PNU|동|h호) → 라인 값(PNU|동|라인) — 10/26
     const L0 = cx.lt || {}, lh = L0[`${pnu}|${dn}|h${h}`], ll = L0[`${pnu}|${dn}|${line}`] || L0[`*|${dn}|${line}`];
     const lt = lh || ll ? { ...(ll || {}), ...(lh || {}) } : null;
-    return { key, pnu, dn, ho: h, st, r: st.r, a, line, dir: (cx.dir || {})[`${pnu}|${dn}|h${h}`] || (cx.dir || {})[`${pnu}|${dn}|${line}`] || '', lt, cx };   // 이 호만 적은 방향이 먼저
+    const SP = C.sups && C.sups[ak], sp = SP && typeof SP === 'object' && SP[h] && !man0 ? SP[h] : null;   // 10/31 [전용, 공급] (면적을 직접 적은 호는 안 씀)
+    return { key, pnu, dn, ho: h, st, r: st.r, a, sp, line, dir: (cx.dir || {})[`${pnu}|${dn}|h${h}`] || (cx.dir || {})[`${pnu}|${dn}|${line}`] || '', lt, cx };   // 이 호만 적은 방향이 먼저
   }
   // 단지 전체: 장부에 적힌 호 + 매물장 매물이 있는 호 + 방금 추가한 호
   function rowsAll(cx, C, MM) {
@@ -796,7 +797,7 @@ window.Danji = (() => {
     }
     refresh();
   }
-  const supPy = (x, tol) => { if (x.lt && x.lt.py) return { v: x.lt.py }; const o = opOf(x.pnu, x.a, tol); if (o && o.py) return { v: o.py }; return x.a ? { v: Math.round(x.a * (x.a <= 60 ? 1.36 : x.a <= 85 ? 1.33 : 1.27) / PY), est: true } : null; };
+  const supPy = (x, tol) => { if (x.lt && x.lt.py) return { v: x.lt.py }; if (x.sp) return { v: Math.round(x.sp[1] / PY), ex: x.sp[0], sup: x.sp[1] };   /* 10/31 그 호의 대장 공급면적 */ const o = opOf(x.pnu, x.a, tol); if (o && o.py) return { v: o.py }; return x.a ? { v: Math.round(x.a * (x.a <= 60 ? 1.36 : x.a <= 85 ? 1.33 : 1.27) / PY), est: true } : null; };
   const tyOf = x => (x.lt && x.lt.t) || ((opOf(x.pnu, x.a) || {}).t) || '';
   const impTxt = t => String(t || '').replace(/^\s*(?:20\d{2}[-./])?\d{1,2}\s*(?:[./]|월\s*)\d{1,2}(?:\s*일)?(?![~\d])(?:까지)?\s*[·,:-]?\s*/, '') || t;   // 맨 앞 날짜는 빨간 날짜 표시와 겹치므로 글에서 뺌
   const impSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 7 && dl >= -3; };
@@ -826,7 +827,7 @@ window.Danji = (() => {
       case 'cxn': return x.cx.orph ? `<button type="button" class="cxn" data-goorph="${esc(x.cx.orph)}" title="개별매물 · 누르면 입력창">${esc(x.cx.name)} <small class="mut">${S.cur === '__orph' ? '' : '개별·'}${esc(((x.st.mine || [])[0] || {}).ptype || '')}</small></button>` : `<button type="button" class="cxn" data-gocx="${esc(x.cx.id)}" title="${esc(x.cx.name)}으로 이동">${esc(x.cx.name)}</button>`;
       case 'dn': return `<b>${esc(DN(x.dn).replace(/동$/, ''))}</b>`;
       case 'ho': return `<b>${esc(x.ho)}</b>`;
-      case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : ''}>${p.v}</b>` : '<span class="mut">-</span>'; }
+      case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : p.sup ? ` title="전용 ${p.ex}㎡ · 공급 ${p.sup}㎡"` : ''}>${p.v}</b>` : '<span class="mut">-</span>'; }   // 10/31 대장 공급면적이면 마우스를 올리면 전용·공급
       case 'ty': return tyOf(x) ? `<b>${esc(tyOf(x))}</b>` : '<span class="mut">-</span>';   // 10/28 칸 폭: '입력 84.97' 안내 없앰 (전용면적은 입력창에서)
       case 'dir': return x.dir ? esc(x.dir) : '<span class="mut">-</span>';
       case 'of': return s.done ? `<span class="p done">계약됨 ✓</span>` : !s.src ? '<span class="mut">-</span>' : `<span class="${s.src === 'mine' ? 'ofm' : ''}">${esc(ofTxt(s))}</span>${s.hold ? ' <small class="hold">보류</small>' : ''}`;
@@ -1037,6 +1038,10 @@ window.Danji = (() => {
       C.areas[k] = 'loading';
       api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&areas=1`).then(j => { C.areas[k] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[k] = {}; })
         .then(() => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); });
+      // 10/31 호별 공급면적 (건축물대장 전용 + 주거공용) → 평형을 그 호 값으로
+      C.sups = C.sups || {};
+      if (C.sups[k] === undefined) { C.sups[k] = 'loading'; api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&sup=1`).then(j => { C.sups[k] = j.sup || {}; }).catch(() => { C.sups[k] = {}; })
+        .then(() => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); }); }
     }
   }
 
