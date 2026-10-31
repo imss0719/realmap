@@ -386,7 +386,7 @@ window.Danji = (() => {
       ${(S.cx.items.forEach(c => { if (!S.L[c.id]) loadLedger(c); }), cxSorted()).map(c => { const op = c.id === S.cur && !inO; const n = cnt(c);
         const fo = op && !(S.fold && S.fold.has(c.id));   // 펼친 단지 (지금 단지를 다시 누르면 접힘)
         const ck = allMode || (multiOn() ? S.multi.has(c.id) : !S.adding && c.id === S.cur);   // 10/28: 지금 표에 나오는 단지 = 체크 (모든 단지면 전부 · 하나면 그 단지)
-        return `<div class="tn${op ? ' on' : ''}"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button>${S.delMode ? `<button type="button" class="tdel" data-tdel="${c.id}">빼기</button>` : `<span class="ct">${n === '' ? '' : n}</span>`}</div>
+        return `<div class="tn${op ? ' on' : ''}"><button type="button" data-tcx="${c.id}"><span class="ar">${fo ? '▾' : '▸'}</span>${esc(c.name)}</button>${S.delMode ? `<button type="button" class="tdel" data-tdel="${c.id}">빼기</button>` : `<span class="ct"${S.L[c.id] && S.L[c.id].err ? ` title="${esc(S.L[c.id].err)}" style="color:#C92A2A"` : ''}>${S.L[c.id] && S.L[c.id].err ? '!' : n === '' ? '' : n}</span>`}</div>
         ${fo && C && C.dongs && !S.delMode ? treeDongs(c, C) + `<div class="tmore"><button type="button" data-tren>이름 바꾸기</button> · <button type="button" data-taddpl>빠진 동 더하기</button></div>` : ''}`; }).join('')}
       ${(() => { const n = (S.host.items() || []).filter(x => ['아파트', '주상복합', '오피스텔'].includes(x.ptype) && x.kind !== 'presale' && x.status !== 'done' && !S.cx.items.some(c => (c.places || []).some(p => p.pnu === x.pnu))).length; return n && S.host.goAptList ? `<div class="tn torph"><button type="button" data-torph title="단지에 담지 않고 올린 아파트·오피스텔 매물"><span class="ar">📁</span>개별매물</button><span class="ct">${n}</span></div>` : ''; })()}
       <div class="tadr"><button type="button" class="tn add" data-tadd title="단지 추가">＋ 단지</button>${S.cx.items.length ? `<button type="button" class="tn add rm${S.delMode ? ' on' : ''}" data-tdm title="단지 빼기">${S.delMode ? '빼기 끝' : '− 단지'}</button>` : ''}${S.host.goAptList ? '<button type="button" class="tn add nx" data-tnx title="단지에 담지 않고 아파트·오피스텔 한 호만 매물로 올리기">＋단지없이 추가</button>' : ''}</div>
@@ -464,7 +464,7 @@ window.Danji = (() => {
     const K = kpi([...items.flatMap(c => rowsAll(c, CI(c), mineMap(c))), ...(multiOn() ? [] : orphRows())]);   // 10/30 개별매물 포함
     $('dj_cxBody').innerHTML = `
       <div class="card hdc hd1"><div class="h1r">${cxSelHtml('__all')}
-        <span class="hm">${items.length}곳${wait ? ` · 장부를 불러오는 중 (${items.length - wait}/${items.length})` : ''} · 매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span>${bookTog()}<span class="sp"></span></div></div>
+        <span class="hm">${items.length}곳${wait ? ` · 장부를 불러오는 중 (${items.length - wait}/${items.length})` : ''}${(() => { const bad = items.filter(c => S.L[c.id] && S.L[c.id].err); return bad.length ? ` · <b style="color:#C92A2A">장부를 못 불러온 단지 ${bad.length}곳: ${esc(bad[0].name)} — ${esc(S.L[bad[0].id].err)}</b>` : ''; })()} · 매물 <b id="dj_k0">${K.m + K.o}</b> · 만기 임박 <b id="dj_k1" class="${K.e ? 'r' : ''}">${K.e}</b><b id="dj_k2" hidden>${K.d}</b></span>${bookTog()}<span class="sp"></span></div></div>
       <div class="card gcard"><div class="djfrow"><div class="tbf" id="dj_tbf"></div></div><div id="dj_tbl"></div>
       </div>`;
     wireCxSel(); wireBook();
@@ -646,7 +646,7 @@ window.Danji = (() => {
     // 타입·공급평: 이 호만 따로 적은 값(PNU|동|h호) → 라인 값(PNU|동|라인) — 10/26
     const L0 = cx.lt || {}, lh = L0[`${pnu}|${dn}|h${h}`], ll = L0[`${pnu}|${dn}|${line}`] || L0[`*|${dn}|${line}`];
     const lt = lh || ll ? { ...(ll || {}), ...(lh || {}) } : null;
-    const SP = C.sups && C.sups[ak], sp = SP && typeof SP === 'object' && SP[h] && !man0 ? SP[h] : null;   // 10/31 [전용, 공급] (면적을 직접 적은 호는 안 씀)
+    const SP = C.sups && C.sups[`${pnu}|${dn}`], sp = SP && typeof SP === 'object' && SP[h] && !man0 ? SP[h] : null;   // 10/31 [전용, 공급] (면적을 직접 적은 호는 안 씀)
     return { key, pnu, dn, ho: h, st, r: st.r, a, sp, line, dir: (cx.dir || {})[`${pnu}|${dn}|h${h}`] || (cx.dir || {})[`${pnu}|${dn}|${line}`] || '', lt, cx };   // 이 호만 적은 방향이 먼저
   }
   // 단지 전체: 장부에 적힌 호 + 매물장 매물이 있는 호 + 방금 추가한 호
@@ -894,6 +894,8 @@ window.Danji = (() => {
     const base = ALL ? allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
     if (!ALL) needAreas(cx, C, base);
     else allList().forEach(c => { const Cc = CI(c); if (Cc.dongs) { const rs = base.filter(x => x.cx === c); if (rs.length) needAreas(c, Cc, rs); } });
+    { const re = () => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); };   // 10/31 평형(공급면적)
+      if (!ALL) needSups(C, base, re); else allList().forEach(c => { const rs = base.filter(x => x.cx === c); if (rs.length) needSups(CI(c), rs, re); }); }
     sortRows(rows, F.sort === 'fl' && C.view !== 'dong' ? 'dh' : F.sort);
     // 동 화면에서 층이 바뀌는 줄 위에 구분선
     const flo = x => Math.floor(+x.ho / 100);
@@ -1038,13 +1040,19 @@ window.Danji = (() => {
       C.areas[k] = 'loading';
       api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&areas=1`).then(j => { C.areas[k] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[k] = {}; })
         .then(() => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); });
-      // 10/31 호별 공급면적 (건축물대장 전용 + 주거공용) → 평형을 그 호 값으로
-      C.sups = C.sups || {};
-      if (C.sups[k] === undefined) { C.sups[k] = 'loading'; api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&sup=1`).then(j => { C.sups[k] = j.sup || {}; }).catch(() => { C.sups[k] = {}; })
-        .then(() => { if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); }); }
     }
   }
 
+  // 10/31 호별 공급면적 (건축물대장 전용 + 주거공용) → 평형을 그 호 값으로 — 동 목록을 기다리지 않고 장부의 필지·동으로 바로 받음 (동마다 한 번)
+  function needSups(C, rows, redraw) {
+    C.sups = C.sups || {};
+    for (const x of rows) {
+      const k = `${x.pnu}|${x.dn}`; if (!x.pnu || !x.dn || C.sups[k] !== undefined) continue;
+      const d = dongOf(C, x.dn), dong = d ? d.dong : /^\d+$/.test(x.dn) ? x.dn + '동' : x.dn;
+      C.sups[k] = 'loading';
+      api(`/api/units?pnu=${d ? d.pnu : x.pnu}&dong=${encodeURIComponent(dong)}&sup=1`).then(j => { C.sups[k] = j.sup || {}; }).catch(() => { C.sups[k] = {}; }).then(redraw);
+    }
+  }
   // ---------- 저장 (같은 호는 차례대로) ----------
   const fieldsOfSum = r => r ? fieldsOf({ ...EMPTY_REC(), ...r }) : fieldsOf(EMPTY_REC());
   function queue(key, fn) { S.q = S.q || {}; const p = (S.q[key] || Promise.resolve()).then(fn, fn); S.q[key] = p.catch(() => {}); return p; }
