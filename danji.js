@@ -333,7 +333,7 @@ window.Danji = (() => {
     const sorted = ds => ds.map(dongBtn).sort((p, q) => (q.m.m + q.m.o) - (p.m.m + p.m.o) || q.m.e - p.m.e).map(z => z.html).join('');
     const G = subOf(c, C); if (!G) return sorted(C.dongs);   // 10/28 1단지·2단지는 폴더처럼 (체크박스 없음)
     S.gopen = S.gopen || new Set(); const sel = gOn(C) || [];
-    return G.map(g => { const op = S.gopen.has(c.id + '|' + g.k); return `<div class="tn g${sel.includes(g.k) ? ' on' : ''}"><button type="button" data-tgo="${g.k}"><span class="ar">${op ? '▾' : '▸'}</span>${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
+    return G.map(g => { const op = S.gopen.has(c.id + '|' + g.k) || !sel.length;   /* 10/31 선배: 단지를 펼치면 1단지·2단지… 아래 동까지 모두 펼침 (하위 단지를 고르면 그 단지만) */ return `<div class="tn g${sel.includes(g.k) ? ' on' : ''}"><button type="button" data-tgo="${g.k}"><span class="ar">${op ? '▾' : '▸'}</span>${esc(g.nm)}</button><span class="ct">${g.n || ''}${g.e ? ` <em>만기 ${g.e}</em>` : ''}</span></div>${op ? `<div class="tgd">${sorted(g.ds)}</div>` : ''}`; }).join('');
   }
   // 하위 단지 고르기 (탐색기 체크 · 표 위 칩 같은 것)
   function pickSub(cx, k) {
@@ -905,13 +905,12 @@ window.Danji = (() => {
       rows = rowsDong(cx, C, MM);
       if (!rows) { box.innerHTML = '<div class="loading">이 동의 호 목록을 받는 중입니다…</div>'; return; }
       if (!fOn(F)) { /* 동 화면은 빈 줄까지 */ } else rows = rows.filter(x => pass(x, F));
-    } else rows = (ALL ? rowsAll(cx, C, MM) : rowsCx(cx, C, MM)).filter(x => pass(x, F));   // 10/31 단지 = 모든 호
+    } else rows = rowsAll(cx, C, MM).filter(x => pass(x, F));   // 10/31 선배: 단지 = 적어 둔 호·매물만 (모든 호는 동을 눌렀을 때 · 단지 전체는 너무 무거움)
     { const gs = !ALL && gOn(C); if (gs) rows = rows.filter(x => inSub(C, gs, x.pnu, x.dn)); }   // 고른 하위 단지만 (10/26)
-    const base = ALL ? allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsCx(cx, C, MM);
+    const base = ALL ? allList().flatMap(c => rowsAll(c, CI(c), mineMap(c))) : C.view === 'dong' ? (rowsDong(cx, C, MM) || []) : rowsAll(cx, C, MM);
     sortRows(rows, F.sort === 'fl' && C.view !== 'dong' ? 'dh' : F.sort);
     // 10/31 단지 전체(모든 호)는 큰 단지면 수천 호 → 300호씩 보여 주고 [더 보기] (화면이 멈추지 않게)
     const nAll = rows.length, LIM = S.lim || 300;
-    if (!ALL) needUnits(cx, C, LIM + 50);
     if (!ALL && C.view !== 'dong' && rows.length > LIM) rows = rows.slice(0, LIM);
     // 호별 면적·공급면적은 보이는 줄의 동만 받음
     if (!ALL) needAreas(cx, C, rows);
