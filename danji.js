@@ -647,7 +647,12 @@ window.Danji = (() => {
     // 타입·공급평: 이 호만 따로 적은 값(PNU|동|h호) → 라인 값(PNU|동|라인) — 10/26
     const L0 = cx.lt || {}, lh = L0[`${pnu}|${dn}|h${h}`], ll = L0[`${pnu}|${dn}|${line}`] || L0[`*|${dn}|${line}`];
     const lt = lh || ll ? { ...(ll || {}), ...(lh || {}) } : null;
-    const SP = C.sups && C.sups[`${pnu}|${dn}`], sp = SP && typeof SP === 'object' && SP[h] && !man0 ? SP[h] : null;   // 10/31 [전용, 공급] (면적을 직접 적은 호는 안 씀)
+    const SP = C.sups && C.sups[`${pnu}|${dn}`];
+    let sp = SP && typeof SP === 'object' && !man0 ? SP[h] || null : null;
+    if (!sp && SP && typeof SP === 'object' && !man0) {   // 10/31 선배: 대장에 없는 호(직접 추가한 호 등)는 같은 동·같은 라인 값으로
+      const cnt = new Map(); for (const [hh, v] of Object.entries(SP)) { const n2 = +digits(hh); if ((n2 >= 100 ? n2 % 100 : n2) === line) { const k2 = v.join('|'); cnt.set(k2, (cnt.get(k2) || 0) + 1); } }
+      const best = [...cnt.entries()].sort((p, q) => q[1] - p[1])[0]; if (best) sp = best[0].split('|').map(Number);
+    }   // 10/31 [전용, 공급] (면적을 직접 적은 호는 안 씀)
     return { key, pnu, dn, ho: h, st, r: st.r, a, sp, line, dir: (cx.dir || {})[`${pnu}|${dn}|h${h}`] || (cx.dir || {})[`${pnu}|${dn}|${line}`] || '', lt, cx };   // 이 호만 적은 방향이 먼저
   }
   // 단지 전체: 장부에 적힌 호 + 매물장 매물이 있는 호 + 방금 추가한 호
