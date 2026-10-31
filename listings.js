@@ -294,7 +294,8 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       const cs = Array.isArray(x.contacts) ? x.contacts : x.owner || x.phone ? [{ role: '집주인', name: x.owner, phone: x.phone }] : [];
       const dh = p => [p.dong && p.dong + (/동$/.test(p.dong) ? '' : '동'), p.ho && p.ho + (/(호|층)$/.test(p.ho) ? '' : '호')].filter(Boolean).join(' ');
       const units = pl.map(dh).filter(Boolean);
-      const extra = [x.mgmt && `관리비 ${shortWon(x.mgmt)}`, x.premium && `권리금 ${shortWon(x.premium)}`, x.curDep && `기보증금 ${shortWon(x.curDep)}`, x.curRent && `기월세 ${shortWon(x.curRent)}`, x.loan && !(x.ad || {}).loanHide && `${x.kind === 'presale' ? '중도금 대출' : '융자'} ${shortWon(x.loan)}`, x.paid && `납입 ${shortWon(x.paid)}`].filter(Boolean);
+      const naM = ((x.ad || {}).mg2 || {}).t === 'na' ? ((x.ad || {}).mg2.na === 'none' ? '관리비 없음' : '관리비 확인불가') : '';   // 10/31 확인불가·없음이면 예전 금액 대신
+      const extra = [naM || (x.mgmt && `관리비 ${shortWon(x.mgmt)}`), x.premium && `권리금 ${shortWon(x.premium)}`, x.curDep && `기보증금 ${shortWon(x.curDep)}`, x.curRent && `기월세 ${shortWon(x.curRent)}`, x.loan && !(x.ad || {}).loanHide && `${x.kind === 'presale' ? '중도금 대출' : '융자'} ${shortWon(x.loan)}`, x.paid && `납입 ${shortWon(x.paid)}`].filter(Boolean);
       const addrs = [...new Set(pl.map(p => p.addr))];
       return `<div class="card${RO.has(x.id) ? ' ro' : ''}${x.status === 'done' ? ' done' : ''}${S.hl === x.id ? ' hl' : ''}" id="c_${x.id}">
       <div class="ch"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${x.ptype ? `<span class="pt">${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype)}</span>` : ''}${pl.length > 1 ? `<span class="pt">${pl.length}건 묶음</span>` : ''}<span class="st ${x.status}">${STAT[x.status]}</span></div>
@@ -959,7 +960,8 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
     const miss = [], a = x.ad || {};
     if (!bk || !bk.office || !bk.addr || !bk.regno || !bk.ceo || !bk.tel) miss.push('중개사무소 정보');
     if (!x.addr && !(x.places && x.places[0] && x.places[0].addr)) miss.push('소재지');
-    if (!x.area && !(x.places || []).some(p => p.area)) miss.push('면적');
+    // 10/31 서버와 같게: 건물에 붙인 대지 필지 면적은 빼고 · 방·욕실은 숫자만 (화면은 다 됐다는데 서버가 거절하던 것)
+    { const P = x.places || [], isL = p => p && (p.land || p.ak === 'land'); if (!x.area && !P.filter(p => isL(P[0]) || !isL(p)).some(p => p.area)) miss.push('면적'); }
     if (!x.ptype) miss.push('매물 종류');
     const price = x.kind === 'sale' ? x.price : x.kind === 'jeonse' ? x.deposit : x.kind === 'wolse' ? x.rent : x.price && x.pr;
     if (!price) miss.push('가격');
@@ -968,13 +970,13 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
     if (x.kind !== 'presale' && !a.use) miss.push('건축물 용도');
     if (!a.tfl) miss.push('총 층수');
     if (!a.fl) miss.push('해당 층');
-    if (x.kind !== 'presale' && !a.appr) miss.push('사용승인일');
+    if (x.kind !== 'presale' && !/\d/.test(String(a.appr || ''))) miss.push('사용승인일');
     if (!a.dir) miss.push('방향');
     if (!a.movein) miss.push('입주 가능일');
     if (x.kind !== 'presale' && !a.park) miss.push('주차 대수');
     if (RESID.includes(tbase(x))) {
-      if (a.rooms == null || a.rooms === '') miss.push('방 수');
-      if (a.baths == null || a.baths === '') miss.push('욕실 수');
+      if (!/\d/.test(String(a.rooms ?? ''))) miss.push('방 수');
+      if (!/\d/.test(String(a.baths ?? ''))) miss.push('욕실 수');
       if (x.kind === 'presale') { /* 10/31 분양권은 관리비 필수 아님 (입주 전) */ } else if (window.Mg) miss.push(...Mg.miss(a, x.mgmt)); else if (!x.mgmt && !a.nomgmt) miss.push('관리비');   // 10/30 관리비 세분화 (부과타입·부과기준·세부내역) — 비주거는 관리비 필수 아님
     }
     return miss;
@@ -1454,7 +1456,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       price: x.kind === 'presale' ? manTx((x.price || 0) + (x.pr || 0)) : x.kind === 'sale' ? manTx(x.price) : '',
       jeonse: x.kind === 'jeonse' ? manTx(x.deposit) : '', deposit: x.kind === 'wolse' ? manTx(x.deposit) : '', rent: x.kind === 'wolse' ? manTx(x.rent) : '',
       incDep: x.kind === 'sale' ? manTx(x.curDep) : '', incRent: x.kind === 'sale' ? manTx(x.curRent) : '',
-      fee: x.mgmt ? `${x.mgmt.toLocaleString()}만원` : a.nomgmt ? '없음' : '', moveIn: a.movein || '',
+      fee: (a.mg2 || {}).t === 'na' ? (a.mg2.na === 'none' ? '없음' : '확인불가') : x.mgmt ? `${x.mgmt.toLocaleString()}만원` : a.nomgmt ? '없음' : '',   // 10/31 확인불가·없음이면 예전 금액 대신 moveIn: a.movein || '',
       exArea: x.area ? `${x.area}㎡` : '', rooms: a.rooms != null && a.rooms !== '' ? `방${a.rooms}${a.baths != null && a.baths !== '' ? ' · 욕실' + a.baths : ''}` : '',
       floor: fl, dir: a.dir || '', park: a.park || '', premium: x.premium ? manTx(x.premium) : '', rentroll: rr,
       title: [x.bname || (x.addr || '').split(' ').slice(-1)[0], dong].filter(Boolean).join(' '), intro: (a.desc || '').split('\n')[0].slice(0, 80),

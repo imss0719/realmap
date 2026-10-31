@@ -279,7 +279,7 @@ window.Cust = (() => {
       r.querySelectorAll('[data-ck2]').forEach(b => b.onclick = () => { const k = b.dataset.ck2; save({ k: c.k.includes(k) ? c.k.filter(z => z !== k) : [...c.k, k] }); });
       r.querySelectorAll('[data-cpt]').forEach(b => b.onclick = () => { const t = b.dataset.cpt; save({ pt: c.pt.includes(t) ? c.pt.filter(z => z !== t) : [...c.pt, t] }); });
       const mi = r.querySelector('[data-cmemo]'); if (mi) mi.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); const v = mi.value.trim(); if (v) op({ op: 'memo', id, text: v }, '상담 기록을 남겼습니다').then(j => { const n = j && $('cuW') && $('cuW').querySelector(`[data-cmemo="${CSS.escape(id)}"]`); if (n) n.value = ''; }); } };   // 10/27 남긴 뒤 칸 비우기 (다시 그릴 때 입력 중 값이 남아 두 번 남기는 일 방지)
-      r.querySelectorAll('[data-cmdel]').forEach(b => b.onclick = () => { if (confirm('이 기록을 지울까요?')) op({ op: 'mdel', id, i: +b.dataset.cmdel }); });
+      r.querySelectorAll('[data-cmdel]').forEach(b => b.onclick = () => { if (confirm('이 기록을 지울까요?')) op({ op: 'mdel', id, i: +b.dataset.cmdel, x: (X.memoParse(c.memo)[+b.dataset.cmdel] || {}).x || '' }); });   // 10/31 내용도 같이 보냄 (번호가 밀려도 맞는 기록을)
       const cd = r.querySelector('[data-called]'); if (cd) cd.onclick = () => op({ op: 'called', id }, '오늘 연락한 것으로 표시했습니다');
       const call = r.querySelector('[data-call]'); if (call) call.addEventListener('click', () => op({ op: 'called', id }));
       const del = r.querySelector('[data-cdel]'); if (del) del.onclick = () => { if (confirm(`${c.name || c.phone} 고객을 삭제할까요? 상담 기록도 함께 지워지고 되돌릴 수 없습니다.`)) op({ op: 'del', id }, '삭제했습니다'); };
