@@ -373,7 +373,7 @@ window.Sett = (() => {
     const tbl = c ? (rows.length ? `<table class="st-tb pyt"><tr><th><input type="checkbox" id="ptAll"></th><th>전용면적</th><th>공급면적</th><th>공급평</th><th>세대</th><th>타입</th><th>평면도</th><th>지금 회원 화면</th><th></th></tr>${rows.map((r, i) => {
       const v = c.val[r.k] || {}, py = pyOf(r), fromDb = !v.py && r.dpy;
       const now = py ? `<span class="ok">${py}평${v.t ? ' · ' + esc(v.t) : ''}</span>` : `<i class="em">${estPy(r.a)}평 (추정)</i>`;
-      return `<tr><td><input type="checkbox" data-ck="${i}"></td><td><b>${r.k}㎡</b></td><td>${r.sup ? r.sup + '㎡' : '<i class="em">대장에 없음</i>'}</td><td><input class="si${fromDb ? ' db' : ''}" style="width:52px" data-py="${i}" value="${py}" placeholder="${estPy(r.a)}" inputmode="numeric" maxlength="3"> 평</td><td>${r.n ? r.n.toLocaleString() : '<i class="em">직접 추가</i>'}</td><td><input class="si" style="width:64px" data-ty="${i}" value="${esc(v.t || '')}" placeholder="예: 59A" maxlength="8"></td>
+      return `<tr><td><input type="checkbox" data-ck="${i}"></td><td><b>${(+r.a || parseFloat(r.k)).toFixed(2)}㎡</b>${r.sub ? '<br><small class="em" title="같은 전용에서 세대 수가 가장 많은 줄의 값이 회원 화면에 나갑니다">회원 화면엔 세대 많은 줄 값</small>' : ''}</td><td>${r.sup ? r.sup + '㎡' : '<i class="em">대장에 없음</i>'}</td><td><input class="si${fromDb ? ' db' : ''}" style="width:52px" data-py="${i}" value="${py}" placeholder="${estPy(r.a)}" inputmode="numeric" maxlength="3"> 평</td><td>${r.n ? r.n.toLocaleString() : '<i class="em">직접 추가</i>'}</td><td><input class="si" style="width:64px" data-ty="${i}" value="${esc(v.t || '')}" placeholder="예: 59A" maxlength="8"></td>
         <td>${v.img ? `<a href="${esc(v.img)}" target="_blank" rel="noopener"><img class="pti" src="${esc(v.img)}" alt=""></a> <button type="button" class="sb r" data-imx="${i}">×</button>` : `<label class="sb" for="ptI${i}">＋ 올리기</label><input type="file" id="ptI${i}" data-img="${i}" accept="image/*" hidden>`}</td><td>${now}</td><td>${r.n ? '' : `<button type="button" class="sb r" data-rm="${i}">빼기</button>`}</td></tr>`;
     }).join('')}</table>
       <div class="sr"><b>같은 타입 묶기</b><span>체크한 줄을 <input class="si" id="ptBulk" style="width:70px" placeholder="예: 59A" maxlength="8" value="${esc(PT.bulk)}"> 타입으로 ${B('ptBulkB', '적용')}</span><span class="a"><small>같은 타입으로 적은 줄은 평면도도 같이 씁니다</small></span></div>` : `<p class="sp-e">${PT.busy || '전용면적을 받지 못했습니다. 아래에서 직접 추가해 주세요.'}</p>`) : '';
@@ -435,8 +435,10 @@ window.Sett = (() => {
       const db = await aptDb(c.pnu.slice(0, 5)), e = db && db.cx && db.cx[c.pnu];
       if (e && e.t && e.t.length) {
         Object.assign(c, { db: true, y: e.y, h: e.h, dn: e.d, nosup: !!e.nosup }); if (!c.n) c.n = e.n;
-        c.rows = e.t.map(z => ({ k: z.ex.toFixed(2), a: z.ex, sup: z.sup, dpy: z.py || '', n: z.h }));
-        Object.keys(c.val).filter(kk => !c.rows.some(z => z.k === kk)).forEach(kk => c.rows.push({ k: kk, a: +kk, n: 0 }));
+        // 10/31 같은 전용에 공급면적이 다른 줄이 여럿이면: 세대 수가 가장 많은 줄 = '전용'(회원 화면에 나가는 값) · 나머지 줄 = '전용|공급'으로 따로 저장 (회원 화면엔 안 나감)
+        const top = {}; e.t.forEach(z => { if (!top[z.ex] || z.h > top[z.ex].h) top[z.ex] = z; });
+        c.rows = e.t.map(z => ({ k: top[z.ex] === z ? z.ex.toFixed(2) : `${z.ex.toFixed(2)}|${(+z.sup || 0).toFixed(2)}`, a: z.ex, sup: z.sup, dpy: z.py || '', n: z.h, sub: top[z.ex] !== z }));
+        Object.keys(c.val).filter(kk => !c.rows.some(z => z.k === kk)).forEach(kk => c.rows.push({ k: kk, a: parseFloat(kk), sup: +kk.split('|')[1] || null, n: 0, sub: kk.includes('|') }));
         c.rows.sort((x, y) => x.a - y.a || (x.sup || 0) - (y.sup || 0));
         c.rows.forEach(r => { const v = c.val[r.k]; if (v && v.py && v.py === r.dpy) v.py = ''; });   // 저장값이 대장 값과 같으면 파란 칸으로
         PT.busy = ''; if (PT.cur === c && sec === 'pyt') draw(); return;
