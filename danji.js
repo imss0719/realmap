@@ -911,6 +911,7 @@ window.Danji = (() => {
     sortRows(rows, F.sort === 'fl' && C.view !== 'dong' ? 'dh' : F.sort);
     // 10/31 단지 전체(모든 호)는 큰 단지면 수천 호 → 300호씩 보여 주고 [더 보기] (화면이 멈추지 않게)
     const nAll = rows.length, LIM = S.lim || 300;
+    if (!ALL) needUnits(cx, C, LIM + 50);
     if (!ALL && C.view !== 'dong' && rows.length > LIM) rows = rows.slice(0, LIM);
     // 호별 면적·공급면적은 보이는 줄의 동만 받음
     if (!ALL) needAreas(cx, C, rows);
@@ -1066,6 +1067,25 @@ window.Danji = (() => {
 
   // 10/31 표 다시 그리기를 잠깐 모아서 한 번에 (동마다 자료가 들어올 때마다 큰 표를 다시 그리지 않게)
   function soonTable(cx) { clearTimeout(S.tblT); S.tblT = setTimeout(() => { if (S.ed) return; if (S.cur === cx.id) drawTable(cx); else if (S.cur === '__all') drawTable(AX); }, 250); }
+  // 10/31 단지 전체(모든 호): 이미 저장된 단지는 동을 눌러야 호 목록을 받았음 → 보이는 만큼(300호씩) 동 순서대로 미리 받음 (서버에 저장된 목록이라 빠름)
+  function needUnits(cx, C, upto) {
+    if (C.view === 'dong' || !C.dongs) return;
+    C.units = C.units || {}; C.uq = C.uq || 0;
+    let have = 0;
+    for (const d of [...C.dongs].sort((a, b) => natc(a.dong, b.dong))) {
+      const k = d.pnu + '|' + d.dong, U = C.units[k];
+      if (Array.isArray(U)) { have += U.length; if (have >= upto) break; continue; }
+      if (U === 'loading' || U === 'error') continue;
+      const sc = C.scan && C.scan.per[d.pnu]; if (sc && !sc.done && !sc.cached) continue;   // 처음 받는 단지는 차례 받기(scanAll)가 채움
+      if (C.uq >= 2) break;
+      C.units[k] = 'loading'; C.uq++;
+      const qd = encodeURIComponent((sc && sc.names && sc.names.get(normD(d.dong))) || d.dong);
+      api(`/api/units?pnu=${d.pnu}&dong=${qd}`).then(r => { C.units[k] = r.units || []; }).catch(() => { C.units[k] = 'error'; })
+        .then(() => { C.uq--; if (S.cur === cx.id) { needUnits(cx, C, upto); soonTable(cx); } });
+      have += d.ho || d.hhld || 50;
+      if (have >= upto) break;
+    }
+  }
   // 공급면적 요청은 한 번에 2개씩 (공공데이터 한도에 걸리지 않게)
   const SQ = { q: [], n: 0 };
   function supNext() { while (SQ.n < 2 && SQ.q.length) { const f = SQ.q.shift(); SQ.n++; f().finally(() => { SQ.n--; supNext(); }); } }
