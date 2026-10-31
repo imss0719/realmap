@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리얼맵 손님 매칭 · 매물의 양보다 매칭력</title>
+<meta name="description" content="물건은 많은데 매칭이 잘 안 된다고요? 상담하면서 조건 한 줄이면 내 물건·타 부동산 물건까지 바로 찾아 브리핑. 월 9,900원, 2주 무료.">
+<meta property="og:title" content="물건은 많은데, 매칭이 잘 안 된다고요? · 리얼맵 손님 매칭">
+<meta property="og:description" content="조건 한 줄이면 맞는 매물을 바로 찾아 브리핑. 2주 동안 모든 기능 무료.">
+<meta property="og:image" content="https://realmap.online/og.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<!-- 10/31 선배: 손님 매칭 홍보 전용 페이지 (릴스·광고 링크용) -->
+<style>
+:root{--navy:#14212E;--navy2:#1C2D3D;--gold:#F2B705;--fg:#14212E;--muted:#5E6A77;--line:#E1E6EB}
+*{box-sizing:border-box}body{margin:0;font-family:"Pretendard Variable","Noto Sans CJK KR",sans-serif;letter-spacing:-.03em;color:var(--fg);background:#fff}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.dark{background:radial-gradient(1000px 600px at 70% 0%,#22406A 0%,#14212E 60%,#0E1823 100%);color:#fff}
+section{padding:96px 0}
+.q{font-size:clamp(20px,2.2vw,26px);font-weight:700;color:#C9D3DE;margin:0 0 14px}
+h2{font-size:clamp(34px,5vw,64px);line-height:1.12;margin:0;font-weight:900;letter-spacing:-.05em}
+h2 b{color:var(--gold)}.lt h2 b{color:#C28A00}
+.sub{font-size:clamp(16px,1.6vw,20px);line-height:1.65;color:rgba(255,255,255,.75);margin:20px 0 0;max-width:640px}.lt .sub{color:var(--muted)}
+.tag{display:inline-block;font-size:14px;font-weight:800;color:var(--gold);border:1px solid rgba(242,183,5,.4);background:rgba(242,183,5,.1);border-radius:999px;padding:5px 14px;margin-bottom:18px}
+.lt .tag{color:#9A6B00;background:#FFF4CC;border-color:#F2D27A}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+/* 한 줄 입력 */
+.inp{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(20,33,46,.18);padding:22px;border:1px solid var(--line)}
+.inp .box{display:flex;align-items:center;gap:10px;border:2px solid var(--gold);border-radius:12px;padding:14px 16px;font-size:18px;font-weight:700;color:var(--fg)}
+.inp .box i{font-style:normal;color:#C28A00;font-size:22px}
+.cells{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.cell{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--muted)}.cell b{display:block;font-size:17px;color:var(--fg);margin-top:2px}
+.cell.on{border-color:#5BB98B;background:#EFFAF4}
+/* 매칭 */
+.mt{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:20px;color:var(--fg)}
+.mt h4{margin:0 0 12px;font-size:17px}.mt h4 b{color:#1F7A4D}
+.mr{display:flex;align-items:center;gap:10px;padding:12px 6px;border-top:1px solid var(--line);font-size:16px;font-weight:700}
+.mr small{color:var(--muted);font-weight:600}.mr .p{margin-left:auto;color:#1C64C8}
+.g{font-size:12px;font-weight:800;border-radius:8px;padding:4px 8px;white-space:nowrap}.g.ok{background:#1F7A4D;color:#fff}.g.ov{background:#FFF0C2;color:#8A6100}.src{font-size:12px;border-radius:6px;padding:2px 6px;background:#EEF3FB;color:#1C3D6E}.src.o{background:#F3EEFF;color:#5B3BA8}
+.alert{margin-top:14px;display:flex;gap:12px;align-items:center;background:#14212E;color:#fff;border-radius:14px;padding:14px 16px;font-weight:700;font-size:15px}.alert small{display:block;color:#9FB4D6;font-weight:600;font-size:13px}
+/* 브리핑 / 안심 */
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px}
+.fc{border:1px solid var(--line);border-radius:20px;padding:28px;background:#fff}
+.fc .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:26px;background:#FFF4CC;margin-bottom:14px}
+.fc h3{margin:0 0 8px;font-size:23px}.fc p{margin:0;color:var(--muted);line-height:1.6;font-size:16px}
+/* 가격 */
+.price{display:flex;align-items:flex-end;gap:14px;margin-top:28px}
+.price .n{font-size:clamp(56px,8vw,96px);font-weight:900;color:var(--gold);line-height:1}.price .u{font-size:22px;font-weight:800;color:#fff;padding-bottom:12px}
+.cups{display:flex;gap:10px;margin-top:22px;font-size:40px}
+.cta{display:inline-block;margin-top:34px;background:var(--gold);color:var(--navy);font-weight:900;font-size:20px;border-radius:14px;padding:18px 32px;text-decoration:none;box-shadow:0 10px 30px rgba(242,183,5,.4)}
+.fine{margin-top:16px;color:rgba(255,255,255,.65);font-size:15px}
+.center{text-align:center}.center .sub{margin-left:auto;margin-right:auto}
+@media(max-width:760px){.two,.feat{grid-template-columns:1fr}section{padding:64px 0}.cells{grid-template-columns:repeat(2,1fr)}}
+.hero1{padding:150px 0 140px}
+.hero1 .h1a{font-size:clamp(40px,6.5vw,84px);color:#DCE6F5;font-weight:800}
+.hero1 .h1b{font-size:clamp(46px,7.6vw,100px);margin-top:10px}
+.hero1 b{color:var(--gold)}
+.lt2{background:#F6F7F9;padding:90px 0}
+.q2{font-size:clamp(17px,1.8vw,22px);font-weight:700;color:var(--muted);margin:0 0 14px}
+.lt2 h2{font-size:clamp(32px,4.8vw,60px)}.lt2 h2 b{color:#C28A00}.lt2 s{color:#9AA3AD;text-decoration:line-through;text-decoration-thickness:5px;text-decoration-color:#C92A2A}
+.vs{display:flex;justify-content:center;align-items:center;gap:22px;margin-top:40px;flex-wrap:wrap}
+.vb{width:280px;border-radius:20px;background:#fff;border:1px solid var(--line);padding:22px;text-align:left}
+.vb small{color:var(--muted);font-size:14px;font-weight:700}.vb b{display:block;font-size:44px;font-weight:900;margin:6px 0;color:#9AA3AD}.vb span{color:var(--muted);font-size:15px}
+.vb.on{border:2px solid var(--gold);box-shadow:0 14px 40px rgba(242,183,5,.25)}.vb.on b{color:#C28A00}.vb.on span{color:var(--fg);font-weight:700}
+.arrow{font-size:34px;color:#C28A00;font-weight:900}
+.nw{white-space:nowrap;display:inline-block}
+@media(max-width:760px){.vs{flex-direction:column;gap:12px}.vb{width:100%;max-width:340px}.arrow{transform:rotate(90deg)}.hero1{padding:110px 0 100px}}
+
+.nav{position:fixed;left:0;right:0;top:0;z-index:50;transition:background .3s,box-shadow .3s}.nav.solid{background:rgba(255,255,255,.94);backdrop-filter:blur(10px);box-shadow:0 1px 0 var(--line)}
+.nav .in{max-width:1080px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:12px;height:60px}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;font-weight:800;font-size:17px;color:#fff}.nav.solid .brand{color:var(--navy)}
+.brand em{font-style:normal;font-size:11px;font-weight:800;background:var(--gold);color:var(--navy);border-radius:999px;padding:2px 8px}
+.nav .sp{flex:1}.nav .lk{color:rgba(255,255,255,.8);text-decoration:none;font-weight:600;font-size:14px}.nav.solid .lk{color:var(--muted)}
+.nav .go{background:var(--gold);color:var(--navy);font-weight:800;font-size:14px;border-radius:10px;padding:9px 14px;text-decoration:none}
+@media(max-width:520px){.nav .lk{display:none}}
+.rv{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.8,.2,1),transform .8s cubic-bezier(.2,.8,.2,1);transition-delay:var(--d,0s)}.rv.in{opacity:1;transform:none}
+.cell{transition:background .3s,border-color .3s}.cell b{opacity:0;transition:opacity .3s}.cell.on b{opacity:1}
+.cur{color:#C28A00;animation:bl 1s steps(1) infinite}@keyframes bl{50%{opacity:0}}
+.mr.rv{transform:translateX(30px)}.mr.rv.in{transform:none}
+.mr:nth-child(3){--d:.2s}.mr:nth-child(4){--d:.4s}
+@media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.cell b{opacity:1}}
+</style>
+</head>
+<body>
+<header class="nav" id="nav"><div class="in"><a class="brand" href="/"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1C2D3D"/><g transform="translate(6.4 9) scale(0.72)" fill="#fff"><path d="M10 2H22V17.5L10 19Z"/><path d="M10 21 22 19.5V40L10 41.5Z"/><path d="M10 43.5 22 42V62H10Z"/><path d="M24 2H40.5L40 13H24Z"/><path d="M42.5 2H48L54 8V25L42.5 26.3Z"/><path d="M24 29.6 33 28.8V38H24Z"/><path d="M31 40.5H44L51.5 50 39.5 51.5Z"/><path d="M41 53.5 53 52 61 62H47Z"/><path d="M35 28.6 54 27V30L47 38H35Z" fill="#F2B705"/></g></svg>리얼맵 <em>손님 매칭</em></a><span class="sp"></span><a class="lk" href="/pro.html">중개장부</a><a class="lk" href="/">리얼맵 지도</a><a class="go" href="/pro.html?go=1">2주 무료로 시작</a></div></header>
+<!-- 1·2 -->
+<section class="dark hero1"><div class="wrap center">
+ <h2 class="h1a rv"><span class="nw">물건은 <b>많은데</b>,</span></h2>
+ <h2 class="h1b rv" style="--d:.25s"><span class="nw">매칭이 잘</span> <span class="nw"><b>안 된다고요?</b></span></h2>
+</div></section>
+<section class="lt2"><div class="wrap center">
+ <p class="q2 rv">손님 연결은 결국 매칭에서 갈립니다</p>
+ <h2>매물의 <s>양</s>보다<br><b>매칭력</b>이 핵심입니다</h2>
+ <div class="vs"><div class="vb rv"><small>매물만 많을 때</small><b>100건</b><span>손님에게 맞는 건? 찾다가 놓침</span></div><div class="arrow">→</div><div class="vb rv on" style="--d:.3s"><small>매칭이 될 때</small><b>3건</b><span>조건에 딱 맞는 3건을 바로 브리핑</span></div></div>
+</div></section>
+<!-- 3 -->
+<section class="lt"><div class="wrap two">
+ <div><span class="tag rv">① 조건은 한 줄로</span><h2>상담하면서<br><b>한 줄만</b> 쓰세요</h2><p class="sub rv">이름·연락처·지역·예산·면적을 따로 칸마다 찾아 쓸 필요 없습니다. 말하는 그대로 한 줄 쓰고 Enter — 칸은 알아서 나뉩니다.</p></div>
+ <div class="inp rv"><div class="box"><i>＋</i><span id="ty" data-t="○○○ 010-○○○○-○○○○ 아현동 매매 7억 이하 24평"></span><span class="cur">|</span></div>
+  <div class="cells"><div class="cell">이름<b>○○○</b></div><div class="cell">연락처<b>010-○○○○</b></div><div class="cell">지역<b>아현동</b></div><div class="cell">찾는 것<b>매매</b></div><div class="cell">예산<b>7억 이하</b></div><div class="cell">면적<b>24평~</b></div></div></div>
+</div></section>
+<!-- 4 -->
+<section class="dark"><div class="wrap two">
+ <div><span class="tag rv">② 자동 매칭</span><h2>내 물건 + 타 부동산 물건까지<br><b>바로 찾아 드립니다</b></h2><p class="sub rv">내 매물장과 단지 장부에 적어 둔 타 부동산 물건까지 조건에 가까운 순으로. 예산을 조금 넘는 물건도 놓치지 않게 따로 표시합니다.<br>새 물건이 들어오거나 가격이 예산 안으로 내려오면 알려 드립니다.</p></div>
+ <div class="mt rv"><h4>맞는 매물 <b>3건</b> · 조건에 가까운 순</h4>
+  <div class="mr rv"><span class="src">내 매물</span>○○아파트 101-1203 <small>24평</small><span class="p">6.8억</span><span class="g ok">조건 맞음</span></div>
+  <div class="mr rv"><span class="src o">타 부동산</span>○○아파트 105-702 <small>24평</small><span class="p">6.9억</span><span class="g ok">조건 맞음</span></div>
+  <div class="mr rv"><span class="src">내 매물</span>○○아파트 203-1501 <small>25평</small><span class="p">7.3억</span><span class="g ov">예산 +4%</span></div>
+  <div class="alert rv" style="--d:.9s">🔔<div>○○○ 고객님에게 맞는 매물이 새로 나왔습니다<small>가격이 예산 안으로 내려와도 알림</small></div></div></div>
+</div></section>
+<!-- 5·6 -->
+<section class="lt"><div class="wrap">
+ <span class="tag rv">③ 브리핑하면 끝</span><h2>찾았으면, <b>바로 브리핑</b></h2>
+ <div class="feat">
+  <div class="fc rv"><div class="ic">📄</div><h3>손님용 브리핑 한 장</h3><p>매물 정보와 필지·건축물·실거래·입지 정보를 모아 한 장으로. 상담 자리에서 바로 보여 주거나 PDF로 보내세요.</p></div>
+  <div class="fc rv"><div class="ic">🔒</div><h3>손님 뺏길 걱정 제로</h3><p>손님 정보는 암호화해서 저장하고, 다른 중개사나 지도에는 절대 보이지 않습니다. 내 손님은 내 장부에만.</p></div>
+ </div>
+</div></section>
+<!-- 7·8 -->
+<section class="dark" style="padding:110px 0"><div class="wrap center">
+ <p class="q rv">쓰고는 싶은데, 매달 나가는 돈이 걱정이라고요?</p>
+ <h2>커피 두 잔 값으로<br><b>중개력 두 배</b></h2>
+ <div class="price rv" style="justify-content:center"><span class="n">9,900</span><span class="u">원 / 월</span></div>
+ <div class="cups rv" style="justify-content:center">☕ ☕</div>
+ <a class="cta rv" href="/pro.html?go=1">무료로 써 보고 결정하기 ›</a>
+ <p class="fine">2주 동안 모든 기능 무료 (브리핑 등 Basic 기능 포함) · 이후에도 고객 10명·매물 10건 계속 무료 · 자동 결제 없음</p>
+ <p class="fine" style="margin-top:6px"><a href="/pro.html" style="color:#9FB4D6">중개장부 전체 기능 보기 ›</a></p>
+</div></section>
+<script>
+(() => {
+  const nav = document.getElementById('nav'), onS = () => nav.classList.toggle('solid', scrollY > window.innerHeight * .6); addEventListener('scroll', onS, { passive: true }); onS();
+  // 화면에 들어오면 한 번 떠오름
+  const io = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; e.target.classList.add('in'); io.unobserve(e.target); if (e.target.classList.contains('inp')) typeIt(); }), { threshold: .2 });
+  document.querySelectorAll('.rv').forEach(el => io.observe(el));
+  // 한 줄 입력 타이핑 → 칸이 하나씩 채워짐
+  let typed = false;
+  function typeIt() {
+    if (typed) return; typed = true;
+    const el = document.getElementById('ty'), t = el.dataset.t, cells = [...document.querySelectorAll('.cell')];
+    let i = 0; const step = () => { el.textContent = t.slice(0, ++i); if (i < t.length) setTimeout(step, 55); else cells.forEach((c, k) => setTimeout(() => c.classList.add('on'), 250 + k * 180)); };
+    setTimeout(step, 500);
+  }
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) { document.getElementById('ty').textContent = document.getElementById('ty').dataset.t; document.querySelectorAll('.cell').forEach(c => c.classList.add('on')); }
+})();
+</script>
+</body>
+</html>
