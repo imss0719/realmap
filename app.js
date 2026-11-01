@@ -3008,14 +3008,14 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function btLabel(el, x) {
     const py = T.mode === 'py' && x.pl > 10 ? x.p / (x.pl / 3.305785) : 0;
     el.innerHTML = `<b>${py ? `<i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만` : eok(x.p)}</b>${x.j ? '<i class="jk">직</i>' : ''}<small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;
-    el.title = `[${BTK[x.k]}] ${x.a} · ${won(x.p)} · ${ymd(x.d)}${x.j ? ' · 직거래' : ' · 중개거래'}\n대지 ${n(x.pl, 2)}㎡ · 연면적 ${n(x.gf, 2)}㎡${x.pl > 10 ? ` · 대지 평당 ${n(Math.round(x.p / (x.pl / 3.305785) / 10) * 10)}만원` : ''}\n최근 5년 매매 ${x.c}건` + (x.h && x.h.length > 1 ? '\n' + x.h.map(h => `${ymd(h[0])} ${won(h[1])}${h[2] ? ' (직거래)' : ''}`).join('\n') : '');
+    el.title = `[${BTK[x.k]}] ${x.a} · ${won(x.p)} · ${ymd(x.d)}${x.j ? ' · 직거래' : ' · 중개거래'}\n대지 ${n(x.pl, 2)}㎡ · 연면적 ${n(x.gf, 2)}㎡${x.pl > 10 ? ` · 대지 평당 ${n(Math.round(x.p / (x.pl / 3.305785) / 10) * 10)}만원` : ''}\n최근 5년 매매 ${x.c}건` + (x.h && x.h.length > 1 ? '\n' + x.h.slice(0, 5).map(h => `${ymd(h[0])} ${won(h[1])}${h[2] ? ' (직거래)' : ''}`).join('\n') : '');
   }
   function drawTrades() {
     const K = kakao.maps;
     if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), proj = S.map.getProjection();
     const all = [];
-    T.regions.forEach(e => { if (e.items) for (const x of e.items) if (x.lat && x.lng && kindOn(x.k)) all.push(x); });   // 11/1 고른 묶음·칩만
+    T.regions.forEach(e => { if (e.items) for (const x of e.items) if (x.lat && x.lng && x.p && kindOn(x.k)) all.push(x); });   // 11/1 고른 묶음·칩만
     // 거래가 많은 건물부터 자리 잡고, 겹치는 라벨은 숨김
     all.sort((a, z) => (z.king ? 1 : 0) - (a.king ? 1 : 0) || z.c - a.c || z.d.localeCompare(a.d));   // 11/1 왕관 단지가 먼저 자리 잡음
     // 11/1 아파트 평형별 라벨: 멀리(레벨 4~5) = 이름 + 대표 평형 하나 · 가까이(1~3) = 이름 + 평형별 모두
