@@ -110,6 +110,7 @@ export default handler(async (req, res) => {
       const s = (g.s ||= {})[k] ||= { c: 0 };
       s.c++;
       if (date > (s[via + 'd'] || '')) { s[via + 'd'] = date; s[via + 'p'] = price; }
+      if (via === 'm' && ar >= 80 && ar <= 86 && price > (g.x84 || 0)) g.x84 = price;   // 11/1 대장 아파트: 84㎡ 6개월 최고가 (중개거래만)
     }
   }
   // 평형별 줄: [전용㎡, 가격(만원), 거래일, 6개월 건수] — 작은 평형부터
