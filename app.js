@@ -2661,6 +2661,20 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     drawTrades();
     if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 실거래가입니다'); }
   }
+  // 11/1 아파트 평형별 줄 (서버 x.pa = [[전용㎡, 가격, 거래일, 건수], ...]) · 서버가 예전 파일이면 null → 예전 한 줄 라벨
+  function aptRows(x, far) {
+    if (x.k !== 'apt' || !Array.isArray(x.pa) || !x.pa.length) return null;
+    if (!far) return x.pa;
+    const r84 = x.pa.find(r => r[0] >= 80 && r[0] <= 86);
+    return [r84 || x.pa.slice().sort((a, z) => z[3] - a[3] || z[2].localeCompare(a[2]))[0]];   // 대표 평형: 84㎡ → 없으면 거래 가장 많은 평형
+  }
+  function aptLabel(el, x, rows) {
+    const py = T.mode === 'py';
+    const val = r => py ? `<i class="tpy">평</i>${n(Math.round(r[1] / (r[0] / 3.305785) / 10) * 10)}만` : eok(r[1]);
+    el.classList.add('mp');
+    el.innerHTML = `<span class="nm">${esc(x.n || '')}</span>${rows.map(r => `<span class="r"><i>${r[0]}</i><b>${val(r)}</b></span>`).join('')}`;
+    el.title = `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
+  }
   function drawTrades() {
     const K = kakao.maps;
     if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
@@ -2669,22 +2683,28 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     T.regions.forEach(e => { if (e.items && T.kinds[e.kind]) for (const x of e.items) if (x.lat && x.lng) all.push(x); });
     // 거래가 많은 건물부터 자리 잡고, 겹치는 라벨은 숨김
     all.sort((a, z) => z.c - a.c || z.d.localeCompare(a.d));
-    const placed = lsPoints(), show = new Set();
+    // 11/1 아파트 평형별 라벨: 멀리(레벨 4~5) = 이름 + 대표 평형 하나 · 가까이(1~3) = 이름 + 평형별 모두
+    const far = S.map.getLevel() >= 4;
+    const placed = lsPoints().map(q => ({ x: q.x, y: q.y, w: 62, h: 24 })), show = new Set();
     for (const x of all) {
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      if (placed.some(q => Math.abs(q.x - pt.x) < 62 && Math.abs(q.y - pt.y) < 24)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
-      placed.push(pt); show.add(x.id);
+      const rows = aptRows(x, far), w = rows ? Math.min(106, Math.max(66, String(x.n || '').length * 10.5 + 14)) : 62, h = rows ? 16 + rows.length * 15 : 24, cy = pt.y - 0.7 * (h - 24);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
+      placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
+      if (o && rows && o._far !== far) { aptLabel(o.getContent(), x, rows); o._far = far; }
       if (!o) {
         const el = document.createElement('button');
         el.type = 'button'; el.className = `tlabel k-${x.k}`;
         el.title = `[${TK[x.k]}] ${x.n || ''} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}${x.ar > 10 ? ` (평당 ${n(Math.round(x.p / (x.ar / 3.305785) / 10) * 10)}만원, 전용 기준)` : ''}`;
         const py = T.mode === 'py' && x.ar > 10 ? x.p / (x.ar / 3.305785) : 0; // 평당가 (전용 기준, 만원)
         el.innerHTML = py ? `<b><i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>` : `<b>${eok(x.p)}</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;   // 10/30 시안 C: 한 줄 알약 (가격 · 거래 연월) · 면적은 title·누르면
+        if (rows) aptLabel(el, x, rows);
         el.onclick = ev => { ev.stopPropagation(); pick(x.lat, x.lng); };
         o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.2, zIndex: 3, clickable: true });
+        o._far = far;
         T.ovs.set(x.id, o);
       }
       if (!o.getMap()) o.setMap(S.map);
