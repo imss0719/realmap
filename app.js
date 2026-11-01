@@ -353,7 +353,7 @@
     const T = S.d.trades && !S.d.trades.loading && !S.d.trades.error ? S.d.trades : null;
     const ud = String((k && k.usedate) || (m && m.useApr) || '').replace(/\D/g, ''), yb = +ud.slice(0, 4) || 0, yNow = new Date().getFullYear();
     const hh = (k && k.hh) || (rc && rc.hhld) || 0;
-    const name = (k && k.name) || (rc && rc.name) || (m && m.name) || S.sel.bname || '';
+    const name = nmOk(k && k.name) || nmOk(rc && rc.name) || nmOk(m && m.name) || nmOk(S.sel.bname);
     let rows = null, rep = null, n1 = null, R = null;
     if (T) {
       // 평형별 최근 매매 (해제 제외 · 중개거래 우선, 없으면 직거래)
@@ -378,7 +378,7 @@
   function danjiHead(I, chipsWarn) {
     const p = S.sel, c = chr();
     const meta = [I.yb ? `${I.yb}년 준공 (${I.yNow - I.yb + 1}년차)` : '', I.hh ? `${n(I.hh)}세대${I.k && I.k.dongCnt ? ` · ${n(I.k.dongCnt)}개 동` : ''}` : '', c && c.zone1 ? esc(c.zone1) : ''].filter(Boolean);
-    return headA({ title: I.name || p.addr || p.jibun, badge: '아파트', sub: `${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}`, meta }, chipsWarn);
+    return headA({ title: titleOf(I.name, p), badge: '아파트', sub: `${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}`, meta }, chipsWarn);
   }
   // 11/1 A안 공통 머리글 (아파트·빌라·상가·토지 …)
   function headA(o, chipsWarn) {
@@ -409,6 +409,9 @@
     </div>`;
   }
   // ---------- 11/1 2차: 아파트 외 필지도 같은 틀 ----------
+  // 11/1 건물·단지 이름: 공공데이터가 빈 이름을 공백·'-'로 주는 경우가 있어 걸러 냄 (제목이 비어 보이던 원인)
+  const nmOk = v => { v = String(v ?? '').replace(/\s+/g, ' ').trim(); return v && !/^[-–.·\s0]*$/.test(v) ? v : ''; };
+  const titleOf = (name, p) => nmOk(name) || nmOk(p.addr) || nmOk(p.jibun) || nmOk(p.road) || `PNU ${p.pnu}`;
   const PK = { apt: ['아파트', 12], villa: ['빌라', 36], offi: ['오피스텔', 36], shop: ['상가·업무', 60], house: ['단독·다가구', 60], factory: ['공장·창고', 60], land: ['토지', 60] };
   function pkind() {
     if (!S.d.bld || S.d.bld.error) return '';
@@ -431,7 +434,7 @@
     if (!S.d.trades || S.d.trades.key !== key) loadTrades(kinds, key);
     const T = S.d.trades && !S.d.trades.loading && !S.d.trades.error ? S.d.trades : null;
     const yrs = S.months / 12, dot = '<span class="ah-sk"></span>';
-    const name = (rc && rc.name) || (m && m.name) || p.bname || '';
+    const name = nmOk(rc && rc.name) || nmOk(m && m.name) || nmOk(p.bname);
     const yb = +String((m && m.useApr) || '').slice(0, 4) || 0, yNow = new Date().getFullYear();
     const zone = c && c.zone1 ? esc(c.zone1) : '';
     const meta = kd === 'land'
@@ -439,7 +442,7 @@
       : kd === 'villa' || kd === 'offi'
         ? [yb ? `${yb}년 사용승인 (${yNow - yb + 1}년차)` : '', rc && rc.hhld ? `${n(rc.hhld)}세대${titles().length > 1 ? ` · ${titles().length}개 동` : ''}` : '', zone]
         : [yb ? `${yb}년 사용승인` : '', m && (m.grnd || m.ugrnd) ? `${m.ugrnd ? `지하 ${m.ugrnd}층 · ` : ''}지상 ${n(m.grnd || 0)}층` : '', m && m.use ? esc(m.use) : '', zone];
-    const head = headA({ title: name || p.addr || p.jibun, badge: PK[kd][0], sub: name ? `${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}` : esc(p.road || ''), meta: meta.filter(Boolean) }, chipsWarn);
+    const head = headA({ title: titleOf(name, p), badge: PK[kd][0], sub: name ? `${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}` : esc(p.road || ''), meta: meta.filter(Boolean) }, chipsWarn);
     // 공시지가 (원/㎡)
     const lpv = lp && lp.price ? lp.price : c && c.price ? c.price : 0, lpy = lp && lp.year ? lp.year : '';
     const lpBig = () => lpv && c && c.area
