@@ -253,7 +253,7 @@
     S.sel = { ...p, c, dongName: '', road: '' };
     hit('p', String(p.pnu || '').slice(0, 5));
     joinNudge();
-    S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale'; S.tradeEx = 0; S.seen = {}; S.tab = '';   /* 11/1 아파트는 [단지]가 맨 앞이라 처음 선택 탭을 비워 둠 */ S.floorsAll = false;
+    S.d = {}; S.bldIdx = 0; S.uDong = null; S.uHo = null; S.uHoManual = false; S.uHoDraft = ''; S.tradeMode = 'sale'; S.tradeEx = 0; S.safeOpen = false; S.mAuto = true; S.seen = {}; S.tab = '';   /* 11/1 아파트는 [단지]가 맨 앞이라 처음 선택 탭을 비워 둠 */ S.floorsAll = false;
     if (c && (pan || mobile())) {
       const ll = new K.LatLng(c.lat, c.lng);
       if (mobile()) { S.map.setCenter(ll); S.map.panBy(0, Math.round(innerHeight * 0.22)); } else S.map.panTo(ll);
@@ -378,6 +378,11 @@
   function danjiHead(I, chipsWarn) {
     const p = S.sel, c = chr();
     const meta = [I.yb ? `${I.yb}년 준공 (${I.yNow - I.yb + 1}년차)` : '', I.hh ? `${n(I.hh)}세대${I.k && I.k.dongCnt ? ` · ${n(I.k.dongCnt)}개 동` : ''}` : '', c && c.zone1 ? esc(c.zone1) : ''].filter(Boolean);
+    return headA({ title: I.name || p.addr || p.jibun, badge: '아파트', sub: `${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}`, meta }, chipsWarn);
+  }
+  // 11/1 A안 공통 머리글 (아파트·빌라·상가·토지 …)
+  function headA(o, chipsWarn) {
+    const p = S.sel;
     const IC = {
       rv: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="2" fill="currentColor"/><path d="M5.2 15l1-6.2H5V6.6a3 3 0 0 1 6 0v2.2H9.8l1 6.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
       loc: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
@@ -392,16 +397,85 @@
       `<button class="share loc" id="locBtn" type="button">${IC.loc}입지</button>`,
       `<button class="share brief" id="briefBtn" type="button">${IC.brief}브리핑</button>`,
       isHome() ? `<button class="share safe" id="safeBtn" type="button">${IC.safe}전세안전</button>` : '',
-      S.me.plan && S.me.plan.started ? `<a class="share" href="/listings.html?cxadd=${p.pnu}" target="_blank" rel="noopener" title="리얼맵 중개장부의 아파트·오피스텔 장부에 이 단지를 담습니다">${IC.cx}장부에 담기</a>` : '',
+      S.me.plan && S.me.plan.started && (isApt() || (collTitle() && /오피스텔|업무시설/.test(uses()))) ? `<a class="share" href="/listings.html?cxadd=${p.pnu}" target="_blank" rel="noopener" title="리얼맵 중개장부의 아파트·오피스텔 장부에 이 단지를 담습니다">${IC.cx}장부에 담기</a>` : '',
       `<button class="share" id="shareBtn" type="button">${IC.share}공유</button>`,
     ].join('');
     return `<div class="head ah">
-      <div class="ah-t"><h1>${esc(I.name || p.addr || p.jibun)}</h1><span class="ah-k">아파트</span></div>
-      <div class="ah-a">${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}</div>
-      ${meta.length ? `<div class="ah-m">${meta.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
+      <div class="ah-t"><h1>${esc(o.title)}</h1><span class="ah-k">${esc(o.badge)}</span></div>
+      ${o.sub ? `<div class="ah-a">${o.sub}</div>` : ''}
+      ${o.meta.length ? `<div class="ah-m">${o.meta.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
       ${chipsWarn ? `<div class="chips">${chipsWarn}</div>` : ''}
       <div class="ah-b">${btns}</div>
     </div>`;
+  }
+  // ---------- 11/1 2차: 아파트 외 필지도 같은 틀 ----------
+  const PK = { apt: ['아파트', 12], villa: ['빌라', 36], offi: ['오피스텔', 36], shop: ['상가·업무', 60], house: ['단독·다가구', 60], factory: ['공장·창고', 60], land: ['토지', 60] };
+  function pkind() {
+    if (!S.d.bld || S.d.bld.error) return '';
+    if (isApt()) return 'apt';
+    if (!titles().length) return S.d.land && !S.d.land.error ? 'land' : '';
+    const u = uses(), mt = mainT();
+    if (collTitle() && /오피스텔/.test(u)) return 'offi';
+    if (collTitle() && /다세대|연립|공동주택/.test(u)) return 'villa';
+    const mu = (mt && `${mt.use || ''} ${mt.etcUse || ''}`) || u;
+    if (/공장|창고/.test(mu)) return 'factory';
+    if (/단독|다가구|다중주택/.test(mu)) return 'house';
+    return 'shop';
+  }
+  const pyS = m2 => `${n(m2 / 3.305785, m2 / 3.305785 >= 100 ? 0 : 1)}평`;
+  const agoS = d => { const y = +String(d).slice(0, 4), ny = new Date().getFullYear(); return y >= ny ? '올해' : `${ny - y}년 전`; };
+  // 아파트 외 필지: 머리글 + 핵심 카드 (큰 숫자 = 기간 안 이 필지 실거래 → 없으면 공시지가)
+  function genTop(kd, chipsWarn) {
+    const p = S.sel, c = chr(), rc = recap(), m = mainT(), pr = prices(), lp = pr.length ? pr[pr.length - 1] : null;
+    const kinds = tradeKinds(), key = kinds.join(',') + '|' + S.months;
+    if (!S.d.trades || S.d.trades.key !== key) loadTrades(kinds, key);
+    const T = S.d.trades && !S.d.trades.loading && !S.d.trades.error ? S.d.trades : null;
+    const yrs = S.months / 12, dot = '<span class="ah-sk"></span>';
+    const name = (rc && rc.name) || (m && m.name) || p.bname || '';
+    const yb = +String((m && m.useApr) || '').slice(0, 4) || 0, yNow = new Date().getFullYear();
+    const zone = c && c.zone1 ? esc(c.zone1) : '';
+    const meta = kd === 'land'
+      ? [c && c.jimok ? `지목 ${esc(c.jimok)}` : '', c && c.area ? `${n(c.area, 1)}㎡ (${pyS(c.area)})` : '', zone]
+      : kd === 'villa' || kd === 'offi'
+        ? [yb ? `${yb}년 사용승인 (${yNow - yb + 1}년차)` : '', rc && rc.hhld ? `${n(rc.hhld)}세대${titles().length > 1 ? ` · ${titles().length}개 동` : ''}` : '', zone]
+        : [yb ? `${yb}년 사용승인` : '', m && (m.grnd || m.ugrnd) ? `${m.ugrnd ? `지하 ${m.ugrnd}층 · ` : ''}지상 ${n(m.grnd || 0)}층` : '', m && m.use ? esc(m.use) : '', zone];
+    const head = headA({ title: name || p.addr || p.jibun, badge: PK[kd][0], sub: name ? `${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}` : esc(p.road || ''), meta: meta.filter(Boolean) }, chipsWarn);
+    // 공시지가 (원/㎡)
+    const lpv = lp && lp.price ? lp.price : c && c.price ? c.price : 0, lpy = lp && lp.year ? lp.year : '';
+    const lpBig = () => lpv && c && c.area
+      ? { small: `공시지가${lpy ? ` (${lpy}.01.01)` : ''} · 최근 ${yrs}년 ${kd === 'land' ? '이 땅' : '이 필지'} 거래 없음`, big: won(lpv * c.area / 1e4).replace(/원$/, ''), side: `㎡당 ${n(lpv / 1e4, 0)}만 · 평당 ${n(lpv * 3.305785 / 1e4, 0)}만` }
+      : lpv ? { small: `공시지가${lpy ? ` (${lpy}.01.01)` : ''} · 최근 ${yrs}년 거래 없음`, big: `㎡당 ${n(lpv / 1e4, 0)}만원`, side: `평당 ${n(lpv * 3.305785 / 1e4, 0)}만` }
+        : { small: `최근 ${yrs}년 거래 없음`, big: '-', side: '' };
+    let H, cells;
+    if (kd === 'villa' || kd === 'offi') {
+      const sk = kd === 'villa' ? 'rh' : 'offi';
+      let rep = null;
+      if (T) {
+        const g = new Map();
+        for (const r of T.rows) { if (r.kind !== sk || r.cancel || !r.price || !r.ex) continue; const a = Math.floor(r.ex); let e = g.get(a); if (!e) g.set(a, e = { a, c: 0, m: null, j: null }); e.c++; const w = /직거래/.test(r.via || '') ? 'j' : 'm'; if (!e[w] || String(r.date) > String(e[w].date)) e[w] = r; }
+        rep = [...g.values()].sort((x, y) => y.c - x.c || String((y.m || y.j).date).localeCompare(String((x.m || x.j).date)))[0] || null;
+      }
+      const r = rep && (rep.m || rep.j);
+      H = r ? { small: `대표 평형 · 전용 ${rep.a}㎡ 최근 실거래 (${esc(String(r.date).slice(2, 7))} · ${rep.m ? '중개거래' : '직거래'})`, big: won(r.price).replace(/원$/, ''), side: agoS(r.date) === '올해' ? '' : `<em>${agoS(r.date)}</em>` } : T ? lpBig() : null;
+      const R = T && T.kinds.some(x => !x.sale) ? jeonseRatio(T.rows) : null;
+      const nS = T ? T.rows.filter(x => x.kind === sk && !x.cancel && x.price).length : null;
+      const pk = rc && rc.pkTotal && rc.hhld ? `세대당 ${n(rc.pkTotal / rc.hhld, 1)}대` : rc && rc.pkTotal ? `${n(rc.pkTotal)}대` : '-';
+      cells = [['전세가율', R ? `<b class="${R.r >= 80 ? 'hi' : R.r >= 70 ? 'mid' : ''}">${n(R.r, 0)}%</b>` : T ? '<b>-</b>' : dot], [`최근 ${yrs}년 매매`, nS != null ? `<b>${n(nS)}건</b>` : dot], ['주차', `<b>${pk}</b>`]];
+    } else {
+      // 이 필지의 확실한 매매만 (지번 일부가 가려진 '추정' 거래·주변 거래는 큰 숫자로 쓰지 않음)
+      const own = T ? T.rows.filter(r => !/Rent$/.test(r.kind) && !r.cancel && r.price && !r.approx).sort((x, y) => String(y.date).localeCompare(String(x.date)))[0] : null;
+      H = own ? { small: `이 ${kd === 'land' ? '땅' : '필지'} 최근 매매 (${esc(String(own.date).slice(0, 7))}${/직거래/.test(own.via || '') ? ' · 직거래' : ''})`, big: won(own.price).replace(/원$/, ''), side: `<em>${agoS(own.date)}</em>` } : T ? lpBig() : null;
+      const R = roomCalc(), gfa = rc ? rc.totArea : titles().reduce((s2, t) => s2 + (t.totArea || 0), 0) || 0;
+      const lpCell = ['공시지가 ㎡당', lpv ? `<b>${n(lpv / 1e4, 0)}만</b>` : '<b>-</b>'];
+      if (kd === 'land') {
+        const nr = T && T.near && T.near.land;
+        cells = [own ? lpCell : ['최대 연면적', R ? `<b>약 ${pyS(R.maxF)}</b>` : '<b>-</b>'], ['건폐율 · 용적률', R ? `<b>${R.bc}% · ${R.fa}%</b>` : '<b>-</b>'], ['주변 땅 평당', nr && nr.med ? `<b>${n(nr.med / 0.3025, 0)}만</b>` : T ? '<b>-</b>' : dot]];
+      } else {
+        cells = [own ? lpCell : ['대지면적', c && c.area ? `<b>${pyS(c.area)}</b>` : '<b>-</b>'], ['연면적', gfa ? `<b>${pyS(gfa)}</b>` : '<b>-</b>'], R && R.rest > R.maxF * 0.05 ? ['더 지을 수 있는', `<b>약 ${pyS(R.rest)}</b>`] : ['용적률', R && R.nowRat ? `<b>${n(R.nowRat, 0)}%</b>` : rc && rc.vlRat ? `<b>${n(rc.vlRat, 0)}%</b>` : '<b>-</b>']];
+      }
+    }
+    const top = H ? `<small>${H.small}</small><div class="hp"><b class="${H.big === '-' ? 'none' : ''}">${H.big}</b>${H.side ? `<span>${H.side}</span>` : ''}</div>` : `<small>최근 실거래 · 공시지가</small><div class="hp">${dot}</div>`;
+    return head + `<div class="ahero">${top}<div class="hr">${cells.map(([a2, b2]) => `<div><small>${a2}</small>${b2}</div>`).join('')}</div></div>`;
   }
   // 핵심 숫자 카드 (남색): 대표 평형 최근 실거래 · 동네 순위 · 전세가율 · 회전율 · 관리비
   function danjiHero(I) {
@@ -601,7 +675,12 @@
     const lsN = lsSync().length;
     const mLst = mobile() && lsN && S.mtab === 'lst'; // 휴대폰: 매물 탭을 보는 중
     const apt = isApt();   // 11/1 아파트면 [단지] [실거래] [동·호수]를 앞으로
-    const tabs = apt
+    const kd = pkind();    // 11/1 2차: 필지 종류 (A안 틀) · 처음 한 번 종류별 실거래 기간 (아파트 1년 · 빌라·오피스텔 3년 · 그 외 5년)
+    if (kd && S.mAuto) { S.mAuto = false; if (S.months !== PK[kd][1]) S.months = PK[kd][1]; }
+    const vill = kd === 'villa' || kd === 'offi';
+    const tabs = vill
+      ? [...(lsN && !mobile() ? [['lst', '매물']] : []), ['bld', '건물'], ['trade', '실거래'], ...(coll ? [['unit', '동·호수']] : []), ['land', '토지'], ['plan', '이용계획'], ...(jz.length ? [['dev', '개발']] : [])]
+      : apt
       ? [...(lsN && !mobile() ? [['lst', '매물']] : []), ['danji', '단지'], ['trade', '실거래'], ...(coll ? [['unit', '동·호수']] : []), ['land', '토지'], ['plan', '이용계획'], ...(jz.length ? [['dev', '개발']] : []), ['bld', '건물']]
       : [...(lsN && !mobile() ? [['lst', '매물']] : []), ['land', '토지'], ['plan', '이용계획'], ...(jz.length ? [['dev', '개발']] : []), ['bld', '건물'], ...(coll ? [['unit', '동·호수']] : []), ['trade', '실거래']];
     const c = chr(), m = mainT(), rc = recap(), o = own(), pr = prices();
@@ -632,8 +711,15 @@
       blk('plan', '이용계획', planTab()),
       jz.length ? blk('dev', '개발정보', devTab(jz)) : '',
       blk('bld', '건물', bldTab() + lazy('stores', storeSection)),
+    ] : vill ? [
+      blk('bld', '건물', bldTab() + lazy('stores', storeSection)),
+      blk('trade', '실거래', lazy('trade', tradeTab)),
+      coll ? blk('unit', '동·호수', lazy('unit', unitTab)) : '',
+      blk('land', '토지', landTab()),
+      blk('plan', '이용계획', planTab()),
+      jz.length ? blk('dev', '개발정보', devTab(jz)) : '',
     ] : [
-      lsSection(),
+      kd ? '' : lsSection(),   // 11/1 A안: 광고 매물은 위쪽 노란 줄로
       blk('land', '토지', landTab()),
       blk('plan', '이용계획', planTab()),
       jz.length ? blk('dev', '개발정보', devTab(jz)) : '',
@@ -644,13 +730,13 @@
     const keepScroll = $('panel').scrollTop;
     // 11/1 A안 (아파트만): 단지 이름 제목 · 같은 모양 버튼 · 남색 핵심 카드 · 광고 매물 한 줄
     const I = apt && S.d.bld ? danjiInfo() : null;
-    const adN = apt ? lsHere().length : 0;
-    const aptTop = I ? `${danjiHead(I, chips.filter(x => /data-warn|data-dz/.test(x)).join(''))}${danjiHero(I)}${adN ? `<button type="button" class="djad" data-djad>📢 <span>이 단지 리얼맵 광고 매물 <b>${adN}건</b></span>보기 ›</button>` : ''}
+    const adN = kd ? lsHere().length : 0, cw = chips.filter(x => /data-warn|data-dz/.test(x)).join('');
+    const aptTop = kd ? `${I ? danjiHead(I, cw) + danjiHero(I) : genTop(kd, cw)}${adN ? `<button type="button" class="djad" data-djad>📢 <span>${apt ? '이 단지' : '여기'} 리얼맵 광고 매물 <b>${adN}건</b></span>보기 ›</button>` : ''}
     <div class="ah-u"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button><span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>` : '';
-    D.classList.toggle('aptv', !!I);
+    D.classList.toggle('aptv', !!kd);
     D.innerHTML = aptTop ? `${aptTop}
-    ${mobile() && lsN ? `<div class="mtabs" role="tablist"><button type="button" role="tab" data-mt="info" aria-selected="${!mLst}">단지 정보</button><button type="button" role="tab" data-mt="lst" aria-selected="${!!mLst}">매물 <em>${lsN}</em></button></div>` : ''}
-    ${mLst ? `<div class="body mlst">${lsListHtml(lsHere(), false)}</div>` : `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || 'danji') === k}">${l}</button>`).join('')}</div>
+    ${mobile() && lsN ? `<div class="mtabs" role="tablist"><button type="button" role="tab" data-mt="info" aria-selected="${!mLst}">${apt ? '단지 정보' : '필지 정보'}</button><button type="button" role="tab" data-mt="lst" aria-selected="${!!mLst}">매물 <em>${lsN}</em></button></div>` : ''}
+    ${mLst ? `<div class="body mlst">${lsListHtml(lsHere(), false)}</div>` : `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || (tabs.find(t => t[0] !== 'lst') || ['land'])[0]) === k}">${l}</button>`).join('')}</div>
     <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`}` : `
     <div class="head">
       <div class="h1row"><h1>${esc(p.addr || p.jibun)}</h1>${favBtns()}${p.c ? `<button class="rvbtn" id="rvBtn" type="button" aria-label="이 필지 로드뷰 크게 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="2" fill="currentColor"/><path d="M5.2 15l1-6.2H5V6.6a3 3 0 0 1 6 0v2.2H9.8l1 6.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>로드뷰</button>` : ''}</div>
@@ -670,10 +756,11 @@
     <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`}`;
     $('panel').scrollTop = keepScroll;
     // 11/1 A안: 아파트 화면에서는 값이 없는 줄('-'만 있는 줄)을 숨김
-    if (I) D.querySelectorAll('.body dd').forEach(dd => { if (!dd.textContent.replace(/[-–\/·\s%동개호층]/g, '')) { dd.style.display = 'none'; const dt = dd.previousElementSibling; if (dt && dt.tagName === 'DT') dt.style.display = 'none'; } });
+    if (kd) D.querySelectorAll('.body dd').forEach(dd => { if (!dd.textContent.replace(/[-–\/·\s%동개호층]/g, '')) { dd.style.display = 'none'; const dt = dd.previousElementSibling; if (dt && dt.tagName === 'DT') dt.style.display = 'none'; } });
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => goSec(b.dataset.t));
     D.querySelectorAll('[data-djex]').forEach(b => b.onclick = () => { S.tradeEx = +b.dataset.djex; S.tradeMode = 'sale'; S.showAll = false; render(); goSec('trade'); });
+    const so = D.querySelector('[data-safeopen]'); if (so) so.onclick = () => { S.safeOpen = true; render(); goSec('trade', 'safe'); };
     const xo = D.querySelector('[data-exoff]'); if (xo) xo.onclick = () => { S.tradeEx = 0; render(); };
     const da = D.querySelector('[data-djad]'); if (da) da.onclick = () => { if (mobile()) { S.mtab = 'lst'; render(); $('panel').scrollTop = 0; } else goSec('lst'); };
     $('shareBtn').onclick = () => shareParcel(p, name);
@@ -1144,8 +1231,10 @@
     const lockI = '<svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" style="margin-left:3px;vertical-align:-1px"><rect x="2" y="5.5" width="8" height="5.5" rx="1" fill="currentColor"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
     const segP = `<span class="seg" role="group" aria-label="기간">${[12, 36, 60].map(m => `<button data-mo="${m}" aria-pressed="${S.months === m}">${m / 12}년</button>`).join('')}</span>`;
     const items = list.slice(0, S.showAll ? 500 : 40).map(r => S.tradeMode === 'rent' ? rentRow(r) : saleRow(r)).join('');
-    const safe = safeSection(T);
-    const out = [safe || jeonseCard(T), `<div class="ctl">${segM}${segP}</div>`, S.tradeEx ? `<button type="button" class="exchip" data-exoff>전용 ${S.tradeEx}㎡만 보는 중 ✕</button>` : ''];
+    // 11/1 [실거래] 탭을 누르면 실거래부터: 긴 '전세 안전 점검'은 [전세안전] 버튼이나 아래 링크로 열었을 때만 맨 위에
+    const safe = S.safeOpen ? safeSection(T) : '';
+    const safeLink = !safe && safeSection(T) ? '<button type="button" class="safelink" data-safeopen>🛡 전세 안전 점검 보기 ›</button>' : '';
+    const out = [safe || jeonseCard(T), safeLink, `<div class="ctl">${segM}${segP}</div>`, S.tradeEx ? `<button type="button" class="exchip" data-exoff>전용 ${S.tradeEx}㎡만 보는 중 ✕</button>` : ''];
     out.push(gap ? gapChart(T.rows) : trendChart(list, S.tradeMode));
     if (T.partial) out.push(`<p class="note loadmore"><span class="spin"></span>최근 ${T.partial.done / 12}년치를 먼저 보여 드리고, 나머지 ${(T.partial.total - T.partial.done) / 12}년치를 이어서 불러오는 중입니다.</p>`);
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'rent' ? '전월세' : '매매'} 거래가 없습니다.</div>`);

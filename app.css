@@ -846,3 +846,6 @@ a.favbtn{text-decoration:none}
 .djf{margin-top:8px}.djf summary{cursor:pointer;font-weight:700;font-size:12.5px;color:#3B4754}
 #detail.aptv .blk[id=sec-danji]{gap:10px}
 .djrows{margin:0}.djrows .lcopy{border:0;background:none;padding:0;color:#1C64C8;font:inherit;font-weight:700;cursor:pointer}
+
+/* 11/1 실거래 탭: 전세 안전 점검은 눌렀을 때만 */
+.safelink{display:flex;align-items:center;justify-content:center;width:100%;border:1px solid #CFE7D8;background:#F2FAF5;color:#1F7A4D;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
