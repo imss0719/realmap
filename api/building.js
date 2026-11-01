@@ -110,7 +110,7 @@ async function costAt(code, ym, ops = OPS) {
 async function kaptPart(P, name) {
   const code = await findComplex(P, name);
   if (!code) return { kapt: null };
-  return { kapt: await cached('kaptc:v2:' + code + ':' + ymBack(1), 20 * 864e5, async () => {
+  return { kapt: await cached('kaptc:v3:' + code + ':' + ymBack(1), 20 * 864e5, async () => {   // 11/1 v3: 전용면적별 세대수(sz) 추가
     const [b, d] = await Promise.all([basic(code), detail(code).catch(() => null)]);
     const ym = await costMonth(code);
     let groups = null, total = null, fails = 0;
@@ -122,9 +122,12 @@ async function kaptPart(P, name) {
     }
     const hh = num(b && b.kaptdaCnt), marea = num(b && b.kaptMarea);
     const pk = d ? (num(d.kaptdPcnt) || 0) + (num(d.kaptdPcntu) || 0) : null;
+    // 11/1 전용면적별 세대수 [60㎡ 이하, 60~85, 85~135, 135 초과] — 버전마다 이름이 달라 여러 이름을 확인
+    const szv = [60, 85, 135, 136].map(a => num(b && (b['kaptMparea' + a] ?? b['kaptMparea_' + a] ?? b['kaptdaSize_' + a])) || 0);
+    const sz = szv.some(v => v > 0) ? szv : null;
     return {
       code, name: b && b.kaptName, hh, dongCnt: num(b && b.kaptDongCnt), heat: b && b.codeHeatNm, builder: b && b.kaptBcompany, mgr: b && b.codeMgrNm,
-      hall: b && b.codeHallNm, usedate: b && b.kaptUsedate, marea, parking: pk, elev: d ? num(d.kaptdEcnt) : null,
+      hall: b && b.codeHallNm, usedate: b && b.kaptUsedate, marea, parking: pk, elev: d ? num(d.kaptdEcnt) : null, sz, tel: (b && b.kaptTel) || '',   // 11/1 관리사무소 전화
       errors: fails ? ['관리비 일부 항목을 받지 못함'] : [], // 일부 실패는 창고에 넣지 않음
       month: ym, total, groups, fails, perHH: total && hh ? total / hh : null, perM2: total && marea ? total / marea : null,
     };
