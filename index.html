@@ -79,12 +79,13 @@
     </div>
     <div class="measure" id="measure" hidden>
       <div class="dp-h"><b>면적·거리 재기</b><button id="msClose" aria-label="닫기">×</button></div>
-      <div class="seg ms-seg" role="group" aria-label="측정 방식"><button data-ms="sum" aria-pressed="true">필지 면적 합산</button><button data-ms="dist" aria-pressed="false">거리 재기</button></div>
+      <div class="seg ms-seg" role="group" aria-label="측정 방식"><button data-ms="sum" aria-pressed="true"><span class="pc">필지 </span>면적 합산</button><button data-ms="dist" aria-pressed="false">거리<span class="pc"> 재기</span></button></div>
       <div id="msBody"></div>
-      <button class="ms-reset" id="msReset" type="button">처음부터 다시</button>
+      <button class="ms-reset" id="msReset" type="button"><span class="pc">처음부터 </span>다시</button>
     </div>
     <!-- 10/30 실거래: 고르는 창 없이 [실거래] 버튼은 켜기·끄기만 · 켜져 있고 건물별 가격이 보일 때 왼쪽 아래 작은 범례 + 거래가/평당가 -->
     <div class="tleg" id="tpanel" hidden>
+      <button type="button" class="tmini" id="tmini" aria-label="실거래 보기 설정 펼치기"></button>
       <div class="tgrp" id="tgrp" role="group" aria-label="실거래 종류" hidden><button type="button" data-tg="home" aria-pressed="true">주거</button><button type="button" data-tg="bld" aria-pressed="false">상가·건물</button></div>
       <div class="tmode" role="group" aria-label="지도에 보일 가격"><button type="button" data-tm="price" aria-pressed="true">실거래가</button><button type="button" data-tm="py" aria-pressed="false">평당가</button></div>
       <div class="tchips" id="tchips"></div>

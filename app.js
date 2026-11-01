@@ -2489,6 +2489,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     $('mtMeasure').onclick = () => measureToggle(!M.on);
     $('msClose').onclick = () => measureToggle(false);
     $('msReset').onclick = () => { measureClear(); measureDraw(); };
+    $('msBody').addEventListener('click', e => { if (e.target.closest('[data-mslt]')) { $('measure').classList.toggle('ls-open'); measureDraw(); } });   // 11/2 휴대폰: 필지 목록은 눌러야 펼침
     document.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { M.mode = b.dataset.ms; measureClear(); measureDraw(); });
   }
   function measureToggle(on) {
@@ -2532,16 +2533,16 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (!M.on) return;
     if (M.mode === 'dist') {
       let d = 0; for (let i = 1; i < M.pts.length; i++) d += distM(M.pts[i - 1], M.pts[i]);
-      box.innerHTML = M.pts.length < 2 ? '<p class="ms-hint">지도에서 시작점과 다음 지점을 차례로 눌러 주세요.</p>'
+      box.innerHTML = M.pts.length < 2 ? '<p class="ms-hint"><span class="pc">지도에서 시작점과 다음 지점을 차례로 눌러 주세요.</span><span class="mo">지점을 차례로 눌러 주세요</span></p>'
         : `<div class="ms-total"><b>${fmtDist(d)}</b><span>도보 약 ${Math.max(1, Math.round(d / 67))}분 · ${M.pts.length}개 지점</span></div>`;
       return;
     }
-    if (!M.parcels.length) { box.innerHTML = '<p class="ms-hint">합산할 필지를 지도에서 차례로 눌러 주세요. 다시 누르면 빠집니다.</p>'; return; }
+    if (!M.parcels.length) { box.innerHTML = '<p class="ms-hint"><span class="pc">합산할 필지를 지도에서 차례로 눌러 주세요. 다시 누르면 빠집니다.</span><span class="mo">필지를 눌러 주세요</span></p>'; return; }
     const sum = M.parcels.reduce((s, x) => s + (x.area ?? x.geo), 0);
     const approx = M.parcels.some(x => x.area == null);
-    box.innerHTML = `<div class="ms-total"><b>${n(sum, 2)}㎡</b><span>${n(toPy(sum), 2)}평 · ${M.parcels.length}필지${approx ? ' · 일부 도면 기준' : ''}</span></div>
+    box.innerHTML = `<div class="ms-total"><b>${n(sum, 2)}㎡</b><span>${n(toPy(sum), 2)}평 · ${M.parcels.length}필지${approx ? ' · 일부 도면 기준' : ''}</span><button type="button" class="ms-lt" data-mslt>${$('measure').classList.contains('ls-open') ? '목록 ▲' : '목록 ▼'}</button></div>
       <ul class="ms-list">${M.parcels.map(x => `<li><span>${esc(x.jibun)}<small>${esc(x.jimok)}</small></span><span>${n(x.area ?? x.geo, 1)}㎡${x.area == null ? '<small>도면</small>' : ''}</span></li>`).join('')}</ul>
-      <p class="ms-hint">면적은 토지대장 기준이며, 불러오기 전에는 지도 도면으로 계산한 근삿값을 보여 드립니다.</p>`;
+      <p class="ms-hint pc">면적은 토지대장 기준이며, 불러오기 전에는 지도 도면으로 계산한 근삿값을 보여 드립니다.</p>`;
   }
 
   // ---------- 지도 위 실거래가 라벨 ----------
@@ -2566,6 +2567,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     document.querySelectorAll('[data-tg]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tg === g));
     $('tchips').innerHTML = TGRP[g].map(([k, t, c]) => `<button type="button" data-tk="${k}" aria-pressed="${T.kinds[k] !== false}" style="--c:${c}">${t}</button>`).join('');
     const span = g === 'bld' ? '최근 5년 매매' : '최근 6개월 매매';
+    // 11/2 휴대폰: 평소엔 접힌 알약 한 줄 (묶음 · 켜진 칩 색 점 · 실거래가/평당가)
+    $('tmini').innerHTML = `<b>${g === 'bld' ? '상가·건물' : '주거'}</b><span class="dots">${TGRP[g].filter(r => T.kinds[r[0]] !== false).map(r => `<i style="background:${r[2]}"></i>`).join('')}</span>${T.mode === 'py' ? '평당가' : '실거래가'}<em>${$('tpanel').classList.contains('fold') ? '▼' : '▲'}</em>`;
     $('tSec').textContent = `${span} · ${T.mode === 'py' ? (g === 'bld' ? '평당가 (대지 기준)' : '평당가 (전용 기준)') : '최근 실거래가'} · 누르면 켜고 끄기`;
   }
   function tradeMapInit() {
@@ -2573,9 +2576,16 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     // 거래가 · 평당가(전용 기준) 전환 — 고른 쪽을 기억
     const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); tPanelSync(); };
     const redraw = () => { tPanelSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); tradeRefresh(); };
-    document.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => { if (tGrp() === b.dataset.tg) return; T.grp = b.dataset.tg; redraw(); });
+    // 11/2 휴대폰: 접힘으로 시작 · 알약을 누르면 펼침 · 묶음·가격 기준을 고르거나 지도를 움직이면 다시 접힘
+    const fold = on => { $('tpanel').classList.toggle('fold', on); tPanelSync(); };
+    if (mobile()) $('tpanel').classList.add('fold');
+    $('tmini').onclick = () => fold(!$('tpanel').classList.contains('fold'));
+    const autoFold = () => { if (mobile() && !$('tpanel').classList.contains('fold')) fold(true); };
+    kakao.maps.event.addListener(S.map, 'dragstart', autoFold);
+    kakao.maps.event.addListener(S.map, 'zoom_start', autoFold);
+    document.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => { if (tGrp() === b.dataset.tg) return; T.grp = b.dataset.tg; redraw(); autoFold(); });
     $('tchips').onclick = e => { const b = e.target.closest('[data-tk]'); if (!b) return; const k = b.dataset.tk; T.kinds[k] = T.kinds[k] === false; if (!TGRP[tGrp()].some(r => T.kinds[r[0]] !== false)) { T.kinds[k] = true; toast('하나는 켜 두어야 합니다'); return; } redraw(); };
-    document.querySelectorAll('[data-tm]').forEach(b => b.onclick = () => { if (T.mode === b.dataset.tm) return; T.mode = b.dataset.tm; tmSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); drawTrades(); });
+    document.querySelectorAll('[data-tm]').forEach(b => b.onclick = () => { if (T.mode === b.dataset.tm) return; T.mode = b.dataset.tm; tmSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); drawTrades(); autoFold(); });
     tmSync();
     const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); };
     setOn(T.on);

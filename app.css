@@ -868,3 +868,30 @@ a.favbtn{text-decoration:none}
 .tlabel.k-nrg{--c:#B4462B;background:#fff}.tlabel.k-sh{--c:#1C64C8;background:#fff}.tlabel.k-indu{--c:#5F6B78;background:#fff}
 .tlabel .jk{font-style:normal;font-size:8.5px;font-weight:800;color:#6B7785;border:1px solid #B7C0CA;border-radius:3px;padding:0 2px;line-height:1.25;margin-left:1px;align-self:center}
 .tlabel:hover .jk{color:#14212E;border-color:#14212E}
+/* 11/2 휴대폰: 실거래 창은 평소 접힌 알약 한 줄 · 면적·거리 창은 얇은 띠 두 줄 (PC는 그대로) */
+.tleg .tmini{display:none}
+.ms-hint .mo,.ms-lt{display:none}
+@media (max-width:760px){
+  .tleg .tmini{display:flex;align-items:center;gap:6px;width:100%;border:0;background:transparent;font:inherit;font-size:12px;font-weight:800;color:var(--fg);padding:0 0 5px;cursor:pointer}
+  .tleg .tmini b{background:#14212E;color:#fff;border-radius:999px;padding:3px 9px}
+  .tleg .tmini .dots{display:flex;gap:3px}.tleg .tmini .dots i{width:9px;height:9px;border-radius:50%}
+  .tleg .tmini em{font-style:normal;color:var(--muted);font-size:10px;margin-left:auto;padding-left:4px}
+  .tleg.fold{padding:0;border:0;background:none;box-shadow:none}
+  .tleg.fold>*:not(.tmini){display:none!important}
+  .tleg.fold .tmini{background:var(--surface);border-radius:999px;box-shadow:0 1px 5px rgba(0,0,0,.22);padding:5px 10px 5px 6px;width:auto}
+  .measure{display:grid;grid-template-columns:auto auto 1fr auto;grid-template-areas:"seg reset . close" "body body body body";align-items:center;gap:6px 6px;padding:7px 8px;left:10px;right:10px;width:auto;transform:none;bottom:12px;font-size:12px}
+  .measure[hidden]{display:none}
+  .measure .dp-h{display:contents}.measure .dp-h b{display:none}
+  .measure #msClose{grid-area:close;width:24px;height:24px}
+  .measure .ms-seg{grid-area:seg;background:var(--soft);border-radius:999px;padding:2px;border:0}
+  .measure .ms-seg button{font-size:11.5px;padding:4px 10px;border-radius:999px;border:0;white-space:nowrap}
+  .measure .pc{display:none}
+  .measure #msReset{grid-area:reset;padding:3px 9px;font-size:11px;align-self:center}
+  .measure #msBody{grid-area:body;padding:0 4px}
+  .ms-hint .mo{display:inline}
+  .ms-total{display:flex;align-items:baseline;gap:6px}
+  .ms-total b{display:inline;font-size:17px}
+  .ms-lt{display:inline;margin-left:auto;border:0;background:none;font:inherit;font-size:11.5px;font-weight:700;color:var(--fg);cursor:pointer;padding:0}
+  .measure:not(.ls-open) .ms-list{display:none}
+  .ms-list{margin-top:6px;max-height:30vh;overflow:auto}.ms-list li{font-size:11.5px;padding:4px 0}
+}
