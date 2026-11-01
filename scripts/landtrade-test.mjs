@@ -20,8 +20,10 @@ const clean = s => String(s ?? '').trim();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 if (!process.env.DATA_GO_KR_KEY) { console.log('DATA_GO_KR_KEY 비밀값이 비어 있습니다.'); process.exit(1); }
-const HAS_VW = !!process.env.VWORLD_KEY;
-const calls = { trade: 0, bld: 0, ned: 0, vw: 0 };
+const HAS_VW = !!process.env.VWORLD_KEY && process.env.SKIP_VW !== '1';
+const KAKAO = (process.env.KAKAO_REST_KEY || '').trim();
+const GU_NAME = { 11440: '마포구', 11410: '서대문구', 11380: '은평구' }[GU] || '';
+const calls = { trade: 0, bld: 0, ned: 0, vw: 0, kakao: 0 };
 
 // 지목 이름 → 지적도 한 글자
 const JIMOK = { 전: '전', 답: '답', 과수원: '과', 목장용지: '목', 임야: '임', 광천지: '광', 염전: '염', 대: '대', 공장용지: '장', 학교용지: '학', 주차장: '차', 주유소용지: '주', 창고용지: '창', 도로: '도', 철도용지: '철', 제방: '제', 하천: '천', 구거: '구', 유지: '유', 양어장: '양', 수도용지: '수', 공원: '공', 체육용지: '체', 유원지: '원', 종교용지: '종', 사적지: '사', 묘지: '묘', 잡종지: '잡' };
@@ -67,17 +69,17 @@ for (const { kind, r } of trades) {
 log(`정리 후 ${rows.length}건`);
 
 // ② 건물 목록 (동 단위 표제부) — 필지(본번-부번)마다 대지면적·주건축물 연면적 합·사용승인 연도
-const bldNote = [];
+const bldNote = [], bldStat = [];
 const bldByDong = {};
 async function bldList(bj) {
   if (bldByDong[bj]) return bldByDong[bj];
-  const out = new Map(); let ok = false, err = '';
-  for (let p = 1; p <= 30 && !late(); p++) {
+  const out = new Map(); let ok = false, err = '', got = 0, tot0 = 0;
+  for (let p = 1; p <= 300 && !late(); p++) {
     calls.bld++;
     let r;
     try { r = await dataGoKr(HUB + 'getBrTitleInfo', { sigunguCd: GU, bjdongCd: bj, numOfRows: 1000, pageNo: p, _type: 'json' }); }
     catch (e) { err = e.message.slice(0, 120); break; }
-    ok = true;
+    ok = true; tot0 = r.total || tot0;
     for (const t of r.items) {
       if (clean(t.mainAtchGbCdNm) && !/주건축물/.test(clean(t.mainAtchGbCdNm))) continue;
       const bun = String(+clean(t.bun) || 0), ji = String(+clean(t.ji) || 0), san = clean(t.platGbCd) === '1';
@@ -87,9 +89,11 @@ async function bldList(bj) {
       const y = clean(t.useAprDay).slice(0, 4); if (y) e.ys.add(y);
       out.set(k, e);
     }
-    if (!r.items.length || p * 1000 >= (r.total || 0)) break;
+    got += r.items.length;
+    if (!r.items.length || got >= (r.total || 0)) break;   // 11/1 고침: 한 쪽에 실제로 온 줄 수로 셈 (1쪽 최대가 1,000보다 작아 일부만 받던 문제)
     await sleep(80);
   }
+  bldStat.push(`${bj}: ${got}/${tot0}줄`);
   if (!ok) bldNote.push(`${bj}: 동 단위 조회 실패 — ${err}`);
   return (bldByDong[bj] = { ok, list: [...out.values()] });
 }
@@ -174,7 +178,15 @@ for (const k of KINDS) {
   for (const x of res[k].filter(x => x.n === 1).slice(0, 15)) {
     const c = x.c, pnu = c.pnu || `${GU}${x.t.bj}${c.san ? '2' : '1'}${c.bun.padStart(4, '0')}${c.ji.padStart(4, '0')}`;
     let pt = c.c || null;
-    if (!pt && HAS_VW) { try { calls.vw++; const f = await vworldData({ data: 'LP_PA_CBND_BUBUN', attrFilter: `pnu:=:${pnu}`, size: '1' }); pt = f[0] ? centroid(f[0].geometry) : null; } catch { /* 없음 */ } }
+    if (!pt && KAKAO) {   // 11/1 브이월드는 해외 서버(GitHub)에서 막혀서 카카오 주소 검색으로
+      try {
+        calls.kakao++;
+        const q = `서울특별시 ${GU_NAME} ${x.t.umd} ${c.san ? '산' : ''}${c.bun}${c.ji !== '0' ? '-' + c.ji : ''}`;
+        const r = await fetch('https://dapi.kakao.com/v2/local/search/address.json?query=' + encodeURIComponent(q), { headers: { Authorization: 'KakaoAK ' + KAKAO } });
+        const j = await r.json(); const d = j.documents && j.documents[0];
+        if (d) pt = { lat: +(+d.y).toFixed(6), lng: +(+d.x).toFixed(6) };
+      } catch { /* 없음 */ }
+    }
     samples[k].push({ 거래: `${x.t.date} ${x.t.umd} ${x.t.jb} ${(x.t.price / 1e4).toFixed(2)}억${x.t.via ? ' ' + x.t.via : ''}`, 맞춘필지: `${x.t.umd} ${c.san ? '산' : ''}${c.bun}${c.ji !== '0' ? '-' + c.ji : ''}`, pnu, 좌표: pt, 근거: x.basis, ...(k === 'land' ? { 거래면적: x.t.area, 경계면적: Math.round(c.area * 10) / 10 } : { 대지: [x.t.plat, c.plat], 연면적: [x.t.gfa, Math.round(c.tot * 100) / 100] }) });
   }
 }
@@ -187,12 +199,12 @@ for (const k of KINDS) {
   sum[k] = { 전체거래: tot, 뺀거래: skip[k] || {}, 맞추기시도: L.length, 하나로맞춤: L.filter(x => x.n === 1).length, 후보여러개: L.filter(x => x.n > 1).length, 후보없음: L.filter(x => x.n === 0).length, 자료부족: L.filter(x => x.n < 0).length };
   const s = sum[k]; s['맞춤비율(시도중)'] = s.맞추기시도 ? `${Math.round(s.하나로맞춤 / s.맞추기시도 * 100)}%` : '-';
 }
-const out = { updated: new Date().toISOString(), gu: GU, months: MONTHS, minutes: Math.round((Date.now() - t0) / 6e4), calls, 요약: sum, 표본: samples, 건물목록메모: bldNote.slice(0, 20), 토지목록메모: landNote.slice(0, 30), 실거래오류: tradeErr.slice(0, 20) };
+const out = { updated: new Date().toISOString(), gu: GU, months: MONTHS, minutes: Math.round((Date.now() - t0) / 6e4), calls, 요약: sum, 표본: samples, 건물목록메모: bldNote.slice(0, 20), 건물목록받은줄: bldStat, 토지목록메모: landNote.slice(0, 30), 실거래오류: tradeErr.slice(0, 20) };
 await mkdir('data', { recursive: true });
 await writeFile(`data/landtrade-test-${GU}.json`, JSON.stringify(out, null, 1));
 const md = [`## 실거래 위치 맞추기 시험 — ${GU} · 최근 ${MONTHS}개월`, '', '| 종류 | 전체 | 뺀 거래 | 맞추기 시도 | 하나로 맞춤 | 후보 여러 개 | 후보 없음 | 자료 부족 | 맞춤 비율 |', '|---|---|---|---|---|---|---|---|---|',
   ...KINDS.map(k => { const s = sum[k]; return `| ${NAME[k]} | ${s.전체거래} | ${Object.entries(s.뺀거래).map(([a, b]) => `${a} ${b}`).join(', ') || '-'} | ${s.맞추기시도} | ${s.하나로맞춤} | ${s.후보여러개} | ${s.후보없음} | ${s.자료부족} | ${s['맞춤비율(시도중)']} |`; }),
-  '', `요청 수: 실거래 ${calls.trade} · 건축물대장 ${calls.bld} · 토지특성 ${calls.ned} · 연속지적도 ${calls.vw} · ${out.minutes}분`,
+  '', `요청 수: 실거래 ${calls.trade} · 건축물대장 ${calls.bld} · 토지특성 ${calls.ned} · 연속지적도 ${calls.vw} · 카카오 ${calls.kakao} · ${out.minutes}분`, `좌표 찾음: ${KINDS.map(k => `${NAME[k]} ${samples[k].filter(x => x.좌표).length}/${samples[k].length}`).join(' · ')}`,
   bldNote.length ? `\n건축물대장 메모: ${bldNote.slice(0, 5).join(' / ')}` : '', landNote.length ? `\n토지 메모: ${landNote.slice(0, 5).join(' / ')}` : ''].join('\n');
 console.log(md);
 if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, md + '\n');
