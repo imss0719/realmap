@@ -104,6 +104,18 @@ export default handler(async (req, res) => {
     const ar = num(x.excluUseAr);
     if (ar >= 80 && ar <= 86 && date > (g.d84 || '')) { g.d84 = date; g.p84 = price; }
     if (date > g.d) { g.d = date; g.p = price; g.ar = num(x.excluUseAr); g.f = clean(x.floor); g.y = clean(x.buildYear); }
+    // 11/1 아파트만 평형별(전용 정수 ㎡) 최근 거래 — 중개거래를 먼저, 중개거래가 없을 때만 직거래 (가족 간 직거래 등 튀는 값 방지)
+    if (kind === 'apt' && ar >= 10) {
+      const k = Math.floor(ar), via = /직거래/.test(clean(x.dealingGbn)) ? 'j' : 'm';
+      const s = (g.s ||= {})[k] ||= { c: 0 };
+      s.c++;
+      if (date > (s[via + 'd'] || '')) { s[via + 'd'] = date; s[via + 'p'] = price; }
+    }
+  }
+  // 평형별 줄: [전용㎡, 가격(만원), 거래일, 6개월 건수] — 작은 평형부터
+  for (const g of byKey.values()) if (g.s) {
+    g.pa = Object.entries(g.s).map(([k, s]) => s.md ? [+k, s.mp, s.md, s.c] : [+k, s.jp, s.jd, s.c]).sort((a, b) => a[0] - b[0]);
+    delete g.s;
   }
   const list = [...byKey.values()];
 
