@@ -77,8 +77,11 @@ async function bldList(bj) {
   for (let p = 1; p <= 300 && !late(); p++) {
     calls.bld++;
     let r;
-    try { r = await dataGoKr(HUB + 'getBrTitleInfo', { sigunguCd: GU, bjdongCd: bj, numOfRows: 1000, pageNo: p, _type: 'json' }); }
-    catch (e) { err = e.message.slice(0, 120); break; }
+    for (let t = 0; t < 4 && !r; t++) {   // 11/1 고침: 중간 쪽이 한 번 실패하면 그 동을 일부만 받던 문제 → 4번까지 다시 시도
+      try { r = await dataGoKr(HUB + 'getBrTitleInfo', { sigunguCd: GU, bjdongCd: bj, numOfRows: 1000, pageNo: p, _type: 'json' }); }
+      catch (e) { err = e.message.slice(0, 120); await sleep(1500 * (t + 1)); }
+    }
+    if (!r) { if (ok) bldNote.push(`${bj}: ${p}쪽에서 끊김 — ${err}`); break; }
     ok = true; tot0 = r.total || tot0;
     for (const t of r.items) {
       if (clean(t.mainAtchGbCdNm) && !/주건축물/.test(clean(t.mainAtchGbCdNm))) continue;
