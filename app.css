@@ -791,6 +791,8 @@ a.favbtn{text-decoration:none}
 .tlabel.mp .r+.r{border-top:1px solid #EEF1F5}
 .tlabel.mp .r>i{font-style:normal;font-size:9.5px;font-weight:600;color:#6B7785}
 .tlabel.mp:hover .nm{border-color:rgba(20,33,46,.25)}.tlabel.mp:hover .r>i{color:#14212E}
+.tlabel.mp.king{overflow:visible!important}
+.tlabel .bdg.crown{position:absolute;left:50%;top:0;transform:translate(-50%,calc(-100% + 2px));line-height:0;font-style:normal;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(20,33,46,.35))}   /* 11/1 대장 아파트 왕관 (2번 금색 평면) */
 .tleg .tlg i{background:#fff;border:2px solid;width:7px;height:7px;border-radius:999px}
 
 /* 11/1 [단지] 탭 */
