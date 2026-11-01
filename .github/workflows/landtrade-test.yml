@@ -1,0 +1,39 @@
+name: realmap-landtrade-test
+# 11/1 시험: 토지·건물 실거래 위치 맞추기 (scripts/landtrade-test.mjs) — 수동 실행
+#   [Run workflow]에서 구 코드·기간을 넣고 실행 (기본: 마포 11440 · 60개월)
+#   결과: Actions 실행 화면의 요약표 + data/landtrade-test-<구>.json (지도에는 아직 안 씀)
+on:
+  workflow_dispatch:
+    inputs:
+      gu:
+        description: '구 코드 (마포 11440)'
+        default: '11440'
+      months:
+        description: '기간 (개월)'
+        default: '60'
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: 위치 맞추기 시험
+        run: node scripts/landtrade-test.mjs
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
+          VWORLD_DOMAIN: 'https://realmap.online'
+          GU: ${{ github.event.inputs.gu }}
+          MONTHS: ${{ github.event.inputs.months }}
+          MINUTES: '50'
+      - name: 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/landtrade-test-*.json
+          git diff --cached --quiet || (git commit -m "실거래 위치 맞추기 시험 결과" && (git push || (git pull --rebase origin main && git push)))
