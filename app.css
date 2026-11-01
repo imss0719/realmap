@@ -811,3 +811,38 @@ a.favbtn{text-decoration:none}
 .djt{margin-top:6px;font-size:12.5px;border-radius:8px;padding:6px 10px;background:#F6F7F9;color:#3B4754}
 .djr small{display:block;font-size:11px;color:#8A7A40;margin-top:2px}
 .exchip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;background:#14212E;color:#fff;border:0;border-radius:999px;padding:4px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+
+/* 11/1 A안 정보창 (아파트만 · #detail.aptv) */
+#detail.aptv .head.ah{padding:16px 16px 6px;gap:3px}
+.ah-t{display:flex;align-items:flex-start;gap:8px}.ah-t h1{margin:0;font-size:22px;line-height:1.25;flex:1;letter-spacing:-.03em}
+.ah-k{flex:0 0 auto;font-size:11px;font-weight:800;color:#1C64C8;background:#E8F0FF;border-radius:6px;padding:2px 7px;margin-top:5px}
+.ah-a{color:#5E6A77;font-size:12.5px}
+.ah-m{display:flex;flex-wrap:wrap;gap:2px 0;font-size:12.5px;color:#3B4754;margin-top:3px}.ah-m span+span:before{content:'·';margin:0 6px;color:#B0B8C1}
+#detail .ah .chips{margin-top:4px}
+.ah-b{display:flex;gap:5px;margin-top:10px}
+#detail .ah-b>*{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 2px 6px;margin:0;border:1px solid #E1E6EB;border-radius:10px;background:#fff;color:#3B4754;font:inherit;font-size:11px;font-weight:700;line-height:1.2;text-align:center;text-decoration:none;white-space:normal;cursor:pointer;box-shadow:none;height:auto}
+#detail .ah-b>*:hover{border-color:#14212E;color:#14212E}
+#detail .ah-b>.favbtn.on{background:#14212E;border-color:#14212E;color:#fff}
+#detail .ah-b svg{width:17px;height:17px;flex:0 0 auto}
+.ahero{margin:10px 12px 0;background:#14212E;border-radius:14px;padding:14px 16px;color:#fff}
+.ahero>small{color:#9FB4D6;font-size:11.5px}
+.ahero .hp{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-top:2px;min-height:34px}
+.ahero .hp b{font-size:26px;font-weight:900;letter-spacing:-.03em}.ahero .hp b.none{font-size:16px;color:#C9D3DE}
+.ahero .hp span{font-size:12px;color:#C9D3DE}.ahero .hp em{font-style:normal;color:#F2B705;font-weight:800}
+.ahero .hr{display:flex;gap:6px;margin-top:10px}.ahero .hr>div{flex:1;min-width:0;background:rgba(255,255,255,.08);border-radius:9px;padding:6px 8px}
+.ahero .hr small{display:block;font-size:10.5px;color:#9FB4D6}.ahero .hr b{font-size:13.5px;white-space:nowrap}.ahero .hr b.mid{color:#FFC94D}.ahero .hr b.hi{color:#FF8A80}
+.ah-sk{display:inline-block;width:70px;height:14px;border-radius:5px;background:rgba(255,255,255,.15);vertical-align:middle}
+#detail.aptv .djad{display:flex;width:calc(100% - 24px);margin:10px 12px 0;border-width:1.5px;border-color:#F2B705;background:#fff}
+.ah-u{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px 0}
+.ah-u .pnu{font-size:11px}
+.djc{border:1px solid #E7EBEF;border-radius:14px;padding:13px 15px;background:#fff}
+.djch{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}.djch h3{margin:0;font-size:14.5px}.djch span{font-size:11px;color:#8A96A3;text-align:right}
+.djrows>div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #F1F3F6}.djrows>div:first-child{border-top:0}
+.djrows dt{color:#5E6A77;flex:0 0 auto}.djrows dd{margin:0;font-weight:600;text-align:right}.djrows dd small{display:block;font-weight:500;color:#8A96A3;font-size:11px}.djrows a{color:#1C64C8;font-weight:700;text-decoration:none}
+.djm{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.djm>div{background:#F6F7F9;border-radius:10px;padding:7px 9px}.djm small{display:block;font-size:10.5px;color:#8A96A3}.djm b{font-size:14px}
+.djn{font-size:11px;color:#8A96A3;margin:8px 0 0;line-height:1.5}
+.djk{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 10px}.djk b{font-size:20px}.djk span{font-size:12px;color:#5E6A77}
+.djc .kbar{margin:8px 0 6px}
+.djf{margin-top:8px}.djf summary{cursor:pointer;font-weight:700;font-size:12.5px;color:#3B4754}
+#detail.aptv .blk[id=sec-danji]{gap:10px}
+.djrows{margin:0}.djrows .lcopy{border:0;background:none;padding:0;color:#1C64C8;font:inherit;font-weight:700;cursor:pointer}

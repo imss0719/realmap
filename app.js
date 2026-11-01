@@ -345,29 +345,18 @@
     return i < 0 ? null : { dong, i: i + 1, n: L.length };
   }
   // ---------- 11/1 [단지] 탭: 아파트를 누르면 맨 앞에 단지 한 장 ----------
-  function danjiSection(jz) {
-    if (!S.d.bld) return skel();
+  // 11/1 A안: 단지 자료를 한 번 모아 머리글·핵심 카드·[단지] 탭이 같이 씀
+  function danjiInfo() {
     const K = kaptLoad(), k = K && K.kapt, rc = recap(), m = mainT();
-    // 실거래: [실거래] 탭과 같은 자료를 같이 씀 (먼저 불러 둠)
     const kinds = tradeKinds(), key = kinds.join(',') + '|' + S.months;
     if (!S.d.trades || S.d.trades.key !== key) loadTrades(kinds, key);
     const T = S.d.trades && !S.d.trades.loading && !S.d.trades.error ? S.d.trades : null;
-    // ① 네 칸 요약
     const ud = String((k && k.usedate) || (m && m.useApr) || '').replace(/\D/g, ''), yb = +ud.slice(0, 4) || 0, yNow = new Date().getFullYear();
     const hh = (k && k.hh) || (rc && rc.hhld) || 0;
-    const cells = [
-      ['준공', yb ? `${yb}년<em>${yNow - yb + 1}년차</em>` : '-'],
-      ['세대수 · 동수', hh ? `${n(hh)}세대${k && k.dongCnt ? `<em>${n(k.dongCnt)}개 동</em>` : ''}` : '-'],
-      ['주차', k && k.parking && k.hh ? `세대당 ${n(k.parking / k.hh, 1)}대` : '-'],
-      ['관리비 평균', k && k.perHH ? `월 ${man1(k.perHH)}${k.month ? `<em>${+k.month.slice(4)}월</em>` : ''}` : K && K.loading ? '…' : '-'],
-    ];
-    const out = [`<section class="dj1"><div class="dj4">${cells.map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('')}</div>`];
-    const adN = lsHere().length;   // ① 이 단지 리얼맵 광고 매물 (0건이면 안 보임)
-    if (adN) out.push(`<button type="button" class="djad" data-djad>📢 <span>이 단지 리얼맵 광고 매물 <b>${adN}건</b></span>보기 ›</button>`);
-    const rank = danjiRank();
-    // ② 평형별 최근 실거래 (매매 · 중개거래 우선 · 해제 제외)
-    if (!T) out.push(`<h3 class="djh">평형별 최근 실거래</h3>${S.d.trades && S.d.trades.error ? '<div class="empty">실거래를 불러오지 못했습니다. [실거래] 탭에서 다시 시도해 주세요.</div>' : skel()}`);
-    else {
+    const name = (k && k.name) || (rc && rc.name) || (m && m.name) || S.sel.bname || '';
+    let rows = null, rep = null, n1 = null, R = null;
+    if (T) {
+      // 평형별 최근 매매 (해제 제외 · 중개거래 우선, 없으면 직거래)
       const g = new Map();
       for (const r of T.rows) {
         if (r.kind !== 'apt' || r.cancel || !r.price || !r.ex) continue;
@@ -376,36 +365,106 @@
         const w = /직거래/.test(r.via || '') ? 'j' : 'm';
         if (!e[w] || String(r.date) > String(e[w].date)) e[w] = r;
       }
-      const rows = [...g.values()].sort((x, y) => x.a - y.a);
-      out.push(`<h3 class="djh">평형별 최근 실거래<span>매매 · 최근 ${S.months / 12}년 · 중개거래 우선</span></h3>`);
-      out.push(rows.length ? `<div class="djp">${rows.map(e => { const r = e.m || e.j; return `<button type="button" data-djex="${e.a}" title="[실거래]에서 전용 ${e.a}㎡ 거래만 보기"><span class="a">전용 ${e.a}㎡${rank && e.a >= 80 && e.a <= 86 ? `<span class="rk">${esc(rank.dong)} ${rank.i}위</span>` : ''}</span><span class="d">${esc(String(r.date).slice(2, 7))}${e.m ? '' : ' · 직거래'} · ${e.c}건</span><b>${won(r.price)}</b><span class="g">›</span></button>`; }).join('')}</div>`
-        : `<div class="empty">최근 ${S.months / 12}년 동안 신고된 매매가 없습니다.</div>`);
-      // ② 거래 회전율: 최근 1년 매매 ÷ 세대수
+      rows = [...g.values()].sort((x, y) => x.a - y.a);
+      rep = rows.find(e => e.a >= 80 && e.a <= 86) || rows.slice().sort((x, y) => y.c - x.c)[0] || null;   // 대표 평형: 84㎡ → 없으면 거래 많은 평형
       const d1 = new Date(Date.now() + 9 * 3600e3); d1.setUTCFullYear(d1.getUTCFullYear() - 1);
       const cut1 = `${d1.getUTCFullYear()}.${String(d1.getUTCMonth() + 1).padStart(2, '0')}`;
-      const n1 = T.rows.filter(r => r.kind === 'apt' && !r.cancel && r.price && String(r.date) >= cut1).length;
-      if (hh) out.push(`<div class="djt">최근 1년 매매 <b>${n(n1)}건</b> · 전체 세대의 <b>${n(n1 / hh * 100, 1)}%</b> 거래</div>`);
-      const R = T.kinds.some(x => !x.sale) ? jeonseRatio(T.rows) : null;
-      if (R) out.push(`<div class="djjr ${R.r >= 80 ? 'hi' : R.r >= 70 ? 'mid' : 'lo'}">전세가율 <b>${n(R.r, 0)}%</b> · 전용 ${R.ex}㎡ 기준 <small>(자세히는 [실거래] 탭)</small></div>`);
+      n1 = T.rows.filter(r => r.kind === 'apt' && !r.cancel && r.price && String(r.date) >= cut1).length;
+      R = T.kinds.some(x => !x.sale) ? jeonseRatio(T.rows) : null;
     }
-    // ③ 전용면적별 세대수 (K-apt)
-    if (k && k.sz) {
-      const L = ['60㎡ 이하', '60~85㎡', '85~135㎡', '135㎡ 초과'], tot = k.sz.reduce((a, b) => a + b, 0) || 1;
-      out.push(`<h3 class="djh">전용면적별 세대수<span>K-apt</span></h3><div class="djs">${k.sz.map((v, i) => v ? `<div><span>${L[i]}</span><i><b style="width:${(v / tot * 100).toFixed(1)}%"></b></i><em>${n(v)}세대</em></div>` : '').join('')}</div>`);
-    }
-    // ④ 재건축 연한 (준공 30년) · 정비구역
-    if (yb) {
-      const left = yb + 30 - yNow;
-      const z = jz && jz.length ? ` · 정비구역: ${esc(jz.map(e => `${zName(e) || ''} ${ZSHORT[zKind(e)] || ''}`.trim() || '정비구역').join(', '))}` : ' · 정비구역 아님';
-      // ③ 용적률 · 세대당 평균 대지지분 (대지면적 ÷ 세대수, 상가·부대시설 몫까지 나눈 추정)
-      const vl = rc && rc.vlRat, pa = rc && rc.platArea, js = pa && hh ? pa / hh : 0;
-      const vlTxt = vl || js ? `<br>${vl ? `용적률 <b>${n(vl, 0)}%</b>` : ''}${vl && js ? ' · ' : ''}${js ? `세대당 평균 대지지분 약 <b>${n(js, 1)}㎡ (${n(js / 3.305785, 1)}평)</b>` : ''}<small>대지면적을 세대수로 나눈 평균 추정치로, 등기상 대지권과 다를 수 있습니다</small>` : '';
-      out.push(`<div class="djr">${left > 0 ? `재건축 연한(준공 30년)까지 <b>${left}년</b> (${yb + 30}년)` : `준공 <b>${yNow - yb}년</b> 지남 · 재건축 연한(30년) 도래`}${z}${vlTxt}</div>`);
-    }
+    return { K, k, rc, m, T, yb, yNow, hh, name, rows, rep, n1, R, rank: danjiRank() };
+  }
+  // 아파트 머리글: 제목 = 단지 이름 · 한 줄 요약 · 같은 모양 버튼
+  function danjiHead(I, chipsWarn) {
+    const p = S.sel, c = chr();
+    const meta = [I.yb ? `${I.yb}년 준공 (${I.yNow - I.yb + 1}년차)` : '', I.hh ? `${n(I.hh)}세대${I.k && I.k.dongCnt ? ` · ${n(I.k.dongCnt)}개 동` : ''}` : '', c && c.zone1 ? esc(c.zone1) : ''].filter(Boolean);
+    const IC = {
+      rv: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="2" fill="currentColor"/><path d="M5.2 15l1-6.2H5V6.6a3 3 0 0 1 6 0v2.2H9.8l1 6.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+      loc: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="6.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+      brief: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z M9.5 1.5V5H13 M6 8.5h5 M6 11h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+      safe: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l5.5 2v4.2c0 3.3-2.3 5.9-5.5 6.8-3.2-.9-5.5-3.5-5.5-6.8V3.5z M5.5 8l1.8 1.8L10.8 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+      cx: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 14V5l5.5-3 5.5 3v9z M5.5 14v-3h5v3 M5.5 6.5h1.5 M9 6.5h1.5 M5.5 9h1.5 M9 9h1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
+      share: '<svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M3 9v4.5h10V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    };
+    const btns = [
+      favBtns(),
+      p.c ? `<button class="rvbtn" id="rvBtn" type="button" aria-label="이 필지 로드뷰 크게 보기">${IC.rv}로드뷰</button>` : '',
+      `<button class="share loc" id="locBtn" type="button">${IC.loc}입지</button>`,
+      `<button class="share brief" id="briefBtn" type="button">${IC.brief}브리핑</button>`,
+      isHome() ? `<button class="share safe" id="safeBtn" type="button">${IC.safe}전세안전</button>` : '',
+      S.me.plan && S.me.plan.started ? `<a class="share" href="/listings.html?cxadd=${p.pnu}" target="_blank" rel="noopener" title="리얼맵 중개장부의 아파트·오피스텔 장부에 이 단지를 담습니다">${IC.cx}장부에 담기</a>` : '',
+      `<button class="share" id="shareBtn" type="button">${IC.share}공유</button>`,
+    ].join('');
+    return `<div class="head ah">
+      <div class="ah-t"><h1>${esc(I.name || p.addr || p.jibun)}</h1><span class="ah-k">아파트</span></div>
+      <div class="ah-a">${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}</div>
+      ${meta.length ? `<div class="ah-m">${meta.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
+      ${chipsWarn ? `<div class="chips">${chipsWarn}</div>` : ''}
+      <div class="ah-b">${btns}</div>
+    </div>`;
+  }
+  // 핵심 숫자 카드 (남색): 대표 평형 최근 실거래 · 동네 순위 · 전세가율 · 회전율 · 관리비
+  function danjiHero(I) {
+    const r = I.rep && (I.rep.m || I.rep.j), dot = '<span class="ah-sk"></span>';
+    const top = r ? `<small>대표 평형 · 전용 ${I.rep.a}㎡ 최근 실거래 (${esc(String(r.date).slice(2, 7))} · ${I.rep.m ? '중개거래' : '직거래'})</small>
+        <div class="hp"><b>${won(r.price).replace(/원$/, '')}</b>${I.rank && I.rep.a >= 80 && I.rep.a <= 86 ? `<span>${esc(I.rank.dong)} 84㎡ 중 <em>${I.rank.i}위</em></span>` : ''}</div>`
+      : I.T ? `<small>최근 ${S.months / 12}년 매매</small><div class="hp"><b class="none">신고된 매매 없음</b></div>` : `<small>최근 실거래</small><div class="hp">${dot}</div>`;
+    const k = I.k;
+    const cells = [
+      ['전세가율', I.R ? `<b class="${I.R.r >= 80 ? 'hi' : I.R.r >= 70 ? 'mid' : ''}">${n(I.R.r, 0)}%</b>` : I.T ? '<b>-</b>' : dot],
+      ['최근 1년 매매', I.n1 != null ? `<b>${n(I.n1)}건${I.hh ? ` · ${n(I.n1 / I.hh * 100, 1)}%` : ''}</b>` : dot],
+      ['관리비 평균', k && k.perHH ? `<b>월 ${man1(k.perHH).replace(/원$/, '')}</b>` : I.K && I.K.loading ? dot : '<b>-</b>'],
+    ];
+    return `<div class="ahero">${top}<div class="hr">${cells.map(([a, b]) => `<div><small>${a}</small>${b}</div>`).join('')}</div></div>`;
+  }
+  // [단지] 탭 본문
+  function danjiSection(jz, I) {
+    if (!S.d.bld) return skel();
+    I = I || danjiInfo();
+    const { k, rc, T, yb, yNow, hh, rows, rank } = I;
+    const out = [];
+    // 평형별 최근 실거래
+    out.push(`<section class="djc"><div class="djch"><h3>평형별 최근 실거래</h3><span>매매 · 누르면 그 평형만</span></div>`);
+    if (!T) out.push(S.d.trades && S.d.trades.error ? '<div class="empty">실거래를 불러오지 못했습니다. [실거래] 탭에서 다시 시도해 주세요.</div>' : skel());
+    else out.push(rows.length ? `<div class="djp">${rows.map(e => { const r = e.m || e.j; return `<button type="button" data-djex="${e.a}" title="[실거래]에서 전용 ${e.a}㎡ 거래만 보기"><span class="a">전용 ${e.a}㎡${rank && e.a >= 80 && e.a <= 86 ? `<span class="rk">${rank.i}위</span>` : ''}</span><span class="d">${esc(String(r.date).slice(2, 7))}${e.m ? '' : ' · 직거래'} · ${e.c}건</span><b>${won(r.price).replace(/원$/, '')}</b><span class="g">›</span></button>`; }).join('')}</div>`
+      : `<div class="empty">최근 ${S.months / 12}년 동안 신고된 매매가 없습니다.</div>`);
     out.push('</section>');
-    // ⑤ K-apt 관리비 · 단지 정보 (예전 [건물] 탭 아래에 있던 것)
-    if (K && !K.loading && !K.error && !k) out.push('<p class="note">K-apt(공동주택관리정보시스템)에 없는 단지라 관리비·시공사 등은 나오지 않습니다. 의무관리대상(대략 150세대 이상 등) 아파트만 공개됩니다.</p>');
-    else out.push(kaptSection());
+    // 단지 개요
+    const L = ['60㎡ 이하', '60~85㎡', '85~135㎡', '135㎡ 초과'];
+    const ov = [
+      k && k.sz ? ['세대 구성', k.sz.map((v, i) => v ? `${L[i]} ${n(v)}` : '').filter(Boolean).join(' · ')] : null,
+      k && k.parking ? ['주차', `${k.hh ? `세대당 ${n(k.parking / k.hh, 1)}대` : ''}<small>총 ${n(k.parking)}대</small>`] : null,
+      k && (k.heat || k.hall) ? ['난방 · 복도', [k.heat, k.hall].filter(Boolean).map(esc).join(' · ')] : null,
+      k && k.elev ? ['승강기', `${n(k.elev)}대`] : null,
+      k && k.builder ? ['시공사', esc(k.builder)] : null,
+      k && k.mgr ? ['관리 방식', esc(k.mgr)] : null,
+      k && k.tel ? ['관리사무소', IS_PHONE ? `<a href="tel:${esc(String(k.tel).replace(/[^\d]/g, ''))}">📞 ${esc(k.tel)}</a>` : `<button type="button" class="lcopy" data-copy="${esc(k.tel)}">📞 ${esc(k.tel)}</button>`] : null,
+    ].filter(Boolean);
+    const K = I.K;
+    out.push(`<section class="djc"><div class="djch"><h3>단지 개요</h3><span>K-apt · 건축물대장</span></div>${ov.length ? `<dl class="djrows">${ov.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>`
+      : K && K.loading ? skel() : '<div class="empty">K-apt(공동주택관리정보시스템)에 없는 단지라 시공사·주차 등은 나오지 않습니다. 의무관리대상(대략 150세대 이상 등) 아파트만 공개됩니다.</div>'}</section>`);
+    // 재건축 (준공 30년 · 용적률 · 평균 대지지분)
+    if (yb) {
+      const left = yb + 30 - yNow, vl = rc && rc.vlRat, pa = rc && rc.platArea, js = pa && hh ? pa / hh : 0;
+      const z = jz && jz.length ? `정비구역: ${esc(jz.map(e => `${zName(e) || ''} ${ZSHORT[zKind(e)] || ''}`.trim() || '정비구역').join(', '))}` : '정비구역 아님';
+      out.push(`<section class="djc"><div class="djch"><h3>재건축</h3><span>추정</span></div><div class="djm">
+        <div><small>${left > 0 ? '연한까지' : '준공 후'}</small><b>${left > 0 ? `${left}년` : `${yNow - yb}년`}</b></div>
+        ${vl ? `<div><small>용적률</small><b>${n(vl, 0)}%</b></div>` : ''}
+        ${js ? `<div><small>평균 대지지분</small><b>${n(js / 3.305785, 1)}평</b></div>` : ''}</div>
+        <p class="djn">${left > 0 ? `준공 30년(${yb + 30}년) 기준` : '재건축 연한(30년) 도래'} · ${z}${js ? ` · 대지지분은 대지면적 ÷ 세대수 평균(약 ${n(js, 1)}㎡)이라 등기상 대지권과 다를 수 있습니다` : ''}</p></section>`);
+    }
+    // 관리비 (가벼운 카드 · 상세는 펼치기)
+    if (k && k.perHH) {
+      const g = k.groups || [], hh2 = k.hh || 1, tot = g.reduce((s2, x) => s2 + x.v, 0) || 1;
+      const COLS = { gen: '#14212E', svc: '#2D4B6E', fac: '#5B7FA6', heat: '#F2B705', util: '#F6CF5A' };
+      const ym = k.month ? `${k.month.slice(0, 4)}년 ${+k.month.slice(4)}월분` : '';
+      out.push(`<section class="djc"><div class="djch"><h3>관리비</h3><span>${ym} · 세대당 평균 (추정)</span></div>
+        <div class="djk"><b>월 ${man1(k.perHH)}</b>${k.perM2 ? `<span>59㎡ ${man1(k.perM2 * 59).replace(/원$/, '')} · 84㎡ ${man1(k.perM2 * 84).replace(/원$/, '')} · 114㎡ ${man1(k.perM2 * 114).replace(/원$/, '')}</span>` : ''}</div>
+        <div class="kbar">${g.map(x => `<i style="width:${(x.v / tot * 100).toFixed(1)}%;background:${COLS[x.g]}"></i>`).join('')}</div>
+        <div class="klg">${g.map(x => `<div><i style="background:${COLS[x.g]}"></i>${esc(x.label)}<b>${man1(x.v / hh2)}</b></div>`).join('')}</div>
+        <details class="djf"><summary>12개월 추이 · 안내</summary>${kaptTrendHtml(k)}<p class="note">관리비는 단지가 K-apt에 신고한 금액을 세대수로 나눈 평균이며, 실제 고지액은 평형·사용량에 따라 다릅니다. 평형별 금액은 관리비 부과면적 비율로 환산한 추정치입니다. 장기수선충당금 제외 · 매달 1~2개월 늦게 반영됩니다.</p></details>
+        ${src(['국토교통부 공동주택관리정보시스템(K-apt)'])}</section>`);
+    } else if (k) out.push('<section class="djc"><div class="djch"><h3>관리비</h3></div><div class="empty">이 단지는 최근 관리비 공개 자료가 아직 없습니다.</div></section>');
     return out.join('');
   }
   function kaptSection() {
@@ -565,8 +624,8 @@
     const lazy = (k, fn) => S.seen[k] ? fn() : `<div class="lazy" data-lazy="${k}">${skel()}</div>`;
     const blk = (k, label, html) => `<div class="blk" id="sec-${k}"><h2 class="blkh">${label}</h2>${html}</div>`;
     const body = (apt ? [
-      lsSection(),
-      blk('danji', '단지', danjiSection(jz)),   // 11/1 단지 한 장: 요약 · 평형별 실거래 · 면적별 세대 · 전세가율 · 재건축 연한 + K-apt 관리비·단지 정보
+      // 11/1 A안: 아파트는 '중개사 매물' 상자 대신 위쪽 노란 광고 매물 줄 하나로
+      blk('danji', '단지', danjiSection(jz, apt && S.d.bld ? danjiInfo() : null)),   // 11/1 A안: 평형별 실거래 · 단지 개요 · 재건축 · 관리비
       blk('trade', '실거래', lazy('trade', tradeTab)),
       coll ? blk('unit', '동·호수', lazy('unit', unitTab)) : '',
       blk('land', '토지', landTab()),
@@ -583,7 +642,16 @@
       blk('trade', '실거래', lazy('trade', tradeTab)),
     ]).join('');
     const keepScroll = $('panel').scrollTop;
-    D.innerHTML = `
+    // 11/1 A안 (아파트만): 단지 이름 제목 · 같은 모양 버튼 · 남색 핵심 카드 · 광고 매물 한 줄
+    const I = apt && S.d.bld ? danjiInfo() : null;
+    const adN = apt ? lsHere().length : 0;
+    const aptTop = I ? `${danjiHead(I, chips.filter(x => /data-warn|data-dz/.test(x)).join(''))}${danjiHero(I)}${adN ? `<button type="button" class="djad" data-djad>📢 <span>이 단지 리얼맵 광고 매물 <b>${adN}건</b></span>보기 ›</button>` : ''}
+    <div class="ah-u"><button class="pnu" id="pnuCopy" title="눌러서 복사">PNU ${esc(p.pnu)}</button><span class="seg" role="group" aria-label="면적 단위"><button data-u="m2" aria-pressed="${S.unit === 'm2'}">㎡</button><button data-u="py" aria-pressed="${S.unit === 'py'}">평</button></span></div>` : '';
+    D.classList.toggle('aptv', !!I);
+    D.innerHTML = aptTop ? `${aptTop}
+    ${mobile() && lsN ? `<div class="mtabs" role="tablist"><button type="button" role="tab" data-mt="info" aria-selected="${!mLst}">단지 정보</button><button type="button" role="tab" data-mt="lst" aria-selected="${!!mLst}">매물 <em>${lsN}</em></button></div>` : ''}
+    ${mLst ? `<div class="body mlst">${lsListHtml(lsHere(), false)}</div>` : `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || 'danji') === k}">${l}</button>`).join('')}</div>
+    <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`}` : `
     <div class="head">
       <div class="h1row"><h1>${esc(p.addr || p.jibun)}</h1>${favBtns()}${p.c ? `<button class="rvbtn" id="rvBtn" type="button" aria-label="이 필지 로드뷰 크게 보기"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3.2" r="2" fill="currentColor"/><path d="M5.2 15l1-6.2H5V6.6a3 3 0 0 1 6 0v2.2H9.8l1 6.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>로드뷰</button>` : ''}</div>
       <div class="sub">${p.road ? esc(p.road) : ''}${name ? (p.road ? ' · ' : '') + esc(name) : ''}</div>
@@ -601,6 +669,8 @@
     ${mLst ? `<div class="body mlst">${lsListHtml(lsHere(), false)}</div>` : `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button data-t="${k}" aria-selected="${(S.tab || (apt ? 'danji' : 'land')) === k}">${l}</button>`).join('')}</div>
     <div class="body">${groupSection()}${body}<p class="pfoot">리얼맵 · 운영 주식회사 드림인베스트 · <a href="/guide.html" target="_blank" rel="noopener">이용 안내</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p></div>`}`;
     $('panel').scrollTop = keepScroll;
+    // 11/1 A안: 아파트 화면에서는 값이 없는 줄('-'만 있는 줄)을 숨김
+    if (I) D.querySelectorAll('.body dd').forEach(dd => { if (!dd.textContent.replace(/[-–\/·\s%동개호층]/g, '')) { dd.style.display = 'none'; const dt = dd.previousElementSibling; if (dt && dt.tagName === 'DT') dt.style.display = 'none'; } });
     D.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { S.unit = b.dataset.u; render(); });
     D.querySelectorAll('[data-t]').forEach(b => b.onclick = () => goSec(b.dataset.t));
     D.querySelectorAll('[data-djex]').forEach(b => b.onclick = () => { S.tradeEx = +b.dataset.djex; S.tradeMode = 'sale'; S.showAll = false; render(); goSec('trade'); });
