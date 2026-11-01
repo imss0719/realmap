@@ -2064,6 +2064,7 @@
       setTimeout(() => toast(lg === 'ok' ? '로그인되었습니다. 입지정보를 계속 무료로 이용하실 수 있습니다' : lg === 'cancel' ? '로그인을 취소했습니다' : '로그인하지 못했습니다. 잠시 후 다시 시도해 주세요', 3600), 600);
     }
     try { S.me = await api('/api/auth?action=me'); } catch { /* 회원 기능 꺼짐 */ }
+    try { if (S.me.op && $('tgrp')) tPanelSync(); } catch { /* 실거래 창 없음 */ }
     try { if (S.me.op) { localStorage.setItem('rm.op', '1'); if (LS.loaded) setTimeout(opFixPos, 1500); } } catch { /* 무시 */ }
     drawAcct();
     loadFavs();
@@ -2546,14 +2547,34 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // ---------- 지도 위 실거래가 라벨 ----------
   // 화면 중심·모서리가 속한 시군구의 최근 6개월 매매를 건물별 최신 거래가로 표시합니다 (아파트·빌라·오피스텔).
   const TK = { apt: '아파트', rh: '빌라', offi: '오피스텔' };
-  const T = { mode: 'price', on: true, kinds: { apt: true, rh: true, offi: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
+  // 11/1 [주거] / [상가·건물] 나눠 보기 — 상가·건물(nrg 상가·업무 · sh 단독·다가구 · indu 공장·창고)은 미리 맞춘 파일 data/bt/<구>.json
+  //   BT_OPEN=false 동안은 운영자(선배)에게만 보임 — 위치 확인 뒤 true로
+  const BT_OPEN = false;
+  const TGRP = { home: [['apt', '아파트', '#14212E'], ['rh', '빌라', '#1F7A4D'], ['offi', '오피스텔', '#6741B8']], bld: [['nrg', '상가', '#B4462B'], ['sh', '단독', '#1C64C8'], ['indu', '공장', '#5F6B78']] };
+  const BTK = { nrg: '상가·업무', sh: '단독·다가구', indu: '공장·창고' };
+  const btOk = () => BT_OPEN || !!(S.me && S.me.op);
+  const T = { mode: 'price', on: true, grp: 'home', kinds: { apt: true, rh: true, offi: true, nrg: true, sh: true, indu: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
   const MAXLV = 5;
   const eok = man => { if (man >= 10000) { const e = man / 10000; const d = e >= 10 ? 10 : 100; return `${String(Math.round(e * d) / d)}억`; } return `${n(man)}만`; };
-  function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds, mode: T.mode })); } catch { /* 저장소 없음 */ } }
+  function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds, mode: T.mode, grp: T.grp })); } catch { /* 저장소 없음 */ } }
+  const tGrp = () => T.grp === 'bld' && btOk() ? 'bld' : 'home';
+  const kindOn = k => T.kinds[k] !== false && TGRP[tGrp()].some(r => r[0] === k);
+  // 칩 (켜기·끄기 · 칩 색 = 라벨 색) · 주거/상가·건물 버튼 · 아래 한 줄 안내
+  function tPanelSync() {
+    const g = tGrp();
+    $('tgrp').hidden = !btOk();
+    document.querySelectorAll('[data-tg]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tg === g));
+    $('tchips').innerHTML = TGRP[g].map(([k, t, c]) => `<button type="button" data-tk="${k}" aria-pressed="${T.kinds[k] !== false}" style="--c:${c}">${t}</button>`).join('');
+    const span = g === 'bld' ? '최근 5년 매매' : '최근 6개월 매매';
+    $('tSec').textContent = `${span} · ${T.mode === 'py' ? (g === 'bld' ? '평당가 (대지 기준)' : '평당가 (전용 기준)') : '최근 실거래가'} · 누르면 켜고 끄기`;
+  }
   function tradeMapInit() {
-    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; if (v.mode === 'py') T.mode = 'py'; } } catch { /* 저장소 없음 */ }   // 10/30 종류 고르기 없앰 → 늘 아파트·빌라·오피스텔 모두
+    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; if (v.mode === 'py') T.mode = 'py'; if (v.grp === 'bld') T.grp = 'bld'; if (v.kinds && v.grp) for (const k of Object.keys(T.kinds)) if (v.kinds[k] === false) T.kinds[k] = false; } } catch { /* 저장소 없음 */ }   // 11/1 종류 칩·주거/상가·건물을 기억 (예전 저장값은 grp가 없어 모두 켬)
     // 거래가 · 평당가(전용 기준) 전환 — 고른 쪽을 기억
-    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); $('tSec').textContent = T.mode === 'py' ? '최근 6개월 매매 · 평당가 (전용 기준)' : '최근 6개월 매매 · 최근 실거래가'; };
+    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); tPanelSync(); };
+    const redraw = () => { tPanelSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); tradeRefresh(); };
+    document.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => { if (tGrp() === b.dataset.tg) return; T.grp = b.dataset.tg; redraw(); });
+    $('tchips').onclick = e => { const b = e.target.closest('[data-tk]'); if (!b) return; const k = b.dataset.tk; T.kinds[k] = T.kinds[k] === false; if (!TGRP[tGrp()].some(r => T.kinds[r[0]] !== false)) { T.kinds[k] = true; toast('하나는 켜 두어야 합니다'); return; } redraw(); };
     document.querySelectorAll('[data-tm]').forEach(b => b.onclick = () => { if (T.mode === b.dataset.tm) return; T.mode = b.dataset.tm; tmSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); drawTrades(); });
     tmSync();
     const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); };
@@ -2591,7 +2612,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   function areaSum(retry) {
     const el = $('areaSum');
-    if (!el || !tActive() || !T.kinds.apt || D.on || document.querySelector('.wel')) return;
+    if (!el || !tActive() || tGrp() !== 'home' || !kindOn('apt') || D.on || document.querySelector('.wel')) return;
     if (mobile() && !$('panel').classList.contains('closed')) return;
     const b = S.map.getBounds(), c = S.map.getCenter(), lv = S.map.getLevel(), sw = b.getSouthWest(), ne = b.getNorthEast();
     if (AS.last && AS.last.lv === lv && Math.abs(c.getLng() - AS.last.ln) < (ne.getLng() - sw.getLng()) * .35 && Math.abs(c.getLat() - AS.last.la) < (ne.getLat() - sw.getLat()) * .35) return;
@@ -2909,7 +2930,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         fetch('/api/aptmap', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lawd, pts: pts.slice(i, i + 60) }) }).catch(() => { /* 보태기 실패는 무시 */ });
     }
   }
-  const tActive = () => T.on && S.map.getLevel() <= MAXLV && Object.values(T.kinds).some(Boolean);
+  const tActive = () => T.on && S.map.getLevel() <= MAXLV && TGRP[tGrp()].some(r => kindOn(r[0]));
   async function tradeRefresh() {
     $('tpanel').hidden = !tActive();   // 10/30 작은 범례 (건물별 가격이 보일 때만 · 축소하면 동별 시세 범례가 같은 자리)
     if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
@@ -2920,10 +2941,24 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const seen = new Set(), uniq = rgs.filter(r => !seen.has(r.lawd) && seen.add(r.lawd));
     drawTrades();
     const jobs = [];
-    for (const k of Object.keys(TK)) if (T.kinds[k]) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
+    if (tGrp() === 'bld') for (const rg of uniq) jobs.push(loadBt(rg).then(drawTrades));
+    else for (const k of Object.keys(TK)) if (kindOn(k)) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
     await Promise.all(jobs);
     drawTrades();
-    if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 실거래가입니다'); }
+    if (tGrp() === 'bld') { if (!T.hintB) { T.hintB = true; toast('상가·건물은 최근 5년 실거래가입니다 · "직"은 직거래'); } }
+    else if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 실거래가입니다'); }
+  }
+  // 11/1 상가·건물 실거래: 미리 맞춘 파일 (없는 구는 빈 목록 · 한 번만 받음)
+  function loadBt(rg) {
+    const key = `bt:${rg.lawd}`; let e = T.regions.get(key);
+    if (e) return e.p;
+    e = { kind: 'bt', items: null };
+    e.p = fetch(`/data/bt/${rg.lawd}.json`).then(r => r.ok ? r.json() : { items: [] }).then(j => {
+      e.items = (j.items || []).map((x, i) => ({ ...x, id: `${key}:${i}`, n: x.a }));
+      return e.items;
+    }).catch(() => { e.items = []; return []; });
+    T.regions.set(key, e);
+    return e.p;
   }
   // 11/1 대장 아파트: 같은 법정동에서 84㎡ 최근 6개월 최고가(중개거래)가 가장 높은 단지 하나에 왕관 — 84㎡ 거래 단지가 3곳 이상인 동만
   const dongOf = x => String(x.a || '').split(' ').slice(-2, -1)[0] || '';
@@ -2959,12 +2994,18 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     el.innerHTML = `${x.king ? CROWN : ''}<span class="nm">${esc(x.n || '')}</span>${rows.map(r => `<span class="r"><i>${r[0]}</i><b>${val(r)}</b></span>`).join('')}`;
     el.title = (x.king ? `👑 ${x.king.dong} 대장\n` : '') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
   }
+  // 11/1 상가·건물 라벨: 가격 + 직거래면 네모 "직" + 거래 연월 · 평당가는 대지 기준
+  function btLabel(el, x) {
+    const py = T.mode === 'py' && x.pl > 10 ? x.p / (x.pl / 3.305785) : 0;
+    el.innerHTML = `<b>${py ? `<i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만` : eok(x.p)}</b>${x.j ? '<i class="jk">직</i>' : ''}<small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;
+    el.title = `[${BTK[x.k]}] ${x.a} · ${won(x.p)} · ${ymd(x.d)}${x.j ? ' · 직거래' : ' · 중개거래'}\n대지 ${n(x.pl, 2)}㎡ · 연면적 ${n(x.gf, 2)}㎡${x.pl > 10 ? ` · 대지 평당 ${n(Math.round(x.p / (x.pl / 3.305785) / 10) * 10)}만원` : ''}\n최근 5년 매매 ${x.c}건` + (x.h && x.h.length > 1 ? '\n' + x.h.map(h => `${ymd(h[0])} ${won(h[1])}${h[2] ? ' (직거래)' : ''}`).join('\n') : '');
+  }
   function drawTrades() {
     const K = kakao.maps;
     if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), proj = S.map.getProjection();
     const all = [];
-    T.regions.forEach(e => { if (e.items && T.kinds[e.kind]) for (const x of e.items) if (x.lat && x.lng) all.push(x); });
+    T.regions.forEach(e => { if (e.items) for (const x of e.items) if (x.lat && x.lng && kindOn(x.k)) all.push(x); });   // 11/1 고른 묶음·칩만
     // 거래가 많은 건물부터 자리 잡고, 겹치는 라벨은 숨김
     all.sort((a, z) => (z.king ? 1 : 0) - (a.king ? 1 : 0) || z.c - a.c || z.d.localeCompare(a.d));   // 11/1 왕관 단지가 먼저 자리 잡음
     // 11/1 아파트 평형별 라벨: 멀리(레벨 4~5) = 이름 + 대표 평형 하나 · 가까이(1~3) = 이름 + 평형별 모두
@@ -2974,7 +3015,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const rows = aptRows(x, far), w = rows ? Math.min(106, Math.max(66, String(x.n || '').length * 10.5 + 14)) : 62, h = rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const rows = aptRows(x, far), w = rows ? Math.min(106, Math.max(66, String(x.n || '').length * 10.5 + 14)) : x.j ? 80 : 62, h = rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
@@ -2986,6 +3027,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         const py = T.mode === 'py' && x.ar > 10 ? x.p / (x.ar / 3.305785) : 0; // 평당가 (전용 기준, 만원)
         el.innerHTML = py ? `<b><i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>` : `<b>${eok(x.p)}</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;   // 10/30 시안 C: 한 줄 알약 (가격 · 거래 연월) · 면적은 title·누르면
         if (rows) aptLabel(el, x, rows);
+        if (BTK[x.k]) btLabel(el, x);
         el.onclick = ev => { ev.stopPropagation(); pick(x.lat, x.lng); };
         o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.2, zIndex: 3, clickable: true });
         o._far = far;

@@ -857,3 +857,14 @@ a.favbtn{text-decoration:none}
 .gof.sm i{display:grid;place-items:center;width:15px;height:15px;color:#fff}.gof.sm i svg{width:10px;height:10px}
 .gof.sm b{background:none;color:#fff;font-size:9.5px;padding:0 5px 0 0;margin:0;line-height:15px}
 .gof.sm:hover{background:#14212E;opacity:1}
+/* 11/1 실거래 [주거]/[상가·건물] 나눠 보기 · 종류 칩 (칩 색 = 라벨 색) · 직거래 "직" */
+.tleg .tgrp{display:flex;background:rgba(20,33,46,.06);border-radius:9px;padding:2px;margin:0 0 5px;gap:2px}
+.tleg .tgrp[hidden]{display:none}
+.tleg .tgrp button{flex:1;border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:800;color:var(--muted);padding:5px 10px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.tleg .tgrp button[aria-pressed="true"]{background:#14212E;color:#fff}
+.tleg .tchips{display:flex;gap:4px;margin:2px 0 1px}
+.tleg .tchips button{font:inherit;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;border:1.5px solid var(--c);color:var(--c);background:#fff;cursor:pointer;white-space:nowrap}
+.tleg .tchips button[aria-pressed="true"]{background:var(--c);color:#fff}
+.tlabel.k-nrg{--c:#B4462B;background:#fff}.tlabel.k-sh{--c:#1C64C8;background:#fff}.tlabel.k-indu{--c:#5F6B78;background:#fff}
+.tlabel .jk{font-style:normal;font-size:8.5px;font-weight:800;color:#6B7785;border:1px solid #B7C0CA;border-radius:3px;padding:0 2px;line-height:1.25;margin-left:1px;align-self:center}
+.tlabel:hover .jk{color:#14212E;border-color:#14212E}
