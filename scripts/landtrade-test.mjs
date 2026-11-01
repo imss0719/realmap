@@ -33,7 +33,7 @@ const umdCode = {};
 try { for (const f of JSON.parse(await readFile('data/umd-11.json', 'utf8')).f) if (f.c.startsWith(GU)) umdCode[f.n] = (f.c.slice(5) + '00').slice(0, 5); } catch { /* 없음 */ }
 
 // ① 실거래
-const KINDS = ['nrg', 'indu', 'sh', 'land'];
+const KINDS = ['nrg', 'indu', 'sh', ...(process.env.LAND === '1' ? ['land'] : [])];   // 11/2 토지는 브이월드가 해외 서버를 막아 기본 제외 (LAND=1 이면 시도)
 const yms = monthsBack(MONTHS + 1).slice(1);
 const trades = [], tradeErr = [];
 for (const kind of KINDS) {
@@ -197,6 +197,7 @@ for (const k of KINDS) {
 // 11/1 지도용 파일: 맞춘 건물 거래(토지 제외)를 필지별로 묶어 data/bt/<구>.json — 지도 [상가·건물]에서 읽음
 //   필지마다: 중개거래 중 가장 최근 → 중개거래가 없으면 직거래 중 가장 최근(j:1) · 좌표는 카카오 주소 검색(법정동 코드가 맞을 때만)
 const BK = ['nrg', 'indu', 'sh'], byP = new Map();
+const CUT5 = (() => { const d = new Date(); return `${d.getFullYear() - 5}${String(d.getMonth() + 1).padStart(2, '0')}01`; })();
 for (const k of BK) for (const x of res[k]) if (x.n === 1) {
   const c = x.c, pnu = `${GU}${x.t.bj}${c.san ? '2' : '1'}${c.bun.padStart(4, '0')}${c.ji.padStart(4, '0')}`;
   const key = pnu + k, g = byP.get(key) || { pnu, k, umd: x.t.umd, c, pl: x.t.plat, gf: Math.round(c.tot * 100) / 100, h: [] };
@@ -221,8 +222,9 @@ for (const g of byP.values()) {
   }
   if (!pt) continue;
   g.h.sort((a, b) => b[0].localeCompare(a[0]));
-  const top = g.h.find(h => !h[2]) || g.h[0];
-  mapItems.push({ pnu: g.pnu, k: g.k, lat: pt.lat, lng: pt.lng, a: `${g.umd} ${g.c.san ? '산' : ''}${g.c.bun}${g.c.ji !== '0' ? '-' + g.c.ji : ''}`, p: top[1], d: top[0], j: top[2], c: g.h.length, pl: g.pl, gf: g.gf, h: g.h.slice(0, 5) });
+  // 11/2 지도 라벨은 최근 5년 거래만 (중개 우선 → 없으면 직거래) · 5년 안 거래가 없으면 라벨 없이 이력(h)만 — 정보창용
+  const h5 = g.h.filter(h => h[0] >= CUT5), top = h5.find(h => !h[2]) || h5[0];
+  mapItems.push({ pnu: g.pnu, k: g.k, lat: pt.lat, lng: pt.lng, a: `${g.umd} ${g.c.san ? '산' : ''}${g.c.bun}${g.c.ji !== '0' ? '-' + g.c.ji : ''}`, ...(top ? { p: top[1], d: top[0], j: top[2] } : {}), c: h5.length, pl: g.pl, gf: g.gf, h: g.h });
 }
 if (mapItems.length) {
   await mkdir('data/bt', { recursive: true });
@@ -238,12 +240,20 @@ for (const k of KINDS) {
   sum[k] = { 전체거래: tot, 뺀거래: skip[k] || {}, 맞추기시도: L.length, 하나로맞춤: L.filter(x => x.n === 1).length, 후보여러개: L.filter(x => x.n > 1).length, 후보없음: L.filter(x => x.n === 0).length, 자료부족: L.filter(x => x.n < 0).length };
   const s = sum[k]; s['맞춤비율(시도중)'] = s.맞추기시도 ? `${Math.round(s.하나로맞춤 / s.맞추기시도 * 100)}%` : '-';
 }
-const out = { updated: new Date().toISOString(), gu: GU, months: MONTHS, minutes: Math.round((Date.now() - t0) / 6e4), calls, 요약: sum, 표본: samples, 건물목록메모: bldNote.slice(0, 20), 건물목록받은줄: bldStat, 토지목록메모: landNote.slice(0, 30), 실거래오류: tradeErr.slice(0, 20) };
+// 11/2 연도별 맞춤 (오래된 거래일수록 얼마나 맞는지 · 자료부족 = 신고 자료에 대지·연면적이 비어 있음)
+const byYear = {};
+for (const k of BK) for (const x of res[k]) {
+  const y = x.t.ymd.slice(0, 4), e = (byYear[y] ||= { 시도: 0, 맞춤: 0, 자료부족: 0 });
+  e.시도++; if (x.n === 1) e.맞춤++; if (x.n < 0) e.자료부족++;
+}
+for (const e of Object.values(byYear)) e.비율 = e.시도 ? `${Math.round(e.맞춤 / e.시도 * 100)}%` : '-';
+const out = { 연도별: byYear, 지도용: { 필지: mapItems.length, 라벨있음: mapItems.filter(x => x.p).length }, updated: new Date().toISOString(), gu: GU, months: MONTHS, minutes: Math.round((Date.now() - t0) / 6e4), calls, 요약: sum, 표본: samples, 건물목록메모: bldNote.slice(0, 20), 건물목록받은줄: bldStat, 토지목록메모: landNote.slice(0, 30), 실거래오류: tradeErr.slice(0, 20) };
 await mkdir('data', { recursive: true });
 await writeFile(`data/landtrade-test-${GU}.json`, JSON.stringify(out, null, 1));
 const md = [`## 실거래 위치 맞추기 시험 — ${GU} · 최근 ${MONTHS}개월`, '', '| 종류 | 전체 | 뺀 거래 | 맞추기 시도 | 하나로 맞춤 | 후보 여러 개 | 후보 없음 | 자료 부족 | 맞춤 비율 |', '|---|---|---|---|---|---|---|---|---|',
   ...KINDS.map(k => { const s = sum[k]; return `| ${NAME[k]} | ${s.전체거래} | ${Object.entries(s.뺀거래).map(([a, b]) => `${a} ${b}`).join(', ') || '-'} | ${s.맞추기시도} | ${s.하나로맞춤} | ${s.후보여러개} | ${s.후보없음} | ${s.자료부족} | ${s['맞춤비율(시도중)']} |`; }),
   '', `요청 수: 실거래 ${calls.trade} · 건축물대장 ${calls.bld} · 토지특성 ${calls.ned} · 연속지적도 ${calls.vw} · 카카오 ${calls.kakao} · ${out.minutes}분`, `지도용 파일: ${mapItems.length}필지 (data/bt/${GU}.json)`, `좌표 찾음: ${KINDS.map(k => `${NAME[k]} ${samples[k].filter(x => x.좌표).length}/${samples[k].length}`).join(' · ')}`,
+  '', '| 연도 | 시도 | 맞춤 | 비율 | 자료부족 |', '|---|---|---|---|---|', ...Object.keys(byYear).sort().map(y => `| ${y} | ${byYear[y].시도} | ${byYear[y].맞춤} | ${byYear[y].비율} | ${byYear[y].자료부족} |`),
   bldNote.length ? `\n건축물대장 메모: ${bldNote.slice(0, 5).join(' / ')}` : '', landNote.length ? `\n토지 메모: ${landNote.slice(0, 5).join(' / ')}` : ''].join('\n');
 console.log(md);
 if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, md + '\n');
