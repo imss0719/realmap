@@ -849,3 +849,9 @@ a.favbtn{text-decoration:none}
 
 /* 11/1 실거래 탭: 전세 안전 점검은 눌렀을 때만 */
 .safelink{display:flex;align-items:center;justify-content:center;width:100%;border:1px solid #CFE7D8;background:#F2FAF5;color:#1F7A4D;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+
+/* 11/1 선배: 미가입 부동산(회색) 표시 더 작게 — 집 모양만 · 여러 곳이면 숫자 */
+.gof.sm{padding:0;gap:2px;width:auto;min-width:18px;height:18px;justify-content:center;border-width:1.5px;border-radius:999px;background:#7A8593;opacity:.92}
+.gof.sm i{display:grid;place-items:center;width:15px;height:15px;color:#fff}.gof.sm i svg{width:10px;height:10px}
+.gof.sm b{background:none;color:#fff;font-size:9.5px;padding:0 5px 0 0;margin:0;line-height:15px}
+.gof.sm:hover{background:#14212E;opacity:1}

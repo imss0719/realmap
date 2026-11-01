@@ -325,7 +325,7 @@
     if (S.d.kapt) return S.d.kapt;
     const tok = S.tok, rc = recap(), m = mainT();
     S.d.kapt = { loading: true };
-    api(`/api/building?pnu=${S.sel.pnu}&part=kapt&name=${encodeURIComponent((rc && rc.name) || (m && m.name) || S.sel.bname || '')}`)
+    api(`/api/building?pnu=${S.sel.pnu}&part=kapt&name=${encodeURIComponent(nmOk(rc && rc.name) || noDong(m && m.name) || nmOk(S.sel.bname))}`)
       .then(j => { if (tok === S.tok) { S.d.kapt = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.kapt = { error: e.message }; render(); } });
     return S.d.kapt;
   }
@@ -337,7 +337,7 @@
       if (!S.d.rankAsk) { S.d.rankAsk = true; const tok = S.tok; regionAt(p.c.lat, p.c.lng).then(rg => rg && rg.lawd === lawd ? loadRegion('apt', rg) : []).then(() => { if (tok === S.tok) render(); }).catch(() => {}); }
       return null;
     }
-    const dong = p.dongName, cx = cxNorm((S.d.kapt && S.d.kapt.kapt && S.d.kapt.kapt.name) || (recap() && recap().name) || (mainT() && mainT().name) || '');
+    const dong = p.dongName, cx = cxNorm(cxName());
     const v84 = x => { const r = (x.pa || []).filter(r => r[0] >= 80 && r[0] <= 86).sort((a, b) => String(b[2]).localeCompare(String(a[2])))[0]; return r ? r[1] : 0; };
     const L = e.items.filter(x => String(x.a || '').split(' ').slice(-2, -1)[0] === dong && v84(x)).sort((a, b) => v84(b) - v84(a));
     if (L.length < 3) return null;
@@ -353,7 +353,9 @@
     const T = S.d.trades && !S.d.trades.loading && !S.d.trades.error ? S.d.trades : null;
     const ud = String((k && k.usedate) || (m && m.useApr) || '').replace(/\D/g, ''), yb = +ud.slice(0, 4) || 0, yNow = new Date().getFullYear();
     const hh = (k && k.hh) || (rc && rc.hhld) || 0;
-    const name = nmOk(k && k.name) || nmOk(rc && rc.name) || nmOk(m && m.name) || nmOk(S.sel.bname);
+    let tn = '';
+    if (T) { const cnt = {}; for (const r of T.rows) if (r.kind === 'apt' && nmOk(r.name)) cnt[nmOk(r.name)] = (cnt[nmOk(r.name)] || 0) + 1; tn = Object.keys(cnt).sort((a2, b2) => cnt[b2] - cnt[a2])[0] || ''; }
+    const name = nmOk(k && k.name) || nmOk(rc && rc.name) || tn || noDong(m && m.name) || nmOk(S.sel.bname);
     let rows = null, rep = null, n1 = null, R = null;
     if (T) {
       // 평형별 최근 매매 (해제 제외 · 중개거래 우선, 없으면 직거래)
@@ -411,6 +413,9 @@
   // ---------- 11/1 2차: 아파트 외 필지도 같은 틀 ----------
   // 11/1 건물·단지 이름: 공공데이터가 빈 이름을 공백·'-'로 주는 경우가 있어 걸러 냄 (제목이 비어 보이던 원인)
   const nmOk = v => { v = String(v ?? '').replace(/\s+/g, ' ').trim(); return v && !/^[-–.·\s0]*$/.test(v) ? v : ''; };
+  // 11/1 대표 필지가 아닌 필지는 건축물대장 이름이 '○○아파트 206동'처럼 동 이름이라, 끝의 동 표시를 뗌
+  const noDong = v => nmOk(String(v ?? '').replace(/\s*[(（]?\s*(제\s*)?([0-9]{1,4}|[A-Za-z])\s*동\s*[)）]?\s*$/, ''));
+  const cxName = () => nmOk(S.d.kapt && S.d.kapt.kapt && S.d.kapt.kapt.name) || nmOk(recap() && recap().name) || noDong(mainT() && mainT().name) || nmOk(S.sel && S.sel.bname);
   const titleOf = (name, p) => nmOk(name) || nmOk(p.addr) || nmOk(p.jibun) || nmOk(p.road) || `PNU ${p.pnu}`;
   const PK = { apt: ['아파트', 12], villa: ['빌라', 36], offi: ['오피스텔', 36], shop: ['상가·업무', 60], house: ['단독·다가구', 60], factory: ['공장·창고', 60], land: ['토지', 60] };
   function pkind() {
@@ -1428,7 +1433,7 @@
   async function loadTrades(kinds, key) {
     const tok = S.tok; S.d.trades = { key, loading: true }; S.showAll = false;
     const c = chr(), rc = recap(), m = mainT();
-    const name = (rc && rc.name) || (m && m.name) || '';
+    const name = isApt() ? cxName() : (rc && rc.name) || (m && m.name) || '';   // 11/1 아파트는 동 이름을 뗀 단지 이름으로 (다른 필지도 같은 단지 거래로 묶이게)
     const q = new URLSearchParams({ pnu: S.sel.pnu, kinds: kinds.join(','), months: S.months, umd: S.sel.dongName || '', area: c && c.area ? c.area : '', name });
     // 최근 1년을 먼저 보여 주고, 3·5년은 1년씩 이어 붙입니다
     const total = S.months, step = 12;
@@ -3137,8 +3142,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       if (!o) {
         const el = document.createElement('button'); el.type = 'button'; el.className = 'gof' + (many ? ' cl' : '');
         el.title = (many ? `이 근처 미가입 중개사무소 ${L.length}곳` : L.join(', ')) + ' · 누르면 목록';
-        if (many) el.innerHTML = `<i>${HOUSE}</i><span>부동산</span><b>${L.length}</b>`;
-        else { const sn = ofName({ office: L[0] }).replace(/\s*\d{2,4}-\d{3,4}-\d{4}.*$/, '').replace(/[·,].*$/, '').trim(); el.innerHTML = `<span>${esc(sn.length > 7 ? sn.slice(0, 7) + '…' : sn + (/부동산$/.test(sn) ? '' : '부동산'))}</span>${L.length > 1 ? `<b>+${L.length - 1}</b>` : ''}`; }
+        // 11/1 선배: 미가입 부동산 표시 더 작게 — 이름 글씨 없이 회색 집 모양만 (몰려 있으면 집 + 숫자) · 이름은 마우스 올리면/누르면 목록
+        el.classList.add('sm');
+        el.innerHTML = `<i>${HOUSE}</i>${L.length > 1 ? `<b>${L.length}</b>` : ''}`;
         el.onclick = ev => { ev.stopPropagation(); grayCard(L); };
         o = new K.CustomOverlay({ position: c.ll, content: el, xAnchor: .5, yAnchor: .5, zIndex: 3, clickable: true });
         { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(3); }
@@ -3213,7 +3219,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function lsHere() {
     const p = S.sel; if (!p) return [];
     // 11/1 아파트는 단지가 여러 필지 → 같은 법정동 + 같은 단지 이름으로 올린 매물도 같은 단지로 봄
-    const cx = isApt() ? cxNorm((S.d.kapt && S.d.kapt.kapt && S.d.kapt.kapt.name) || (recap() && recap().name) || (mainT() && mainT().name) || '') : '';
+    const cx = isApt() ? cxNorm(cxName()) : '';
     const bjd = String(p.pnu).slice(0, 10);
     return LS.items.filter(x => x.pnu === p.pnu || (p.bldPnu && x.pnu === p.bldPnu) || (cx.length >= 2 && String(x.pnu || '').slice(0, 10) === bjd && cxNorm(x.bname) === cx));
   }
