@@ -27,6 +27,7 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
           VWORLD_DOMAIN: 'https://realmap.online'
           GU: ${{ github.event.inputs.gu }}
           MONTHS: ${{ github.event.inputs.months }}
