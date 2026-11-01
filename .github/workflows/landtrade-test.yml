@@ -9,8 +9,8 @@ on:
         description: '구 코드 (마포 11440)'
         default: '11440'
       months:
-        description: '기간 (개월)'
-        default: '60'
+        description: '기간 (개월 · 250 = 2006년 1월부터)'
+        default: '250'
 permissions:
   contents: write
 jobs:
