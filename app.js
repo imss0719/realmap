@@ -3090,7 +3090,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const ofc = String(new URLSearchParams(location.search).get('office') || '').replace(/\D/g, '');
     if (ofc) { LS.on = true; LS.ofc = ofc; $('mtLst').setAttribute('aria-pressed', true); }
     fbInit();
-    api('/api/auth?action=offices').then(j => { LS.ofs = (j.items || []).filter(b => b.lat && b.lng); drawOffices(); }).catch(() => { /* 서버가 예전 파일이면 광고 있는 사무소만 */ });   // 11/2
+    api('/api/auth?action=offices').then(j => { const A = j.items || []; LS.ofs = A.filter(b => b.lat && b.lng); drawOffices(); ofNoPos(A.filter(b => !(b.lat && b.lng) && b.addr)); }).catch(() => { /* 서버가 예전 파일이면 광고 있는 사무소만 */ });   // 11/2
     api('/api/auth?action=pubs').then(j => { LS.all = (j.items || []).filter(x => x.lat && x.lng); LS.items = LS.all; LS.loaded = true; setTimeout(opFixPos, 1500); if (LS.ofc) ofcOn(); drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
   }
   const OFC_LV = 5, OFC = {};
@@ -3258,6 +3258,16 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     for (const e of m.values()) e.score = Math.min(e.list.length, 30) + (now - Date.parse(e.last || 0) < 30 * 864e5 ? 5 : 0) + (e.bk.photo ? 3 : 0);
     return [...m.values()].sort((a, b) => b.score - a.score);
   }
+  // 11/2 확인된 사무소인데 위치가 아직 없으면(회원이 중개장부를 안 열어 봄): 주소로 찾아 바로 표시 · 운영자 화면이면 찾은 자리를 저장
+  function ofNoPos(L) {
+    if (!L.length || !window.OfficePos) return;
+    L.slice(0, 20).forEach(b => OfficePos(b).then(pt => {
+      if (!pt || !(pt.lat > 33) || !(pt.lng > 124)) return;
+      Object.assign(b, { lat: pt.lat, lng: pt.lng, posv: 3 });
+      LS.ofs = [...(LS.ofs || []), b]; drawOffices();
+      if (S.me && S.me.op) fetch('/api/auth?action=bkpos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ regno: String(b.regno || '').replace(/\D/g, ''), lat: pt.lat, lng: pt.lng, v: 3 }) }).catch(() => { /* 다음에 */ });
+    }).catch(() => { /* 다음에 */ }));
+  }
   // 10/29 운영자가 지도를 열면: 예전 방식 좌표(posv<3)인 사무소 자리를 새 방식(OfficePos)으로 한 번 다시 찾아 저장 — 손으로 옮기는 게 아니라 같은 자동 규칙
   function opFixPos() {
     if (!S.me || !S.me.op || !window.OfficePos || !window.kakao) return;
@@ -3346,8 +3356,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       if (!o) {
         const el = document.createElement('button'); el.type = 'button'; el.className = 'ofp ' + mode;
         const nm = ofName(e.bk), n = e.list.length;
-        el.title = n ? `${e.bk.office} · 게시 중 매물 ${n}건` : `${e.bk.office} · 리얼맵 회원 중개사무소`;
-        el.innerHTML = mode === 'circle' ? `${ofAv(e.bk, 'av')}${n ? `<em>${n}</em>` : ''}<span class="tp">${esc(nm)}${n ? ' · 매물 ' + n : ''}</span>` : `<span class="tp">${esc(nm)}${n ? ' · 매물 ' + n : ''}</span>`;   // 11/2 0건이면 숫자 없음
+        el.title = `${e.bk.office} · 게시 중 매물 ${n}건`;
+        el.innerHTML = mode === 'circle' ? `${ofAv(e.bk, 'av')}<em${n ? '' : ' class="z"'}>${n}</em><span class="tp">${esc(nm)} · 매물 ${n}</span>` : `<span class="tp">${esc(nm)} · 매물 ${n}</span>`;   // 11/2 선배: 0건도 '0'으로 (올려야겠다는 마음이 들게) · 0은 회색
         el.onclick = ev => { ev.stopPropagation(); ofCard(e.r); };
         const z0 = mode === 'dot' ? 6 : 8;   // 10/29 선배 결정: 사무소가 매물 말풍선(5) 위 · 마우스 올리면 30
         o = new K.CustomOverlay({ position: new K.LatLng(e.bk.lat, e.bk.lng), content: el, yAnchor: mode === 'dot' ? .5 : 1.2, zIndex: z0, clickable: true });

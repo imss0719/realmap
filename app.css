@@ -942,3 +942,6 @@ a.favbtn{text-decoration:none}
 .precard td.r{text-align:right;font-weight:700}
 .precard .pre-hh{display:block;font-size:12.5px;margin-top:8px}
 .precard table.pre-h{margin-top:2px}.precard table.pre-h th{font-weight:500;color:var(--muted);font-size:12px;width:76px}
+
+/* 11/2 광고 0건 사무소: 숫자 0을 회색으로 */
+.ofp.circle em.z{background:#868E96;color:#fff}
