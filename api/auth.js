@@ -199,7 +199,7 @@ async function regOwner(d) {
   return b && digitsOf(b.regno) === d ? String(o) : null; // 해지한 계정의 기록은 무시
 }
 // 확인 결과를 bk에 표시합니다 (저장은 부르는 쪽에서). st: ok · notfound · ceo · closed · dup · error
-async function verifyBk(uid, bk) {
+export async function verifyBk(uid, bk) {   // 11/2 운영 화면 [등록번호 고치기]에서도 씀
   const d = digitsOf(bk.regno), now = new Date().toISOString();
   const owner = await regOwner(d);
   if (owner && owner !== String(uid)) {

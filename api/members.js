@@ -202,6 +202,23 @@ async function brokers(req, res) {
         const m = String(body.memo || '').replace(/[<>]/g, '').trim().slice(0, 200);
         await redis(m ? ['SET', `realmap:opmemo:${uid}`, m] : ['DEL', `realmap:opmemo:${uid}`]);
         return send(res, 200, { ok: true, memo: m });
+      } else if (body.op === 'regno') {   // 11/2 선배: 운영자가 등록번호·대표자를 고쳐 국가 자료로 다시 확인 → 맞으면 확인 표시 · 승인 대기 해제 · 체험 시작(아직이면) · 안내 문자
+        if (typeof AUTH.verifyBk !== 'function') return fail(res, 500, 'old', 'api/auth.js 파일을 먼저 올려 주세요.');
+        const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
+        const reg = String(body.regno || '').replace(/[^\d-]/g, '').slice(0, 30), ceo = String(body.ceo || '').replace(/[<>]/g, '').trim().slice(0, 20);
+        const dg = reg.replace(/\D/g, '');
+        if (dg.length !== 14) return fail(res, 400, 'regno', '등록번호는 숫자 14자리입니다. (예: 41133-2024-00080)');
+        const old = String(bk.regno || '').replace(/\D/g, '');
+        const nb = { ...bk, regno: `${dg.slice(0, 5)}-${dg.slice(5, 9)}-${dg.slice(9)}`, ...(ceo ? { ceo } : {}) };
+        delete nb.verified;
+        const v = await AUTH.verifyBk(uid, nb);
+        if (v.st === 'error') return fail(res, 503, 'vworld', '지금은 국가 자료(브이월드) 조회가 원활하지 않습니다. 잠시 뒤 다시 눌러 주세요. (아무것도 바뀌지 않았습니다)');
+        if (v.st !== 'ok') return fail(res, 400, 'verify', (v.msg || '국가 자료에서 확인되지 않았습니다.') + ' (아무것도 바뀌지 않았습니다)');
+        nb.vby = 'op';
+        await redis(['SET', `realmap:bk:${uid}`, JSON.stringify(nb)]);
+        if (old && old !== dg && (await redis(['HGET', 'realmap:regno', old]).catch(() => null)) === uid) await redis(['HDEL', 'realmap:regno', old]).catch(() => 0);   // 예전(틀린) 번호 자리 비우기
+        if (!(await planOf(uid)).started) { await startTrial(uid); try { if (AUTH.joinSms) await AUTH.joinSms(uid, nb, await planOf(uid), 'ok'); } catch { /* 문자는 보조 */ } }
+        try { const P = await planOf(uid); await lsMutate(redis, uid, ls => syncPub(uid, ls, nb, P)); } catch { /* 다음 저장 때 */ }
       } else if (body.op === 'verify') {
         const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
         bk.verified = body.on ? new Date().toISOString() : false;
