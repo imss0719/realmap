@@ -773,6 +773,21 @@ export default async function (req, res) {
 
     // 10/28 중개사 소개 페이지 (누구나 볼 수 있음) — GET ?action=office&r=등록번호 숫자 · 등록번호가 확인된 사무소만 · 1분 캐시
     //   광고에 이미 나가는 정보(공인중개사법 표시 항목·대표 사진)와 소개 칸, 지금 지도에 게시 중인 매물만 돌려줌
+    // 11/2 확인된 회원 중개사무소 (광고 0건이어도 지도에 사무소 표시) — 소개 페이지에 이미 공개되는 정보만 · 5분 캐시
+    if (action === 'offices') {
+      if (!R_URL || !R_TOKEN) return send(res, 200, { ok: true, items: [] }, 300);
+      const raw = (await redis(['HGETALL', 'realmap:regno']).catch(() => [])) || [], pairs = [], items = [];
+      for (let i = 0; i < raw.length; i += 2) pairs.push([String(raw[i]), String(raw[i + 1])]);
+      for (let i = 0; i < pairs.length; i += 200) {
+        const ch = pairs.slice(i, i + 200), vals = (await redis(['MGET', ...ch.map(([, u]) => `realmap:bk:${u}`)]).catch(() => [])) || [];
+        ch.forEach(([d], k) => {
+          let b = null; try { b = vals[k] ? JSON.parse(vals[k]) : null; } catch { b = null; }
+          if (!b || !b.verified || digitsOf(b.regno) !== d || !(b.lat > 33) || !(b.lng > 124)) return;   // 해지·승인 대기·위치 없음은 빼기
+          items.push({ office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile || '', verified: true, photo: b.photo || '', lat: b.lat, lng: b.lng, posv: b.posv || 1 });
+        });
+      }
+      return send(res, 200, { ok: true, items }, 300);
+    }
     if (action === 'office') {
       const d = digitsOf(req.query.r);
       if (d.length < 10 || !R_URL || !R_TOKEN) return fail(res, 404, 'none', '중개사무소를 찾지 못했습니다.');
