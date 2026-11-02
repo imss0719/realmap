@@ -1,0 +1,36 @@
+name: realmap-presale-test
+# 11/2 시험: 입주 예정(공사 중) 아파트 — 분양권·입주권 실거래 + 청약홈 분양정보 (scripts/presale-test.mjs) — 수동 실행
+#   [Run workflow]에서 구 코드·기간을 넣고 실행 (기본: 마포 11440 · 서대문 11410 · 은평 11380 · 48개월)
+#   결과: Actions 실행 화면의 요약표 + data/presale-test.json (지도에는 아직 안 씀)
+on:
+  workflow_dispatch:
+    inputs:
+      gus:
+        description: '구 코드 (쉼표로 여러 개)'
+        default: '11440,11410,11380'
+      months:
+        description: '기간 (개월)'
+        default: '48'
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: 입주 예정 아파트 시험
+        run: node scripts/presale-test.mjs
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          GUS: ${{ github.event.inputs.gus }}
+          MONTHS: ${{ github.event.inputs.months }}
+      - name: 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/presale-test.json
+          git diff --cached --quiet || (git commit -m "입주 예정 아파트 시험 결과" && (git push || (git pull --rebase origin main && git push)))
