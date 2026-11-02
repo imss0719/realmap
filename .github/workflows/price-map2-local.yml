@@ -22,7 +22,7 @@ jobs:
         continue-on-error: true   # 일부 지역이 실패해도 받은 지역은 저장
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-          SIDOS: '26,27,30,36,31'   # 11/2 지방 광역시 (부산·대구·대전·세종·울산)
+          SIDOS: '26,27,30,36,31,12'   # 11/2 지방 광역시 (부산·대구·대전·세종·울산·광주 12)
       - name: 바뀐 자료 저장
         if: always()
         run: |
