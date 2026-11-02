@@ -3111,6 +3111,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       S.map.setCenter(new K.LatLng(near.lat, near.lng));
     }
     $('map').closest('.map').classList.add('ofc-mask');
+    // 11/2 고침: 바탕 지도 흐리게가 지도 그림 주소(daumcdn)에 걸려 안 먹던 것 → 지도 위에 반투명 판을 깔아 어둡게 (매물·사무소 표시는 그 위라 또렷)
+    if (!OFC.dim) OFC.dim = new K.Rectangle({ bounds: new K.LatLngBounds(new K.LatLng(32, 123), new K.LatLng(39.6, 132.6)), strokeWeight: 0, strokeOpacity: 0, fillColor: '#14212E', fillOpacity: 0.32, zIndex: 0 });
+    OFC.dim.setMap(S.map);
     if (!OFC.zl) { OFC.zl = true; K.event.addListener(S.map, 'zoom_changed', () => { if (LS.ofc && S.map.getLevel() > OFC_LV) S.map.setLevel(OFC_LV); }); }
     tradeRefresh(); priceRefresh(); drawOffices(); fbSync();
     let bar = $('ofcBar'); if (!bar) { bar = document.createElement('div'); bar.id = 'ofcBar'; $('toast').parentElement.appendChild(bar); }
@@ -3118,7 +3121,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const bk = mine[0].bk || {};
     bar.innerHTML = `<span><b>${esc(bk.office || '중개사무소')}</b> 매물 ${mine.length}건<i>만 보는 중</i></span><a href="/office.html?r=${r}">소개</a><button type="button" id="ofcAll">모두 보기 ✕</button>`;
     bar.hidden = false;
-    $('ofcAll').onclick = () => { LS.ofc = null; LS.items = LS.all; bar.hidden = true; $('map').closest('.map').classList.remove('ofc-mask'); tradeRefresh(); priceRefresh(); fbSync(); $('toast').parentElement.classList.remove('ofc-on'); try { const u = new URL(location.href); u.searchParams.delete('office'); history.replaceState(null, '', u.pathname + u.search); } catch { /* 주소는 그대로 */ } LS.ovs.forEach(o => o.setMap(null)); LS.ovs.clear(); drawListings(); drawTrades(); if (S.sel) render(); };
+    $('ofcAll').onclick = () => { LS.ofc = null; LS.items = LS.all; bar.hidden = true; $('map').closest('.map').classList.remove('ofc-mask'); if (OFC.dim) OFC.dim.setMap(null); tradeRefresh(); priceRefresh(); fbSync(); $('toast').parentElement.classList.remove('ofc-on'); try { const u = new URL(location.href); u.searchParams.delete('office'); history.replaceState(null, '', u.pathname + u.search); } catch { /* 주소는 그대로 */ } LS.ovs.forEach(o => o.setMap(null)); LS.ovs.clear(); drawListings(); drawTrades(); if (S.sel) render(); };
   }
   // ---------- 11/2 실거래·매물 고르기 줄 (지도 왼쪽 위 알약 · 누르면 아래로 펼침 · 바깥을 누르거나 지도를 움직이면 닫힘) ----------
   const fbList = arr => arr.length > 1 ? `${arr[0]} 외 ${arr.length - 1}` : arr[0] || '없음';
