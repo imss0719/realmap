@@ -805,8 +805,10 @@ export default async function (req, res) {
         const ch = pairs.slice(i, i + 200), vals = (await redis(['MGET', ...ch.map(([, u]) => `realmap:bk:${u}`)]).catch(() => [])) || [];
         ch.forEach(([d], k) => {
           let b = null; try { b = vals[k] ? JSON.parse(vals[k]) : null; } catch { b = null; }
-          if (!b || !b.verified || digitsOf(b.regno) !== d || !(b.lat > 33) || !(b.lng > 124)) return;   // 해지·승인 대기·위치 없음은 빼기
-          items.push({ office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile || '', verified: true, photo: b.photo || '', lat: b.lat, lng: b.lng, posv: b.posv || 1 });
+          if (!b || !b.verified || digitsOf(b.regno) !== d) return;   // 해지·승인 대기는 빼기
+          const pos = b.lat > 33 && b.lng > 124;
+          if (!pos && !b.addr) return;
+          items.push({ office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile || '', verified: true, photo: b.photo || '', lat: pos ? b.lat : null, lng: pos ? b.lng : null, posv: pos ? b.posv || 1 : 0 });   // 11/2 위치가 아직 없으면(회원이 중개장부를 안 열어 봄) 주소만 → 지도 화면이 주소로 찾음
         });
       }
       return send(res, 200, { ok: true, items }, 300);
