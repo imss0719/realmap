@@ -917,3 +917,5 @@ a.favbtn{text-decoration:none}
 /* 11/2 한 중개사 매물만 보기: 바탕 지도 타일만 회색으로 옅게 (매물 라벨·사무소 핀은 그대로) · 이 사무소 매물 라벨 강조 */
 .map.ofc-mask img[src*="daumcdn.net"]{filter:grayscale(1) brightness(1.06) contrast(.85);opacity:.5}
 .map.ofc-mask .llabel{transform:scale(1.12);transform-origin:center bottom;border-width:2.5px;box-shadow:0 3px 10px rgba(20,33,46,.35)}
+/* 11/2 광고 0건 회원 사무소 카드 */
+#ofCard .of0{margin:10px 0 0;font-size:12.5px;color:var(--muted);text-align:center}
