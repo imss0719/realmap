@@ -223,7 +223,7 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
       <div><h4>요금 변경 이력 <small>${logs.length}건</small></h4><div class="log">${logs.map(x => `<div><em>${d8(x.at)}</em>${esc(PN[x.to.plan] || x.to.plan)} ${x.to.until ? d8(x.to.until) + '까지' : x.to.plan === 'free' ? '' : '기한 없음'} · ${x.by === 'pay' ? '결제' : '운영자'}${x.why ? '(' + esc(x.why) + ')' : ''}${x.memo ? ' · ' + esc(x.memo) : ''}</div>`).join('') || '<div><em></em>아직 기록이 없습니다</div>'}</div>
         <h4 style="margin-top:10px">운영 메모 <small>회원에게는 안 보임 · 고치고 나가면 저장</small></h4><input id="oMemo" value="${esc(r.opmemo || '')}" maxlength="200" placeholder="예) 친한 부동산 · 피드백 자주 줌" style="width:100%"></div>
       <div><h4>회원 정보</h4><div class="kv"><b>사무실</b><span>${esc(b.tel || '-')} · 휴대폰 ${esc(b.mobile || '-')}</span><b>주소</b><span>${esc(b.addr || '-')}</span><b>카카오</b><span>${esc(r.nickname || '-')} · ${esc(r.email || '')} · 번호 ${esc(r.id)}</span>
-        <b>쓰는 양</b><span>매물 ${st.n ?? '-'} (진행 ${st.on ?? '-'}) · 광고 ${st.pub ?? 0}</span><b>가입</b><span>${dt(r.joined)} · 최근 ${ago(st.up || r.last)}</span>${b.vmsg && !b.verified ? `<b>확인</b><span style="color:var(--warn)">${esc(b.vmsg)}</span>` : ''}</div>
+        <b>쓰는 양</b><span>매물 ${st.n ?? '-'} (진행 ${st.on ?? '-'}) · 광고 ${st.pub ?? 0}</span><b>가입</b><span>${dt(r.joined)} · 최근 ${ago(st.up || r.last)}</span><b>등록번호</b><span class="rgfix"><input id="rgNo" value="${esc(b.regno || '')}" placeholder="41133-2024-00080" maxlength="20" style="width:150px"> <input id="rgCeo" value="${esc(b.ceo || '')}" placeholder="대표자" maxlength="20" style="width:80px"> <button class="btn" type="button" id="rgGo">국가 자료로 확인 · 고치기</button></span>${b.vmsg && !b.verified ? `<b>확인</b><span style="color:var(--warn)">${esc(b.vmsg)}</span>` : ''}</div>
         <div class="rw" style="margin-top:8px">${b.office ? `<button class="btn" type="button" data-vf="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : b.pend ? '승인' : '등록번호 확인'}</button>` : ''}${b.photo ? `<a class="btn" href="${esc(b.photo)}" target="_blank" rel="noopener">사진 보기</a><button class="btn" type="button" data-noph>사진 지우기</button>` : ''}${st.pub ? '<button class="btn red" type="button" data-off>광고 모두 내리기</button>' : ''}</div></div></div>`;
   }
   function wireDetail(m, r) {
@@ -244,6 +244,16 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
       const body = { uid: r.id, op: 'plan', plan: ps.plan, why: ps.why, memo: ps.memo, seats: ps.plan === 'trial' ? 0 : ps.seats || 0 };
       if (ps.plan !== 'free') { if (ps.forever) body.forever = true; else if (ps.until) body.until = ps.until; else { body.n = ps.n; body.unit = ps.unit; } }
       if (await act(body)) ps = null;
+    };
+    const rg = document.getElementById('rgGo');   // 11/2 등록번호 고치기 (국가 자료로 확인될 때만 바뀜)
+    if (rg) rg.onclick = async () => {
+      const no = document.getElementById('rgNo').value.trim(), ceo = document.getElementById('rgCeo').value.trim();
+      if (no.replace(/\D/g, '').length !== 14) return alert('등록번호는 숫자 14자리입니다. (예: 41133-2024-00080)');
+      if (!confirm(`${(r.bk && r.bk.office) || r.nickname}\n등록번호 ${no} · 대표 ${ceo || '(그대로)'}\n\n국가 자료로 확인해서 맞으면 고치고 확인 표시를 합니다.\n승인 대기였다면 체험이 시작되고 안내 문자가 갑니다.`)) return;
+      rg.disabled = true; rg.textContent = '확인 중…';
+      const j = await act({ uid: r.id, op: 'regno', regno: no, ceo });
+      rg.disabled = false; rg.textContent = '국가 자료로 확인 · 고치기';
+      if (j) alert('확인되었습니다. 등록번호를 고치고 확인 표시를 했습니다.');
     };
     const om = document.getElementById('oMemo');
     if (om) om.onchange = async () => { const j = await act({ uid: r.id, op: 'memo', memo: om.value }, false); if (j) { r.opmemo = j.memo; drawB(); } };
