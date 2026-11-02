@@ -1,0 +1,20 @@
+name: realmap-gwangju-test
+# 11/2 시험: 광주 실거래 지역 코드 확인 (scripts/gj-test.mjs) — 수동 실행 · 저장하는 것 없음
+#   결과: Actions 실행 화면 아래 요약표
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: 광주 코드 시험
+        run: node scripts/gj-test.mjs
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
