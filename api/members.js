@@ -3,7 +3,7 @@
 // 조건: ① 운영자 카카오 계정(ADMIN_KAKAO_ID)으로 로그인 ② 관리자 비밀번호 일치
 import crypto from 'node:crypto';
 import { send, fail, MAX_KEYS, vworldData, cached, pool } from './_lib.js';
-import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial, dropPhotos, PLANS, lsLoad, lsMutate } from './auth.js';
+import { readSession, redis, R_URL, R_TOKEN, planOf, planView, PUB_KEY, syncPub, loadBk, brokerStat, startTrial, dropPhotos, PLANS, lsLoad, lsMutate, joinSms } from './auth.js';
 
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const ADMIN_PW = String(process.env.ADMIN_PASSWORD || '').trim();
@@ -209,7 +209,7 @@ async function brokers(req, res) {
         const d = String(bk.regno || '').replace(/\D/g, '');
         if (body.on && d) await redis(['HSET', 'realmap:regno', d, uid]).catch(() => 0);
         // 확인 대기였던 신청자: 승인하면 그때 체험(또는 무료) 시작
-        if (body.on && !(await planOf(uid)).started) await startTrial(uid);
+        if (body.on && !(await planOf(uid)).started) { await startTrial(uid); try { await joinSms(uid, bk, await planOf(uid), 'ok'); } catch { /* 문자는 보조 */ } }   // 11/2 승인 완료 문자
         try { const P = await planOf(uid); await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); } catch { /* 다음 저장 때 */ }   // 10/29 지도 광고의 '등록번호 확인' 표시·[중개사 소개]도 바로
       } else if (body.op === 'nophoto') { // 부적절한 대표 사진 지우기
         const bk = await loadBk(uid); if (!bk) return fail(res, 404, 'bk', '중개사무소 정보가 없습니다.');
