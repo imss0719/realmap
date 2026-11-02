@@ -2576,9 +2576,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     try { const v = JSON.parse(localStorage.getItem('rm.pm') || 'null'); if (v) { PM.kind = PKN[v.kind] ? v.kind : 'apt'; PM.mode = v.mode || 'price'; if (PLB(PM.kind) && PM.mode === 'jr') PM.mode = 'price'; } } catch { /* 저장소 없음 */ }
     // 범례 위 평당가/상승률 전환 버튼 (범례는 다시 그려지므로 범례 상자에서 한 번에 받습니다)
     $('pmLegend').addEventListener('click', e => {
+      if (e.target.closest('[data-pmopen]')) { PM.open = !PM.open; $('pmLegend').classList.toggle('open', PM.open); return; }   // 11/2 휴대폰 한 줄 ↔ 설정 판
       const b = e.target.closest('[data-pm]'); if (b) return pmSetMode(b.dataset.pm);
       const k = e.target.closest('[data-pk]'); if (k && k.dataset.pk !== PM.kind) { PM.kind = k.dataset.pk; if (PLB(PM.kind) && PM.mode === 'jr') PM.mode = 'price'; pmSave(); priceRefresh(true); }
     });
+    kakao.maps.event.addListener(S.map, 'click', () => { if (PM.open) { PM.open = false; $('pmLegend').classList.remove('open'); } });   // 지도를 누르면 설정 판 내려감
     tradeRefresh();
     areaSumInit();
   }
@@ -2810,7 +2812,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function pmLegend(ly) {
     const el = $('pmLegend'), C = pmCur(), lb = PLB(PM.kind);
     const KN = PKL[PM.kind], U = ly === 'g' ? '구별' : '동별';
-    const grp = S.map.getCenter().getLat() < 36 ? 'b' : 'm', key = ly + grp;
+    const cc = S.map.getCenter(), la = cc.getLat(), lo = cc.getLng(), grp = la >= 36.5 ? 'm' : la >= 35.55 && lo < 128.97 ? 'd' : 'b', key = ly + grp;   // 11/2 대구 따로
     const per = `${C[0].slice(2, 4)}.${C[0].slice(4)}~${C[1].slice(2, 4)}.${C[1].slice(4)}${PM.mode === 'chg' || PM.mode === 'jr' ? '' : ` · ${PGRP[grp]} 기준`}`;
     const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button><button type="button" data-pm="jr" aria-pressed="${PM.mode === 'jr'}"${lb ? ' disabled title="토지·건물은 전세가율이 없습니다"' : ''}>전세가율</button></div>${[['주택', ['apt', 'rh', 'offi']], ['토지·건물', PLBK]].map(([t, ks]) => `<div class="pmkind" role="group" aria-label="${t} 종류"><span>${t}</span>${ks.map(k => `<button type="button" data-pk="${k}" aria-pressed="${PM.kind === k}">${PKN[k]}</button>`).join('')}</div>`).join('')}`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
@@ -2828,6 +2830,13 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       el.innerHTML = `${seg}<b><em>${U}</em> ${KN} 1년 상승률 <small>${per} · 1년 전 같은 기간 대비</small></b><div class="pml">${CCOL.map(([, c]) => `<i style="background:${c}"></i>`).join('')}</div><div class="pmx"><span>−10%</span><span>0</span><span>+10%</span></div>${hint}`;
     }
     if (PM.mode !== 'chg' && PM.mode !== 'jr' && !((PM.mode === 'vol' ? PM.qv : PM.q)[key] || [])[5]) el.querySelector('.pmx').innerHTML = '<span>이 지역 시세는 다음 자동 갱신 때 채워집니다</span>';
+    // 11/2 선배 B안: 휴대폰은 아래쪽 한 줄(종류 · 보기 + 색 막대 + 양끝) · 누르면 아래에서 설정 판 · 지도 누르면 내려감 (PC는 그대로)
+    { const qq = PM.mode === 'vol' ? PM.qv[key] : PM.q[key], f = v => v >= 10000 ? `${(v / 10000).toFixed(1)}억` : `${n(Math.round(v / 100) * 100)}만`;
+      const cols = PM.mode === 'price' ? PCOL : PM.mode === 'vol' ? VCOL : PM.mode === 'jr' ? JCOL.map(z => z[1]) : CCOL.map(z => z[1]);
+      const ends = PM.mode === 'jr' ? ['50%↓', '80%↑'] : PM.mode === 'chg' ? ['−10%', '+10%'] : qq && qq[5] ? (PM.mode === 'vol' ? [`${n(qq[0])}건`, `${n(qq[5])}건`] : [f(qq[0]), f(qq[5])]) : ['', ''];
+      const MN = { price: '평당가', chg: '상승률', vol: '거래량', jr: '전세가율' }[PM.mode] || '';
+      el.insertAdjacentHTML('afterbegin', `<button type="button" class="pmmini" data-pmopen aria-label="시세지도 설정 열기"><b>${KN} · ${MN}</b><span class="pml">${cols.map(c => `<i style="background:${c}"></i>`).join('')}</span><small>${ends.filter(Boolean).join(' ')}</small><em>▾</em></button><span class="pmgrab" data-pmopen></span>`);
+      el.classList.toggle('open', !!PM.open); }
     el.hidden = false;
   }
   function pmCardShow(ly, f) {

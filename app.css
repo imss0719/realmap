@@ -533,7 +533,21 @@ a.favbtn{text-decoration:none}
 .pmcard td.up{color:#E03131;font-weight:700}.pmcard td.dn{color:#1864AB;font-weight:700}.pmcard td.n{color:var(--muted)}
 .pmcard .pmc-n{font-size:11px;color:var(--muted);margin:6px 0}
 .pmcard .pmc-go{width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;font:inherit;font-weight:700;padding:9px;cursor:pointer}
-@media (max-width:760px){.pmlegend{top:118px;bottom:auto;left:16px}}
+/* 11/2 선배 B안: 휴대폰 시세지도 범례 — 아래쪽 한 줄 · 누르면 아래에서 설정 판 (PC는 그대로) */
+.pmlegend .pmmini,.pmlegend .pmgrab{display:none}
+@media (max-width:760px){
+  .pmlegend{top:auto;bottom:30px;left:10px;right:auto;padding:0;border-radius:999px;max-width:calc(100% - 96px)}
+  .pmlegend:not(.open)>*:not(.pmmini){display:none!important}
+  .pmlegend .pmmini{display:flex;align-items:center;gap:7px;border:0;background:none;font:inherit;color:var(--fg);padding:7px 12px;cursor:pointer;max-width:100%}
+  .pmlegend .pmmini b{display:inline;margin:0;font-size:12px;white-space:nowrap}
+  .pmlegend .pmmini .pml{width:64px;flex:none}.pmlegend .pmmini .pml i{height:7px}
+  .pmlegend .pmmini small{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pmlegend .pmmini em{font-style:normal;color:var(--muted);font-size:11px}
+  .pmlegend.open{left:0;right:0;bottom:0;max-width:none;border-radius:18px 18px 0 0;padding:6px 14px 18px;box-shadow:0 -6px 20px rgba(0,0,0,.18)}
+  .pmlegend.open .pmmini{display:none}
+  .pmlegend.open .pmgrab{display:block;width:40px;height:5px;border-radius:5px;background:var(--line);margin:2px auto 10px;cursor:pointer}
+  body:has(#panel:not(.closed)) .pmlegend{display:none}
+}
 .bar a.share{text-decoration:none}
 
 /* 지도 위 매물 (중개사 광고) — 실거래(진한 바탕)와 구분: 흰 바탕 + 노란 테두리 */
