@@ -15,7 +15,7 @@ const fetchMonth = (k, lawd, ym) => dataGoKrAll(RT[k].url, { LAWD_CD: lawd, DEAL
 
 if (!process.env.DATA_GO_KR_KEY) { console.log('DATA_GO_KR_KEY 비밀값이 비어 있습니다.'); process.exit(1); }
 
-const SIDOS = ['11', '41', '28', '26', '27'];   // 11/2 대구(27) 추가
+const SIDOS = String(process.env.SIDOS || '11,41,28,26,27,30,36,31').split(',').map(s => s.trim()).filter(Boolean);   // 11/2 작업을 수도권 · 지방 광역시로 나눠 돌림 (워크플로의 SIDOS) · 대구 27 · 대전 30 · 세종 36 · 울산 31
 const OLD = { '28': { '28110': ['28125', '28155'], '28140': ['28125'], '28260': ['28275', '28290'] }, '41': { '41590': ['41591', '41593', '41595', '41597'] } };
 const KINDS = ['land', 'sh', 'nrg', 'indu'];
 const clean = s => String(s ?? '').trim();

@@ -23,8 +23,8 @@ const norm = s => clean(s).replace(/\(.*?\)|\[.*?\]/g, '').replace(/\s|　|아�
 const bon = j => clean(j).replace(/^산\s*/, '').split('-')[0];
 if (!DATA_KEY) { console.log('DATA_GO_KR_KEY 비밀값이 비어 있습니다.'); process.exit(1); }
 
-const SGG = {}, SIDO = { 11: '서울', 41: '경기', 28: '인천', 26: '부산', 27: '대구' }, SIDO_FULL = { 11: '서울특별시', 41: '경기도', 28: '인천광역시', 26: '부산광역시', 27: '대구광역시' };   // 11/2 부산·대구 추가
-for (const r of ['11', '41', '28', '26', '27']) { try { for (const f of JSON.parse(await readFile(`data/sgg-${r}.json`, 'utf8')).f) SGG[f.c] = f.n; } catch { /* 없음 */ } }
+const SGG = {}, SIDO = { 11: '서울', 41: '경기', 28: '인천', 26: '부산', 27: '대구', 30: '대전', 36: '세종', 31: '울산' }, SIDO_FULL = { 11: '서울특별시', 41: '경기도', 28: '인천광역시', 26: '부산광역시', 27: '대구광역시', 30: '대전광역시', 36: '세종특별자치시', 31: '울산광역시' };   // 11/2 부산·대구 추가
+for (const r of ['11', '41', '28', '26', '27', '30', '36', '31']) { try { for (const f of JSON.parse(await readFile(`data/sgg-${r}.json`, 'utf8')).f) SGG[f.c] = f.n; } catch { /* 없음 */ } }
 const want = String(process.env.GUS || '수도권').split(/[,\s]+/).filter(Boolean);
 const GUS = [...new Set(want.flatMap(w => w === '전체' ? Object.keys(SGG) : w === '수도권' ? Object.keys(SGG).filter(c => ['11', '41', '28'].includes(c.slice(0, 2))) : SIDO[w.slice(0, 2)] && w.length === 2 ? Object.keys(SGG).filter(c => c.startsWith(w)) : Object.values(SIDO).includes(w) ? Object.keys(SGG).filter(c => SIDO[c.slice(0, 2)] === w) : [w]))];
 const yms = monthsBack(MONTHS + 1).slice(1);
