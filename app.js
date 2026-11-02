@@ -2064,7 +2064,7 @@
       setTimeout(() => toast(lg === 'ok' ? '로그인되었습니다. 입지정보를 계속 무료로 이용하실 수 있습니다' : lg === 'cancel' ? '로그인을 취소했습니다' : '로그인하지 못했습니다. 잠시 후 다시 시도해 주세요', 3600), 600);
     }
     try { S.me = await api('/api/auth?action=me'); } catch { /* 회원 기능 꺼짐 */ }
-    try { if (S.me.op && $('tgrp')) tPanelSync(); } catch { /* 실거래 창 없음 */ }
+    try { if (S.me.op) fbSync(); } catch { /* 고르기 줄 없음 */ }
     try { if (S.me.op) { localStorage.setItem('rm.op', '1'); if (LS.loaded) setTimeout(opFixPos, 1500); } } catch { /* 무시 */ }
     drawAcct();
     loadFavs();
@@ -2548,46 +2548,21 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // ---------- 지도 위 실거래가 라벨 ----------
   // 화면 중심·모서리가 속한 시군구의 최근 6개월 매매를 건물별 최신 거래가로 표시합니다 (아파트·빌라·오피스텔).
   const TK = { apt: '아파트', rh: '빌라', offi: '오피스텔' };
-  // 11/1 [주거] / [상가·건물] 나눠 보기 — 상가·건물(nrg 상가·업무 · sh 단독·다가구 · indu 공장·창고)은 미리 맞춘 파일 data/bt/<구>.json
-  //   BT_OPEN=false 동안은 운영자(선배)에게만 보임 — 위치 확인 뒤 true로
+  // 11/2 실거래 종류 6가지 (칩 색 = 지도 라벨 색) · 상가·단독·공장(nrg·sh·indu)은 미리 맞춘 파일 data/bt/<구>.json
+  //   BT_OPEN=false 동안은 상가·단독·공장 칩이 운영자(선배)에게만 보임 — 위치 확인 뒤 true로
   const BT_OPEN = false;
-  const TGRP = { home: [['apt', '아파트', '#14212E'], ['rh', '빌라', '#1F7A4D'], ['offi', '오피스텔', '#6741B8']], bld: [['nrg', '상가', '#B4462B'], ['sh', '단독', '#1C64C8'], ['indu', '공장', '#5F6B78']] };
+  const TCH = [['apt', '아파트', '#14212E'], ['rh', '빌라', '#1F7A4D'], ['offi', '오피스텔', '#6741B8'], ['nrg', '상가', '#B4462B'], ['sh', '단독', '#1C64C8'], ['indu', '공장', '#5F6B78']];
   const BTK = { nrg: '상가·업무', sh: '단독·다가구', indu: '공장·창고' };
   const btOk = () => BT_OPEN || !!(S.me && S.me.op);
-  const T = { mode: 'price', on: true, grp: 'home', kinds: { apt: true, rh: true, offi: true, nrg: true, sh: true, indu: true }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
+  const T = { mode: 'price', on: true, kinds: { apt: true, rh: true, offi: true, nrg: false, sh: false, indu: false }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
   const MAXLV = 5;
   const eok = man => { if (man >= 10000) { const e = man / 10000; const d = e >= 10 ? 10 : 100; return `${String(Math.round(e * d) / d)}억`; } return `${n(man)}만`; };
-  function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds, mode: T.mode, grp: T.grp })); } catch { /* 저장소 없음 */ } }
-  const tGrp = () => T.grp === 'bld' && btOk() ? 'bld' : 'home';
-  const kindOn = k => T.kinds[k] !== false && TGRP[tGrp()].some(r => r[0] === k);
-  // 칩 (켜기·끄기 · 칩 색 = 라벨 색) · 주거/상가·건물 버튼 · 아래 한 줄 안내
-  function tPanelSync() {
-    const g = tGrp();
-    $('tgrp').hidden = !btOk();
-    document.querySelectorAll('[data-tg]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tg === g));
-    $('tchips').innerHTML = TGRP[g].map(([k, t, c]) => `<button type="button" data-tk="${k}" aria-pressed="${T.kinds[k] !== false}" style="--c:${c}">${t}</button>`).join('');
-    const span = g === 'bld' ? '최근 5년 매매' : '최근 6개월 매매';
-    // 11/2 휴대폰: 평소엔 접힌 알약 한 줄 (묶음 · 켜진 칩 색 점 · 실거래가/평당가)
-    $('tmini').innerHTML = `<b>${g === 'bld' ? '상가·건물' : '주거'}</b><span class="dots">${TGRP[g].filter(r => T.kinds[r[0]] !== false).map(r => `<i style="background:${r[2]}"></i>`).join('')}</span>${T.mode === 'py' ? '평당가' : '실거래가'}<em>${$('tpanel').classList.contains('fold') ? '▼' : '▲'}</em>`;
-    $('tSec').textContent = `${span} · ${T.mode === 'py' ? (g === 'bld' ? '평당가 (대지 기준)' : '평당가 (전용 기준)') : '최근 실거래가'} · 누르면 켜고 끄기`;
-  }
+  function tSave() { try { localStorage.setItem('rm.trade2', JSON.stringify({ on: T.on, kinds: T.kinds, mode: T.mode, v: 3 })); } catch { /* 저장소 없음 */ } }
+  const kindOn = k => T.kinds[k] === true && (!BTK[k] || btOk());
+  const btAny = () => ['nrg', 'sh', 'indu'].some(kindOn);
   function tradeMapInit() {
-    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; if (v.mode === 'py') T.mode = 'py'; if (v.grp === 'bld') T.grp = 'bld'; if (v.kinds && v.grp) for (const k of Object.keys(T.kinds)) if (v.kinds[k] === false) T.kinds[k] = false; } } catch { /* 저장소 없음 */ }   // 11/1 종류 칩·주거/상가·건물을 기억 (예전 저장값은 grp가 없어 모두 켬)
-    // 거래가 · 평당가(전용 기준) 전환 — 고른 쪽을 기억
-    const tmSync = () => { document.querySelectorAll('[data-tm]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tm === T.mode)); tPanelSync(); };
-    const redraw = () => { tPanelSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); tradeRefresh(); };
-    // 11/2 휴대폰: 접힘으로 시작 · 알약을 누르면 펼침 · 묶음·가격 기준을 고르거나 지도를 움직이면 다시 접힘
-    const fold = on => { $('tpanel').classList.toggle('fold', on); tPanelSync(); };
-    if (mobile()) $('tpanel').classList.add('fold');
-    $('tmini').onclick = () => fold(!$('tpanel').classList.contains('fold'));
-    const autoFold = () => { if (mobile() && !$('tpanel').classList.contains('fold')) fold(true); };
-    kakao.maps.event.addListener(S.map, 'dragstart', autoFold);
-    kakao.maps.event.addListener(S.map, 'zoom_start', autoFold);
-    document.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => { if (tGrp() === b.dataset.tg) return; T.grp = b.dataset.tg; redraw(); autoFold(); });
-    $('tchips').onclick = e => { const b = e.target.closest('[data-tk]'); if (!b) return; const k = b.dataset.tk; T.kinds[k] = T.kinds[k] === false; if (!TGRP[tGrp()].some(r => T.kinds[r[0]] !== false)) { T.kinds[k] = true; toast('하나는 켜 두어야 합니다'); return; } redraw(); };
-    document.querySelectorAll('[data-tm]').forEach(b => b.onclick = () => { if (T.mode === b.dataset.tm) return; T.mode = b.dataset.tm; tmSync(); tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); drawTrades(); autoFold(); });
-    tmSync();
-    const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); };
+    try { const v = JSON.parse(localStorage.getItem('rm.trade2') || 'null'); if (v) { T.on = !!v.on; if (v.mode === 'py') T.mode = 'py'; if (v.v === 3 && v.kinds) for (const k of Object.keys(T.kinds)) T.kinds[k] = v.kinds[k] === true; } } catch { /* 저장소 없음 */ }   // 11/2 종류 칩을 기억 (예전 저장값은 아파트·빌라·오피스텔만 켬)
+    const setOn = on => { T.on = on; $('mtTrade').setAttribute('aria-pressed', on); tSave(); fbSync(); };
     setOn(T.on);
     // 10/30 선배: 실거래 버튼은 켜기·끄기만 (고르는 창 없음) · 범례·거래가/평당가는 지도 왼쪽 아래 작은 상자(tradeRefresh가 보이고 숨김)
     $('mtTrade').onclick = () => {
@@ -2622,7 +2597,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   function areaSum(retry) {
     const el = $('areaSum');
-    if (!el || !tActive() || tGrp() !== 'home' || !kindOn('apt') || D.on || document.querySelector('.wel')) return;
+    if (!el || !tActive() || !kindOn('apt') || D.on || document.querySelector('.wel')) return;
     if (mobile() && !$('panel').classList.contains('closed')) return;
     const b = S.map.getBounds(), c = S.map.getCenter(), lv = S.map.getLevel(), sw = b.getSouthWest(), ne = b.getNorthEast();
     if (AS.last && AS.last.lv === lv && Math.abs(c.getLng() - AS.last.ln) < (ne.getLng() - sw.getLng()) * .35 && Math.abs(c.getLat() - AS.last.la) < (ne.getLat() - sw.getLat()) * .35) return;
@@ -2940,9 +2915,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         fetch('/api/aptmap', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lawd, pts: pts.slice(i, i + 60) }) }).catch(() => { /* 보태기 실패는 무시 */ });
     }
   }
-  const tActive = () => T.on && S.map.getLevel() <= MAXLV && TGRP[tGrp()].some(r => kindOn(r[0]));
+  const tActive = () => T.on && S.map.getLevel() <= MAXLV && TCH.some(r => kindOn(r[0]));
   async function tradeRefresh() {
-    $('tpanel').hidden = !tActive();   // 10/30 작은 범례 (건물별 가격이 보일 때만 · 축소하면 동별 시세 범례가 같은 자리)
     if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), c = S.map.getCenter();
     const pts = [[c.getLat(), c.getLng()], [sw.getLat(), sw.getLng()], [ne.getLat(), ne.getLng()], [sw.getLat(), ne.getLng()], [ne.getLat(), sw.getLng()]];
@@ -2951,11 +2925,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const seen = new Set(), uniq = rgs.filter(r => !seen.has(r.lawd) && seen.add(r.lawd));
     drawTrades();
     const jobs = [];
-    if (tGrp() === 'bld') for (const rg of uniq) jobs.push(loadBt(rg).then(drawTrades));
-    else for (const k of Object.keys(TK)) if (kindOn(k)) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
+    if (btAny()) for (const rg of uniq) jobs.push(loadBt(rg).then(drawTrades));
+    for (const k of Object.keys(TK)) if (kindOn(k)) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
     await Promise.all(jobs);
     drawTrades();
-    if (tGrp() === 'bld') { if (!T.hintB) { T.hintB = true; toast('상가·건물은 최근 5년 실거래가입니다 · "직"은 직거래'); } }
+    if (btAny() && !T.hintB) { T.hintB = true; toast('상가·단독·공장은 최근 5년 실거래가입니다 · "직"은 직거래'); }
     else if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 실거래가입니다'); }
   }
   // 11/1 상가·건물 실거래: 미리 맞춘 파일 (없는 구는 빈 목록 · 한 번만 받음)
@@ -3053,7 +3027,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 실거래(진한 남색·거래 월)와 구분: 흰 바탕 + 노란 테두리 + 매매/전세/월세 표시. 레벨 6까지 건물별, 7~10은 동별 건수.
   const IS_PHONE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
   const LKIND = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '분양권' };
-  const LS = { on: true, items: [], ovs: new Map(), loaded: false, cmp: {}, dq: new Set() };
+  const LS = { on: true, items: [], ovs: new Map(), loaded: false, cmp: {}, dq: new Set(), deal: 'all', types: {} };
   const lsMain = x => x.kind === 'sale' ? x.price : x.kind === 'presale' ? (x.price || 0) + (x.pr || 0) : x.kind === 'jeonse' ? x.deposit : x.deposit || 0;
   const lsPrice = x => x.kind === 'wolse' ? `${x.deposit ? eok(x.deposit).replace(/만$/, '') : '0'}/${n(x.rent)}` : x.kind === 'presale' ? `P ${eok(x.pr || 0)}` : eok(lsMain(x));
   const lsPriceFull = x => x.kind === 'wolse' ? `보증금 ${x.deposit ? won(x.deposit) : '없음'} · 월 ${n(x.rent)}만원` : x.kind === 'presale' ? `분양가 ${won(x.price)} + 프리미엄 ${won(x.pr)}` : won(lsMain(x));
@@ -3062,11 +3036,13 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     try { const v = localStorage.getItem('rm.lst'); if (v === '0') LS.on = false; } catch { /* 저장소 없음 */ }
     if (new URLSearchParams(location.search).get('lst')) { LS.on = true; S.lstJump = true; }
     $('mtLst').setAttribute('aria-pressed', LS.on);
-    $('mtLst').onclick = () => { LS.on = !LS.on; $('mtLst').setAttribute('aria-pressed', LS.on); lsSave(); drawListings(); drawTrades();
+    try { const v = JSON.parse(localStorage.getItem('rm.lsf') || 'null'); if (v) { if (['sale', 'rent'].includes(v.deal)) LS.deal = v.deal; LS.types = v.types || {}; } } catch { /* 저장소 없음 */ }
+    $('mtLst').onclick = () => { LS.on = !LS.on; $('mtLst').setAttribute('aria-pressed', LS.on); lsSave(); fbSync(); drawListings(); drawTrades();
       if (LS.on) toast(LS.items.length ? `중개사가 올린 매물 ${LS.items.length}건 · 흰 바탕에 노란 테두리가 매물입니다` : '아직 지도에 올라온 매물이 없습니다'); };
     kakao.maps.event.addListener(S.map, 'idle', drawListings);
     const ofc = String(new URLSearchParams(location.search).get('office') || '').replace(/\D/g, '');
     if (ofc) { LS.on = true; LS.ofc = ofc; $('mtLst').setAttribute('aria-pressed', true); }
+    fbInit();
     api('/api/auth?action=pubs').then(j => { LS.all = (j.items || []).filter(x => x.lat && x.lng); LS.items = LS.all; LS.loaded = true; setTimeout(opFixPos, 1500); if (LS.ofc) ofcOn(); drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
   }
   // 10/29 중개사 소개 페이지 [지도에서 모아 보기] → /?office=등록번호숫자 : 그 중개사 매물만 지도에 + 위에 '모두 보기' 띠
@@ -3083,12 +3059,58 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     bar.hidden = false;
     $('ofcAll').onclick = () => { LS.ofc = null; LS.items = LS.all; bar.hidden = true; $('toast').parentElement.classList.remove('ofc-on'); try { const u = new URL(location.href); u.searchParams.delete('office'); history.replaceState(null, '', u.pathname + u.search); } catch { /* 주소는 그대로 */ } LS.ovs.forEach(o => o.setMap(null)); LS.ovs.clear(); drawListings(); drawTrades(); if (S.sel) render(); };
   }
+  // ---------- 11/2 실거래·매물 고르기 줄 (지도 왼쪽 위 알약 · 누르면 아래로 펼침 · 바깥을 누르거나 지도를 움직이면 닫힘) ----------
+  const fbList = arr => arr.length > 1 ? `${arr[0]} 외 ${arr.length - 1}` : arr[0] || '없음';
+  function fbSync() {
+    const fT = $('fpT'), fL = $('fpL'); if (!fT) return;
+    const tk = TCH.filter(r => kindOn(r[0])), lk = LSG.filter(r => LS.types[r[0]] !== false);
+    fT.hidden = !T.on; fL.hidden = !LS.on;
+    // 알약 글씨는 짧게 (휴대폰 폭) — 기본값(총액 · 전체 · 모든 종류)은 쓰지 않음
+    fT.innerHTML = `<span class="k">실거래</span>${fbList(tk.map(r => r[1]))}${T.mode === 'py' ? ' · 평당가' : ''}<i>▼</i>`;
+    const lt = lk.length === LSG.length ? '' : fbList(lk.map(r => r[1]));
+    fL.innerHTML = `<span class="k">매물</span>${LS.deal === 'all' ? (lt || '전체') : { sale: '매매', rent: '전월세' }[LS.deal] + (lt ? ' · ' + lt : '')}<i>▼</i>`;
+    $('fdT').innerHTML = `<div class="fseg" role="group" aria-label="지도에 보일 가격">${[['price', '총액'], ['py', '평당가']].map(([v, t]) => `<button type="button" data-tm="${v}" aria-pressed="${T.mode === v}">${t}</button>`).join('')}</div>
+      <div class="fchips">${TCH.filter(r => !BTK[r[0]] || btOk()).map(([k, t, c]) => `<button type="button" data-tk="${k}" aria-pressed="${kindOn(k)}" style="--c:${c}">${t}</button>`).join('')}</div>`;
+    $('fdL').innerHTML = `<div class="fseg gy" role="group" aria-label="거래 종류">${[['all', '전체'], ['sale', '매매'], ['rent', '전월세']].map(([v, t]) => `<button type="button" data-ld="${v}" aria-pressed="${LS.deal === v}">${t}</button>`).join('')}</div>
+      <div class="fchips gy">${LSG.map(([k, t]) => `<button type="button" data-lt="${k}" aria-pressed="${LS.types[k] !== false}">${t}</button>`).join('')}</div>`;
+    if (!T.on) fbOpen('T', false); if (!LS.on) fbOpen('L', false);
+  }
+  function fbOpen(w, on) {
+    const p = $('fp' + w), d = $('fd' + w); if (!p) return;
+    if (on === undefined) on = d.hidden;
+    if (on) fbOpen(w === 'T' ? 'L' : 'T', false);
+    d.hidden = !on; p.setAttribute('aria-expanded', on);
+  }
+  function fbInit() {
+    if (FB.init) return; FB.init = true;
+    $('fpT').onclick = e => { e.stopPropagation(); fbOpen('T'); };
+    $('fpL').onclick = e => { e.stopPropagation(); fbOpen('L'); };
+    const closeAll = () => { fbOpen('T', false); fbOpen('L', false); };
+    document.addEventListener('click', e => { if (!e.target.closest('#fbar')) closeAll(); });
+    ['dragstart', 'zoom_start', 'click'].forEach(ev => kakao.maps.event.addListener(S.map, ev, closeAll));
+    $('fdT').onclick = e => {
+      const m = e.target.closest('[data-tm]'), c = e.target.closest('[data-tk]');
+      if (m && T.mode !== m.dataset.tm) { T.mode = m.dataset.tm; tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); fbSync(); drawTrades(); }
+      if (c) { const k = c.dataset.tk; T.kinds[k] = !kindOn(k); if (!TCH.some(r => kindOn(r[0]))) { T.kinds[k] = true; toast('하나는 켜 두어야 합니다 · 모두 끄려면 오른쪽 [실거래]를 누르세요'); return; } tSave(); fbSync(); T.ovs.forEach(o => o.setMap(null)); tradeRefresh(); }
+    };
+    $('fdL').onclick = e => {
+      const d = e.target.closest('[data-ld]'), c = e.target.closest('[data-lt]');
+      if (d) LS.deal = d.dataset.ld;
+      if (c) { const k = c.dataset.lt; LS.types[k] = LS.types[k] === false; if (!LSG.some(r => LS.types[r[0]] !== false)) { LS.types[k] = true; toast('하나는 켜 두어야 합니다 · 모두 끄려면 오른쪽 [매물]을 누르세요'); return; } }
+      if (!d && !c) return;
+      try { localStorage.setItem('rm.lsf', JSON.stringify({ deal: LS.deal, types: LS.types })); } catch { /* 저장소 없음 */ }
+      fbSync(); LS.ovs.forEach(o => o.setMap(null)); LS.ovs.clear(); drawListings(); drawTrades();
+    };
+    fbSync();
+  }
+  const FB = {};
   // 건물(필지)별로 묶기: 가장 낮은 가격 하나 + 건수
   // 가까이(레벨 4 이하) 보면 아파트·오피스텔 매물은 그 동 위에 따로 표시 (동 위치는 DongPos로 한 번만 받음, 못 찾으면 단지 자리)
   function lsGroups() {
     const g = new Map(), close = S.map && S.map.getLevel() <= 4 && window.DongPos, b = close ? S.map.getBounds() : null;
-    const want = new Map(); if (close) for (const x of LS.items) if (x.dong) (want.get(x.pnu) || want.set(x.pnu, []).get(x.pnu)).push(x.dong);   // 필지마다 매물이 있는 동
-    for (const x of LS.items) {
+    const L = lsShown();
+    const want = new Map(); if (close) for (const x of L) if (x.dong) (want.get(x.pnu) || want.set(x.pnu, []).get(x.pnu)).push(x.dong);   // 필지마다 매물이 있는 동
+    for (const x of L) {
       let k = x.pnu, lat = x.lat, lng = x.lng, dn = '';
       if (close && x.dong) {
         const p = DongPos.at(x.pnu, x.dong);
@@ -3100,7 +3122,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     g.forEach(e => e.list.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'sale' ? -1 : 1) || lsMain(a) - lsMain(b)));
     return [...g.values()];
   }
-  const lsActive = () => LS.on && LS.items.length && S.map.getLevel() <= 10;
+  // 11/2 매물 고르기: [전체|매매|전월세] · 종류 6묶음 (매물 등록 유형 17개를 묶음)
+  const LSG = [['apt', '아파트', ['아파트', '주상복합']], ['vil', '빌라', ['빌라', '연립', '다가구', '주택']], ['off', '오피스텔', ['오피스텔']], ['shop', '상가', ['상가', '사무실', '지식산업센터']], ['bld', '건물', ['건물']], ['etc', '토지', []]];
+  const lsGrp = x => { const t = x.pbase || x.ptype || ''; const g = LSG.find(r => r[2].includes(t)); return g ? g[0] : 'etc'; };
+  const lsPass = x => (LS.deal === 'sale' ? x.kind === 'sale' || x.kind === 'presale' : LS.deal === 'rent' ? x.kind === 'jeonse' || x.kind === 'wolse' : true) && LS.types[lsGrp(x)] !== false;
+  const lsShown = () => LS.items.filter(lsPass);
+  const lsActive = () => LS.on && lsShown().length && S.map.getLevel() <= 10;
   // 실거래 라벨이 비켜 갈 자리 (매물 라벨이 먼저)
   function lsPoints() {
     if (!lsActive() || S.map.getLevel() > 5) return [];
@@ -3132,7 +3159,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       }
     } else { // 동별 건수
       const d = new Map();
-      for (const x of LS.items) { const k = String(x.pnu).slice(0, 10); const e = d.get(k) || d.set(k, { k, la: 0, ln: 0, c: 0, nm: '', of: new Set() }).get(k); e.la += x.lat; e.ln += x.lng; e.c++; if (x.bk && x.bk.verified) e.of.add(String(x.bk.regno || '').replace(/\D/g, '')); if (!e.nm) e.nm = (String(x.addr).split(' ').find(w => /(동|가|리|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w)) || ''); }
+      for (const x of lsShown()) { const k = String(x.pnu).slice(0, 10); const e = d.get(k) || d.set(k, { k, la: 0, ln: 0, c: 0, nm: '', of: new Set() }).get(k); e.la += x.lat; e.ln += x.lng; e.c++; if (x.bk && x.bk.verified) e.of.add(String(x.bk.regno || '').replace(/\D/g, '')); if (!e.nm) e.nm = (String(x.addr).split(' ').find(w => /(동|가|리|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w)) || ''); }
       for (const e of d.values()) {
         const ll = new K.LatLng(e.la / e.c, e.ln / e.c); if (!b.contain(ll)) continue;
         const id = 'd' + e.k + ':' + e.c; show.add(id);

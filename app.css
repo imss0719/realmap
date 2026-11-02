@@ -895,3 +895,22 @@ a.favbtn{text-decoration:none}
   .measure:not(.ls-open) .ms-list{display:none}
   .ms-list{margin-top:6px;max-height:30vh;overflow:auto}.ms-list li{font-size:11.5px;padding:4px 0}
 }
+/* 11/2 실거래·매물 고르기 줄: 켜진 것만 알약 · 누르면 아래로 펼침 · 둥근 사각 버튼 · 매물은 진회색 */
+.fbar{position:absolute;left:12px;top:12px;z-index:13;display:flex;gap:6px;align-items:flex-start}
+.map.lp-on .fbar{left:312px}
+@media (max-width:1180px){.fbar{top:66px}}
+@media (max-width:760px){.fbar{top:118px;left:12px;max-width:calc(100% - 100px);flex-wrap:wrap}.map.lp-on .fbar{left:12px}}
+.fpill{display:inline-flex;align-items:center;gap:6px;border:0;background:var(--surface);color:var(--fg);border-radius:10px;box-shadow:0 1px 5px rgba(0,0,0,.22);padding:6px 10px;font:inherit;font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer}
+.fpill[hidden],.fdd[hidden]{display:none!important}
+.fpill .k{color:#fff;background:#14212E;border-radius:6px;padding:1px 7px;font-size:11px}
+.fpill.gy .k{background:#495057}
+.fpill i{font-style:normal;color:var(--muted);font-size:9px}
+.fpill[aria-expanded="true"]{outline:2px solid #14212E}.fpill.gy[aria-expanded="true"]{outline-color:#495057}
+.fdd{position:absolute;left:0;top:calc(100% + 6px);background:var(--surface);border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.22);padding:9px;display:flex;flex-direction:column;gap:7px;width:max-content;max-width:calc(100vw - 24px)}
+.fseg{display:inline-flex;align-self:flex-start;background:var(--soft);border-radius:10px;padding:2px;gap:2px}
+.fseg button{border:0;background:none;font:inherit;font-size:12px;font-weight:700;color:var(--muted);padding:4px 11px;border-radius:8px;cursor:pointer}
+.fseg button[aria-pressed="true"]{background:#14212E;color:#fff}
+.fseg.gy button[aria-pressed="true"]{background:#495057}
+.fchips{display:flex;flex-wrap:wrap;gap:4px}
+.fchips button{font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:8px;border:1.5px solid var(--c,#495057);color:var(--c,#495057);background:#fff;cursor:pointer;white-space:nowrap}
+.fchips button[aria-pressed="true"]{background:var(--c,#495057);color:#fff}
