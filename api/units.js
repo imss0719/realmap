@@ -89,7 +89,7 @@ export default handler(async (req, res) => {
   // 10/31 동 하나의 호별 공급면적: GET /api/units?pnu=...&dong=101동&sup=1 → { sup: { '1203': [59.92, 80.19], ... } } (전용, 공급)
   //   건축물대장 전유공용면적에서 그 호의 전용 + 주거공용(외벽·계단실 등). 주차장·관리사무소·커뮤니티 같은 기타 공용은 계약면적에만 들어가므로 뺌
   //   공용면적이 없거나(오래된 단지) 공급/전용 비율이 1.1~1.6 밖이면 그 호는 빼서 화면이 추정값(회색)으로 보여 줌
-  if (!ho && dong && req.query.sup) {
+  if (!ho && dong != null && req.query.sup) {   // 11/2 고침: 동 이름이 없는 단지(건물 하나 · 예: 마포 트라팰리스 2차)도 — 예전엔 dong이 빈칸이면 호 목록이 와서 평형이 비었음
     const D = String(dong).trim();
     const hk = s => String(s || '').replace(/\D/g, '') || String(s || '').replace(/\s|호$/g, '');
     const ETC = /주차|기계|전기실|발전|관리사무|경비|노인|경로|보육|어린이집|주민|커뮤니|휘트니스|헬스|독서|작은도서관|근린|상가|부대|복리|저수조|물탱크|정화조|펌프|쓰레기|자전거|창고|방재|중앙감시|MDF|변전/;
@@ -127,7 +127,7 @@ export default handler(async (req, res) => {
 
   // 동 하나의 호별 전용면적: GET /api/units?pnu=...&dong=101동&areas=1 → { areas: { '1203': 84.97, ... } }
   //   단지 배치표가 층마다 다른 평형을 표시하는 데 씀. 브이월드 공동주택가격(동 전체 한 번에) → 없으면 건축물대장 전유부(쪽 단위)
-  if (!ho && dong && req.query.areas) {
+  if (!ho && dong != null && req.query.areas) {   // 11/2 고침: 동 이름이 없는 단지도
     const D = String(dong).trim(), Y = new Date().getFullYear();
     const hk = s => String(s || '').replace(/\D/g, '') || String(s || '').replace(/\s|호$/g, '');
     let r = null;
