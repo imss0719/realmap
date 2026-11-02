@@ -752,7 +752,7 @@ window.Board = (() => {
       const R0 = x.rents || [], R = [...R0, ...Array(B.blank.get(id) || 0).fill({})], s = rentSum(x), y = yields(x, s.d, s.r);
       const ri = (i, kk, v, ph) => `<input class="rpi" data-fk="r:${id}:${i}:${kk}" data-ri="${i}" data-rk="${kk}" value="${esc(v ?? '')}" placeholder="${ph}" ${dis}>`;
       body += `<div class="rps"><h4>층별 현황${RO ? '' : `<button type="button" class="rplnk" data-a="floors" style="margin-left:auto">${R0.length ? '다시 깔기' : '건축물대장에서 불러오기'}</button>`}</h4>
-        ${R.length ? `<div class="rpfl"><div class="fh"><span>층</span><span>임차인 · 업종</span><span>보증금</span><span>월세</span><span>만기</span><span></span></div>${R.map((r, i) => `<div class="fr${/공실/.test(r.label || '') ? ' vac' : ''}" title="${esc([r.use, r.area ? m2t(r.area) : ''].filter(Boolean).join(' · '))}">${ri(i, 'fl', r.fl, '')}${ri(i, 'label', r.label, '')}${ri(i, 'deposit', manTx(r.deposit), '')}${ri(i, 'rent', r.rent ? r.rent.toLocaleString() : '', '')}${ri(i, 'exp', r.exp, '')}${RO ? '<span></span>' : `<button type="button" class="rpdel" data-rdel="${i}" aria-label="이 줄 지우기">×</button>`}</div>`).join('')}</div>` : '<p class="rpn">아직 층별 현황이 없습니다.</p>'}
+        ${R.length ? `<div class="rpfl"><div class="fh"><span>층</span><span>${isHouse(x) ? '호실 · 임차인' : '임차인 · 업종'}</span><span>보증금</span><span>월세</span><span>만기</span><span></span></div>${R.map((r, i) => `<div class="fr${/공실/.test(r.label || '') ? ' vac' : ''}" title="${esc([r.use, r.area ? m2t(r.area) : ''].filter(Boolean).join(' · '))}">${ri(i, 'fl', r.fl, '')}${ri(i, 'label', r.label, '')}${ri(i, 'deposit', manTx(r.deposit), '')}${ri(i, 'rent', r.rent ? r.rent.toLocaleString() : '', '')}${ri(i, 'exp', r.exp, '')}${RO ? '<span></span>' : `<button type="button" class="rpdel" data-rdel="${i}" aria-label="이 줄 지우기">×</button>`}</div>`).join('')}</div>` : '<p class="rpn">아직 층별 현황이 없습니다.</p>'}
         ${RO ? '' : '<button type="button" class="rplnk" data-a="radd">＋ 줄 추가</button>'}
         <p class="rpn">보증금 <b>${s.d ? sw(s.d) : '0'}</b> · 월세 <b>${s.r ? s.r.toLocaleString() : '0'}</b> · 공실 <b>${s.v}개 층</b>${y ? ` · 수익률 <b class="yl">${y.y.toFixed(2)}%</b>${y.y2 != null ? ` (융자 반영 ${y.y2.toFixed(2)}%)` : ''}` : ''}</p></div>`;
     }
@@ -893,7 +893,8 @@ window.Board = (() => {
     if (k === 'land') return [['use', '지목'], ['zone', '용도지역']];
     const f = k === 'whole' ? [['use', '건축물 용도'], ['tfl', '총 층수 (지상)'], ['appr', '사용승인일'], ['dir', '방향 (출입구)'], ['movein', '입주 가능일'], ['park', '주차']]
       : [['$area', '전용면적 ㎡'], ['flt', '층 / 총층'], ['use', '건축물 용도'], ['dir', res ? '방향 (거실)' : '방향 (출입구)'], ['movein', '입주 가능일'], ['park', '주차'], ['appr', '사용승인일']];
-    if (res && k !== 'whole') f.push(['rooms', '방 수'], ['baths', '욕실 수']);
+    if (res && (k !== 'whole' || catOf(x) === 'home')) f.push(['rooms', '방 수'], ['baths', '욕실 수']);
+    if (k === 'whole' && catOf(x) === 'home') f.push(['zone', '용도지역']);   // 11/2 주택
     if (shop) f.push(['biz', '현재 업종']);
     if (!res && x.kind !== 'presale') f.push(['wc', '화장실'], ['wcn', '화장실 수']);   // 10/30 화장실 개수 (미기입 시 과태료 대상) — 비주거 모두
     ['#mgmt', '#premium', ...(k === 'whole' ? [] : ['#curDep', '#curRent', '#loan']), '#paid'].forEach(key => { if (M.includes(key.slice(1)) && !(k === 'whole' && key === '#loan')) f.push([key, LB[key]]); });
@@ -923,6 +924,7 @@ window.Board = (() => {
   }
   // 11/2 선배 A안: [🪄 빈 칸 채우기] — 건축물대장·토지대장으로 비어 있는 칸만 채움 (넣은 값은 덮어쓰지 않음 · 누를 때만 · 분양권은 안 함)
   //   후보 칸 수만 셈 (대장에도 없을 수 있어 실제 채운 칸은 알림으로) · 계산 중 오류가 나도 버튼만 숨김
+  const isHouse = x => detKind(x) === 'whole' && catOf(x) === 'home';   // 11/2 선배: 주택(단독·다가구)은 통건물 틀 + 집에 필요한 칸 (대지·연면적 · 방·욕실 · 용도지역)
   const FILL_LB = { area: '면적', site: '대지면적', bname: '건물명', road: '도로명 주소', use: '용도', tfl: '총 층수', fl: '해당 층', appr: '사용승인일', park: '주차', elev: '승강기', zone: '용도지역', strct: '건축구조', lp: '공시지가' };
   const emp = v => v == null || v === '';
   function fillCand(x, RO) {
@@ -975,6 +977,11 @@ window.Board = (() => {
     if (y) rows.push(`<div class="sums"><span class="y">연 수익률 <b>${y.y.toFixed(2)}%</b></span>${y.y2 != null ? `<span>융자 반영 (금리 <input class="ci r w4" data-rate="1" value="${B.rate}" inputmode="decimal">%) <b>${y.y2.toFixed(2)}%</b></span>` : ''}</div>`);
     const left = '';   // 10/30 선배: 'n칸 남음' 표시는 없앰 — 비어 있는 칸이 노랗게 보이는 것으로 충분
     const fb = fillBtn(x, RO, 'rpfb');
+    if (isHouse(x)) {   // 11/2 주택: 정보 맨 위 대지 · 연면적 (첫 주소 기준 · 표·지도 면적 합계와 같은 자리)
+      const P0 = places(x)[0] || {}, ai = (kk, v) => `<span class="wonw"><input class="rpi" data-hs="${kk}" data-fk="hs:${id}:${kk}" value="${v || ''}" inputmode="decimal" style="width:64px" ${dis}><i class="u">㎡${v ? ' · ' + pyt(v) : ''}</i></span>`;
+      rows.unshift(`<div class="rpg"><label class="rpf"><span>대지</span>${ai('site', P0.site)}</label><label class="rpf"><span>연면적</span>${ai('area', P0.area)}</label></div>`);
+      if (x.kind === 'sale' && x.price && P0.site > 0) rows.push(`<p class="rpn">대지 평당 <b>${sw(x.price / (P0.site / PY))}</b> <small>(매매가 ÷ 대지)</small></p>`);
+    }
     return `<div class="rpr rpinfo"><b>${k === 'land' ? '토지' : '정보'}${left}</b><div class="rpv">${fb ? `<div class="rpfbw">${fb}</div>` : ''}${rows.join('')}</div></div>`;
   }
   // 이 매물에 맞는 고객 (고객관리에서 찾는 중인 고객)
@@ -997,7 +1004,7 @@ window.Board = (() => {
     const inp = (i, k, v, ph, cls = '') => `<input class="ci ${cls}" data-fk="r:${x.id}:${i}:${k}" data-ri="${i}" data-rk="${k}" value="${esc(v ?? '')}" placeholder="${ph}" ${dis}>`;
     return `<div class="dt-h"><b>층별 현황</b><small>층·용도·면적은 건축물대장에서 자동 · 임차인·보증금·월세·만기만 넣으면 합계와 수익률이 계산됩니다</small>
         ${RO ? '' : `<button type="button" class="lnk" data-a="floors">${R0.length ? '건축물대장으로 다시 깔기' : '건축물대장 층별 정보 불러오기'}</button>`}</div>
-      ${R.length ? `<table class="ft"><thead><tr><th>층</th><th>용도</th><th class="r">면적㎡</th><th>임차인 · 업종</th><th class="r">보증금</th><th class="r">월세</th><th>만기</th><th>메모</th><th></th></tr></thead><tbody>
+      ${R.length ? `<table class="ft"><thead><tr><th>층</th><th>용도</th><th class="r">면적㎡</th><th>${isHouse(x) ? '호실 · 임차인' : '임차인 · 업종'}</th><th class="r">보증금</th><th class="r">월세</th><th>만기</th><th>메모</th><th></th></tr></thead><tbody>
         ${R.map((r, i) => `<tr class="${/공실/.test(r.label || '') ? 'vac' : ''}"><td>${inp(i, 'fl', r.fl, '1F', 'w4')}</td><td>${inp(i, 'use', r.use, '용도')}</td><td>${inp(i, 'area', r.area, '', 'r w6')}</td>
           <td>${inp(i, 'label', r.label, '상호 · 업종 / 공실')}</td><td>${inp(i, 'deposit', manTx(r.deposit), '만원', 'r w7')}</td><td>${inp(i, 'rent', r.rent ? r.rent.toLocaleString() : '', '만원', 'r w6')}</td>
           <td>${inp(i, 'exp', r.exp, 'YY.MM', 'w6')}</td><td>${inp(i, 'memo', r.memo, '')}</td><td>${RO ? '' : `<button type="button" class="x" data-rdel="${i}" aria-label="이 줄 지우기">×</button>`}</td></tr>`).join('')}
@@ -1113,6 +1120,7 @@ window.Board = (() => {
     if (ln) { ln.onkeydown = e => { if (e.key === 'Enter') ln.blur(); }; ln.onchange = () => setTimeout(() => { const v = man(ln.value); if (Number.isNaN(v)) return H.toast('금액을 확인해 주세요'); saveItem(id, it => { it.loan = v; }); }, 0); }
     r.querySelectorAll('[data-rate]').forEach(rt => { rt.onchange = () => setTimeout(() => { const v = parseFloat(rt.value); if (v >= 0 && v < 30) { B.rate = v; keep(); refresh(); } }, 0); });
     r.querySelectorAll('[data-uk]').forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') i.blur(); }; i.onchange = () => setTimeout(() => { const v = man(i.value); if (Number.isNaN(v)) return H.toast('금액을 확인해 주세요'); saveItem(id, it => { it[i.dataset.uk] = v; }); }, 0); });
+    r.querySelectorAll('[data-hs]').forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') i.blur(); }; i.onchange = () => setTimeout(() => { const v = parseFloat(i.value.replace(/[^\d.]/g, '')) || null; saveItem(id, it => { if (!Array.isArray(it.places) || !it.places.length) it.places = places(it).map(p => ({ ...p })); it.places[0][i.dataset.hs] = v; }); }, 0); });   // 11/2 주택 대지·연면적
     r.querySelectorAll('[data-pa]').forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') i.blur(); }; i.onchange = () => setTimeout(() => { const v = parseFloat(i.value.replace(/[^\d.]/g, '')) || null; saveItem(id, it => { const P = it.places[+i.dataset.pa]; P.area = v; if (detKind(x) === 'whole' && (P.land || P.ak === 'land')) P.site = v; }); }, 0); });   // 10/30 건물에 붙인 필지 = 대지면적
     r.querySelectorAll('[data-pdel]').forEach(b => b.onclick = () => { if (confirm('이 필지를 뺄까요?')) saveItem(id, it => { it.places.splice(+b.dataset.pdel, 1); }); });
     const pq = r.querySelector('[data-pq]');
