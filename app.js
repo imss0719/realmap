@@ -2616,7 +2616,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 서울·인천·경기. 레벨 6~8: 법정동별 (data/umd-<시도>.json) · 레벨 9~11: 구별 (data/sgg-<시도>.json)
   // 값은 data/price-<시도>.json (전용 ㎡당 중간값, GitHub가 매주 갱신). 시세 파일은 작아서 처음에 모두 받고,
   // 경계 파일은 지도가 그 시도를 비출 때만 받습니다. 색 구간은 권역(수도권·부산)마다 따로 나눕니다.
-  const PSIDO = { '26': { n: '부산광역시', bb: [128.79, 34.99, 129.3, 35.39] }, '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] } };
+  const PSIDO = { '26': { n: '부산광역시', bb: [128.79, 34.99, 129.3, 35.39] }, '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] }, '27': { n: '대구광역시', bb: [128.34, 35.6, 128.95, 36.34] } };   // 11/2 대구 추가
   const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, qv: {}, sel: null, hov: null };
   const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
   // 종류: 주택(아파트·빌라·오피스텔, 최근 6개월 전용 평당) / 토지·건물(대지·단독·상가·공장, 최근 1년 대지 평당 — data/price2-<시도>.json)
@@ -2696,8 +2696,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const CCOL = [[-10, '#1864AB'], [-5, '#4C8FD6'], [-2, '#A5C8F0'], [2, '#DEE2E6'], [5, '#FFC9C9'], [10, '#FA7A7A'], [Infinity, '#E03131']];
   const pmSrc = ly => ly === 'g' ? PM.price.g : PM.price.d;
   // 색 구간은 권역마다 따로 나눕니다: 수도권(서울·인천·경기) / 부산
-  const pmGrp = c => String(c).slice(0, 2) === '26' ? 'b' : 'm';
-  const PGRP = { m: '수도권', b: '부산' };
+  const pmGrp = c => { const s = String(c).slice(0, 2); return s === '26' ? 'b' : s === '27' ? 'd' : 'm'; };   // 색 구간은 지역끼리 (수도권 · 부산 · 대구)
+  const PGRP = { m: '수도권', b: '부산', d: '대구' };
   function pmVal(ly, c) {
     const e = pmSrc(ly)[c], v = e && e[PM.kind], g = pmGrp(c);
     if (PM.mode === 'vol') return v && v[1] ? { v: v[1], n: v[1], g } : null;   // 거래량: 최근 6개월 매매 건수
