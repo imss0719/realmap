@@ -19,6 +19,23 @@ export default async function (req, res) {
   if (!ADMIN_PW) return fail(res, 500, 'no_password', 'Vercel 환경변수 ADMIN_PASSWORD 가 비어 있습니다.');
   if (!same(req.headers['x-admin-key'] || '', ADMIN_PW)) return fail(res, 401, 'password', '관리자 비밀번호가 맞지 않습니다.');
   if (req.query.part === 'brokers') return brokers(req, res);
+  // 11/2 메일 반송 주소 (주소 기준 · realmap:bounce 해시 = 소문자 주소 → 반송 표시한 때)
+  //   POST /api/members?part=bounce { op:'add', emails:[...] } | { op:'del', email }
+  if (req.query.part === 'bounce' && req.method === 'POST') {
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      const ok = e => /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(e) && e.length <= 120;
+      if (body.op === 'add') {
+        const L = [...new Set((Array.isArray(body.emails) ? body.emails : []).map(e => String(e).trim().toLowerCase()).filter(ok))].slice(0, 2000);
+        if (!L.length) return fail(res, 400, 'none', '이메일 주소를 찾지 못했습니다.');
+        const at = new Date().toISOString();
+        await redis(['HSET', 'realmap:bounce', ...L.flatMap(e => [e, at])]);
+        return send(res, 200, { ok: true, n: L.length });
+      }
+      if (body.op === 'del') { await redis(['HDEL', 'realmap:bounce', String(body.email || '').trim().toLowerCase()]); return send(res, 200, { ok: true }); }
+      return fail(res, 400, 'op', '알 수 없는 요청입니다.');
+    } catch (e) { return fail(res, 502, 'storage', '저장하지 못했습니다: ' + e.message); }
+  }
   try {
     const ids = (await redis(['SMEMBERS', 'realmap:users'])) || [];
     let rows = [];
@@ -29,6 +46,8 @@ export default async function (req, res) {
     }
     if (ids.length === 0 && (await redis(['PING'])) === null) return fail(res, 500, 'no_storage', '회원 저장소(Upstash)가 연결되지 않았습니다.');
     rows.sort((a, b) => String(b.joined).localeCompare(String(a.joined)));
+    // 11/2 메일 반송 표시
+    try { const bv = (await redis(['HGETALL', 'realmap:bounce'])) || []; const bm = {}; for (let i = 0; i < bv.length; i += 2) bm[bv[i]] = bv[i + 1]; rows.forEach(r => { const e = String(r.email || '').trim().toLowerCase(); if (e && bm[e]) r.bounce = bm[e]; }); } catch { /* 반송 표시는 보조 */ }
     // 회원별 활동: 관심 부동산 개수, 관심 구역·추진 알림
     const zones = new Map(), alerts = [];
     for (let i = 0; i < rows.length; i += 200) {
