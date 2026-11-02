@@ -785,7 +785,8 @@ window.Board = (() => {
     body += row('기록', RO ? '' : `<div class="rpin2 h"><input class="rpi" id="bdrp_hin" data-fk="hp:${id}" placeholder="기록 내용 쓰고 Enter" maxlength="500"><button type="button" class="rpb sm" id="bdrp_hadd">추가</button></div>`);
     body += L.length ? `<ul class="rph">${L.map((e, i) => { const au = AUTO.test(e.x); return `<li class="${au ? 'e-auto' : 'e-memo'}"><span class="t">${esc(e.t || '예전 메모')}</span><span class="hx" data-hi="${i}">${esc(e.x)}</span>${RO ? '' : `<span>${au ? '' : `<button type="button" class="un" data-medit="${i}">고치기</button>`}<button type="button" class="x" data-mdel="${i}" aria-label="지우기">×</button></span>`}</li>`; }).join('')}</ul>` : '';
     const cu = H.custFor && (H.custFor(x) || []).length ? custBox(x) : '';   // 맞는 고객이 있을 때만
-    W.innerHTML = `<aside class="rpanel rpwin" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${RO ? '' : `<button type="button" class="rpnm" id="bdrp_nm" title="이름 고치기 (단지·건물 이름 — 예: ○○리브하임2차)" aria-label="이름 고치기">✎</button>`}${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}${x.no ? (RO ? `<small class="rpno">No. ${esc(x.no)}</small>` : `<button type="button" class="rpno" id="bdrp_no" title="매물번호 · 누르면 고치기 (규칙은 설정 → 우리 사무소)">No. ${esc(x.no)}</button>`) : ''}${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpdh" data-a="del" title="이 매물 삭제">삭제</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
+    W.innerHTML = `<aside class="rpanel rpwin" id="bd_rp"><div class="rp-h"><b>${esc(title)}</b>${RO ? '' : `<button type="button" class="rpnm" id="bdrp_nm" title="이름 고치기 (단지·건물 이름 — 예: ○○리브하임2차)" aria-label="이름 고치기">✎</button>`}${sub ? `<span class="rptg">${esc(sub)}</span>` : ''}${B.cpTag === x.id ? '<span class="rpcpt">복사본</span>' : ''}${RO ? '' : '<button type="button" class="rpty" id="bdrp_ty" title="상가→사무실처럼 매물 유형을 바꿉니다">유형 바꾸기 ▾</button>'}${x.no ? (RO ? `<small class="rpno">No. ${esc(x.no)}</small>` : `<button type="button" class="rpno" id="bdrp_no" title="매물번호 · 누르면 고치기 (규칙은 설정 → 우리 사무소)">No. ${esc(x.no)}</button>`) : ''}${RO || catOf(x) === 'apt' ? '' : '<button type="button" class="rpcp" id="bdrp_cp" title="같은 매물을 다른 거래(매매·전세·월세)로 하나 더 만듭니다">복사</button>'}${RO || (H.canDel && !H.canDel()) ? '' : '<button type="button" class="rpdh" data-a="del" title="이 매물 삭제">삭제</button>'}<button type="button" class="rp-x" id="bdrp_x" aria-label="닫기 (Esc)">×</button></div>
+      ${RO || catOf(x) === 'apt' ? '' : cpBox(x)}   ${''/* 11/2 선배: 아파트·오피스텔은 단지 장부로 관리하므로 복사 없음 */}
       ${RO ? '' : `<div class="rptyl" id="bdrp_tyl" hidden><div>${X.PTYPES.map(t => `<button type="button" data-rty="${t}" aria-pressed="${x.ptype === t}">${t}</button>`).join('')}</div></div>`}
       ${RO ? '<p class="rpwarn">요금제 한도를 넘은 매물이라 보기만 됩니다</p>' : ''}
       <div class="rpbody">${body}${cu ? `<div class="rps bdcu">${cu}</div>` : ''}</div>
@@ -809,6 +810,12 @@ window.Board = (() => {
       i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); fin(true); } if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fin(false); } };
       i.onblur = () => fin(true);
     };
+    // 11/2 이 매물 복사: 거래를 고르고 [복사해서 열기]
+    if ($('bdrp_cp')) {
+      $('bdrp_cp').onclick = () => { const l = $('bdrp_cpl'); l.hidden = !l.hidden; };
+      P.querySelectorAll('[data-cpk]').forEach(b => b.onclick = () => { P.querySelectorAll('[data-cpk]').forEach(z => z.setAttribute('aria-pressed', z === b)); });
+      $('bdrp_cpgo').onclick = () => { const k = (P.querySelector('[data-cpk][aria-pressed="true"]') || {}).dataset; copyItem(x, (k && k.cpk) || x.kind, $('bdrp_cpgo')); };
+    }
     P.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const i = P.querySelector('[data-fd="movein"]'); if (!i) return; i.value = i.value === b.dataset.mv ? '' : b.dataset.mv; i.dispatchEvent(new Event('change')); });
     P.querySelectorAll('a[data-call]').forEach(a => a.onclick = () => callLog(a.dataset.call));
     wireDetail(P, x);   // 연락처 · 층별 · 필지 · 건물 정보 칸 · 브리핑 · 삭제 (예전 상세와 같은 저장)
@@ -1418,6 +1425,29 @@ window.Board = (() => {
   }
 
   // 단지 장부에서 바로 리얼맵에 올릴 때: PNU·동·호만으로 매물 한 건을 만듦 (저장은 하지 않음)
+  // 11/2 이 매물 복사 — 주소·면적·정보·층별 현황·연락처·사진·설명은 그대로, 가격·매물번호·기록·챙길 것·리얼맵 등록은 새로
+  function cpBox(x) {
+    const ks = catOf(x) === 'pre' ? [['presale', '분양권']] : [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']];
+    const def = ks.length === 1 ? ks[0][0] : x.kind === 'sale' ? 'wolse' : 'sale';
+    return `<div class="rpcpl" id="bdrp_cpl" hidden><b>이 매물을 복사해서 새로 만듭니다</b>
+      <div class="rpcpk"><span>새 매물 거래</span><span class="rpseg">${ks.map(([v, t]) => `<button type="button" data-cpk="${v}" aria-pressed="${v === def}">${t}</button>`).join('')}</span></div>
+      <p>✓ 그대로: 주소·필지, 면적, 정보, 층별 현황, 연락처, 사진, 설명, 융자<br>✗ 새로: 가격, 권리금, 매물번호, 기록, 챙길 것, 리얼맵 등록</p>
+      <button type="button" class="rpcpgo" id="bdrp_cpgo">복사해서 열기</button></div>`;
+  }
+  async function copyItem(x, kind, btn) {
+    const it = JSON.parse(JSON.stringify(X.upgrade(x)));
+    ['id', 'pub', 'ib', 'by', 'byn', 'up', 'at', 'impd'].forEach(k => { delete it[k]; });
+    Object.assign(it, { no: '', kind, status: 'on', price: null, deposit: null, rent: null, pr: null, paid: null, premium: null, imp: '', mk: '' });   // 11/2 선배: 권리금·기록은 새로, 융자는 그대로
+    it.memo = X.memoAdd('', `${x.no ? 'No. ' + x.no : '다른 매물'}에서 복사해 만듦`);
+    if (btn) { btn.disabled = true; btn.textContent = '복사하는 중…'; }
+    try {
+      const j = await H.api('/api/auth?action=listing', H.post({ op: 'save', id: '', item: bodyOf(it) }));
+      H.took(j);
+      const nx = H.items()[0];
+      if (nx && nx.id !== x.id) { B.pk = nx.id; B.hl = nx.id; B.cpTag = nx.id; }
+      H.redraw(); H.toast('복사했습니다 · 가격만 채워 주세요', 3000);
+    } catch (e) { H.toast(e.message, 4500); if (btn) { btn.disabled = false; btn.textContent = '복사해서 열기'; } }
+  }
   // 11/2 공장 현재 상태를 고르지 않았으면 층별 현황으로 짐작 (임차인이 있으면 임차 중 · 모두 공실이면 공실)
   function facOcc(x) { const L = (x.rents || []).map(r => String(r.label || '').trim()).filter(Boolean); return !L.length ? '' : L.every(t => /공실/.test(t)) ? 'empty' : L.some(t => !/공실/.test(t)) ? 'rent' : ''; }
   async function autoItem(o) {
