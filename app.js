@@ -3147,11 +3147,19 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   function fbInit() {
     if (FB.init) return; FB.init = true;
-    $('fpT').onclick = e => { e.stopPropagation(); fbOpen('T'); };
+    // 11/2 선배: 펼치기·접기 — 칸 안에서 여러 개 켜고 끄는 동안은 열린 채 · 알약 다시 누르기·지도 누르기·라벨·다른 곳·Esc로 접힘 · 지도 끌기·확대는 열린 채
+    //   멀리서 [실거래가] 칸을 열면 라벨이 보이는 레벨(5)까지 확대
+    $('fpT').onclick = e => { e.stopPropagation(); const opening = $('fdT').hidden; fbOpen('T'); if (opening && S.map.getLevel() > MAXLV) S.map.setLevel(MAXLV, { animate: true }); };
     $('fpL').onclick = e => { e.stopPropagation(); fbOpen('L'); };
     const closeAll = () => { fbOpen('T', false); fbOpen('L', false); };
-    document.addEventListener('click', e => { if (!e.target.closest('#fbar')) closeAll(); });
-    ['dragstart', 'zoom_start', 'click'].forEach(ev => kakao.maps.event.addListener(S.map, ev, closeAll));
+    // 잡는 단계(capture)에서 봄: 칩을 누르면 칸을 다시 그리면서 누른 칩이 화면에서 빠져 '바깥'으로 잘못 보던 것 · 지도 위 라벨(멈춤 처리됨)도 여기서 봄
+    document.addEventListener('click', e => {
+      const t = e.target; if (!t || !t.closest || t.closest('#fbar')) return;
+      if (t.closest('#map') && !t.closest('button, a, [role="button"]')) return;   // 지도 바닥은 아래 카카오 click(끌기 뒤에는 안 옴)에서
+      closeAll();
+    }, true);
+    kakao.maps.event.addListener(S.map, 'click', closeAll);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && (!$('fdT').hidden || !$('fdL').hidden)) closeAll(); });
     $('fdT').onclick = e => {
       const m = e.target.closest('[data-tm]'), c = e.target.closest('[data-tk]');
       if (m && T.mode !== m.dataset.tm) { T.mode = m.dataset.tm; tSave(); T.ovs.forEach(o => o.setMap(null)); T.ovs.clear(); fbSync(); drawTrades(); }
