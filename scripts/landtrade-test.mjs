@@ -40,8 +40,13 @@ for (const kind of KINDS) {
   for (const ym of yms) {
     if (late()) break;
     calls.trade++;
-    try { for (const r of await month(kind, GU, ym)) trades.push({ kind, ym, r }); }
-    catch (e) { tradeErr.push(`${kind} ${ym}: ${e.message.slice(0, 80)}`); }
+    let got = null, err = '';
+    for (let t = 0; t < 5 && !got; t++) {   // 11/2 고침: '초당 요청 제한'에 걸리면 쉬었다가 다시 (2025년 8개월이 빠졌던 문제)
+      try { got = await month(kind, GU, ym); }
+      catch (e) { err = e.message.slice(0, 80); await sleep(2000 * (t + 1)); }
+    }
+    if (got) for (const r of got) trades.push({ kind, ym, r });
+    else tradeErr.push(`${kind} ${ym}: ${err}`);
     await sleep(80);
   }
   log(`실거래 ${kind} 누적 ${trades.length}건`);
@@ -247,7 +252,7 @@ for (const k of BK) for (const x of res[k]) {
   e.시도++; if (x.n === 1) e.맞춤++; if (x.n < 0) e.자료부족++;
 }
 for (const e of Object.values(byYear)) e.비율 = e.시도 ? `${Math.round(e.맞춤 / e.시도 * 100)}%` : '-';
-const out = { 연도별: byYear, 지도용: { 필지: mapItems.length, 라벨있음: mapItems.filter(x => x.p).length }, updated: new Date().toISOString(), gu: GU, months: MONTHS, minutes: Math.round((Date.now() - t0) / 6e4), calls, 요약: sum, 표본: samples, 건물목록메모: bldNote.slice(0, 20), 건물목록받은줄: bldStat, 토지목록메모: landNote.slice(0, 30), 실거래오류: tradeErr.slice(0, 20) };
+const out = { 연도별: byYear, 지도용: { 필지: mapItems.length, 라벨있음: mapItems.filter(x => x.p).length }, updated: new Date().toISOString(), gu: GU, months: MONTHS, minutes: Math.round((Date.now() - t0) / 6e4), calls, 요약: sum, 표본: samples, 건물목록메모: bldNote.slice(0, 20), 건물목록받은줄: bldStat, 토지목록메모: landNote.slice(0, 30), 실거래오류: tradeErr.slice(0, 20), 실거래오류수: tradeErr.length };
 await mkdir('data', { recursive: true });
 await writeFile(`data/landtrade-test-${GU}.json`, JSON.stringify(out, null, 1));
 const md = [`## 실거래 위치 맞추기 시험 — ${GU} · 최근 ${MONTHS}개월`, '', '| 종류 | 전체 | 뺀 거래 | 맞추기 시도 | 하나로 맞춤 | 후보 여러 개 | 후보 없음 | 자료 부족 | 맞춤 비율 |', '|---|---|---|---|---|---|---|---|---|',
