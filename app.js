@@ -3366,6 +3366,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       x.biz && [(x.pbase || x.ptype) === '상가' ? '현재 업종' : '현재 용도', x.biz],
       (x.wc || x.wcn != null) && ['화장실', [x.wc, x.wcn != null ? `${x.wcn}개` : ''].filter(Boolean).join(' · ')],
       x.loanTx && ['융자', x.loanTx],   // 10/30
+      x.occ && ['현재 상태', { self: '입주(자가 사용)', rent: '임차 중', empty: '공실' }[x.occ]],   // 11/2 공장·창고
+      x.strct && ['건축구조', x.strct],
+      x.pow && ['사용전력', `${x.pow}kW`],
+      x.ch && ['층고', `${x.ch}m`],
+      x.hoist && ['호이스트', `${x.hoist}톤`],
+      x.trl && ['추레라', x.trl === 'y' ? '진입 가능' : '진입 불가'],
       x.facx && ['시설', x.facx],
       x.movein && ['입주 가능일', x.movein],
       x.park && ['주차', x.park],

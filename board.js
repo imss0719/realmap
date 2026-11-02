@@ -722,7 +722,15 @@ window.Board = (() => {
     }
     // 10/30 융자: 금액 + 표시 방법 (표시 안 함 · 없음 · 시세 30% 미만 · 이상) — 매매면 모든 종류
     if (x.kind === 'sale') { const lr = a.loanR || (a.noloan ? 'none' : 'hide'); body += `<div class="rpr mk"><b>융자</b><div class="rpv rpmg">${lr === 'none' ? '<span class="rpno">융자 없음</span>' : won2('$loan', x.loan)}<span class="rpseg">${[['hide', '표시 안 함'], ['none', '없음'], ['lt30', '시세 30% 미만'], ['ge30', '30% 이상']].map(([v, t]) => `<button type="button" data-lnr="${v}" aria-pressed="${lr === v}" ${dis}>${t}</button>`).join('')}</span></div></div>`; }
-    body += panelInfo(x, RO);   // 10/30 선배: 정보는 융자 바로 아래 → 층별 현황·현상태 → 연락처 → 챙길 것 → 기록
+    body += panelInfo(x, RO);
+    // 11/2 공장·창고: 현재 상태 · 건축구조(대장 자동) · 사용전력 · 층고 · 호이스트 · 추레라 · 기타 시설 (모두 선택)
+    if (cat === 'fac') {
+      const unit = (key, v, u) => `<span class="wonw">${inp('ad:' + key, v, '', 'inputmode="decimal" style="width:64px"')}<i class="u">${u}</i></span>`;
+      body += row('공장', `<div class="rprow">${seg('occ', [['self', '입주(자가)'], ['rent', '임차 중'], ['empty', '공실']], a.occ || facOcc(x))}</div>
+        <div class="rpg c3">${fld('건축구조', inp('ad:strct', a.strct))}${fld('사용전력', unit('pow', a.pow, 'kW'))}${fld('층고', unit('ch', a.ch, 'm'))}</div>
+        <div class="rpg c3" style="margin-top:6px">${fld('호이스트', unit('hoist', a.hoist, '톤'))}${fld('추레라', seg('trl', [['y', '진입 가능'], ['n', '불가']], a.trl || ''))}${fld('기타 시설', inp('ad:facx', a.facx, '그 밖의 시설'))}</div>`);
+    }
+    // 10/30 선배: 정보는 융자 바로 아래 → 층별 현황·현상태 → 연락처 → 챙길 것 → 기록
     // 재개발·재건축
     if (cat === 'redev') {
       const pm = premOf(x);
@@ -811,6 +819,7 @@ window.Board = (() => {
       if (g === 'st') { if (v === x.status) return; return saveItem(id, it => { it.status = v; }, `'${X.STAT[v]}' 처리했습니다`); }
       if (g === 'kind') { if (v === x.kind) return; return saveItem(id, it => { it.kind = v; }); }
       if (g === 'live') { const nv = (x.ad || {}).live === v ? '' : v; return saveItem(id, it => { it.ad = { ...(it.ad || {}), live: nv }; if (nv === 'owner' || nv === 'empty') { it.curDep = null; it.curRent = null; } }); }   // 10/30 다시 누르면 풀림 · 집주인·공실이면 현 보증금·월세 비움
+      if (g === 'occ' || g === 'trl') { const nv = (x.ad || {})[g] === v ? '' : v; return saveItem(id, it => { it.ad = { ...(it.ad || {}), [g]: nv }; }); }   // 11/2 공장: 다시 누르면 풀림
       if (g === 'rk') { if (v === x.ptype) return; return saveItem(id, it => { it.ptype = v; if (!(it.ad || {}).form) it.ad = { ...(it.ad || {}), form: v === '재건축' ? '아파트' : '빌라' }; }); }
     });
     P.querySelectorAll('select[data-ps]').forEach(s => s.onchange = () => saveItem(id, it => { it.ad = { ...(it.ad || {}), [s.dataset.ps]: s.value }; }));
@@ -1409,6 +1418,8 @@ window.Board = (() => {
   }
 
   // 단지 장부에서 바로 리얼맵에 올릴 때: PNU·동·호만으로 매물 한 건을 만듦 (저장은 하지 않음)
+  // 11/2 공장 현재 상태를 고르지 않았으면 층별 현황으로 짐작 (임차인이 있으면 임차 중 · 모두 공실이면 공실)
+  function facOcc(x) { const L = (x.rents || []).map(r => String(r.label || '').trim()).filter(Boolean); return !L.length ? '' : L.every(t => /공실/.test(t)) ? 'empty' : L.some(t => !/공실/.test(t)) ? 'rent' : ''; }
   async function autoItem(o) {
     const p = await H.api(`/api/parcel?pnu=${o.pnu}`), c0 = X.centroid(p.geometry) || {};
     const [b, L] = await Promise.all([H.api(`/api/building?pnu=${o.pnu}`).catch(() => null), H.api(`/api/land?pnu=${p.pnu || o.pnu}`).catch(() => null)]);
@@ -1448,6 +1459,7 @@ window.Board = (() => {
     if (o.dir) it.ad.dir = o.dir; if (o.movein) it.ad.movein = o.movein;
     if (o.rooms) it.ad.rooms = o.rooms; if (o.baths) it.ad.baths = o.baths; if (o.mgmt) it.mgmt = o.mgmt;   // 10/29 장부 매물 칸에서 넣은 값
     if (o.memo) it.memo = o.memo;
+    if (/공장|창고/.test(D.ty || '') && t && t.strct && !it.ad.strct) it.ad.strct = t.strct;   // 11/2 공장·창고 건축구조는 대장에서
     return it;
   }
   // 지도 핀을 누르면 그 줄로

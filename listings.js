@@ -1008,7 +1008,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       ${pre ? '' : `<div style="margin-top:8px">${inp('park', '주차 대수', '', 'maxlength="30"', ' <small>총 대수 또는 세대당</small>')}</div>`}
       ${res && window.Mg ? `<div class="mgbox" id="fMg"><div class="sl">관리비 <small>국토부 세분화 표시 (2024.5.30~)</small></div>${Mg.rows(a, `<i class="u">월 금액은 위 '관리비' 칸 (${it.mgmt ? `월 ${it.mgmt}만원` : '미입력'})</i>`, { row: (t, h, c) => `<div class="mgrow${c}"><span>${t}</span><div>${h}</div></div>` })}</div>` : ''}
       ${shop ? `<div class="two" style="margin-top:8px">${inp('biz', pt === '상가' ? '현재 업종' : '현재 용도', '업종 또는 공실', 'maxlength="30"', ' <small>선택</small>')}<div><label class="sl" for="a_wc">화장실 <small>선택</small></label><select class="in" id="a_wc"><option value="">선택</option>${WCS.map(w => `<option ${a.wc === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div></div><div style="margin-top:8px">${inp('wcn', '화장실 수', '', 'inputmode="numeric" maxlength="2"', ' <small>매물 안에 화장실이 있으면 꼭 적어 주세요</small>')}</div>` : ''}
-      ${fac ? `<div style="margin-top:8px">${inp('facx', '공장·창고 정보', '', 'maxlength="80"', ' <small>선택</small>')}</div>` : ''}`;
+      ${fac ? `<div style="margin-top:8px">${inp('facx', '기타 시설', '그 밖의 시설', 'maxlength="80"', ' <small>선택</small>')}</div>` : ''}`;
     }
     return `<div class="fld adsec${F.missing ? ' need' : ''}" id="adSec"><span class="lb">리얼맵 광고 정보<small>지도에 올릴 때 필요 · 매물장에만 둘 거면 비워도 됩니다</small></span>
       ${head}${body}
