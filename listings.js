@@ -1104,7 +1104,8 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
         <div class="r">${b.verified ? '<button type="button" id="adCp">링크 복사</button>' : ''}<button type="button" id="adBk">${b.office ? '소개 고치기' : '사무소 정보 넣기'}</button></div></div>
       <div class="adk"><div class="w"><small>지도에 게시 중</small><b>${live.length}</b>${P.ad ? `<small class="u">/ ${P.ad.toLocaleString()}건</small>` : ''}</div><div class="${expSoon ? 'rd' : ''}"><small>7일 안에 만료</small><b>${expSoon}</b></div><div class="adq2" id="adNew"><b>매물 올리기</b><div class="tys">${AD_TY.map(([k, t]) => `<button type="button" data-aty="${k}" aria-pressed="${S.adTy === k}">${t}</button>`).join('')}</div><button type="button" class="go" id="adGo">＋ 올리기</button></div></div>
       ${g0 ? `<div class="adw">⚠ ${gap.length}건이 빈 칸(${esc(gm.slice(0, 2).join('·'))}${gm.length > 2 ? ' 등' : ''}) 때문에 지도에서 안 보입니다<span class="sp"></span><button type="button" id="adGap">채우기</button></div>` : ''}
-      ${list.length ? `<div class="adl">${list.map(card).join('')}</div>` : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. 위에서 종류를 고르고 <b>[＋ 올리기]</b>를 누르면 매물장에서 등록한 뒤, 표의 <b>[리얼맵 등록]</b>에서 사진을 올려 게시합니다.</div>'}
+      ${list.length > AF_MIN ? afBar(list) : ''}
+      ${list.length ? `<div id="adList"></div>` : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. 위에서 종류를 고르고 <b>[＋ 올리기]</b>를 누르면 매물장에서 등록한 뒤, 표의 <b>[리얼맵 등록]</b>에서 사진을 올려 게시합니다.</div>'}
       <div class="adf">사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·고객관리·알림은 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
     // 10/30 선배: 내 광고에서는 유형만 고르고 [＋ 올리기] → 그 종류 매물장의 등록 칸으로 (정보는 매물장 입력창 한 곳에서만)
     box.querySelectorAll('[data-aty]').forEach(b => b.onclick = () => { S.adTy = b.dataset.aty; box.querySelectorAll('[data-aty]').forEach(z => z.setAttribute('aria-pressed', z === b)); });
@@ -1118,7 +1119,55 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       try { const j = await api('/api/auth?action=bk', post({ bk: { ...b, home } })); S.bk = j.bk; drawAds(); toast(home === 'ads' ? '이제 중개장부를 열면 내 광고부터 보입니다' : '이제 중개장부를 열면 아파트·오피 장부부터 보입니다'); }
       catch (e) { toast(e.message, 4000); }
     };
-    box.querySelectorAll('[data-ax]').forEach(x => x.onclick = async () => {
+    S.adCard = card; S.adAll = list;
+    if (list.length) afWire(box);
+    box.onclick = e => { const x = e.target.closest('[data-ax]'); if (x && box.contains(x)) adAct(x); };
+  }
+  // 11/2 선배: 내 광고가 많아지면 종류별로 골라 보기 — 종류 칩(광고 있는 종류만 · 건수) · 거래 · 정렬 · 찾기 · 고른 상태 기억 · 10건 이하면 줄 숨김
+  const AF_MIN = 10;
+  const AF_CATS = { apt: ['아파트', '주상복합', '오피스텔'], shop: ['상가', '사무실'], bld: ['건물'], ofc: ['지식산업센터'], home: ['빌라', '연립', '다가구', '주택'], redev: ['재개발', '재건축'], pre: [], land: ['토지'], fac: ['공장·창고'], etc: ['숙박', '기타'] };
+  const afCat = x => x.kind === 'presale' ? 'pre' : Object.keys(AF_CATS).find(k => AF_CATS[k].includes(x.ptype)) || 'etc';   // board.js catOf 와 같음
+  const afMoney = x => x.kind === 'sale' ? x.price || 0 : x.kind === 'presale' ? (x.price || 0) + (x.pr || 0) : x.kind === 'jeonse' ? x.deposit || 0 : (x.deposit || 0) + (x.rent || 0) * 100;
+  function afState() {
+    if (!S.af) { S.af = { cat: 'all', deal: 'all', sort: 'exp', q: '' }; try { Object.assign(S.af, JSON.parse(localStorage.getItem('rm.adf') || '{}'), { q: '' }); } catch { /* 무시 */ } }
+    return S.af;
+  }
+  function afSave() { try { const { cat, deal, sort } = S.af; localStorage.setItem('rm.adf', JSON.stringify({ cat, deal, sort })); } catch { /* 무시 */ } }
+  function afBar(list) {
+    const F = afState(), cnt = {};
+    for (const x of list) { const c = afCat(x); cnt[c] = (cnt[c] || 0) + 1; }
+    if (F.cat !== 'all' && !cnt[F.cat]) F.cat = 'all';
+    const chips = [['all', '전체', list.length], ...AD_TY.filter(([k]) => cnt[k]).map(([k, t]) => [k, t, cnt[k]])];
+    return `<div class="adf2" id="adF"><div class="afch">${chips.map(([k, t, c]) => `<button type="button" data-afc="${k}" aria-pressed="${F.cat === k}">${esc(t)} <em>${c}</em></button>`).join('')}</div><span class="afsep"></span>
+      <div class="afseg">${[['all', '전체'], ['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']].map(([k, t]) => `<button type="button" data-afd="${k}" aria-pressed="${F.deal === k}">${t}</button>`).join('')}</div>
+      <div class="afsr"><select id="afSort" aria-label="정렬">${[['exp', '만료 가까운 순'], ['new', '최근 올린 순'], ['price', '가격 높은 순']].map(([k, t]) => `<option value="${k}"${F.sort === k ? ' selected' : ''}>${t}</option>`).join('')}</select><input type="search" id="afQ" placeholder="🔍 주소·건물명·No." autocomplete="off"></div></div>
+      <div class="afn" id="afN"></div>`;
+  }
+  function afList() {
+    const all = S.adAll || [], el = $('adList'); if (!el) return;
+    const F = all.length > AF_MIN ? afState() : { cat: 'all', deal: 'all', sort: 'exp', q: '' };
+    const q = F.q.replace(/\s/g, '').toLowerCase();
+    let L = all.filter(x => (F.cat === 'all' || afCat(x) === F.cat) && (F.deal === 'all' || (F.deal === 'sale' ? x.kind === 'sale' || x.kind === 'presale' : x.kind === F.deal)));
+    if (q) L = L.filter(x => { const p0 = (x.places && x.places[0]) || {}; return [x.bname, x.addr, p0.addr, p0.dong, p0.ho, x.no, x.ptype].filter(Boolean).join(' ').replace(/\s/g, '').toLowerCase().includes(q.replace(/^no\.?/, '')); });
+    if (F.sort === 'new') L = L.slice().sort((a, b) => String((b.pub || {}).at || '').localeCompare(String((a.pub || {}).at || '')));
+    else if (F.sort === 'price') L = L.slice().sort((a, b) => afMoney(b) - afMoney(a));   // 만료 가까운 순은 drawAds 순서 그대로 (게시 중 → 끝난 광고)
+    el.innerHTML = L.length ? `<div class="adl">${L.map(S.adCard).join('')}</div>` : '<div class="ade">고른 조건에 맞는 광고가 없습니다.</div>';
+    if ($('afN')) $('afN').innerHTML = `전체 <b>${all.length}건</b> 중 <b>${L.length}건</b> 보는 중${F.cat !== 'all' || F.deal !== 'all' || q ? ' · <button type="button" id="afX">모두 보기</button>' : ''}`;
+    if ($('afX')) $('afX').onclick = () => { Object.assign(S.af, { cat: 'all', deal: 'all', q: '' }); afSave(); const b = $('adF'); b.querySelectorAll('[data-afc]').forEach(z => z.setAttribute('aria-pressed', z.dataset.afc === 'all')); b.querySelectorAll('[data-afd]').forEach(z => z.setAttribute('aria-pressed', z.dataset.afd === 'all')); $('afQ').value = ''; afList(); };
+  }
+  function afWire(box) {
+    const b = $('adF');
+    if (b) {
+      b.querySelectorAll('[data-afc]').forEach(z => z.onclick = () => { S.af.cat = z.dataset.afc; afSave(); b.querySelectorAll('[data-afc]').forEach(y => y.setAttribute('aria-pressed', y === z)); afList(); });
+      b.querySelectorAll('[data-afd]').forEach(z => z.onclick = () => { S.af.deal = z.dataset.afd; afSave(); b.querySelectorAll('[data-afd]').forEach(y => y.setAttribute('aria-pressed', y === z)); afList(); });
+      $('afSort').onchange = e => { S.af.sort = e.target.value; afSave(); afList(); };
+      $('afQ').value = S.af.q || '';
+      $('afQ').oninput = e => { S.af.q = e.target.value; afList(); };
+    }
+    afList();
+  }
+  async function adAct(x) {
+    {
       const it = S.items.find(i => i.id === x.dataset.id); if (!it) return;
       const a = x.dataset.ax;
       if (a === 'edit' || a === 'photo') return pubSheet(it, true);
@@ -1131,7 +1180,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
         if (!confirm('거래완료로 바꿀까요? 지도에서 내려가고 이 목록에서도 빠집니다. (중개장부에는 남습니다)')) return;
         try { took(await api('/api/auth?action=listing', post({ op: 'status', id: it.id, status: 'done' }))); draw(); toast("'거래완료' 처리했습니다"); } catch (e) { if (e.code === 'readonly') return upsell(e.message); toast(e.message, 4000); }
       }
-    });
+    }
   }
   function adSearch(v) {
     const R = $('adRes'); if (!v) return;

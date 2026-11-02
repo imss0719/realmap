@@ -1370,6 +1370,20 @@ body.cumode .top{padding-bottom:12px}
 .adl .adc .acts{flex-direction:column;flex-wrap:nowrap;gap:4px;max-width:none}.adl .adc .acts button{padding:4px 9px;font-size:12px;width:100%}
 .adl .adc .p{font-size:16px}.adl .adc .m{font-size:12px}.adl .adc .info{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:11.5px}
 @media (max-width:900px){.adl{grid-template-columns:1fr}}
+/* 11/2 선배: 내 광고 골라 보기 줄 — 종류 칩(건수) · 거래 · 정렬 · 찾기 */
+.adf2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;background:#F8F9FA;border:1px solid #E9ECEF;border-radius:11px;margin-bottom:6px}
+.adf2 .afch{display:flex;gap:5px;flex-wrap:wrap}
+.adf2 .afch button{border:1px solid #C9D2DC;background:#fff;border-radius:999px;padding:4px 11px;font:inherit;font-size:13px;font-weight:700;color:#3B4754;cursor:pointer}
+.adf2 .afch button em{font-style:normal;font-weight:800;color:#8A96A3;margin-left:1px}
+.adf2 .afch button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}.adf2 .afch button[aria-pressed=true] em{color:var(--gold)}
+.adf2 .afsep{width:1px;height:22px;background:#DCE2E8}
+.adf2 .afseg{display:inline-flex;border:1px solid #C9D2DC;border-radius:8px;overflow:hidden}
+.adf2 .afseg button{border:0;background:#fff;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:700;color:#3B4754;cursor:pointer}.adf2 .afseg button+button{border-left:1px solid #C9D2DC}
+.adf2 .afseg button[aria-pressed=true]{background:#495057;color:#fff}
+.adf2 .afsr{margin-left:auto;display:flex;gap:6px;align-items:center}
+.adf2 select,.adf2 input{border:1px solid #C9D2DC;border-radius:8px;padding:5px 8px;font:inherit;font-size:12.5px;background:#fff}.adf2 input{width:190px}
+.afn{font-size:12.5px;color:#6B7785;margin:0 0 8px 2px}.afn b{color:var(--fg,#14212E)}.afn button{border:0;background:none;color:#1E5EDB;font:inherit;font-size:12.5px;cursor:pointer;padding:0;text-decoration:underline}
+@media (max-width:760px){.adf2 .afsep,.adf2 .afseg,.adf2 .afsr{display:none}.adf2 .afch{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}.adf2 .afch button{flex:none}}
 .adk .adq2{padding:6px 10px}.adk .adq2>b{font-size:14px!important;display:block;color:var(--fg)}.adk .adq2 .tys{padding:0!important;background:none!important;min-width:0!important;border-radius:0}
 @media (max-width:760px){.adq2{display:none}}   /* 10/30 선배: 휴대폰은 조회만 — 등록 칸 없음 */
 /* 10/30 유형 확인·단지 추가 질문 창 */

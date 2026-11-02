@@ -177,8 +177,13 @@ a{color:inherit;text-decoration:none}button{font:inherit;color:inherit}
       return;
     }
     if (id === 'ads') {
-      const L = live().filter(isPub).sort((a, b) => String(a.pub.exp || '').localeCompare(String(b.pub.exp || '')));
-      app.innerHTML = head('내 광고', `리얼맵 지도에 광고 중 ${L.length}건`) + (L.length ? L.map(x => { const e = x.pub.exp ? dday(String(x.pub.exp).slice(0, 10)) : null; const c = itemCard(x).replace('<span class="ad">● 광고 중</span>', `<span class="${e != null && e <= 7 ? 'dd' : 'ad'}">${e == null ? '● 광고 중' : e < 0 ? '광고 기간 끝남' : `광고 ${e}일 남음`}</span>`); return e != null && e < 0 ? c : `<div class="adbox">${c}<button type="button" class="send" data-send="${esc(x.id)}">💬 보내기</button></div>`;   /* 11/1 선배 A안: 남은 기간을 태그 줄에 · 작은 [보내기]는 태그 줄 오른쪽 */ }).join('') : '<div class="empty">지금 광고 중인 매물이 없습니다.<br>광고는 PC 장부에서 올릴 수 있습니다.</div>');
+      const L0 = live().filter(isPub).sort((a, b) => String(a.pub.exp || '').localeCompare(String(b.pub.exp || '')));
+      // 11/2 선배: 광고가 많으면(10건 넘게) 종류 칩 한 줄 — 광고 있는 종류만 · 건수 (PC 내 광고와 같은 이름)
+      const ADN = [['apt', '아파트·오피'], ['shop', '상가·사무실'], ['bld', '건물'], ['ofc', '지산'], ['home', '빌라·주택'], ['redev', '재개발·재건축'], ['pre', '분양권'], ['land', '토지'], ['fac', '공장·창고'], ['etc', '숙박·기타']];
+      const cn = {}; L0.forEach(x => { const c = catOf(x); cn[c] = (cn[c] || 0) + 1; });
+      if (R.f.ad && !cn[R.f.ad]) R.f.ad = '';
+      const L = R.f.ad ? L0.filter(x => catOf(x) === R.f.ad) : L0;
+      app.innerHTML = head('내 광고', `리얼맵 지도에 광고 중 ${L0.length}건`) + (L0.length > 10 ? chips('ad', [['', `전체 ${L0.length}`], ...ADN.filter(([k]) => cn[k]).map(([k, t]) => [k, `${t} ${cn[k]}`])]) : '') + (L.length ? L.map(x => { const e = x.pub.exp ? dday(String(x.pub.exp).slice(0, 10)) : null; const c = itemCard(x).replace('<span class="ad">● 광고 중</span>', `<span class="${e != null && e <= 7 ? 'dd' : 'ad'}">${e == null ? '● 광고 중' : e < 0 ? '광고 기간 끝남' : `광고 ${e}일 남음`}</span>`); return e != null && e < 0 ? c : `<div class="adbox">${c}<button type="button" class="send" data-send="${esc(x.id)}">💬 보내기</button></div>`;   /* 11/1 선배 A안: 남은 기간을 태그 줄에 · 작은 [보내기]는 태그 줄 오른쪽 */ }).join('') : '<div class="empty">지금 광고 중인 매물이 없습니다.<br>광고는 PC 장부에서 올릴 수 있습니다.</div>');
       return;
     }
     const f = R.f[id] || '';
