@@ -919,3 +919,26 @@ a.favbtn{text-decoration:none}
 .map.ofc-mask .llabel{transform:scale(1.12);transform-origin:center bottom;border-width:2.5px;box-shadow:0 3px 10px rgba(20,33,46,.35)}
 /* 11/2 광고 0건 회원 사무소 카드 */
 #ofCard .of0{margin:10px 0 0;font-size:12.5px;color:var(--muted);text-align:center}
+
+/* 11/2 입주 예정 아파트 (공사 중 · 입주 중) — 주황 점선 라벨 · 분양권 / 입주권 두 칸 */
+.tlabel.k-pre{--c:#D9480F;flex-direction:column;align-items:stretch;gap:0;border-style:dashed;border-radius:9px;padding:0 6px 1px;background:#fff}
+.tlabel.k-pre .nm{font-size:10.5px;font-weight:800;text-align:center;max-width:124px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 -6px;padding:1px 6px}
+.tlabel.k-pre .dt{font-size:9px;font-weight:700;text-align:center;color:#D9480F;background:#FFF1E8;margin:0 -6px;padding:0 6px;border-top:1px solid #FAD7C3;border-bottom:1px solid #FAD7C3;line-height:1.35}
+.tlabel.k-pre .pt,.tlabel.k-pre .pr{display:grid;grid-template-columns:18px 1fr 1fr;gap:4px;align-items:baseline;text-align:right}
+.tlabel.k-pre .pt em{font-style:normal;font-size:9px;font-weight:800;line-height:1.35}
+.tlabel.k-pre .pr{border-top:1px solid #EEF1F5}
+.tlabel.k-pre .pr>i{font-style:normal;font-size:9.5px;font-weight:600;color:#6B7785;text-align:left}
+.tlabel.k-pre .pr b{font-size:11.5px;font-weight:800}
+.tlabel.k-pre .b{color:#D9480F}.tlabel.k-pre .i{color:#495057}
+.tlabel.k-pre .pr b.no{color:#ADB5BD;font-weight:600;text-align:center}
+.tlabel.k-pre .pn{font-size:10px;font-weight:600;color:#868E96;text-align:center;padding:1px 0}
+.tlabel.k-pre .tpy{color:inherit;opacity:.7}
+.tlabel.k-pre:hover{background:#FFF8F3;border-color:#D9480F;color:#D9480F}
+.tlabel.k-pre:hover .b{color:#D9480F}.tlabel.k-pre:hover .i{color:#495057}
+.precard{max-height:calc(100% - 140px);overflow:auto}
+.precard .pre-bd{color:#D9480F;font-weight:700}
+.precard .pre-i{margin:4px 0 2px;font-size:12px;color:var(--muted)}
+.precard th.b,.precard td.b,.precard span.b{color:#D9480F}
+.precard td.r{text-align:right;font-weight:700}
+.precard .pre-hh{display:block;font-size:12.5px;margin-top:8px}
+.precard table.pre-h{margin-top:2px}.precard table.pre-h th{font-weight:500;color:var(--muted);font-size:12px;width:76px}

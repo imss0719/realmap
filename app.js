@@ -2926,6 +2926,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     drawTrades();
     const jobs = [];
     if (btAny()) for (const rg of uniq) jobs.push(loadBt(rg).then(drawTrades));
+    if (kindOn('apt')) jobs.push(loadPre().then(drawTrades));   // 11/2 입주 예정 아파트 (아파트 칩과 같이 켜짐)
     for (const k of Object.keys(TK)) if (kindOn(k)) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
     await Promise.all(jobs);
     drawTrades();
@@ -2943,6 +2944,50 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     }).catch(() => { e.items = []; return []; });
     T.regions.set(key, e);
     return e.p;
+  }
+  // 11/2 입주 예정 아파트 (관리처분 뒤 공사 중 · 입주 중): 분양권·입주권 최근 거래 두 칸 · 주황 점선 라벨 · 분양가는 누르면 나오는 카드에만
+  //   data/presale.json (scripts/presale.mjs가 매일 만듦) · 수도권 한 파일 · 한 번만 받음
+  const PRE = { items: null, p: null, sel: null };
+  function loadPre() {
+    if (PRE.p) return PRE.p;
+    PRE.p = fetch('/data/presale.json').then(r => r.ok ? r.json() : { items: [] }).then(j => {
+      PRE.updated = j.updated || '';
+      PRE.items = (j.items || []).map((x, i) => ({ ...x, k: 'pre', id: `pre:${i}`, p: 1, d: (x.h && x.h[0] && x.h[0][0]) || '' }));
+      return PRE.items;
+    }).catch(() => { PRE.items = []; return []; });
+    return PRE.p;
+  }
+  function preRows(x, far) {   // [전용, 분양권[가격,날짜,층]|0, 입주권|0, 건수]
+    const pa = x.pa || [];
+    if (!far || pa.length < 2) return pa;
+    return [pa.find(r => r[0] >= 80 && r[0] <= 86) || pa.slice().sort((a, z) => z[3] - a[3])[0]];
+  }
+  const preYm = ym => ym ? `${String(ym).slice(2, 4)}.${String(ym).slice(4, 6)}` : '';
+  const preSt = x => x.st === 'in' ? `입주 ${preYm(x.mv)} · 입주 중` : `입주 ${preYm(x.mv)} · 공사 중`;
+  function preLabel(el, x, rows) {
+    const py = T.mode === 'py';
+    const v = (c, a) => c ? (py ? `<i class="tpy">평</i>${n(Math.round(c[0] / (a / 3.305785) / 10) * 10)}만` : eok(c[0])) : '-';
+    el.innerHTML = `<span class="nm">${esc(x.n)}</span><span class="dt">${preSt(x)}</span>${rows.length ? `<span class="pt"><i></i><em class="b">분양권</em><em class="i">입주권</em></span>${rows.map(r => `<span class="pr"><i>${r[0]}</i><b class="b${r[1] ? '' : ' no'}">${v(r[1], r[0])}</b><b class="i${r[2] ? '' : ' no'}">${v(r[2], r[0])}</b></span>`).join('')}` : '<span class="pn">거래 아직 없음</span>'}`;
+    el.title = `${x.n} · 입주 예정 ${ymd(x.mv)}\n분양권·입주권 최근 거래 (해제 제외) · 누르면 분양가와 거래 내역`;
+  }
+  function preClose() { const el = document.getElementById('preCard'); if (el) el.hidden = true; PRE.sel = null; }
+  function preCard(x) {
+    let el = document.getElementById('preCard');
+    if (!el) { el = document.createElement('div'); el.id = 'preCard'; el.className = 'pmcard precard'; $('pmCard').parentNode.appendChild(el); }
+    PRE.sel = x.id;
+    const tyOf = a => (x.ty || []).filter(t => t[0] === a).map(t => t[1]);
+    const cell = (c, cls) => c ? `<td class="${cls}">${eok(c[0])}<small>${ymd(c[1]).slice(2, 7)}${c[2] ? ` · ${esc(c[2])}층` : ''}</small></td>` : '<td class="n">-</td>';
+    const rows = (x.pa || []).map(r => { const t = tyOf(r[0]); return `<tr><th>${r[0]}㎡</th><td>${t.length ? eok(Math.max(...t)) : '-'}</td>${cell(r[1], 'b')}${cell(r[2], 'i')}</tr>`; }).join('');
+    const hist = (x.h || []).slice(0, 8).map(h => `<tr><th>${ymd(h[0]).slice(2)}</th><td>${h[1]}㎡ <span class="${h[2] === 'i' ? 'i' : 'b'}">${h[2] === 'i' ? '입주권' : '분양권'}</span>${h[4] ? ` · ${esc(h[4])}층` : ''}</td><td class="r">${eok(h[3])}</td></tr>`).join('');
+    const info = [x.cn, x.hh ? `공급 ${n(x.hh)}세대` : '', x.mv ? `입주 예정 ${ymd(x.mv)}` : ''].filter(Boolean).map(esc).join(' · ');
+    el.innerHTML = `<div class="pmc-h"><div><small>${esc(x.sgg)} ${esc(x.umd)} · <span class="pre-bd">${x.st === 'in' ? '입주 중' : '공사 중'}</span></small><b>${esc(x.n)}</b></div><button type="button" aria-label="닫기" id="preClose">×</button></div>
+      ${info ? `<p class="pre-i">${info}</p>` : ''}
+      <table><thead><tr><th>전용</th><th>분양가</th><th class="b">분양권</th><th>입주권</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="pmc-n">분양가는 청약홈 공고의 주택형별 최고가 · 입주권 가격에는 앞으로 낼 추가분담금이 빠져 있어 분양가와 바로 비교할 수 없습니다.</p>
+      ${hist ? `<b class="pre-hh">최근 거래</b><table class="pre-h"><tbody>${hist}</tbody></table>` : ''}
+      <p class="pmc-n">국토교통부 분양권전매 실거래(해제 거래 제외) · 청약홈 분양정보 · 매일 갱신${PRE.updated ? ` (${esc(PRE.updated)})` : ''}</p>`;
+    el.hidden = false;
+    $('preClose').onclick = preClose;
   }
   // 11/1 대장 아파트: 같은 법정동에서 84㎡ 최근 6개월 최고가(중개거래)가 가장 높은 단지 하나에 왕관 — 84㎡ 거래 단지가 3곳 이상인 동만
   const dongOf = x => String(x.a || '').split(' ').slice(-2, -1)[0] || '';
@@ -2986,9 +3031,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   function drawTrades() {
     const K = kakao.maps;
-    if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
+    if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); preClose(); return; }
     const b = S.map.getBounds(), proj = S.map.getProjection();
     const all = [];
+    if (kindOn('apt') && PRE.items) all.push(...PRE.items);
     T.regions.forEach(e => { if (e.items) for (const x of e.items) if (x.lat && x.lng && x.p && kindOn(x.k)) all.push(x); });   // 11/1 고른 묶음·칩만
     // 거래가 많은 건물부터 자리 잡고, 겹치는 라벨은 숨김
     all.sort((a, z) => (z.king ? 1 : 0) - (a.king ? 1 : 0) || z.c - a.c || z.d.localeCompare(a.d));   // 11/1 왕관 단지가 먼저 자리 잡음
@@ -2999,20 +3045,21 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const rows = aptRows(x, far), w = rows ? Math.min(106, Math.max(66, String(x.n || '').length * 10.5 + 14)) : x.j ? 80 : 62, h = rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(132, Math.max(104, String(x.n || '').length * 10.5 + 14)) : rows ? Math.min(106, Math.max(66, String(x.n || '').length * 10.5 + 14)) : x.j ? 80 : 62, h = pre ? 30 + (rows.length ? 12 + rows.length * 15 : 14) : rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
-      if (o && rows && o._far !== far) { aptLabel(o.getContent(), x, rows); o._far = far; }
+      if (o && rows && o._far !== far) { (pre ? preLabel : aptLabel)(o.getContent(), x, rows); o._far = far; }
       if (!o) {
         const el = document.createElement('button');
         el.type = 'button'; el.className = `tlabel k-${x.k}`;
         el.title = `[${TK[x.k]}] ${x.n || ''} · 최근 6개월 매매 ${x.c}건\n최근 거래 ${ymd(x.d)} · 전용 ${n(x.ar, 2)}㎡ · ${x.f}층 · ${won(x.p)}${x.ar > 10 ? ` (평당 ${n(Math.round(x.p / (x.ar / 3.305785) / 10) * 10)}만원, 전용 기준)` : ''}`;
         const py = T.mode === 'py' && x.ar > 10 ? x.p / (x.ar / 3.305785) : 0; // 평당가 (전용 기준, 만원)
         el.innerHTML = py ? `<b><i class="tpy">평</i>${n(Math.round(py / 10) * 10)}만</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>` : `<b>${eok(x.p)}</b><small>${x.d.slice(2, 4)}.${x.d.slice(4, 6)}</small>`;   // 10/30 시안 C: 한 줄 알약 (가격 · 거래 연월) · 면적은 title·누르면
-        if (rows) aptLabel(el, x, rows);
+        if (pre) { el.className = 'tlabel k-pre'; preLabel(el, x, rows); }
+        else if (rows) aptLabel(el, x, rows);
         if (BTK[x.k]) btLabel(el, x);
-        el.onclick = ev => { ev.stopPropagation(); pick(x.lat, x.lng); };
+        el.onclick = ev => { ev.stopPropagation(); if (pre) preCard(x); else pick(x.lat, x.lng); };
         o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.2, zIndex: 3, clickable: true });
         o._far = far;
         T.ovs.set(x.id, o);
