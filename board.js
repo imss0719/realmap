@@ -742,11 +742,12 @@ window.Board = (() => {
     if (k === 'unit' && cat !== 'pre') {
       const y = yields(x, x.curDep, x.curRent);
       const ex = inp('exp', /^\d{4}-\d{2}-\d{2}$/.test(x.exp || '') ? x.exp : '', '', 'type="date" style="width:118px"');   // 10/29 두 칸씩 한 줄
-      if (cat !== 'shop') body += `<div class="rpr mk"><b>현상태</b><div class="rpv">${seg('live', [['tenant', '세입자'], ['owner', '집주인 거주'], ['empty', '공실']], a.live || '')}</div></div>`;   // 10/30 선배: 현상태 고르기 (아파트 장부의 '구분'과 같음)
+      if (cat !== 'shop') body += `<div class="rpr mk"><b>현상태</b><div class="rpv">${seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], a.live || '')}</div></div>`;   // 10/30 선배: 현상태 고르기 (아파트 장부의 '구분'과 같음)
       body += `<div class="rpr rpr2"><b>현 보증금</b><div class="rpv">${won2('$curDep', x.curDep)}</div><b>월세</b><div class="rpv">${won2('$curRent', x.curRent)}</div></div>`
         + `<div class="rpr rpr2"><b>만기</b><div class="rpv">${ex}</div>${cat === 'shop' ? `<b>업종</b><div class="rpv">${inp('ad:biz', a.biz, '', 'title="업종 또는 공실"')}</div>` : '<b></b><div></div>'}</div>`
         ;   // 10/30 연 수익률은 정보 칸 아래 상자 하나만 (두 번 나오던 것)
     }
+    if (isHouse(x)) body += `<div class="rpr mk"><b>현상태</b><div class="rpv">${seg('live', [['owner', '입주'], ['tenant', '임차'], ['empty', '공실']], a.live || '')}</div></div>`;   // 11/2 선배: 주택도 현상태 (층마다는 아래 층별 현황)
     // 층별 현황 (통건물·공장)
     if (k === 'whole') {
       const R0 = x.rents || [], R = [...R0, ...Array(B.blank.get(id) || 0).fill({})], s = rentSum(x), y = yields(x, s.d, s.r);
@@ -927,21 +928,23 @@ window.Board = (() => {
   const isHouse = x => detKind(x) === 'whole' && catOf(x) === 'home';   // 11/2 선배: 주택(단독·다가구)은 통건물 틀 + 집에 필요한 칸 (대지·연면적 · 방·욕실 · 용도지역)
   const FILL_LB = { area: '면적', site: '대지면적', bname: '건물명', road: '도로명 주소', use: '용도', tfl: '총 층수', fl: '해당 층', appr: '사용승인일', park: '주차', elev: '승강기', zone: '용도지역', strct: '건축구조', lp: '공시지가' };
   const emp = v => v == null || v === '';
+  // 11/2 고침: 화면에 보이는 칸만 셈 (건물명·도로명은 정보 칸에 없어 숫자만 남던 것) · 눌러 봤는데 대장에도 없던 칸은 이 브라우저에 기억해 다시 세지 않음
+  const AFX = (() => { try { return JSON.parse(localStorage.getItem('rm.afx') || '{}'); } catch { return {}; } })();
+  const afxSave = () => { try { const ks = Object.keys(AFX); if (ks.length > 500) ks.slice(0, ks.length - 500).forEach(k => delete AFX[k]); localStorage.setItem('rm.afx', JSON.stringify(AFX)); } catch { /* 저장 못 해도 됨 */ } };
   function fillCand(x, RO) {
     try {
       if (RO || !x || x.kind === 'presale') return [];
       const P = places(x)[0] || {}, a = x.ad || {}, k = detKind(x);
       if (!(P.pnu || x.pnu)) return [];
-      const c = [];
-      if (emp(P.area) && emp(x.area)) c.push('area');
-      if (k === 'land') { ['use', 'zone', 'lp'].forEach(q => { if (emp(a[q])) c.push(q); }); return c; }
-      if (emp(x.bname) && emp(P.bname)) c.push('bname');
-      if (emp(x.road)) c.push('road');
-      if (k === 'whole' && emp(P.site)) c.push('site');
-      ['use', 'tfl', 'appr', 'park', 'zone'].forEach(q => { if (emp(a[q])) c.push(q); });
-      if (k !== 'whole' && emp(a.fl) && P.ho) c.push('fl');
-      if (/공장|창고/.test(tb(x) || '') && emp(a.strct)) c.push('strct');
-      return c;
+      const F = fieldsOf(x).map(f => f[0]), tried = new Set(AFX[x.id] || []), c = [];
+      const add = q => { if (!tried.has(q)) c.push(q); };
+      if (k === 'land') { ['use', 'zone'].forEach(q => { if (emp(a[q])) add(q); }); if (emp(P.area) && emp(x.area)) add('area'); return c; }
+      if (isHouse(x)) { if (emp(P.area)) add('area'); if (emp(P.site)) add('site'); }
+      else if (F.includes('$area') && emp(P.area) && emp(x.area)) add('area');
+      ['use', 'tfl', 'appr', 'park', 'zone'].forEach(q => { if (F.includes(q) && emp(a[q])) add(q); });
+      if (F.includes('flt')) { if (emp(a.tfl)) add('tfl'); if (emp(a.fl) && P.ho) add('fl'); }
+      if (/공장|창고/.test(tb(x) || '') && emp(a.strct)) add('strct');
+      return [...new Set(c)];
     } catch { return []; }
   }
   const fillBtn = (x, RO, cls) => { const n = fillCand(x, RO).length; return n ? `<button type="button" class="${cls}" data-a="autofill" title="건축물대장·토지대장에서 비어 있는 칸만 채웁니다 (넣은 값은 그대로)">🪄 빈 칸 채우기<em>${n}</em></button>` : ''; };
@@ -1067,6 +1070,7 @@ window.Board = (() => {
             if (emp(it.road) && !emp(it0.road)) { it.road = it0.road; got.add('도로명 주소'); }
           });
           const L = [...got];
+          try { const cand = fillCand(x, false), fresh = H.items().find(i => i.id === id); const left = fresh ? fillCand(fresh, false) : cand; if (left.length) { AFX[id] = [...new Set([...(AFX[id] || []), ...left])]; afxSave(); refresh(); } } catch { /* 기억 못 해도 됨 */ }   // 대장에도 없던 칸은 다시 세지 않음
           H.toast(L.length ? `${L.join('·')} ${L.length}칸을 채웠습니다` : '건축물대장에도 없는 값입니다. 직접 넣어 주세요', 3500);
         } catch { H.toast('건축물대장을 불러오지 못했습니다', 3500); refresh(); }
         return;
