@@ -2631,7 +2631,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     document.querySelectorAll('[data-pm]').forEach(x => x.setAttribute('aria-pressed', x.dataset.pm === m));
     priceRefresh(true);
   }
-  const pmActive = () => T.on && S.map.getLevel() >= PMIN && S.map.getLevel() <= PMAX;
+  const pmActive = () => T.on && !LS.ofc && S.map.getLevel() >= PMIN && S.map.getLevel() <= PMAX;
   const pmLayer = () => S.map.getLevel() >= PGU ? 'g' : 'd';
   const pmBox = f => { let a = 180, b = 90, c = -180, d = -90; f.g.forEach(r => r.forEach(([x, y]) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); })); f.bb = [a, b, c, d]; f.ctr = pmCenter(f.g); return f; };
   // 시세 파일 (세 시도 모두, 작음)
@@ -2915,7 +2915,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         fetch('/api/aptmap', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lawd, pts: pts.slice(i, i + 60) }) }).catch(() => { /* 보태기 실패는 무시 */ });
     }
   }
-  const tActive = () => T.on && S.map.getLevel() <= MAXLV && TCH.some(r => kindOn(r[0]));
+  const tActive = () => T.on && !LS.ofc && S.map.getLevel() <= MAXLV && TCH.some(r => kindOn(r[0]));
   async function tradeRefresh() {
     if (!tActive()) { T.ovs.forEach(o => o.setMap(null)); return; }
     const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), c = S.map.getCenter();
@@ -3045,26 +3045,39 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     fbInit();
     api('/api/auth?action=pubs').then(j => { LS.all = (j.items || []).filter(x => x.lat && x.lng); LS.items = LS.all; LS.loaded = true; setTimeout(opFixPos, 1500); if (LS.ofc) ofcOn(); drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
   }
+  const OFC_LV = 5, OFC = {};
   // 10/29 중개사 소개 페이지 [지도에서 모아 보기] → /?office=등록번호숫자 : 그 중개사 매물만 지도에 + 위에 '모두 보기' 띠
-  function ofcOn() {
+  // 11/2 선배: 전체를 넣느라 크게 축소하지 않음 — 지도를 보다가 누르면 보던 자리, 소개 페이지에서 오면 사무소 자리 · 가격이 보이는 단계(5)까지만 ·
+  //   그 자리에 이 사무소 매물이 하나도 안 보이면 가장 가까운 매물로 옮김 · 바탕 지도는 흐리게, 다른 표시는 숨기고 이 사무소 매물만 강조
+  function ofcOn(fromMap) {
     const r = LS.ofc, mine = LS.all.filter(x => String((x.bk && x.bk.regno) || '').replace(/\D/g, '') === r);
     if (!mine.length) { LS.ofc = null; toast('이 중개사무소가 지금 지도에 올린 매물이 없습니다', 3500); return; }
     LS.items = mine;
-    const K = kakao.maps, bd = new K.LatLngBounds(); mine.forEach(x => bd.extend(new K.LatLng(x.lat, x.lng)));
-    S.map.setBounds(bd, 90, 60, 60, 60); if (S.map.getLevel() < 4) S.map.setLevel(4);
+    const K = kakao.maps, bk0 = mine[0].bk || {};
+    if (!fromMap && bk0.lat > 33 && bk0.lng > 124) S.map.setCenter(new K.LatLng(bk0.lat, bk0.lng));
+    if (S.map.getLevel() > OFC_LV) S.map.setLevel(OFC_LV);
+    const bnd = S.map.getBounds();
+    if (!mine.some(x => bnd.contain(new K.LatLng(x.lat, x.lng)))) {
+      const c = S.map.getCenter(), d = x => (x.lat - c.getLat()) ** 2 + ((x.lng - c.getLng()) * 0.8) ** 2;
+      const near = mine.reduce((a, x) => d(x) < d(a) ? x : a, mine[0]);
+      S.map.setCenter(new K.LatLng(near.lat, near.lng));
+    }
+    $('map').closest('.map').classList.add('ofc-mask');
+    if (!OFC.zl) { OFC.zl = true; K.event.addListener(S.map, 'zoom_changed', () => { if (LS.ofc && S.map.getLevel() > OFC_LV) S.map.setLevel(OFC_LV); }); }
+    tradeRefresh(); priceRefresh(); drawOffices(); fbSync();
     let bar = $('ofcBar'); if (!bar) { bar = document.createElement('div'); bar.id = 'ofcBar'; $('toast').parentElement.appendChild(bar); }
     $('toast').parentElement.classList.add('ofc-on');
     const bk = mine[0].bk || {};
     bar.innerHTML = `<span><b>${esc(bk.office || '중개사무소')}</b> 매물 ${mine.length}건<i>만 보는 중</i></span><a href="/office.html?r=${r}">소개</a><button type="button" id="ofcAll">모두 보기 ✕</button>`;
     bar.hidden = false;
-    $('ofcAll').onclick = () => { LS.ofc = null; LS.items = LS.all; bar.hidden = true; $('toast').parentElement.classList.remove('ofc-on'); try { const u = new URL(location.href); u.searchParams.delete('office'); history.replaceState(null, '', u.pathname + u.search); } catch { /* 주소는 그대로 */ } LS.ovs.forEach(o => o.setMap(null)); LS.ovs.clear(); drawListings(); drawTrades(); if (S.sel) render(); };
+    $('ofcAll').onclick = () => { LS.ofc = null; LS.items = LS.all; bar.hidden = true; $('map').closest('.map').classList.remove('ofc-mask'); tradeRefresh(); priceRefresh(); fbSync(); $('toast').parentElement.classList.remove('ofc-on'); try { const u = new URL(location.href); u.searchParams.delete('office'); history.replaceState(null, '', u.pathname + u.search); } catch { /* 주소는 그대로 */ } LS.ovs.forEach(o => o.setMap(null)); LS.ovs.clear(); drawListings(); drawTrades(); if (S.sel) render(); };
   }
   // ---------- 11/2 실거래·매물 고르기 줄 (지도 왼쪽 위 알약 · 누르면 아래로 펼침 · 바깥을 누르거나 지도를 움직이면 닫힘) ----------
   const fbList = arr => arr.length > 1 ? `${arr[0]} 외 ${arr.length - 1}` : arr[0] || '없음';
   function fbSync() {
     const fT = $('fpT'), fL = $('fpL'); if (!fT) return;
     const tk = TCH.filter(r => kindOn(r[0])), lk = LSG.filter(r => LS.types[r[0]] !== false);
-    fT.hidden = !T.on; fL.hidden = !LS.on;
+    fT.hidden = !T.on || !!LS.ofc; fL.hidden = !LS.on || !!LS.ofc;   // 11/2 한 중개사 매물만 볼 때는 고르기 줄 숨김
     // 알약 글씨는 짧게 (휴대폰 폭) — 기본값(총액 · 전체 · 모든 종류)은 쓰지 않음
     fT.innerHTML = `<span class="k">실거래</span>${fbList(tk.map(r => r[1]))}${T.mode === 'py' ? ' · 평당가' : ''}<i>▼</i>`;
     const lt = lk.length === LSG.length ? '' : fbList(lk.map(r => r[1]));
@@ -3220,7 +3233,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function drawGray() {
     const K = kakao.maps, lv = S.map.getLevel();
     const hide = () => GR.ovs.forEach(o => o.setMap(null));
-    if (lv > 4 || !inSeoul(S.map.getCenter())) return hide();
+    if (lv > 4 || LS.ofc || !inSeoul(S.map.getCenter())) return hide();   // 11/2 한 중개사 매물만 볼 때는 숨김
     if (!GR.rows) { if (!GR.busy) { GR.busy = true; fetch('/data/offices-seoul.json').then(r => r.json()).then(j => { GR.rows = j.rows || []; drawGray(); }).catch(() => { GR.rows = []; }); } return; }
     const mem = new Set(); for (const x of LS.all || []) { const r = String((x.bk && x.bk.regno) || '').replace(/\D/g, ''); if (r) mem.add(r); }
     const b = S.map.getBounds(), proj = S.map.getProjection(), show = new Set();
@@ -3311,7 +3324,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     c.querySelector('.x').onclick = () => { c.hidden = true; };
     c.querySelectorAll('[data-cp]').forEach(t => t.onclick = () => { try { navigator.clipboard.writeText(t.dataset.cp); toast('번호를 복사했습니다'); } catch { /* 복사 안 됨 */ } });
     c.querySelectorAll('[data-i]').forEach(t => t.onclick = () => { const x = L[+t.dataset.i]; c.hidden = true; S.lstJump = true; pickPnu(x.pnu); });
-    c.querySelector('.all').onclick = () => { c.hidden = true; LS.ofc = r; if (!LS.on) { LS.on = true; $('mtLst').setAttribute('aria-pressed', true); lsSave(); } ofcOn(); drawListings(); drawTrades(); };
+    c.querySelector('.all').onclick = () => { c.hidden = true; LS.ofc = r; if (!LS.on) { LS.on = true; $('mtLst').setAttribute('aria-pressed', true); lsSave(); } ofcOn(true); drawListings(); drawTrades(); };
   }
   // 이 필지의 매물 (필지창 맨 위)
   const cxNorm = s => String(s || '').replace(/\(.*?\)|\s|아파트$/g, '');

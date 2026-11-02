@@ -914,3 +914,6 @@ a.favbtn{text-decoration:none}
 .fchips{display:flex;flex-wrap:wrap;gap:4px}
 .fchips button{font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:8px;border:1.5px solid var(--c,#495057);color:var(--c,#495057);background:#fff;cursor:pointer;white-space:nowrap}
 .fchips button[aria-pressed="true"]{background:var(--c,#495057);color:#fff}
+/* 11/2 한 중개사 매물만 보기: 바탕 지도 타일만 회색으로 옅게 (매물 라벨·사무소 핀은 그대로) · 이 사무소 매물 라벨 강조 */
+.map.ofc-mask img[src*="daumcdn.net"]{filter:grayscale(1) brightness(1.06) contrast(.85);opacity:.5}
+.map.ofc-mask .llabel{transform:scale(1.12);transform-origin:center bottom;border-width:2.5px;box-shadow:0 3px 10px rgba(20,33,46,.35)}
