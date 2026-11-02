@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       gus:
-        description: '구 코드 (쉼표로 여러 개)'
+        description: '구 코드 쉼표 목록, 또는 서울 · 경기 · 인천 · 수도권'
         default: '11440,11410,11380'
       months:
         description: '기간 (개월)'
@@ -16,7 +16,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
