@@ -2618,7 +2618,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 서울·인천·경기. 레벨 6~8: 법정동별 (data/umd-<시도>.json) · 레벨 9~11: 구별 (data/sgg-<시도>.json)
   // 값은 data/price-<시도>.json (전용 ㎡당 중간값, GitHub가 매주 갱신). 시세 파일은 작아서 처음에 모두 받고,
   // 경계 파일은 지도가 그 시도를 비출 때만 받습니다. 색 구간은 권역(수도권·부산)마다 따로 나눕니다.
-  const PSIDO = { '26': { n: '부산광역시', bb: [128.79, 34.99, 129.3, 35.39] }, '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] }, '27': { n: '대구광역시', bb: [128.34, 35.6, 128.95, 36.34] } };   // 11/2 대구 추가
+  const PSIDO = { '26': { n: '부산광역시', bb: [128.79, 34.99, 129.3, 35.39] }, '11': { n: '서울특별시', bb: [126.76, 37.43, 127.18, 37.7] }, '28': { n: '인천광역시', bb: [124.61, 37.02, 126.79, 37.98] }, '41': { n: '경기도', bb: [126.38, 36.89, 127.85, 38.28] }, '27': { n: '대구광역시', bb: [128.34, 35.6, 128.95, 36.34] }, '30': { n: '대전광역시', bb: [127.24, 36.18, 127.56, 36.5] }, '36': { n: '세종특별자치시', bb: [127.0, 36.4, 127.4, 36.74] }, '31': { n: '울산광역시', bb: [128.96, 35.32, 129.47, 35.73] } };   // 11/2 대구·대전·세종·울산 추가
   const PM = { kind: 'apt', mode: 'price', loading: null, umd: [], sgg: [], bnd: {}, price: null, L: { d: { polys: new Map(), labels: new Map() }, g: { polys: new Map(), labels: new Map() } }, q: {}, qv: {}, sel: null, hov: null };
   const PMIN = MAXLV + 1, PGU = 9, PMAX = 11;
   // 종류: 주택(아파트·빌라·오피스텔, 최근 6개월 전용 평당) / 토지·건물(대지·단독·상가·공장, 최근 1년 대지 평당 — data/price2-<시도>.json)
@@ -2698,8 +2698,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const CCOL = [[-10, '#1864AB'], [-5, '#4C8FD6'], [-2, '#A5C8F0'], [2, '#DEE2E6'], [5, '#FFC9C9'], [10, '#FA7A7A'], [Infinity, '#E03131']];
   const pmSrc = ly => ly === 'g' ? PM.price.g : PM.price.d;
   // 색 구간은 권역마다 따로 나눕니다: 수도권(서울·인천·경기) / 부산
-  const pmGrp = c => { const s = String(c).slice(0, 2); return s === '26' ? 'b' : s === '27' ? 'd' : 'm'; };   // 색 구간은 지역끼리 (수도권 · 부산 · 대구)
-  const PGRP = { m: '수도권', b: '부산', d: '대구' };
+  const PG = { 26: 'b', 27: 'd', 30: 'c', 36: 'c', 31: 'u' }, pmGrp = c => PG[String(c).slice(0, 2)] || 'm';   // 색 구간은 지역끼리 (수도권 · 부산 · 대구 · 대전·세종 · 울산)
+  const PGRP = { m: '수도권', b: '부산', d: '대구', c: '대전·세종', u: '울산' };
   function pmVal(ly, c) {
     const e = pmSrc(ly)[c], v = e && e[PM.kind], g = pmGrp(c);
     if (PM.mode === 'vol') return v && v[1] ? { v: v[1], n: v[1], g } : null;   // 거래량: 최근 6개월 매매 건수
@@ -2812,7 +2812,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function pmLegend(ly) {
     const el = $('pmLegend'), C = pmCur(), lb = PLB(PM.kind);
     const KN = PKL[PM.kind], U = ly === 'g' ? '구별' : '동별';
-    const cc = S.map.getCenter(), la = cc.getLat(), lo = cc.getLng(), grp = la >= 36.5 ? 'm' : la >= 35.55 && lo < 128.97 ? 'd' : 'b', key = ly + grp;   // 11/2 대구 따로
+    const cc = S.map.getCenter(), la = cc.getLat(), lo = cc.getLng(), at = ['26', '31', '27', '30', '36', '11', '28', '41'].find(k => { const b = PSIDO[k].bb; return lo >= b[0] && lo <= b[2] && la >= b[1] && la <= b[3]; }), grp = at ? pmGrp(at) : 'm', key = ly + grp;   // 11/2 보고 있는 지역의 색 구간
     const per = `${C[0].slice(2, 4)}.${C[0].slice(4)}~${C[1].slice(2, 4)}.${C[1].slice(4)}${PM.mode === 'chg' || PM.mode === 'jr' ? '' : ` · ${PGRP[grp]} 기준`}`;
     const seg = `<div class="pmseg" role="group" aria-label="보는 기준"><button type="button" data-pm="price" aria-pressed="${PM.mode === 'price'}">평당가</button><button type="button" data-pm="chg" aria-pressed="${PM.mode === 'chg'}">상승률</button><button type="button" data-pm="vol" aria-pressed="${PM.mode === 'vol'}">거래량</button><button type="button" data-pm="jr" aria-pressed="${PM.mode === 'jr'}"${lb ? ' disabled title="토지·건물은 전세가율이 없습니다"' : ''}>전세가율</button></div>${[['주택', ['apt', 'rh', 'offi']], ['토지·건물', PLBK]].map(([t, ks]) => `<div class="pmkind" role="group" aria-label="${t} 종류"><span>${t}</span>${ks.map(k => `<button type="button" data-pk="${k}" aria-pressed="${PM.kind === k}">${PKN[k]}</button>`).join('')}</div>`).join('')}`;
     const hint = `<small class="pmn">${ly === 'g' ? '확대하면 동별로 보입니다' : '축소하면 구별로 보입니다'} · 지역을 누르면 상세</small>`;
