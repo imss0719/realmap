@@ -15,7 +15,7 @@ const fetchMonth = (k, lawd, ym) => dataGoKrAll(RT[k].url, { LAWD_CD: lawd, DEAL
 
 if (!process.env.DATA_GO_KR_KEY) { console.log('DATA_GO_KR_KEY 비밀값이 비어 있습니다.'); process.exit(1); }
 
-const SIDOS = ['11', '41', '28', '26'];
+const SIDOS = ['11', '41', '28', '26', '27'];   // 11/2 대구(27) 추가
 const OLD = { '28': { '28110': ['28125', '28155'], '28140': ['28125'], '28260': ['28275', '28290'] }, '41': { '41590': ['41591', '41593', '41595', '41597'] } };
 const KINDS = ['land', 'sh', 'nrg', 'indu'];
 const clean = s => String(s ?? '').trim();
