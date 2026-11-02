@@ -2551,8 +2551,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   // 11/2 실거래 종류 6가지 (칩 색 = 지도 라벨 색) · 상가·단독·공장(nrg·sh·indu)은 미리 맞춘 파일 data/bt/<구>.json
   //   BT_OPEN=false 동안은 상가·단독·공장 칩이 운영자(선배)에게만 보임 — 위치 확인 뒤 true로
   const BT_OPEN = false;
-  const TCH = [['apt', '아파트', '#14212E'], ['rh', '빌라', '#1F7A4D'], ['offi', '오피스텔', '#6741B8'], ['nrg', '상가', '#B4462B'], ['sh', '단독', '#1C64C8'], ['indu', '공장', '#5F6B78']];
-  const BTK = { nrg: '상가·업무', sh: '단독·다가구', indu: '공장·창고' };
+  const TCH = [['apt', '아파트', '#14212E'], ['rh', '빌라', '#1F7A4D'], ['offi', '오피스텔', '#6741B8'], ['nrg', '건물', '#B4462B'], ['sh', '단독', '#1C64C8'], ['indu', '공장', '#5F6B78']];
+  const BTK = { nrg: '건물(상업·업무)', sh: '단독·다가구', indu: '공장·창고' };
   const btOk = () => BT_OPEN || !!(S.me && S.me.op);
   const T = { mode: 'price', on: true, kinds: { apt: true, rh: true, offi: true, nrg: false, sh: false, indu: false }, regions: new Map(), ovs: new Map(), geoQ: [], geoBusy: 0, hinted: false, dong: '', found: {}, flushT: 0 };
   const MAXLV = 5;
@@ -2929,7 +2929,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     for (const k of Object.keys(TK)) if (kindOn(k)) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
     await Promise.all(jobs);
     drawTrades();
-    if (btAny() && !T.hintB) { T.hintB = true; toast('상가·단독·공장은 최근 5년 실거래가입니다 · "직"은 직거래'); }
+    if (btAny() && !T.hintB) { T.hintB = true; toast('건물·단독·공장은 최근 5년 실거래가입니다 · "직"은 직거래'); }
     else if (!T.hinted) { T.hinted = true; toast('지도 위 가격은 최근 6개월 실거래가입니다'); }
   }
   // 11/1 상가·건물 실거래: 미리 맞춘 파일 (없는 구는 빈 목록 · 한 번만 받음)
