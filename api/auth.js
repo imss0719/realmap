@@ -262,6 +262,8 @@ function floorText(a) {
   if (!t || !n) return '';
   return n <= t / 3 ? '저층' : n <= t * 2 / 3 ? '중층' : '고층';
 }
+// 11/2 공장 현재 상태를 고르지 않았으면 층별 현황으로 (board.js facOcc와 같은 규칙)
+function facOcc(x) { const L = (x.rents || []).map(r => String(r.label || '').trim()).filter(Boolean); return !L.length ? '' : L.every(t => /공실/.test(t)) ? 'empty' : L.some(t => !/공실/.test(t)) ? 'rent' : ''; }
 function pubSummary(uid, x, bk) {
   const a = x.ad || {}, p0 = (x.places && x.places[0]) || {};
   return {
@@ -272,7 +274,8 @@ function pubSummary(uid, x, bk) {
     dong: ['아파트', '오피스텔'].includes(tbase(x)) ? (p0.dong || '') : '',   // 호수는 공개하지 않음
     flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', dirB: RESID.includes(tbase(x)) ? '주실 기준' : '주출입구 기준', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
-    biz: a.biz || '', wc: a.wc || '', facx: a.facx || '', mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
+    biz: a.biz || '', wc: a.wc || '', facx: a.facx || '',
+    ...(tbase(x) === '공장·창고' ? { occ: a.occ || facOcc(x), strct: a.strct || '', pow: a.pow || null, ch: a.ch || null, hoist: a.hoist || null, trl: a.trl || '' } : {}),   // 11/2 공장·창고 mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
     mg: RESID.includes(tbase(x)) ? mgPub(x) : null, wcn: a.wcn ?? null,   // 10/30 주거용 관리비 세분화 · 화장실 개수
     loanTx: x.kind !== 'sale' || a.loanR === 'hide' || (!a.loanR && a.loanHide) ? '' : a.loanR === 'none' || (!a.loanR && a.noloan) ? '융자 없음' : a.loanR === 'lt30' ? '시세 대비 30% 미만' : a.loanR === 'ge30' ? '시세 대비 30% 이상' : '',   // 고르지 않았으면 표시 안 함
     photos: (x.photos || []).slice(0, 10).map(p => p.url),
@@ -401,6 +404,7 @@ function cleanAd(a) {
     movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
+    occ: ['self', 'rent', 'empty'].includes(a.occ) ? a.occ : '', strct: t(a.strct, 30), pow: dec(a.pow), ch: dec(a.ch), hoist: dec(a.hoist), trl: ['y', 'n'].includes(a.trl) ? a.trl : '',   // 11/2 공장·창고
     mgmtT: ['fix', 'avg', 'use', 'rule', 'unk'].includes(a.mgmtT) ? a.mgmtT : '', noloan: !!a.noloan, loanHide: !!a.loanHide, live: ['tenant', 'owner', 'empty'].includes(a.live) ? a.live : '',   // 10/30 현상태(세입자·집주인 거주·공실)
     mgmtInc: (Array.isArray(a.mgmtInc) ? a.mgmtInc : []).filter(k => MGI.includes(k)), mgmtTx: t(a.mgmtTx, 60),   // 예전 관리비 부과 방식 (읽기만 · 10/30 고침: 이 줄이 주석 안에 들어가 저장이 안 되던 것)
     mg2: mgClean(a.mg2),   // 10/30 주거용 관리비 세분화 (api/_mg.js)
