@@ -79,7 +79,7 @@ await pool(jobs(yms.slice(0, 24)), CONC, async ({ gu, ym }) => {
     if (aptUrl === APT[0]) { aptUrl = APT[1]; try { rows = await getAll(aptUrl, gu, ym); } catch (e2) { errs.push(`매매 ${gu} ${ym}: ${e2.message.slice(0, 120)}`); return; } }
     else { errs.push(`매매 ${gu} ${ym}: ${e.message.slice(0, 120)}`); return; }
   }
-  for (const r of rows) { aptName.add(`${r.sggCd || gu}|${clean(r.umdNm)}|${norm(r.aptNm)}`); aptName.add(`${gu}|${clean(r.umdNm)}|${norm(r.aptNm)}`); aptJb.add(`${gu}|${clean(r.umdNm)}|${bon(r.jibun)}`); }
+  for (const r of rows) { aptName.add(`${r.sggCd || gu}|${clean(r.umdNm)}|${norm(r.aptNm)}`); aptName.add(`${gu}|${clean(r.umdNm)}|${norm(r.aptNm)}`); if (+clean(r.buildYear) >= +nowYm.slice(0, 4) - 2) aptJb.add(`${gu}|${clean(r.umdNm)}|${bon(r.jibun)}`); }   // 11/2 지번 비교는 새 아파트(최근 2년 안 준공) 매매만 — 같은 본번의 옛 아파트 때문에 힐스테이트 광명11이 빠졌던 문제
 });
 
 // ③ 청약홈
@@ -122,7 +122,7 @@ for (const c of cx.values()) {
   const byJb = a => { const ad = clean(a.HSSPLY_ADRES); return ad.includes(c.umd) && new RegExp(`(^|\\s)${bon(c.jibun)}(\\s|-|번|$)`).test(ad); };
   const best = near.find(same) || near.find(part) || near.find(byJb) || all.find(same);
   const mv = best ? clean(best.MVN_PREARNGE_YM) : '';
-  if (aptName.has(`${c.gu}|${c.umd}|${k}`) || aptJb.has(`${c.gu}|${c.umd}|${bon(c.jibun)}`) || (mv && mv <= ymMinus(nowYm, 12))) { drop.moved++; continue; }
+  if (aptName.has(`${c.gu}|${c.umd}|${k}`) || (!(mv > nowYm) && aptJb.has(`${c.gu}|${c.umd}|${bon(c.jibun)}`)) || (mv && mv <= ymMinus(nowYm, 12))) { drop.moved++; continue; }
   if (!best) { drop.noah++; continue; }
   if (!c.t.some(t => t.d >= recent)) { drop.stale++; continue; }
   c.ah = { no: best.HOUSE_MANAGE_NO, nm: clean(best.HOUSE_NM), addr: clean(best.HSSPLY_ADRES), mv, cn: clean(best.CNSTRCT_ENTRPS_NM), hh: num(best.TOT_SUPLY_HSHLDCO) };
