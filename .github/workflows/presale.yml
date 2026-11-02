@@ -1,0 +1,33 @@
+name: realmap-presale
+# 11/2 입주 예정 아파트(분양권·입주권) 지도 자료 data/presale.json 만들기 — 매일 새벽 5시 23분(한국시간) + 수동 실행
+#   수동 실행 때 구 칸: 수도권(기본) · 서울 · 경기 · 인천 · 구 코드 쉼표 목록
+on:
+  schedule:
+    - cron: '23 20 * * *'
+  workflow_dispatch:
+    inputs:
+      gus:
+        description: '수도권 · 서울 · 경기 · 인천 · 구 코드 쉼표 목록'
+        default: '수도권'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: node scripts/presale.mjs
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          GUS: ${{ github.event.inputs.gus || '수도권' }}
+      - name: 바뀐 자료 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/presale.json data/presale-geo.json 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "입주 예정 아파트 자료 갱신" && (git push || (git pull --rebase origin main && git push)))
