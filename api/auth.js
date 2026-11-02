@@ -135,6 +135,27 @@ const smsOn = () => !!(SMS.key && SMS.secret && SMS.from);
 // 운영자 휴대폰으로 알림 문자 (입금 신청·새 문의) — Vercel 환경변수 ADMIN_PHONE 이 있을 때만 · 실패해도 무시
 //   10/31 once: 같은 일로 같은 사람이 되풀이하면 하루 한 번만 (신청·취소 반복으로 문자 비용이 새지 않게 · 내용은 운영 페이지에 그대로 쌓임)
 export async function opSms(text, once = '') { const to = String(process.env.ADMIN_PHONE || '').replace(/\D/g, ''); if (!smsOn() || !/^01\d{8,9}$/.test(to)) return; try { if (once && (await redis(['SET', `realmap:smsonce:${once}`, '1', 'EX', 86400, 'NX'])) !== 'OK') return; } catch { /* 저장소 문제면 그냥 보냄 */ } try { await sendSms(to, text); } catch { /* 무시 */ } }
+// 11/2 가입 안내 문자 (정보성): what = start(체험·무료 시작) · pend(확인 대기) · ok(운영자 승인) — 실패해도 가입은 그대로 · 같은 일은 하루 한 번
+const kDay = s => { const d = new Date(Date.parse(s) + 9 * 3600e3); return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`; };
+const areaOf = a => (String(a || '').split(/\s+/).find(w => /(시|군|구)$/.test(w) && !/(특별|광역)시$|^서울/.test(w)) || '');
+export async function joinSms(uid, bk, P, what) {
+  if (!smsOn() || !bk) return;
+  const to = String(bk.mobileOk || bk.mobile || '').replace(/\D/g, ''), nm = `${bk.ceo || ''} 대표님`.trim();
+  const trial = P && P.plan === 'trial', area = areaOf(bk.addr);
+  const pl = trial ? '2주 체험' : P && P.plan === 'free' ? (P.trialUsed ? '무료 (체험 이미 사용)' : '무료') : (P && P.name) || '';
+  const op = what === 'pend' ? `[리얼맵] 새 가입: ${bk.office || ''}${area ? ` (${area})` : ''} · 확인 대기 (승인 필요)` : what === 'start' ? `[리얼맵] 새 가입: ${bk.office || ''}${area ? ` (${area})` : ''} · ${pl}` : '';
+  if (op) opSms(op, `join:${what}:${uid}`).catch(() => {});
+  if (!/^01\d{8,9}$/.test(to)) return;
+  try { if ((await redis(['SET', `realmap:smsonce:joinm:${what}:${uid}`, '1', 'EX', 86400, 'NX'])) !== 'OK') return; } catch { /* 그냥 보냄 */ }
+  const tail = '\n\n중개장부 realmap.online/listings.html\n문의 contact@realmap.online';
+  let text = '';
+  if (what === 'pend') text = `[리얼맵] ${nm}, 가입 신청을 받았습니다.\n국가 자료 조회가 지연되어 운영자가 직접 확인 중입니다. 확인되면 문자로 바로 알려 드리겠습니다.`;
+  else if (trial) text = `[리얼맵] ${nm}, ${what === 'ok' ? '중개사무소 확인이 끝났습니다.' : '가입해 주셔서 감사합니다.'}\n2주 무료 체험이 시작됐습니다 (${kDay(P.until)}까지).\n\n· 매물 등록 → 줄 끝 [리얼맵 등록]을 누르면 지도에 광고됩니다\n· 직원 5명까지 무료 ([설정 → 직원 관리])\n· 체험이 끝나도 자동 결제 없이 무료로 바뀝니다` + tail;
+  else if (P && P.plan === 'free') text = `[리얼맵] ${nm}, ${what === 'ok' ? '중개사무소 확인이 끝났습니다.' : '가입해 주셔서 감사합니다.'}${P.trialUsed ? '\n이 사무소는 2주 무료 체험을 이미 사용하셔서 무료 이용으로 시작합니다.' : ''}\n\n· 매물 ${P.ls}건 · 지도 광고 ${P.ad}건까지 무료\n· 매물 줄 끝 [리얼맵 등록]을 누르면 지도에 광고됩니다\n· 더 쓰시려면 [설정 → 요금제]` + tail;
+  else if (what === 'ok') text = `[리얼맵] ${nm}, 중개사무소 확인이 끝났습니다. 이제 중개장부를 쓰실 수 있습니다.` + tail;
+  if (!text) return;
+  try { await sendSms(to, text); } catch { /* 안내 문자는 보조 */ }
+}
 // 요금제 가격(부가세 포함, 원) · 계좌이체 기간 — 12개월은 10개월 값
 export const PRICE = { basic: 9900, premium: 19900, vip: 29900 };
 export const PAY_MON = [1, 6, 12];
@@ -144,7 +165,8 @@ export async function sendSms(to, text) {
   const sig = crypto.createHmac('sha256', SMS.secret).update(date + salt).digest('hex');
   const r = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
     method: 'POST', headers: { Authorization: `HMAC-SHA256 apiKey=${SMS.key}, date=${date}, salt=${salt}, signature=${sig}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: [{ to, from: SMS.from, text, type: 'SMS', autoTypeDetect: false }] }),
+    // 11/2 길면(90바이트 넘음) 장문(LMS)으로 — 인증번호 같은 짧은 문자는 예전처럼 단문
+    body: JSON.stringify({ messages: [[...text].reduce((n, c) => n + (c.charCodeAt(0) > 127 ? 2 : 1), 0) > 90 ? { to, from: SMS.from, text, type: 'LMS', subject: '리얼맵 안내', autoTypeDetect: false } : { to, from: SMS.from, text, type: 'SMS', autoTypeDetect: false }] }),
   });
   const j = await r.json().catch(() => ({}));
   const bad = (j.failedMessageList || [])[0];
@@ -167,7 +189,7 @@ const SMS_NEED = '휴대폰 번호 인증을 먼저 해 주세요. (번호 옆 [
 const V_MSG = {
   notfound: '입력하신 등록번호로 개설등록된 중개사무소를 찾지 못했습니다. 중개사무소 등록증의 등록번호를 확인해 주세요.',
   ceo: '대표 공인중개사 성명이 등록 정보와 다릅니다. 대표 공인중개사 명의로 가입해 주세요.',
-  dup: '이미 다른 계정으로 가입된 등록번호입니다. 본인 사무소라면 리얼맵 운영자에게 알려 주세요.',
+  dup: '이 등록번호는 이미 다른 카카오 계정이 쓰고 있습니다.\n· 대표님 본인이시면: 처음 가입하신 카카오 계정으로 로그인해 주세요.\n· 같은 사무소 직원이시면: 대표님께 [설정 → 직원 관리]의 초대 링크를 받아 주세요.\n· 잘 모르시겠으면: contact@realmap.online',
   need: '매물장을 쓰시려면 중개사무소 정보 확인이 필요합니다. 등록증과 같게 입력해 주세요.',
 };
 async function regOwner(d) {
@@ -182,6 +204,7 @@ async function verifyBk(uid, bk) {
   const owner = await regOwner(d);
   if (owner && owner !== String(uid)) {
     try { await pipe([['LPUSH', 'realmap:bkdup', JSON.stringify({ uid: String(uid), owner, regno: bk.regno, office: bk.office, ceo: bk.ceo, at: now })], ['LTRIM', 'realmap:bkdup', '0', '99']]); } catch { /* 기록 실패는 무시 */ }
+    opSms(`[리얼맵] 같은 등록번호 가입 시도: ${bk.office || ''} (다른 카카오 계정)`, `dup:${d}`).catch(() => {});   // 11/2 선배 알림 (하루 한 번)
     return { st: 'dup', msg: V_MSG.dup };
   }
   let r;
@@ -1023,12 +1046,14 @@ export default async function (req, res) {
       if (v.st === 'error') {
         bk.pend = new Date().toISOString();
         await pipe([['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)], ['SADD', 'realmap:brokers', String(s.id)]]);
+        await joinSms(s.id, bk, null, 'pend');   // 11/2
         return send(res, 200, { ok: true, pend: true, message: '지금은 국가 자료(브이월드) 조회가 원활하지 않아 바로 확인하지 못했습니다. 운영자가 확인하는 대로 매물장이 열립니다. 잠시 뒤 다시 시도하셔도 됩니다.' });
       }
       if (v.st !== 'ok') return fail(res, 400, 'verify', v.msg);
       await redis(['SET', `realmap:bk:${s.id}`, JSON.stringify(bk)]);
       if (!P.started) { await startTrial(s.id); P = await planOf(s.id); }
       await brokerStat(s.id, (await lsLoad(redis, s.id)).items);
+      await joinSms(s.id, bk, P, 'start');   // 11/2 가입 안내 문자 + 선배 알림
       return send(res, 200, { ok: true, plan: planView(P), bk });
     }
     // 운영자: 요금제 직접 지정 (계좌이체 회원 등) — POST { uid, plan, days }
