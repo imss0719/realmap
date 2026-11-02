@@ -653,6 +653,7 @@ window.Danji = (() => {
       const cnt = new Map(); for (const [hh, v] of Object.entries(SP)) { const n2 = +digits(hh); if ((n2 >= 100 ? n2 % 100 : n2) === line) { const k2 = v.join('|'); cnt.set(k2, (cnt.get(k2) || 0) + 1); } }
       const best = [...cnt.entries()].sort((p, q) => q[1] - p[1])[0]; if (best) sp = best[0].split('|').map(Number);
     }   // 10/31 [전용, 공급] (면적을 직접 적은 호는 안 씀)
+    if (!a && sp && !man0) a = sp[0];   // 11/2 호별 전용면적을 못 받았어도 공급면적 자료의 전용으로
     return { key, pnu, dn, ho: h, st, r: st.r, a, sp, line, dir: (cx.dir || {})[`${pnu}|${dn}|h${h}`] || (cx.dir || {})[`${pnu}|${dn}|${line}`] || '', lt, cx };   // 이 호만 적은 방향이 먼저
   }
   // 단지 전체: 장부에 적힌 호 + 매물장 매물이 있는 호 + 방금 추가한 호
@@ -1059,7 +1060,7 @@ window.Danji = (() => {
       const d = dongOf(C, dn); if (!d) continue;
       const k = d.pnu + '|' + d.dong; if (C.areas[k] !== undefined) continue;
       C.areas[k] = 'loading';
-      api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&areas=1`).then(j => { C.areas[k] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[k] = {}; })
+      api(`/api/units?pnu=${d.pnu}&dong=${encodeURIComponent(d.dong)}&areas=1&v=2`).then(j => { C.areas[k] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[k] = {}; })
         .then(() => soonTable(S.cur === '__all' ? AX : cx));   // 10/31 모아서 한 번에
     }
   }
@@ -1092,10 +1093,10 @@ window.Danji = (() => {
   function needSups(C, rows, redraw) {
     C.sups = C.sups || {};
     for (const x of rows) {
-      const k = `${x.pnu}|${x.dn}`; if (!x.pnu || !x.dn || C.sups[k] !== undefined) continue;
+      const k = `${x.pnu}|${x.dn}`; if (!x.pnu || x.dn == null || C.sups[k] !== undefined) continue;   // 11/2 동 이름이 없는 단지(dn '')도
       const d = dongOf(C, x.dn), dong = d ? d.dong : /^\d+$/.test(x.dn) ? x.dn + '동' : x.dn;
       C.sups[k] = 'loading';
-      SQ.q.push(() => api(`/api/units?pnu=${d ? d.pnu : x.pnu}&dong=${encodeURIComponent(dong)}&sup=1`).then(j => { C.sups[k] = j.sup || {}; }).catch(() => { C.sups[k] = {}; }).then(redraw)); supNext();
+      SQ.q.push(() => api(`/api/units?pnu=${d ? d.pnu : x.pnu}&dong=${encodeURIComponent(dong)}&sup=1&v=2`).then(j => { C.sups[k] = j.sup || {}; }).catch(() => { C.sups[k] = {}; }).then(redraw)); supNext();
     }
   }
   // ---------- 저장 (같은 호는 차례대로) ----------
@@ -2031,7 +2032,7 @@ window.Danji = (() => {
     if (AR === undefined) {
       C.areas[C.cur] = 'loading';
       const key = C.cur;
-      api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}&areas=1`).then(j => { C.areas[key] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[key] = {}; })
+      api(`/api/units?pnu=${pnu}&dong=${encodeURIComponent(dong)}&areas=1&v=2`).then(j => { C.areas[key] = j.areas && Object.keys(j.areas).length ? j.areas : {}; }).catch(() => { C.areas[key] = {}; })
         .then(() => { if (S.cur === cx.id && C.cur === key) drawGrid(cx); });
     }
     if (hasAR || AR === 'loading') return; // 라인별 대표 면적 조회는 호별 면적을 못 받았을 때만
