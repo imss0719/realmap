@@ -83,6 +83,7 @@ await pool(jobs(yms.slice(0, 24)), CONC, async ({ gu, ym }) => {
 });
 
 // ③ 청약홈
+const ODLOG = [];   // 11/3 청약홈 응답 요약 (자료 말고 건수·코드만) — 못 받았을 때 이유 찾기용
 async function od(op, cond, perPage = 1000) {
   const out = [];
   for (let page = 1; page < 40; page++) {
@@ -94,6 +95,7 @@ async function od(op, cond, perPage = 1000) {
       try { const r = await fetch(u); const tx = await r.text(); if (!r.ok) throw new Error(`HTTP ${r.status} ${tx.slice(0, 160)}`); j = JSON.parse(tx); }
       catch (e) { if (t === 3) throw e; await sleep(1500 * (t + 1)); }
     }
+    if (page === 1 && ODLOG.length < 12) ODLOG.push(`${op.replace('getAPTLttotPblanc', '')} ${Object.values(cond)[0]} → ${JSON.stringify(Object.fromEntries(Object.entries(j).filter(([k]) => k !== 'data')))} · data ${Array.isArray(j.data) ? j.data.length : typeof j.data}`.slice(0, 220));
     if (!Array.isArray(j.data)) throw new Error(`응답에 자료가 없음 · ${JSON.stringify(j).slice(0, 140)}`);   // 11/3 하루 사용량 초과 등은 200으로 와도 이유를 남김
     out.push(...j.data);
     if (!j.data || out.length >= (j.matchCount ?? j.totalCount ?? 0) || j.data.length < perPage) break;
@@ -107,7 +109,7 @@ for (const s of new Set(GUS.map(g => g.slice(0, 2)))) {
   catch (e) { ann[s] = []; errs.push(`청약홈 ${SIDO[s]}: ${e.message.slice(0, 160)}`); }
 }
 if (Object.values(ann).every(a => !a.length)) {   // 청약홈이 막히면 짝을 못 맞추니 예전 파일 유지
-  const md = `# 입주 예정 아파트 — 이번엔 갱신 안 함\n- 청약홈 공고를 받지 못했습니다: ${errs.slice(-1)[0] || ''}`;
+  const md = `# 입주 예정 아파트 — 이번엔 갱신 안 함\n- 청약홈 공고를 받지 못했습니다: ${errs.slice(-1)[0] || ''}\n- 청약홈 응답: ${ODLOG.slice(0, 6).join(' / ') || '없음'}\n- 분양권 ${silv.length}건 · 시도 ${Object.keys(ann).join(',')}`;
   console.log(md); if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, md + '\n');
   process.exit(0);
 }
