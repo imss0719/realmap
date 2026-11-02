@@ -109,7 +109,7 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
   let pw = ''; try { pw = sessionStorage.getItem('rm.adm') || ''; } catch (e) { /* 무시 */ }
   let tab = (location.hash.slice(1) || 'br'); if (!['br', 'visit', 'mem', 'zone'].includes(tab)) tab = 'br';
   let B = null, M = null, ZN = null;           // B: 중개사 자료 · M: 회원·통계 자료
-  let sec = 'list', f = 'all', q = '', open = null, ps = null, onlyMk = false;
+  let sec = 'list', f = 'all', q = '', open = null, ps = null, onlyMk = false, noBn = true;
 
   document.querySelectorAll('.top .tab').forEach(b => b.onclick = () => { tab = b.dataset.tab; history.replaceState(null, '', '#' + tab); go(); });
   document.getElementById('reload').onclick = () => { if (tab === 'br') loadB(); else loadM(); };
@@ -362,15 +362,36 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
         <div style="height:8px;border-radius:4px;background:#E6EAEE;margin-top:6px;overflow:hidden;max-width:520px"><div style="height:100%;width:${Math.min(100, pct)}%;background:${pct >= 90 ? '#E4572E' : pct >= 70 ? '#F2B705' : '#1F7A3A'}"></div></div></div></div>`;
   }
   function tMem(m) {
-    const rows = M.rows.filter(r => !onlyMk || r.marketing), week = Date.now() - 7 * 864e5, recent = M.rows.filter(r => r.joined && new Date(r.joined).getTime() > week).length;
-    m.innerHTML = `<div class="pn">${sts([['전체 회원', M.total], ['소식 수신 동의', M.marketing], ['최근 7일 가입', recent], ['관심 구역 담은 회원', (M.zsum || {}).members || 0]])}
-      <div class="bar"><label><input type="checkbox" id="mk" ${onlyMk ? 'checked' : ''}> 수신 동의 회원만</label><button class="btn ml" type="button" id="csv">엑셀(CSV) 내려받기</button></div>
-      <div class="tw"><table><thead><tr><th>닉네임</th><th>이메일</th><th>가입</th><th>최근 로그인</th><th>소식 수신</th><th>동의 일시</th><th>관심 부동산</th><th>관심 구역</th><th>추진 알림</th></tr></thead><tbody>
-      ${rows.map(r => `<tr><td>${esc(r.nickname || '-')}</td><td>${esc(r.email || '-')}</td><td>${dt(r.joined)}</td><td>${dt(r.last)}</td><td style="color:${r.marketing ? '#1F7A3A' : '#5E6A77'};font-weight:700">${r.marketing ? '동의' : '미동의'}</td><td>${r.marketing ? dt(r.marketingAt) : '-'}</td><td>${r.favs || '-'}</td><td>${r.zones || '-'}</td><td>${r.zalerts ? r.zalerts + '곳' : '-'}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">회원이 없습니다</td></tr>'}</tbody></table></div>
-      <div class="pd note">· 이 화면과 내려받은 파일에는 개인정보가 들어 있습니다. 공유하지 마시고 쓰고 난 파일은 지워 주세요.<br>· 소식은 '동의' 회원에게만, 제목에 (광고) 표시와 수신거부 방법을 넣어 보내야 합니다. 동의일로부터 2년마다 다시 확인해야 합니다.</div></div>`;
+    // 11/2 메일 반송 관리: [반송 주소 넣기] · 반송 주소 빼기 · [보낼 주소 복사] (동의 + 반송 아님)
+    const rows = M.rows.filter(r => (!onlyMk || r.marketing) && (!noBn || !r.bounce)), week = Date.now() - 7 * 864e5, recent = M.rows.filter(r => r.joined && new Date(r.joined).getTime() > week).length;
+    const bnN = M.rows.filter(r => r.bounce).length, sendable = M.rows.filter(r => r.marketing && !r.bounce && /@/.test(r.email || ''));
+    const md2 = s => { const d = new Date(s); return `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, '0')}`; };
+    m.innerHTML = `<div class="pn">${sts([['전체 회원', M.total], ['소식 수신 동의', M.marketing], ['메일 반송', bnN, bnN ? '#C03A16' : ''], ['보낼 수 있는 주소', sendable.length], ['최근 7일 가입', recent], ['관심 구역 담은 회원', (M.zsum || {}).members || 0]])}
+      <div class="bar"><label><input type="checkbox" id="mk" ${onlyMk ? 'checked' : ''}> 수신 동의 회원만</label><label style="margin-left:10px"><input type="checkbox" id="nb" ${noBn ? 'checked' : ''}> 반송 주소 빼기</label><button class="btn" type="button" id="bnOpen" style="margin-left:10px">반송 주소 넣기</button><button class="btn ml" type="button" id="cpy" style="background:#14212E;color:#fff;border-color:#14212E">보낼 주소 복사 (${sendable.length}개)</button><button class="btn" type="button" id="csv">엑셀(CSV) 내려받기</button></div>
+      <div id="bnBox" hidden style="border:1px solid #DCE2E8;border-radius:10px;padding:12px;margin:0 0 12px;max-width:520px"><b>반송 주소 넣기</b><p style="margin:4px 0 8px;font-size:12px;color:#5E6A77">반송 메일에 나온 주소를 붙여 넣으세요. 여러 개를 한꺼번에, 반송 메일 내용을 통째로 붙여 넣어도 주소만 골라냅니다.</p><textarea id="bnTx" style="width:100%;box-sizing:border-box;height:110px;border:1px solid #CED4DA;border-radius:8px;padding:8px;font:inherit;font-size:13px"></textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn" type="button" id="bnX">닫기</button><button class="btn" type="button" id="bnGo" style="background:#14212E;color:#fff;border-color:#14212E">반송으로 표시</button></div></div>
+      <div class="tw"><table><thead><tr><th>닉네임</th><th>이메일</th><th>가입</th><th>최근 로그인</th><th>소식 수신</th><th>메일</th><th>동의 일시</th><th>관심 부동산</th><th>관심 구역</th><th>추진 알림</th></tr></thead><tbody>
+      ${rows.map(r => `<tr${r.bounce ? ' style="opacity:.6"' : ''}><td>${esc(r.nickname || '-')}</td><td>${esc(r.email || '-')}</td><td>${dt(r.joined)}</td><td>${dt(r.last)}</td><td style="color:${r.marketing ? '#1F7A3A' : '#5E6A77'};font-weight:700">${r.marketing ? '동의' : '미동의'}</td><td>${r.bounce ? `<span style="color:#C03A16;font-weight:800;background:#FDECEA;border-radius:6px;padding:1px 7px">반송 ${md2(r.bounce)}</span> <a href="#" data-unbn="${esc(r.email)}" style="font-size:12px">풀기</a>` : r.email ? '<span style="color:#1F7A3A;font-weight:700">정상</span>' : '-'}</td><td>${r.marketing ? dt(r.marketingAt) : '-'}</td><td>${r.favs || '-'}</td><td>${r.zones || '-'}</td><td>${r.zalerts ? r.zalerts + '곳' : '-'}</td></tr>`).join('') || '<tr><td colspan="10" class="empty">회원이 없습니다</td></tr>'}</tbody></table></div>
+      <div class="pd note">· 이 화면과 내려받은 파일에는 개인정보가 들어 있습니다. 공유하지 마시고 쓰고 난 파일은 지워 주세요.<br>· 소식은 '동의' 회원에게만, 제목에 (광고) 표시와 수신거부 방법을 넣어 보내야 합니다. 동의일로부터 2년마다 다시 확인해야 합니다.<br>· [보낼 주소 복사]: 동의했고 반송이 아닌 주소를 쉼표로 이어 복사합니다 → 메일의 '숨은참조'에 붙여 넣기 · 반송은 주소 기준이라 회원이 이메일을 바꾸면 새 주소는 정상으로 시작합니다.</div></div>`;
     document.getElementById('mk').onchange = e => { onlyMk = e.target.checked; drawM(); };
+    document.getElementById('nb').onchange = e => { noBn = e.target.checked; drawM(); };
+    const box = document.getElementById('bnBox');
+    document.getElementById('bnOpen').onclick = () => { box.hidden = !box.hidden; if (!box.hidden) document.getElementById('bnTx').focus(); };
+    document.getElementById('bnX').onclick = () => { box.hidden = true; };
+    document.getElementById('bnGo').onclick = async () => {
+      const L = [...new Set((document.getElementById('bnTx').value.match(/[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+\.[A-Za-z]{2,}/g) || []).map(e => e.toLowerCase()))];
+      if (!L.length) return alert('이메일 주소를 찾지 못했습니다.');
+      const j = await call('/api/members?part=bounce', { op: 'add', emails: L }); if (bad(j)) return;
+      if (!j.ok) return alert(j.message || '저장하지 못했습니다.');
+      await loadM();
+    };
+    m.querySelectorAll('[data-unbn]').forEach(a => a.onclick = async e => { e.preventDefault(); const j = await call('/api/members?part=bounce', { op: 'del', email: a.dataset.unbn }); if (bad(j)) return; await loadM(); });
+    document.getElementById('cpy').onclick = async () => {
+      const txt = sendable.map(r => r.email.trim()).join(', ');
+      if (!txt) return alert('보낼 수 있는 주소가 없습니다.');
+      try { await navigator.clipboard.writeText(txt); alert(`${sendable.length}개 주소를 복사했습니다. 메일의 '숨은참조'에 붙여 넣으세요.`); } catch { prompt('아래 주소를 복사해 주세요', txt); }
+    };
     const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    document.getElementById('csv').onclick = () => dl(`리얼맵_회원_${new Date().toISOString().slice(0, 10)}.csv`, [['닉네임', '이메일', '가입일', '최근 로그인', '소식 수신', '동의 일시', '관심 부동산', '관심 구역', '추진 알림'].map(qq).join(',')].concat(rows.map(r => [r.nickname, r.email, dt(r.joined), dt(r.last), r.marketing ? '동의' : '미동의', r.marketing ? dt(r.marketingAt) : '', r.favs || 0, r.zones || 0, r.zalerts || 0].map(qq).join(','))));
+    document.getElementById('csv').onclick = () => dl(`리얼맵_회원_${new Date().toISOString().slice(0, 10)}.csv`, [['닉네임', '이메일', '가입일', '최근 로그인', '소식 수신', '메일', '동의 일시', '관심 부동산', '관심 구역', '추진 알림'].map(qq).join(',')].concat(rows.map(r => [r.nickname, r.email, dt(r.joined), dt(r.last), r.marketing ? '동의' : '미동의', r.bounce ? '반송' : r.email ? '정상' : '', r.marketing ? dt(r.marketingAt) : '', r.favs || 0, r.zones || 0, r.zalerts || 0].map(qq).join(','))));
   }
   function tZone(m) {
     const z = M.zsum || {}, zr = M.zrank || [], al = M.alerts || [];
