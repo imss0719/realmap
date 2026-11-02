@@ -94,7 +94,8 @@ async function od(op, cond, perPage = 1000) {
       try { const r = await fetch(u); const tx = await r.text(); if (!r.ok) throw new Error(`HTTP ${r.status} ${tx.slice(0, 160)}`); j = JSON.parse(tx); }
       catch (e) { if (t === 3) throw e; await sleep(1500 * (t + 1)); }
     }
-    out.push(...(j.data || []));
+    if (!Array.isArray(j.data)) throw new Error(`응답에 자료가 없음 · ${JSON.stringify(j).slice(0, 140)}`);   // 11/3 하루 사용량 초과 등은 200으로 와도 이유를 남김
+    out.push(...j.data);
     if (!j.data || out.length >= (j.matchCount ?? j.totalCount ?? 0) || j.data.length < perPage) break;
   }
   return out;
