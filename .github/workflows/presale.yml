@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       gus:
-        description: '전체(수도권+부산+대구) · 수도권 · 서울 · 경기 · 인천 · 부산 · 대구 · 구 코드 쉼표 목록'
+        description: '전체(수도권+부산·대구·대전·세종·울산) · 수도권 · 서울 · 경기 · 인천 · 부산 · 대구 · 대전 · 세종 · 울산 · 구 코드 쉼표 목록'
         default: '전체'
 permissions:
   contents: write

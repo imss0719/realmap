@@ -1,0 +1,32 @@
+name: realmap-price-map2-local
+# 11/2 지방 광역시(부산·대구·대전·세종·울산) 토지·단독·상가·공장 시세 자료 — 매주 월요일 새벽 5시 40분(한국시간) + 수동 실행 · 수도권은 realmap-price-map2
+on:
+  schedule:
+    - cron: '40 20 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: realmap-price-map2-local
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: node scripts/price-map2.mjs
+        continue-on-error: true   # 일부 지역이 실패해도 받은 지역은 저장
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          SIDOS: '26,27,30,36,31'   # 11/2 지방 광역시 (부산·대구·대전·세종·울산)
+      - name: 바뀐 자료 저장
+        if: always()
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/price2-*.json
+          git diff --cached --quiet || (git commit -m "동별 시세(토지·건물) 자료 갱신" && (git push || (git pull --rebase origin main && git push)))
