@@ -27,6 +27,8 @@ const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 // 매물 사진 (Vercel Blob) — 패키지는 사진 기능을 쓸 때만 불러와서, 문제가 생겨도 로그인 등 다른 기능은 그대로 동작
 const blobLib = () => import('@vercel/blob');
 const ownPhoto = (u, id) => { try { const x = new URL(u); return x.protocol === 'https:' && /\.public\.blob\.vercel-storage\.com$/.test(x.hostname) && x.pathname.startsWith(`/ls/${id}/`); } catch { return false; } };
+// 11/2 아직 다른 매물이 쓰고 있는 사진 (매물 복사 → 같은 사진을 여러 매물이 씀)
+const phUsed = items => new Set((items || []).flatMap(x => (x.photos || []).map(p => p.url)));
 export async function dropPhotos(urls) { if (!urls.length) return; try { const { del } = await blobLib(); await del(urls); } catch { /* 지우기 실패는 무시 (용량만 조금 남음) */ } }
 // ---------- 중개사 서비스 요금제 ----------
 // 무료(계속) · 2주 무료 체험 · Basic · Premium · VIP. 저장: realmap:plan:<회원id> { plan, until, trialUsed, at }
@@ -341,7 +343,7 @@ async function cxLock(uid) {
   }
   return async () => {};   // 잠금을 못 잡아도 저장은 진행 (예전과 같음)
 }
-async function ledgerFromLs(uid, op, x) {
+async function ledgerFromLs(uid, op, x, items) {
   if (!x || !Array.isArray(x.places) || x.kind === 'presale' || !['아파트', '오피스텔'].includes(tbase(x))) return false;
   const p = x.places.find(q => q.pnu && q.ho); if (!p) return false;
   let d = null; try { const v = await redis(['GET', `realmap:cx:${uid}`]); d = v ? JSON.parse(v) : null; } catch { d = null; }
@@ -350,14 +352,20 @@ async function ledgerFromLs(uid, op, x) {
   if (!normD(p.dong)) {   // 10/28 오피스텔: 카드에 동이 없으면 장부에서 같은 필지·같은 호를 찾아 (하나뿐일 때)
     try { const ks = ((await redis(['HKEYS', `realmap:hj:${uid}:${c.id}`])) || []).filter(k => { const [a, , b] = k.split('|'); return a === p.pnu && b === normH(p.ho); }); if (ks.length !== 1) return false; key = ks[0]; } catch { return false; }   // 장부에 아직 없으면 매물장은 카드로 보임
   }
+  // 11/2 같은 동·호에 매물 카드가 여럿(복사해서 매매·월세로 따로)일 때: 진행 중인 카드 모두의 거래를 합쳐서 장부에
+  const sameHo = z => z.kind !== 'presale' && z.status !== 'done' && (z.places || []).some(q => q.pnu === p.pnu && q.ho && normH(q.ho) === normH(p.ho) && normD(q.dong) === normD(p.dong));
+  const act = Array.isArray(items) ? items.filter(sameHo) : (gone ? [] : [x]);
+  const KK = z => (z.kind === 'sale' || z.kind === 'jeonse' || z.kind === 'wolse' ? z.kind : 'sale');
   return ledgerPatch(redis, uid, c.id, key, rec => {
-    if (gone) { if (rec.st.src === 'mine') rec.st = { src: '', k: [], hold: false, office: '' }; return; }
-    const k = x.kind === 'sale' || x.kind === 'jeonse' || x.kind === 'wolse' ? x.kind : 'sale';
-    const ks = rec.st.src === 'mine' && rec.st.k.includes(k) ? rec.st.k : [k];
-    rec.st = { src: 'mine', k: ks, hold: x.status === 'hold', office: '' };
-    if (k === 'sale' && x.price) rec.pr.sale = x.price;
-    if (k === 'jeonse' && x.deposit) rec.pr.jeonse = x.deposit;
-    if (k === 'wolse') { if (x.deposit) rec.pr.wd = x.deposit; if (x.rent) rec.pr.wr = x.rent; }
+    if (!act.length) { if (rec.st.src === 'mine') rec.st = { src: '', k: [], hold: false, office: '' }; return; }
+    const k1 = KK(act[0]), ks = act.length === 1 ? (rec.st.src === 'mine' && rec.st.k.includes(k1) ? rec.st.k : [k1]) : [...new Set(act.map(KK))];   // 카드가 하나면 예전과 똑같이
+    rec.st = { src: 'mine', k: ks, hold: act.every(z => z.status === 'hold'), office: '' };
+    for (const z of act) {
+      const k = KK(z);
+      if (k === 'sale' && z.price) rec.pr.sale = z.price;
+      if (k === 'jeonse' && z.deposit) rec.pr.jeonse = z.deposit;
+      if (k === 'wolse') { if (z.deposit) rec.pr.wd = z.deposit; if (z.rent) rec.pr.wr = z.rent; }
+    }
   }, op === 'del' ? '매물 카드 삭제' : x.status === 'done' ? '매물 카드에서 거래완료' : '매물 카드에서');
 }
 async function syncLineDir(uid, rec, prev, items) {
@@ -1268,7 +1276,7 @@ export default async function (req, res) {
         const rec = r.rec, photos = r.photos;
         try { cxDirty = await syncLineDir(s.id, rec, prev, items); } catch { /* 방향 맞추기는 실패해도 저장은 그대로 */ }
         items = prev ? items.map(x => (x.id === rec.id ? rec : x)) : [rec, ...items];
-        if (prev && prev.photos) { const keep = new Set(photos.map(p => p.url)); await dropPhotos(prev.photos.map(p => p.url).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }
+        if (prev && prev.photos) { const keep = phUsed(items); await dropPhotos(prev.photos.map(p => p.url).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }   // 11/2 복사한 매물이 같이 쓰는 사진은 남김
       } else if (body.op === 'import') {
         // 엑셀 불러오기 (10/26): 한 번에 최대 200건 · 한 번에 저장 · 묶음 번호(ib)로 나중에 한꺼번에 되돌리기
         const list = Array.isArray(body.items) ? body.items.slice(0, 200) : [];
@@ -1290,7 +1298,7 @@ export default async function (req, res) {
         const gone = items.filter(x => x.ib === ib);
         for (const g of gone) if (g.pub && g.pub.on) { g.pub.on = false; try { await redis(['HDEL', PUB_KEY, `${s.id}:${g.id}`]); } catch { /* 무시 */ } }
         items = items.filter(x => x.ib !== ib);
-        await dropPhotos(gone.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => ownPhoto(u, s.id)));
+        { const keep = phUsed(items); await dropPhotos(gone.flatMap(x => (x.photos || []).map(p => p.url)).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }
         body.unimported = gone.length;
       } else if (body.op === 'status') {
         const st = ['on', 'hold', 'done'].includes(body.status) ? body.status : null;
@@ -1323,7 +1331,7 @@ export default async function (req, res) {
         const gone = items.find(x => x.id === id); body._gone = gone;
         if (gone && gone.pub) { gone.pub.on = false; try { await redis(['HDEL', PUB_KEY, `${s.id}:${gone.id}`]); } catch { /* 무시 */ } }
         items = items.filter(x => x.id !== id);
-        if (gone && gone.photos) await dropPhotos(gone.photos.map(p => p.url).filter(u => ownPhoto(u, s.id)));
+        if (gone && gone.photos) { const keep = phUsed(items); await dropPhotos(gone.photos.map(p => p.url).filter(u => !keep.has(u) && ownPhoto(u, s.id))); }   // 11/2 복사본이 쓰는 사진은 남김
       } else return fail(res, 400, 'op', '알 수 없는 요청입니다.');
       const bk = await loadBk(s.id);
       let warn = '';
@@ -1335,7 +1343,7 @@ export default async function (req, res) {
       try { await syncPub(s.id, items, bk, P); await brokerStat(s.id, items); await save(); } catch { /* 공개 목록은 다음 저장 때 맞춰짐 */ }
       // 10/28 아파트 매물 카드 → 같은 동·호의 관리장부도 맞춤
       let ledDirty = false;
-      if (['save', 'status', 'del'].includes(body.op)) { try { ledDirty = await ledgerFromLs(s.id, body.op, body.op === 'del' ? body._gone : items.find(i => i.id === (id || (items[0] && items[0].id)))); } catch { /* 장부는 다음에 */ } }
+      if (['save', 'status', 'del'].includes(body.op)) { try { ledDirty = await ledgerFromLs(s.id, body.op, body.op === 'del' ? body._gone : items.find(i => i.id === (id || (items[0] && items[0].id))), items); } catch { /* 장부는 다음에 */ } }
       return send(res, 200, { ok: true, items, bk, ...(ledDirty ? { ledDirty: true } : {}), canPub: canPub(s.id) && can(s, tm && tm.perm || {}, 'pub'), warn, plan: planView(P), ...(tm ? { team: tm } : {}), ...(cxDirty ? { cxDirty: true } : {}), ...(body.imported ? { imported: body.imported } : {}), ...(body.unimported != null ? { unimported: body.unimported } : {}) });
     }
 
