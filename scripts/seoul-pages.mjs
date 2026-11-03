@@ -512,3 +512,22 @@ ${[...base, ...urls].map(([u, p]) => `  <url><loc>${SITE}${u}</loc><lastmod>${UP
 </urlset>
 `);
 console.log(`정비사업 페이지 ${urls.length}개 · 사이트맵 ${urls.length + base.length}개 주소`);
+
+// ---------- 11/3 RSS (네이버 서치어드바이저 제출용): 추진 단계가 최근 바뀐 구역 100곳 ----------
+{
+  const xe = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const dOf = r => { const m = String(r.sd || '').match(/(\d{4})\D?(\d{1,2})\D?(\d{1,2})/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 0)) : null; };
+  const recent = rows.filter(r => dOf(r) && dOf(r) <= new Date()).sort((x, y) => dOf(y) - dOf(x)).slice(0, 100);
+  const kname = k => String(k || '').replace(/\(.*\)/, '');
+  await writeFile('rss.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+<title>리얼맵 · 서울 정비사업 추진 현황</title>
+<link>${SITE}/seoul/</link>
+<description>서울 재개발·재건축·신속통합기획 정비구역의 추진 단계와 계획 세대수를 지도와 함께 정리합니다.</description>
+<language>ko</language>
+<lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+${recent.map(r => `<item><title>${xe(`${r.title} ${kname(r.k)} — ${r.st}`)}</title><link>${SITE}${zoneUrl(r)}</link><guid>${SITE}${zoneUrl(r)}#${xe(r.st)}</guid><pubDate>${dOf(r).toUTCString()}</pubDate><description>${xe(`${r.gu} ${r.title.includes(r.addr) ? '' : r.addr + ' '}${r.title} 정비사업이 ${r.sd} ${r.st} 단계에 들어섰습니다.${r.hh ? ` 계획 ${Number(r.hh).toLocaleString()}세대.` : ''}`)}</description></item>`).join('\n')}
+</channel></rss>
+`);
+  console.log(`RSS ${recent.length}건 (가장 최근 ${recent[0] ? recent[0].sd : '-'})`);
+}
