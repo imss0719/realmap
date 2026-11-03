@@ -67,6 +67,7 @@ tr.cl{cursor:pointer}tr.cl:hover td{background:#F4F8FF}tr.sel td{background:#E8F
 .bav{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid var(--line)}
 /* 펼친 관리 칸 */
 tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
+.stf{margin:6px;padding:10px 12px;border:2px solid var(--navy);border-radius:8px}.stf h4{margin:0 0 6px;font-size:13px}.stf h4 small{color:var(--muted);font-weight:500}.phm{border:0;background:none;padding:0;font:inherit;cursor:pointer;color:inherit;text-decoration:underline dotted}
 .det-g{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;padding:10px 12px;border:2px solid var(--navy);border-radius:8px;margin:6px}
 .det-g h4{margin:0 0 6px;font-size:13px;display:flex;gap:6px;align-items:center}.det-g h4 small{color:var(--muted);font-weight:500}
 .rw{display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap}.rw>label{width:52px;color:var(--muted);font-weight:700;flex:none}
@@ -187,7 +188,7 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
       ${R.map(r => { const b = r.bk || {}, P = r.plan, st = r.stat || {}, L = left(P.until), [kc, kt] = kind(r);
         const row = `<tr class="cl${open === r.id ? ' sel' : ''}" data-row="${r.id}"><td>${b.photo ? `<img class="bav" src="${esc(b.photo)}" alt="">` : ''}<b>${esc(b.office || '(사무소 정보 없음)')}</b>${b.verified ? '<span class="vf">확인</span>' : b.pend ? '<span class="vf wait">승인 대기</span>' : b.vst && b.vst !== 'error' ? '<span class="vf no">확인 안 됨</span>' : ''} <small>${esc(String(b.addr || '').split(' ').slice(1, 2).join(''))}</small></td>
           <td>${esc(b.ceo || '-')}</td><td>${esc(b.regno || '-')}</td><td>${esc(b.mobile || b.tel || '-')}</td>
-          <td><span class="pl ${P.op ? 'op' : P.plan}">${P.op ? '운영자' : esc(PN[P.plan] || P.name || P.plan)}</span>${r.staff || P.seats ? ` <small title="직원 (승인 대기 포함) / 직원 자리">직원 ${r.staff || 0}/${P.seats || 0}</small>` : ''}</td><td><span class="src ${kc}">${esc(kt)}</span></td>
+          <td><span class="pl ${P.op ? 'op' : P.plan}">${P.op ? '운영자' : esc(PN[P.plan] || P.name || P.plan)}</span>${r.staff || P.seats ? ` <small title="직원 (승인 대기 포함) / 직원 자리">직원 ${r.staff || 0}/${P.seats || 0}</small>` : ''}${(r.staffL || []).some(m => m.st === 'wait') ? ` <span class="vf wait" title="대표 승인을 기다리는 직원">대기 ${(r.staffL || []).filter(m => m.st === 'wait').length}</span>` : ''}</td><td><span class="src ${kc}">${esc(kt)}</span></td>
           <td>${P.op || P.plan === 'free' || P.plan === 'none' ? '-' : P.until ? `<span class="${L <= 7 ? 'dd r' : ''}">${d8(P.until)}</span> <small>${L >= 0 ? 'D-' + L : '지남'}</small>` : '기한 없음'}</td>
           <td>${st.n ?? '-'} · ${st.pub ?? 0}${P.ls && st.n > P.ls ? ` <small>(보기 전용 ${st.n - P.ls})</small>` : ''}</td><td>${d8(r.joined)}</td><td>${ago(st.up || r.last)}</td><td>${r.opmemo ? `<span class="tag" title="${esc(r.opmemo)}">${esc(r.opmemo)}</span>` : ''}</td></tr>`;
         return row + (open === r.id ? `<tr class="det"><td colspan="${COLS}">${detail(r)}</td></tr>` : ''); }).join('') || `<tr><td colspan="${COLS}" class="empty">해당하는 중개사가 없습니다.</td></tr>`}
@@ -224,9 +225,22 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
         <h4 style="margin-top:10px">운영 메모 <small>회원에게는 안 보임 · 고치고 나가면 저장</small></h4><input id="oMemo" value="${esc(r.opmemo || '')}" maxlength="200" placeholder="예) 친한 부동산 · 피드백 자주 줌" style="width:100%"></div>
       <div><h4>회원 정보</h4><div class="kv"><b>사무실</b><span>${esc(b.tel || '-')} · 휴대폰 ${esc(b.mobile || '-')}</span><b>주소</b><span>${esc(b.addr || '-')}</span><b>카카오</b><span>${esc(r.nickname || '-')} · ${esc(r.email || '')} · 번호 ${esc(r.id)}</span>
         <b>쓰는 양</b><span>매물 ${st.n ?? '-'} (진행 ${st.on ?? '-'}) · 광고 ${st.pub ?? 0}</span><b>가입</b><span>${dt(r.joined)} · 최근 ${ago(st.up || r.last)}</span><b>등록번호</b><span class="rgfix"><input id="rgNo" value="${esc(b.regno || '')}" placeholder="41133-2024-00080" maxlength="20" style="width:150px"> <input id="rgCeo" value="${esc(b.ceo || '')}" placeholder="대표자" maxlength="20" style="width:80px"> <button class="btn" type="button" id="rgGo">국가 자료로 확인 · 고치기</button></span>${b.vmsg && !b.verified ? `<b>확인</b><span style="color:var(--warn)">${esc(b.vmsg)}</span>` : ''}</div>
-        <div class="rw" style="margin-top:8px">${b.office ? `<button class="btn" type="button" data-vf="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : b.pend ? '승인' : '등록번호 확인'}</button>` : ''}${b.photo ? `<a class="btn" href="${esc(b.photo)}" target="_blank" rel="noopener">사진 보기</a><button class="btn" type="button" data-noph>사진 지우기</button>` : ''}${st.pub ? '<button class="btn red" type="button" data-off>광고 모두 내리기</button>' : ''}</div></div></div>`;
+        <div class="rw" style="margin-top:8px">${b.office ? `<button class="btn" type="button" data-vf="${b.verified ? '' : '1'}">${b.verified ? '확인 취소' : b.pend ? '승인' : '등록번호 확인'}</button>` : ''}${b.photo ? `<a class="btn" href="${esc(b.photo)}" target="_blank" rel="noopener">사진 보기</a><button class="btn" type="button" data-noph>사진 지우기</button>` : ''}${st.pub ? '<button class="btn red" type="button" data-off>광고 모두 내리기</button>' : ''}</div></div></div>${staffBox(r)}`;
+  }
+  // 11/3 선배: 사무소별 직원 목록 (보기만 · 승인은 대표가) — 휴대폰은 가운데를 가리고 누르면 전체
+  function staffBox(r) {
+    const L = r.staffL || [], P = r.plan || {}; if (!L.length) return '';
+    const RL = { ceo: '대표', agt: '소속공인중개사', ast: '중개보조원' }, day = iso => iso ? Math.floor((Date.now() - Date.parse(iso)) / 864e5) : 0;
+    const mask = p => String(p || '').replace(/^(\d{3})-?(\d{3,4})-?(\d{4})$/, '$1-****-$3') || '-';
+    const late = L.filter(m => m.st === 'wait' && day(m.at) >= 3).length;
+    return `<div class="stf"><h4>직원 ${L.length}명 <small>· 자리 ${P.op ? '제한 없음' : (P.seats != null ? P.seats : '-')} · 승인은 대표님이 합니다</small></h4>
+      <table><thead><tr><th>이름</th><th>역할</th><th>휴대폰</th><th>상태</th><th>신청일</th><th>최근 접속</th></tr></thead><tbody>
+      ${L.map(m => `<tr><td><b>${esc(m.name || '-')}</b></td><td>${esc(RL[m.role] || m.role)}</td><td><button type="button" class="phm" data-ph="${esc(m.phone)}" title="누르면 전체 번호">${esc(mask(m.phone))}</button></td>
+        <td>${m.st === 'on' ? '<b style="color:var(--ok)">사용 중</b>' : `<b style="color:#B26A00">승인 대기 · ${day(m.at) + 1}일째</b>`}</td><td>${d8(m.at)}</td><td>${m.seen ? ago(m.seen) : '-'}</td></tr>`).join('')}</tbody></table>
+      ${late ? `<p style="margin:8px 0 0;color:#B26A00;font-weight:700;font-size:12.5px">⚠ 대기 3일 넘음 ${late}명 — 대표님께 승인 안내 연락이 필요할 수 있습니다</p>` : ''}</div>`;
   }
   function wireDetail(m, r) {
+    m.querySelectorAll('.phm').forEach(b => b.onclick = e => { e.stopPropagation(); b.textContent = b.dataset.ph || '-'; });
     if (!r) return;
     const keep = () => { const mi = document.getElementById('pMemo'); if (mi) ps.memo = mi.value; };
     m.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { keep(); ps.plan = b.dataset.pp; if (ps.plan === 'trial') { ps.n = 14; ps.unit = 'd'; ps.forever = false; } drawB(); });

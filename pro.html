@@ -237,7 +237,7 @@ footer a{color:rgba(255,255,255,.8)}
 .mbox .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mbox .agree{display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:600;color:var(--fg);margin-top:16px;line-height:1.5}
 .mbox .agree input{margin-top:3px;width:18px;height:18px}
-.mbox .hint{font-size:13px;font-weight:600;color:var(--muted);min-height:0;margin-top:6px;line-height:1.5}.mbox .hint.ok{color:#2B8A3E}.mbox .hint.no{color:#C92A2A}
+.mbox .hint{font-size:13px;font-weight:600;color:var(--muted);min-height:0;margin-top:6px;line-height:1.5;white-space:pre-line}.mbox .hint.ok{color:#2B8A3E}.mbox .hint.no{color:#C92A2A}
 .mbox .err{color:#C92A2A;font-weight:700;font-size:14px;min-height:20px;margin-top:10px;white-space:pre-line}
 /* 11/2 가입 완료 안내 (요금제에 맞게) */
 .done .bd{display:inline-block;font-size:12.5px;font-weight:800;border-radius:6px;padding:2px 9px;margin-bottom:8px}
@@ -658,10 +658,21 @@ footer a{color:rgba(255,255,255,.8)}
   $('b_mobile').oninput = $('b_tel').oninput = e => { const d = e.target.value.replace(/\D/g, ''); if (/^01\d{8,9}$/.test(d)) e.target.value = d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`; };
   // 등록번호를 넣으면 국가 자료에서 사무소 명칭·소재지를 찾아 채웁니다
   let lastReg = '';
+  // 11/3 선배: 입력하는 대로 숫자만 남기고 5-4-5로 하이픈 · 14자리가 아니면 바로 빨간 안내 (틀린 번호로 '승인 대기'에 걸리지 않게)
+  const regFmt = d => d.length <= 5 ? d : d.length <= 9 ? `${d.slice(0, 5)}-${d.slice(5)}` : `${d.slice(0, 5)}-${d.slice(5, 9)}-${d.slice(9, 14)}`;
+  const REG_BAD = n => `등록번호는 숫자 14자리입니다 (지금 ${n}자리). 중개사무소 등록증의 번호를 다시 확인해 주세요.\n번호 형식이 등록증과 다르면 02-393-7676으로 문의해 주세요.`;
+  $('b_regno').oninput = () => {
+    const el = $('b_regno'), d = el.value.replace(/\D/g, '').slice(0, 14), f = regFmt(d);
+    if (el.value !== f) el.value = f;
+    const h = $('b_hint');
+    if (d.length < 14) { h.className = 'hint'; h.textContent = d.length ? `숫자 14자리 중 ${d.length}자리 입력 · 하이픈은 자동으로 들어갑니다` : ''; el.style.borderColor = ''; }
+    else { el.style.borderColor = ''; if (h.className === 'hint') h.textContent = ''; }
+  };
   $('b_regno').onchange = $('b_regno').onblur = async () => {
     const v = $('b_regno').value.trim(), d = v.replace(/\D/g, '');
     if (d === lastReg) return; lastReg = d;
-    const h = $('b_hint'); h.className = 'hint'; h.textContent = '';
+    const h = $('b_hint'); h.className = 'hint'; h.textContent = ''; $('b_regno').style.borderColor = '';
+    if (d && d.length !== 14) { h.className = 'hint no'; h.textContent = REG_BAD(d.length); $('b_regno').style.borderColor = '#C92A2A'; return; }
     if (d.length < 10 || PREVIEW) return;
     h.textContent = '등록번호 확인 중…';
     try {
@@ -674,6 +685,7 @@ footer a{color:rgba(255,255,255,.8)}
   $('mGo').onclick = async () => {
     const bk = Object.fromEntries(['office', 'addr', 'regno', 'ceo', 'tel', 'mobile'].map(k => [k, $('b_' + k).value.trim()]));
     if (Object.values(bk).some(v => !v)) return ($('mErr').textContent = '여섯 칸을 모두 입력해 주세요.');
+    { const n = bk.regno.replace(/\D/g, '').length; if (n !== 14) { $('b_regno').style.borderColor = '#C92A2A'; $('b_regno').focus(); return ($('mErr').textContent = REG_BAD(n)); } }
     if (!$('b_ok').checked) return ($('mErr').textContent = '개업공인중개사 확인에 체크해 주세요.');
     if (SMSA && !SMSA.ok()) return ($('mErr').textContent = '휴대폰 번호 인증을 먼저 해 주세요. (번호 아래 [인증번호 받기])');
     $('mErr').textContent = ''; $('mGo').disabled = true; $('mGo').textContent = '중개사무소 확인 중…';
