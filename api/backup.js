@@ -9,7 +9,7 @@ import { readSession, opSms } from './auth.js';
 
 const R_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || Object.entries(process.env).find(([k]) => /_REST_API_URL$/.test(k))?.[1] || '';
 const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || Object.entries(process.env).find(([k]) => /_REST_API_TOKEN$/.test(k) && !/READ_ONLY/.test(k))?.[1] || '';
-const G = { id: process.env.GDRIVE_CLIENT_ID || '', secret: process.env.GDRIVE_CLIENT_SECRET || '', refresh: process.env.GDRIVE_REFRESH_TOKEN || '' };
+const G = { id: String(process.env.GDRIVE_CLIENT_ID || '').trim(), secret: String(process.env.GDRIVE_CLIENT_SECRET || '').trim(), refresh: String(process.env.GDRIVE_REFRESH_TOKEN || '').trim() };   // 11/3 붙여 넣을 때 딸려 온 빈칸·줄바꿈 제거
 const ADMIN_ID = String(process.env.ADMIN_KAKAO_ID || '').trim();
 const FOLDER = '리얼맵 백업';
 const KEEP_DAYS = 30;
@@ -48,7 +48,7 @@ async function dump() {
 async function token() {
   const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: G.id, client_secret: G.secret, refresh_token: G.refresh, grant_type: 'refresh_token' }) });
   const j = await r.json();
-  if (!j.access_token) throw new Error(`구글 로그인 실패 (${j.error || r.status}) — 구글 연결을 다시 해야 할 수 있습니다`);
+  if (!j.access_token) throw new Error(`구글 로그인 실패 (${j.error || r.status}${j.error_description ? ' · ' + j.error_description : ''}) — 클라이언트 ID ${G.id.slice(0, 12)}… 로 시도 · 구글 연결을 다시 해야 할 수 있습니다`);
   return j.access_token;
 }
 const gd = async (tk, url, opt = {}) => { const r = await fetch(url, { ...opt, headers: { Authorization: `Bearer ${tk}`, ...(opt.headers || {}) } }); if (!r.ok) throw new Error(`드라이브 HTTP ${r.status} ${(await r.text()).slice(0, 120)}`); return r; };
