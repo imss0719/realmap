@@ -108,7 +108,7 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (pmActive()) return; if (devHit(la, ln)) return; pick(la, ln); });   // 10/28 개발지역을 켜고 구역 안을 누르면 구역 카드 (필지 정보는 카드의 버튼으로)
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (S.rvRoad && S.view !== 'rv') return rvAt(la, ln); if (pmActive()) return; if (devHit(la, ln)) return; pick(la, ln); });   // 10/28 개발지역을 켜고 구역 안을 누르면 구역 카드 (필지 정보는 카드의 버튼으로)
     K.event.addListener(S.map, 'mousemove', e => devHover(e.latLng.getLat(), e.latLng.getLng()));
     K.event.addListener(S.map, 'mouseout', () => devHover());
 
@@ -121,8 +121,9 @@
       $('mtCad').setAttribute('aria-pressed', on);
     };
     $('close').onclick = () => { $('panel').classList.add('closed'); lsPane(); };
-    $('vMap').onclick = () => setView('map');
-    $('vRv').onclick = () => setView('rv');
+    // 11/3 선배: [로드뷰] = 지도 위에 로드뷰 길(파란 선)만 켜고, 길을 누르면 그 자리 로드뷰 (카카오맵 방식) · 필지 정보창 [로드뷰]는 그 필지 바로
+    $('vMap').onclick = () => { if (S.view === 'rv') setView('map'); else rvRoad(false); };
+    $('vRv').onclick = () => { if (S.view === 'rv') return; rvRoad(!S.rvRoad); };
     devInit();
     tradeMapInit();
     lsInit();
@@ -606,11 +607,26 @@
   }
 
 
+  // ---------- 11/3 로드뷰 길 보기 (파란 선) ----------
+  function rvTog() { const on = S.view === 'rv' || !!S.rvRoad; $('vMap').setAttribute('aria-pressed', !on); $('vRv').setAttribute('aria-pressed', on); }
+  function rvRoad(on) {
+    const K = kakao.maps;
+    if (!!S.rvRoad === !!on) return rvTog();
+    S.rvRoad = !!on;
+    if (on) { S.map.addOverlayMapTypeId(K.MapTypeId.ROADVIEW); toast('파란 길을 누르면 그 자리 로드뷰가 열립니다', 3500); }
+    else S.map.removeOverlayMapTypeId(K.MapTypeId.ROADVIEW);
+    rvTog();
+  }
+  function rvAt(la, ln) {   // 파란 길을 누름 → 가까운(50m) 로드뷰가 있으면 크게 · 없으면 안내
+    S.rvc.getNearestPanoId(new kakao.maps.LatLng(la, ln), 50, id => {
+      if (id === null) return toast('여기는 로드뷰가 없습니다. 파란 길을 눌러 주세요');
+      setView('rv', { lat: la, lng: ln });
+    });
+  }
   // ---------- 크게 보는 로드뷰 (지도 / 로드뷰 전환) ----------
-  function setView(v) {
+  function setView(v, at) {
     S.view = v;
-    $('vMap').setAttribute('aria-pressed', v === 'map');
-    $('vRv').setAttribute('aria-pressed', v === 'rv');
+    rvTog();
     $('bigrv').hidden = v !== 'rv';
     $('mtRoad').parentNode.parentNode.hidden = v === 'rv';
     if (v !== 'rv') { setTimeout(() => S.map.relayout(), 0); return; }
@@ -633,7 +649,7 @@
     if (mobile()) $('panel').classList.add('closed');
     const c = S.sel && S.sel.c;
     const ctr = S.map.getCenter();
-    setTimeout(() => { S.brv.relayout(); S.mini.relayout(); bigTo(c ? { lat: c.lat, lng: c.lng } : { lat: ctr.getLat(), lng: ctr.getLng() }, c || null); }, 0);
+    setTimeout(() => { S.brv.relayout(); S.mini.relayout(); if (at) bigTo(at, null); else bigTo(c ? { lat: c.lat, lng: c.lng } : { lat: ctr.getLat(), lng: ctr.getLng() }, c || null); }, 0);
   }
   function bigTo(p, target) {
     const K = kakao.maps, pos = new K.LatLng(p.lat, p.lng);
