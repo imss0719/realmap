@@ -1741,7 +1741,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
   function openImport() {
     if (S.me && S.me.staff) return toast('엑셀 불러오기는 대표만 할 수 있습니다', 3500);
     if (!window.XImport) return toast('엑셀 불러오기를 준비하는 중입니다. 잠시 뒤 다시 눌러 주세요');
-    XImport.open({ api, post, took, toast, items: () => S.items, plan: () => S.plan || {}, X: bdHost().X, done: () => { if (window.Sett) Sett.stale(); draw(); },
+    XImport.open({ api, post, took, toast, op: !!(S.me && S.me.op), items: () => S.items, plan: () => S.plan || {}, X: bdHost().X, done: () => { if (window.Sett) Sett.stale(); draw(); },
       office: () => (S.bk && S.bk.office) || '', djReload: () => { if (window.Sett) Sett.stale(); if (window.Danji && Danji.reloadCx) Danji.reloadCx(true); },   // 아파트 장부 파일 → 단지 장부
       goDanji: id => { setMode('danji'); setTimeout(() => window.Danji && Danji.goto(id), 50); } });
   }

@@ -18,7 +18,7 @@ window.XImport = (() => {
     ptype: '매물 종류', kind: '거래(매매·전세·월세)', price: '매매가·가격', deposit: '보증금·전세금', rent: '월세', premium: '권리금', mgmt: '관리비', loan: '융자',
     cdep: '현 보증금(임차중)', crent: '현 월세(임차중)', exp: '만기일',
     area: '전용면적', site: '대지면적', tot: '연면적', appr: '사용승인일', jimok: '지목', zone: '용도지역', use: '건축물 용도', elev: '승강기', park: '주차', dir: '방향', ty: '타입(84B)',
-    biz: '현재 업종', memo: '메모·설명', owner: '소유자 이름', phone: '연락처', tenant: '임차인·소개자 이름', office: '부동산명(아파트 장부)',
+    biz: '현재 업종', pr: '프리미엄(분양권)', rz: '구역명(재개발)', apv: '감정가', rgt: '권리가액', memo: '메모·설명', owner: '소유자 이름', phone: '연락처', tenant: '임차인·소개자 이름', office: '부동산명(아파트 장부)',
   };
   const DICT = [
     ['skip', /네이버|구분번호|^번호$|순번|★|보수|수익률|평단가|인정작업|통신사|공유$|^공동$|^계약$|^잔금$|건폐율|용적률|높이|층고|호수\(세대\)/],
@@ -96,6 +96,7 @@ window.XImport = (() => {
     await loadLib();
     const buf = await f.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+    if (wb.SheetNames.includes(TPL_MARK)) return { tpl: true, wb };   // 11/3 리얼맵 표준 양식
     let best = null;
     for (const n of wb.SheetNames) { const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }); if (!best || rows.length > best.rows.length) best = { name: n, rows }; }
     return best;
@@ -158,7 +159,7 @@ window.XImport = (() => {
     const flm = rest.match(/(지하\s*)?(\d{1,3})\s*층/);
     const bname = (clean(g.bname) || rest.replace(/(\d{1,4}|[A-Za-z])\s*동(?![가-힣])|\d{1,5}\s*호|(지하\s*)?\d{1,3}\s*층|[()]/g, '').replace(/\s+/g, ' ').trim()).slice(0, 40);
     // 종류 · 거래
-    let ty = typeOf(g.ptype);
+    let ty = typeOf(g.ptype) || (r._pt ? typeOf(r._pt) : null);   // 11/3 양식 탭의 기본 종류
     if (!ty) ty = g.jimok && !g.area && !g.tot ? { ptype: '토지' } : { ptype: MAIN_TY[mains[0]] || '기타', guessed: true };
     let kind = ty.pre && !/월세|전세/.test(clean(g.kind)) ? 'presale' : kindOf(g.kind);
     const wonCol = c => /\(원\)|원\)$/.test(labels[map.indexOf(c)] || '') && !/만원/.test(labels[map.indexOf(c)] || '');
@@ -170,6 +171,7 @@ window.XImport = (() => {
     else if (kind === 'wolse') { money.deposit = dep; money.rent = rent; }
     else { money.price = price; }
     if (g.cdep) money.curDep = man(g.cdep); if (g.crent) money.curRent = man(g.crent);
+    if (g.pr) money.pr = man(g.pr);
     if (g.premium) money.premium = man(g.premium); if (g.mgmt) money.mgmt = man(g.mgmt); if (g.loan) money.loan = man(g.loan);
     // 면적
     const sq = (k) => g[k] != null && g[k] !== '' ? numOf(g[k]) : g[k + 'py'] != null && g[k + 'py'] !== '' ? (numOf(g[k + 'py']) || 0) * PY || null : null;
@@ -190,6 +192,7 @@ window.XImport = (() => {
     if (g.ty) ad.ty = clean(g.ty).toUpperCase().slice(0, 8);
     if (g.biz) ad.biz = clean(g.biz).slice(0, 30);
     if (/^재(개발|건축)$/.test(ty.ptype)) ad.form = ty.ptype === '재건축' ? '아파트' : '빌라';
+    if (g.rz) ad.rz = clean(g.rz).slice(0, 30); if (g.apv) ad.apv = man(g.apv); if (g.rgt) ad.rgt = man(g.rgt);
     // 연락처
     const contacts = [];
     const people = (names, phones, role) => {
@@ -247,6 +250,89 @@ window.XImport = (() => {
   // 불러온 기록 (설정 → 엑셀에서 나중에도 되돌리기) — 기록이 안 남아도 불러오기는 그대로
   async function imLog(e) { try { const j = await H.api('/api/auth?action=xlog', H.post({ op: 'im', e: { file: S.file, ...e } })); S.logId = j.id; } catch { /* 무시 */ } }
   async function imDone() { if (!S.logId) return; try { await H.api('/api/auth?action=xlog', H.post({ op: 'imdone', id: S.logId })); } catch { /* 무시 */ } }
+  // ---------- 11/3 리얼맵 표준 양식 (종류별 탭) · 내 엑셀 → 양식으로 바꿔 받기 ----------
+  //   양식 = 탭마다 정해진 칸(제목 끝 * = 꼭 넣을 칸) + 예시 줄(건너뜀) + 숨은 표시 탭(_realmap) → 올리면 칸 맞추기 없이 그대로
+  const TPL_MARK = '_realmap', EXM = '예시라 지우고 쓰세요';
+  const C_ = { kind: '거래*', ptype: '종류', addr: '주소*', bname: '건물명', udong: '동', ho: '호', fl: '층', area: '전용면적(㎡)*', price: '매매가(만원)', deposit: '보증금(만원)', rent: '월세(만원)',
+    premium: '권리금(만원)', mgmt: '관리비(만원)', loan: '융자(만원)', biz: '현재 업종', site: '대지면적(㎡)*', tot: '연면적(㎡)*', floors: '규모(지상/지하)', appr: '사용승인일', zone: '용도지역', use: '건축물 용도',
+    jimok: '지목', dir: '방향', ty: '타입', park: '주차', elev: '승강기', cdep: '현 보증금(만원)', crent: '현 월세(만원)', exp: '만기일', rz: '구역명', apv: '감정가(만원)', rgt: '권리가액(만원)',
+    pr: '프리미엄(만원)', owner: '소유자', phone: '연락처', tenant: '임차인', phone2: '임차인 연락처', memo: '메모', no: '매물번호', status: '상태', chk: '확인할 점' };
+  const TAILC = ['owner', 'phone', 'tenant', 'phone2', 'memo', 'no', 'status'];
+  const TABS = [
+    { n: '아파트·오피', pt: '아파트', ty: 1, cols: ['kind', 'ptype', 'addr', 'bname', 'udong', 'ho', 'fl', 'area', 'ty', 'dir', 'price', 'deposit', 'rent', 'mgmt', 'cdep', 'crent', 'exp'],
+      ex: { kind: '전세', ptype: '아파트', addr: '서울 마포구 ○○동 123', bname: '○○아파트', udong: '101', ho: '1203', fl: '12', area: '84.9', ty: '84A', dir: '남향', deposit: '65000' } },
+    { n: '상가·사무실', pt: '상가', ty: 1, cols: ['kind', 'ptype', 'addr', 'bname', 'fl', 'ho', 'area', 'price', 'deposit', 'rent', 'premium', 'mgmt', 'biz', 'cdep', 'crent', 'exp'],
+      ex: { kind: '월세', ptype: '상가', addr: '서울 마포구 ○○동 123-4', bname: '○○빌딩', fl: '1', ho: '101', area: '35.7', deposit: '2000', rent: '150', premium: '3000', mgmt: '10', biz: '카페' } },
+    { n: '건물', pt: '건물', cols: ['kind', 'addr', 'bname', 'site', 'tot', 'floors', 'appr', 'zone', 'use', 'price', 'loan', 'park', 'elev'],
+      ex: { kind: '매매', addr: '서울 마포구 ○○동 123-4', bname: '○○빌딩', site: '198.3', tot: '595', floors: '5/1', appr: '2005-03-10', zone: '제2종일반주거지역', use: '근린생활시설', price: '350000' } },
+    { n: '빌라·주택', pt: '빌라', ty: 1, cols: ['kind', 'ptype', 'addr', 'bname', 'udong', 'ho', 'fl', 'area', 'dir', 'price', 'deposit', 'rent', 'mgmt', 'cdep', 'crent', 'exp'],
+      ex: { kind: '매매', ptype: '빌라', addr: '서울 마포구 ○○동 123-4', bname: '○○빌라', ho: '201', fl: '2', area: '49.5', dir: '남향', price: '42000' } },
+    { n: '토지', pt: '토지', cols: ['kind', 'addr', 'site', 'jimok', 'zone', 'price', 'deposit', 'rent'],
+      ex: { kind: '매매', addr: '경기 김포시 ○○동 123', site: '661', jimok: '대', zone: '계획관리지역', price: '80000' } },
+    { n: '공장·창고', pt: '공장·창고', cols: ['kind', 'addr', 'bname', 'site', 'tot', 'floors', 'appr', 'zone', 'price', 'deposit', 'rent', 'park'],
+      ex: { kind: '월세', addr: '경기 김포시 ○○동 123', bname: '○○공장', site: '1650', tot: '990', floors: '2', zone: '계획관리지역', deposit: '5000', rent: '500' } },
+    { n: '재개발·재건축', pt: '재개발', ty: 1, cols: ['kind', 'ptype', 'addr', 'rz', 'udong', 'ho', 'area', 'apv', 'rgt', 'price', 'cdep', 'crent', 'exp'],
+      ex: { kind: '매매', ptype: '재개발', addr: '서울 마포구 ○○동 123-4', rz: '○○구역', ho: '201', area: '33', apv: '25000', rgt: '27000', price: '60000' } },
+    { n: '분양권', pt: '아파트 분양권', cols: ['addr', 'bname', 'udong', 'ho', 'area', 'ty', 'price', 'pr'],
+      ex: { addr: '서울 마포구 ○○동 123', bname: '○○자이', udong: '103', ho: '1501', area: '84.9', ty: '84A', price: '98000', pr: '15000' } },
+  ];
+  const tabOf = it => { const p = it.ptype; return it.kind === 'presale' ? '분양권' : ['아파트', '오피스텔', '주상복합', '지식산업센터'].includes(p) ? '아파트·오피' : ['상가', '사무실'].includes(p) ? '상가·사무실'
+    : ['빌라', '연립', '다가구', '주택'].includes(p) && !it._whole ? '빌라·주택' : p === '토지' ? '토지' : p === '공장·창고' ? '공장·창고' : /^재(개발|건축)$/.test(p) ? '재개발·재건축' : '건물'; };
+  const KN = { sale: '매매', jeonse: '전세', wolse: '월세', presale: '' }, STN = { on: '진행', hold: '보류', done: '완료' };
+  const r2 = v => v ? Math.round(+v * 100) / 100 : '';
+  function itemRow(x, tab) {   // 읽은 매물 → 양식 한 줄 (종류 탭에 없는 칸은 그 탭에선 빠짐)
+    const it = x.item, a = it.ad || {}, e = it._ex || {}, ow = (it.contacts || []).filter(c => c.role !== '임차인'), tn = (it.contacts || []).filter(c => c.role === '임차인');
+    const whole = it._whole, land = it._land;
+    return { kind: KN[it.kind] || '', ptype: tab.ty ? it.ptype : '', addr: it._q, bname: it.bname, udong: e.dong, ho: e.ho, fl: whole ? '' : a.fl, area: land || whole ? '' : r2(e.area),
+      site: land ? r2(e.area) : r2(e.site), tot: whole ? r2(e.area) : '', floors: a.tfl ? `${a.tfl}${a.ufl ? '/' + a.ufl : ''}` : '', appr: a.appr, zone: a.zone, use: land ? '' : a.use, jimok: land ? a.use : '',
+      dir: a.dir, ty: a.ty, park: a.park, elev: a.elev, price: it.price, deposit: it.deposit, rent: it.rent, premium: it.premium, mgmt: it.mgmt, loan: it.loan, cdep: it.curDep, crent: it.curRent, exp: it.exp, biz: a.biz, rz: a.rz, apv: a.apv, rgt: a.rgt, pr: it.pr,
+      owner: ow.map(c => c.name).filter(Boolean).join(', '), phone: ow.map(c => c.phone).filter(Boolean).join(', '), tenant: tn.map(c => c.name).filter(Boolean).join(', '), phone2: tn.map(c => c.phone).filter(Boolean).join(', '),
+      memo: it._memo, no: it.no, status: STN[it.status] || '', chk: (x.warn || []).join(' · ') };
+  }
+  async function tplOut(all, C) {
+    await loadLib();
+    const wb = XLSX.utils.book_new(), conv = !!all;
+    const how = [['리얼맵 매물 양식 — 사용법'], [''], ['1. 매물 종류에 맞는 탭에 한 줄에 매물 하나씩 넣어 주세요. (아래쪽 탭: 아파트·오피 / 상가·사무실 / 건물 / 빌라·주택 / 토지 / 공장·창고 / 재개발·재건축 / 분양권)'],
+      ['2. 제목 끝에 * 가 붙은 칸은 꼭 넣어 주세요. 금액은 만원 단위 숫자입니다. (예: 3억 5천 → 35000)'], ['3. 각 탭 첫 줄(예시)은 지우지 않아도 자동으로 건너뜁니다.'], ['4. 칸 제목과 탭 이름은 바꾸지 마세요. 숨은 탭(_realmap)도 지우지 마세요.'],
+      ['5. 다 넣었으면 리얼맵 중개장부 → [엑셀 불러오기]에서 이 파일을 그대로 올리면 됩니다.'],
+      ...(conv ? [[''], [`※ '${S.file}' 파일을 리얼맵 양식으로 바꾼 것입니다. 맨 끝 '확인할 점' 칸에 글이 있는 줄은 꼭 확인해 주세요.${C && C.skip.noaddr ? ` 주소가 비어 있던 ${C.skip.noaddr}줄은 빠졌습니다.` : ''}`]] : [])];
+    const wh = XLSX.utils.aoa_to_sheet(how); wh['!cols'] = [{ wch: 120 }]; XLSX.utils.book_append_sheet(wb, wh, '사용법');
+    const by = new Map(); if (conv) for (const x of all) { const t = tabOf(x.item); if (!by.has(t)) by.set(t, []); by.get(t).push(x); }
+    for (const t of TABS) {
+      const cols = [...t.cols, ...TAILC, ...(conv ? ['chk'] : [])];
+      const exRow = cols.map(k => k === 'memo' ? EXM : (t.ex[k] ?? (k === 'owner' ? '○○○' : k === 'phone' ? '010-0000-0000' : '')));
+      const rows = conv ? (by.get(t.n) || []).map(x => { const v = itemRow(x, t); return cols.map(k => v[k] ?? ''); }) : [];
+      const ws = XLSX.utils.aoa_to_sheet([cols.map(k => C_[k]), exRow, ...rows]);
+      ws['!cols'] = cols.map(k => ({ wch: ['addr', 'memo'].includes(k) ? 34 : ['bname', 'chk', 'zone', 'rz'].includes(k) ? 16 : 11 }));
+      XLSX.utils.book_append_sheet(wb, ws, t.n);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['realmap-template-v1']]), TPL_MARK);
+    wb.Workbook = { Sheets: wb.SheetNames.map(n => ({ name: n, Hidden: n === TPL_MARK ? 1 : 0 })) };
+    const fname = conv ? `리얼맵양식_${String(S.file || '내엑셀').replace(/\.(xlsx?|csv)$/i, '')}.xlsx` : '리얼맵_매물_양식.xlsx';
+    const blob = new Blob([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    H.toast(conv ? '리얼맵 양식으로 바꾼 파일을 받았습니다. 틀린 칸만 고친 뒤 다시 올려 주세요' : '양식을 받았습니다. 종류별 탭에 채운 뒤 이 창에서 올려 주세요', 5000);
+  }
+  // 양식 파일 → 칸 맞추기 없이 (탭 이름 = 기본 종류)
+  function tplPrep(wb) {
+    const KEY = Object.fromEntries(Object.entries(C_).map(([k, l]) => [l.replace(/\*$/, ''), k]));
+    const keys = Object.keys(C_).filter(k => k !== 'chk'), labels = keys.map(k => C_[k].replace(/\*$/, '')), data = [];
+    for (const t of TABS) {
+      const ws = wb.Sheets[t.n]; if (!ws) continue;
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }); if (!rows.length) continue;
+      const hk = rows[0].map(h => KEY[clean(h).replace(/\*$/, '')] || null);
+      rows.slice(1).forEach((r, j) => {
+        if (!r.some(c => clean(c)) || r.some(c => String(c).includes(EXM))) return;
+        const out = keys.map(() => ''); hk.forEach((k, c) => { const i = keys.indexOf(k); if (i >= 0) out[i] = r[c]; });
+        if (!keys.some((k, i) => !['no', 'status'].includes(k) && clean(out[i]))) return;
+        out._n = `${t.n} ${j + 2}줄`; out._pt = t.pt; data.push(out);
+      });
+    }
+    if (!data.length) return step1('양식에 넣은 매물이 없습니다. 각 탭의 예시 줄 아래에 매물을 넣어 주세요.');
+    Object.assign(S, { labels, data, map: keys.slice(), sig: 'tpl', sheet: '리얼맵 양식', tpl: true });
+    step2();
+  }
+
   // ---------- 화면 ----------
   const keepMain = v => { try { if (v) localStorage.setItem('rm.ximp.main', JSON.stringify(v)); return JSON.parse(localStorage.getItem('rm.ximp.main') || 'null'); } catch { return null; } };
   const keepMap = (sig, v) => { try { const all = JSON.parse(localStorage.getItem('rm.ximp.map') || '{}'); if (v) { all[sig] = v; localStorage.setItem('rm.ximp.map', JSON.stringify(all)); } return all[sig] || null; } catch { return null; } };
@@ -268,14 +354,18 @@ window.XImport = (() => {
     const el = shell(`<div class="xi-bd"><h3>주로 다루시는 매물을 3가지까지 골라 주세요</h3><p class="xi-m">파일을 판단할 때 참고합니다. 파일은 항상 끝까지 읽어서 판단합니다.</p>
       <div class="xi-ch">${MAINS.map(([k, t]) => `<button type="button" data-m="${k}" aria-pressed="${S.mains.includes(k)}">${t}</button>`).join('')}</div>
       <label class="xi-drop" id="xiDrop"><input type="file" id="xiF" accept=".xlsx,.xls,.csv" hidden><b>엑셀 파일을 여기에 끌어다 놓거나 눌러서 고르세요</b><span>xlsx · xls · csv · 다른 매물장 프로그램에서 내려받은 파일도 됩니다</span></label>
+      ${H.op ? `<div class="xi-tpl" style="display:flex;align-items:center;gap:10px;background:#E8F5EC;border:2px solid #2B8A3E;border-radius:12px;padding:10px 14px;margin:10px 0;font-size:14px"><span style="flex:1"><b style="color:#1F7A3A">처음이세요?</b> 리얼맵 양식(종류별 탭)에 맞춰 넣으면 칸 맞추기 없이 그대로 들어갑니다 <small style="color:#868E96">· 운영자 시험 중</small></span><button type="button" class="xi-b" id="xiTpl" style="background:#2B8A3E;color:#fff;border-color:#2B8A3E;white-space:nowrap">양식 받기 ⬇</button></div>` : ''}
       ${err ? `<p class="xi-err">${esc(err)}</p>` : ''}${html || ''}
       <p class="xi-m">파일은 이 브라우저 안에서만 읽고 서버에 올리지 않습니다. 서버에는 매물로 바뀐 내용만 저장됩니다.</p></div>`);
     el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const k = b.dataset.m; S.mains = S.mains.includes(k) ? S.mains.filter(x => x !== k) : [...S.mains, k].slice(-3); keepMain(S.mains); step1(); });
     const pick = async f => { if (!f) return; S.file = f.name; shell('<div class="xi-bd"><p class="xi-m">파일을 읽는 중…</p></div>'); try { const sh = await readFile(f); prep(sh); } catch (e) { S.file = ''; step1(e.message || '파일을 읽지 못했습니다.'); } };
     $('xiF').onchange = e => pick(e.target.files[0]);
+    if ($('xiTpl')) $('xiTpl').onclick = async () => { try { await tplOut(null); } catch (e) { H.toast(e.message || '양식을 만들지 못했습니다'); } };
     const d = $('xiDrop'); d.ondragover = e => { e.preventDefault(); d.classList.add('ov'); }; d.ondragleave = () => d.classList.remove('ov'); d.ondrop = e => { e.preventDefault(); d.classList.remove('ov'); pick(e.dataTransfer.files[0]); };
   }
   function prep(sh) {
+    S.tpl = false;
+    if (sh.tpl) return tplPrep(sh.wb);
     const rows = sh.rows || [];
     if (rows.length < 2) return step1('내용이 있는 줄을 찾지 못했습니다.');
     const { labels, start } = header(rows);
@@ -318,11 +408,12 @@ window.XImport = (() => {
       <details class="xi-map" ${S.openMap ? 'open' : ''}><summary>칸 맞추기 보기 · 고치기 <small>(${S.labels.filter(Boolean).length}칸 · 틀린 것만 바꾸면 숫자가 바로 바뀝니다)</small></summary>
         <table class="xi-t"><tr><th>엑셀 칸</th><th>예시 값</th><th>넣을 곳</th></tr>${S.labels.map((lb, c) => lb ? `<tr><td>${esc(lb)}</td><td class="ex">${esc(ex(c))}</td><td><select data-c="${c}" class="${S.map[c] === 'skip' ? 'no' : ''}">${opts(S.map[c])}</select></td></tr>` : '').join('')}</table></details>
       </div>
-      <div class="xi-f"><span>칸 맞춤은 이 브라우저에 기억해서 같은 양식은 다음부터 그대로 씁니다</span><button type="button" class="xi-b" id="xiBack">‹ 다른 파일</button><button type="button" class="xi-b go" id="xiGo" ${all.length && room ? '' : 'disabled'}>${Math.min(all.length, room).toLocaleString()}건 불러오기</button></div>`);
+      <div class="xi-f"><span>칸 맞춤은 이 브라우저에 기억해서 같은 양식은 다음부터 그대로 씁니다</span><button type="button" class="xi-b" id="xiBack">‹ 다른 파일</button>${H.op && !S.tpl && all.length ? '<button type="button" class="xi-b" id="xiTo" style="border-color:#2B8A3E;color:#1F7A3A;white-space:nowrap">⬇ 양식으로 받아 고치기</button>' : ''}<button type="button" class="xi-b go" id="xiGo" ${all.length && room ? '' : 'disabled'}>${Math.min(all.length, room).toLocaleString()}건 불러오기</button></div>`);
     el.querySelectorAll('select[data-c]').forEach(s => s.onchange = () => { S.map[+s.dataset.c] = s.value; S.openMap = true; keepMap(S.sig, S.map); step2(); });
     el.querySelector('details').ontoggle = e => { S.openMap = e.target.open; };
     $('xiBack').onclick = () => { S.file = ''; step1(); };
-    $('xiGo').onclick = () => { keepMap(S.sig, S.map); run(all.slice(0, room)); };
+    if ($('xiTo')) $('xiTo').onclick = async () => { keepMap(S.sig, S.map); try { await tplOut(all, C); } catch (e) { H.toast(e.message || '파일을 만들지 못했습니다'); } };
+    $('xiGo').onclick = () => { if (!S.tpl) keepMap(S.sig, S.map); run(all.slice(0, room)); };
   }
   async function run(list) {
     S.step = 2; S.busy = true; S.stop = false; S.ib = 'x' + Date.now().toString(36);
