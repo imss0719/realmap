@@ -763,7 +763,17 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
     catch { src = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
     const W = src.width, H = src.height, k = Math.min(1, 1600 / Math.max(W, H));
     const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
-    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0, c.width, c.height);
+    // 11/3 선배: 앞으로 올리는 매물 사진에 가운데 중개사무소 이름을 반투명으로 새김 (이미 올라간 사진은 그대로)
+    const nm = String((S.bk && S.bk.office) || '').trim();
+    if (nm) {
+      const fs = Math.max(24, Math.round(Math.min(c.width, c.height) * 0.075));
+      g.save(); g.font = `900 ${fs}px "Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const w = g.measureText(nm).width, k2 = Math.min(1, (c.width * 0.86) / (w || 1));   // 이름이 길면 사진 폭의 86% 안으로 줄임
+      if (k2 < 1) g.font = `900 ${Math.round(fs * k2)}px "Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif`;
+      g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = fs * 0.25; g.fillStyle = 'rgba(255,255,255,.55)';
+      g.fillText(nm, c.width / 2, c.height / 2); g.restore();
+    }
     return c.toDataURL('image/jpeg', 0.82);
   }
   async function uploadPhotos(F, files) {
