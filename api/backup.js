@@ -79,6 +79,23 @@ async function prune(tk, parent) {
   return n;
 }
 
+// 11/3 복원 점검 (운영자만 · 읽기만): 드라이브의 가장 최근 백업을 받아 풀어 보고, 지금 저장소와 항목 수를 비교
+//   /api/backup?check=1 → 자료를 되살리지는 않음 (실제 복원은 필요할 때 따로)
+async function check(tk, fid) {
+  const q = encodeURIComponent(`'${fid}' in parents and name contains 'realmap-backup-' and trashed=false`);
+  const j = await (await gd(tk, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size,createdTime)&orderBy=createdTime desc&pageSize=1`)).json();
+  const f = (j.files || [])[0]; if (!f) throw new Error('드라이브에 백업 파일이 아직 없습니다.');
+  const buf = Buffer.from(await (await gd(tk, `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).arrayBuffer());
+  const b = JSON.parse(zlib.gunzipSync(buf).toString('utf8'));
+  const keys = Object.keys(b.data || {}), grp = {};
+  for (const k of keys) { const g = k.split(':').slice(0, 2).join(':'); grp[g] = (grp[g] || 0) + 1; }
+  let now = 0, cur = '0';
+  do { const [r] = await pipe([['SCAN', cur, 'COUNT', '1000']]); cur = String(r[0]); now += r[1].filter(k => !k.startsWith('rmc:') || k.startsWith('rmc:geo:')).length; } while (cur !== '0');
+  const ok = keys.length > 0 && keys.length >= now * 0.9;
+  return { ok, file: f.name, made: f.createdTime, size: +f.size, backupKeys: keys.length, nowKeys: now, groups: Object.entries(grp).sort((a, c) => c[1] - a[1]).slice(0, 15),
+    message: ok ? '백업 파일이 정상으로 열리고, 지금 저장소와 항목 수가 거의 같습니다. 필요할 때 이 파일로 되살릴 수 있습니다.' : '백업 파일 항목 수가 지금보다 많이 적습니다. 확인이 필요합니다.' };
+}
+
 export default async function (req, res) {
   res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Robots-Tag', 'noindex');
   const cron = process.env.CRON_SECRET && req.headers.authorization === `Bearer ${process.env.CRON_SECRET}`;
@@ -87,6 +104,10 @@ export default async function (req, res) {
   const miss = [!R_URL || !R_TOKEN ? '저장소(Upstash)' : '', !G.id || !G.secret || !G.refresh ? '구글 드라이브 환경변수(GDRIVE_CLIENT_ID · GDRIVE_CLIENT_SECRET · GDRIVE_REFRESH_TOKEN)' : ''].filter(Boolean);
   if (miss.length) return res.status(500).json({ ok: false, message: `${miss.join(', ')} 설정이 비어 있습니다.` });
   const t0 = Date.now();
+  if (op && req.query && req.query.check === '1') {
+    try { const tk = await token(); return res.status(200).json(await check(tk, await folderId(tk))); }
+    catch (e) { return res.status(500).json({ ok: false, message: String((e && e.message) || e).slice(0, 200) }); }
+  }
   try {
     const data = await dump();
     const n = Object.keys(data).length;

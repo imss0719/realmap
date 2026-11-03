@@ -249,13 +249,19 @@ async function brokers(req, res) {
     for (let i = 0; i < ids.length; i += 100) {
       const ch = ids.slice(i, i + 100);
       const [us, bks, sts, pls, oms] = await Promise.all(['user', 'bk', 'bstat', 'plan', 'opmemo'].map(k => redis(['MGET', ...ch.map(id => `realmap:${k}:${id}`)]).catch(() => [])));
-      const sns = await Promise.all(ch.map(id => redis(['HLEN', `realmap:staff:${id}`]).catch(() => 0)));   // 직원 수 (승인 대기 포함)
+      // 11/3 직원 목록 (관리 화면 보기 전용 · 승인은 대표가): 이름·역할·휴대폰·상태·신청일·최근 접속
+      const sns = await Promise.all(ch.map(async id => {
+        const a = (await redis(['HGETALL', `realmap:staff:${id}`]).catch(() => null)) || [], arr = Array.isArray(a) ? a : Object.entries(a).flat(), L = [];
+        for (let q = 1; q < arr.length; q += 2) { try { const m = JSON.parse(arr[q]); if (m) L.push({ uid: String(m.uid || arr[q - 1]), name: m.name || '', role: m.role || 'ast', phone: m.phone || '', st: m.st || 'wait', at: m.at || '', okAt: m.okAt || '' }); } catch { /* 건너뜀 */ } }
+        if (L.length) { const seen = (await redis(['MGET', ...L.map(m => `realmap:sseen:${m.uid}`)]).catch(() => [])) || []; L.forEach((m, z) => { m.seen = seen[z] || ''; }); }
+        return L.sort((x, y) => String(x.at).localeCompare(String(y.at)));
+      }));
       for (let k = 0; k < ch.length; k++) {
         const j = v => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
         const u = j(us && us[k]) || {}, P = await planOf(ch[k]);
         const pr = j(pls && pls[k]) || {};
         rows.push({ id: ch[k], nickname: u.nickname || '', email: u.email || '', joined: u.joined || '', last: u.last || '', bk: j(bks && bks[k]), plan: planView(P), stat: j(sts && sts[k]),
-          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '', staff: Number(sns && sns[k]) || 0 });
+          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '', staff: (sns[k] || []).length, staffL: sns[k] || [] });
       }
     }
     rows.sort((a, b) => String((b.stat && b.stat.up) || b.last).localeCompare(String((a.stat && a.stat.up) || a.last)));

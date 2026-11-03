@@ -1043,6 +1043,8 @@ export default async function (req, res) {
       if (P.started) return send(res, 200, { ok: true, plan: planView(P), bk: await loadBk(s.id) });
       if (await redis(['GET', `realmap:staffof:${s.id}`])) return fail(res, 400, 'staff', '이 카카오 계정은 다른 사무소의 직원으로 등록되어 있습니다. 내 사무소를 따로 시작하시려면 [설정 → 내 소속]에서 먼저 나가 주세요.');
       if (!(await mobileOk(s.id, bk, null))) return fail(res, 400, 'sms', SMS_NEED);
+      // 11/3 등록번호가 14자리가 아니면 '승인 대기'로 받지 않고 바로 다시 쓰게 (예전엔 형식 오류가 조회 장애로 보여 대기에 걸렸음)
+      { const n = bk.regno.replace(/\D/g, '').length; if (n !== 14) return fail(res, 400, 'regno', `등록번호는 숫자 14자리입니다 (지금 ${n}자리). 중개사무소 등록증의 번호를 다시 확인해 주세요. 번호 형식이 등록증과 다르면 02-393-7676으로 문의해 주세요.`); }
       // 국가 자료로 확인된 중개사무소만 시작. 브이월드 점검 등으로 확인이 안 되면 '확인 대기'로 받아 두고 운영자가 승인
       const v = await verifyBk(s.id, bk);
       if (v.st === 'error') {
