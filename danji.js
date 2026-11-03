@@ -1895,6 +1895,7 @@ window.Danji = (() => {
     const ds = (S.C[cx.id] && S.C[cx.id].dongs) || (S.CL && S.CL[cx.id] && S.CL[cx.id].dongs) || [];
     const dnOf = p => { const d0 = normD(p.dong), c = ds.filter(d => d.pnu === p.pnu); return c.length === 1 && !c.some(d => normD(d.dong) === d0) ? normD(c[0].dong) : d0; };
     for (const x of items()) for (const p of (x.places && x.places.length ? x.places : [x])) {
+      if (!APTY.includes(x.ptype)) continue;   // 11/3 선배: 단지 안 상가 등은 단지 장부에 안 보임 (상가·사무실 등 제 종류에서만)
       if (!p.dong && !p.ho) continue;
       const inCx = pn.has(p.pnu) || (base.length >= 4 && normName(p.bname || x.bname).startsWith(base));
       if (!inCx) continue;
