@@ -40,6 +40,11 @@ button{font:inherit}
 .sheet-head{display:none}
 .intro{padding:28px 20px;color:var(--muted);display:flex;flex-direction:column;gap:10px}
 .intro b{color:var(--fg);font-size:16px}
+.introx{margin:8px -20px -28px;padding:14px 20px 20px;background:#FFFBEA;border-top:1px dashed #E8DDAE}
+.introx h2{margin:10px 0 6px;font-size:13.5px;color:var(--fg)}.introx h2:first-child{margin-top:0}
+.introx .ich{display:flex;flex-wrap:wrap;gap:6px}.introx .ich a{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;font-size:13px;color:var(--fg);font-weight:700;text-decoration:none}
+.introx .ich.s a{font-size:12.5px;padding:3px 10px;font-weight:600}.introx .ich a:hover{border-color:var(--fg)}
+.introx p{margin:0;font-size:12.5px;line-height:1.55}
 .rvwrap{position:relative;aspect-ratio:4/3;max-height:340px;width:100%;background:var(--soft);border-bottom:1px solid var(--line)}
 #rv{position:absolute;inset:0}
 .rvwrap .cap{position:absolute;left:10px;top:10px;z-index:3;font-size:11px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;padding:3px 8px;border-radius:6px;pointer-events:none}
