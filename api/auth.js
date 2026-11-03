@@ -557,7 +557,7 @@ export default async function (req, res) {
       if (s && ADMIN_ID && s.id === ADMIN_ID) return send(res, 200, { ok: true, skip: 'op' }); // 운영자 본인은 세지 않음
       const ex = String(400 * 86400);
       // 유입 경로: 방문(세션)마다 첫 화면에서 한 번만 보냅니다
-      const SRC = ['blog', 'nsearch', 'naver', 'insta', 'kakao', 'youtube', 'google', 'daum', 'seoul', 'direct', 'etc'];
+      const SRC = ['blog', 'nsearch', 'naver', 'insta', 'kakao', 'youtube', 'google', 'daum', 'seoul', 'news', 'direct', 'etc'];
       const src = SRC.includes(req.query.src) ? req.query.src : '';
       // 정비사업 안내 페이지(/seoul/) 방문: 방문자·열람·페이지별·유입 경로를 따로 셉니다
       if (req.query.k === 's') {
