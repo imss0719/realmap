@@ -17,6 +17,11 @@ export default handler(async (req, res) => {
   const P = splitPnu(req.query.pnu);
   const pnu = P.pnu;
   const Y = thisYear();
+  // 11/3 여러 필지에 걸친 건물: 부속 필지는 면적·공시지가만 (가볍게 · 따로 저장)
+  if (req.query.only === 'chr') {
+    const c = await cached('landchr:' + pnu, 24 * 3600e3, async () => { const r = (await firstYear('getLandCharacteristics', pnu, [Y, Y - 1, Y - 2]))[0]; return r ? { year: r.stdrYear, area: num(r.lndpclAr), price: num(r.pblntfPclnd) } : null; });
+    return send(res, 200, { ok: true, chr: c }, c ? 86400 : 0);
+  }
 
   const out = await cached('land:' + pnu, 6 * 3600e3, async () => {
     const [chr, use, own, prices, move, house] = await Promise.all([
