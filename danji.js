@@ -665,7 +665,8 @@ window.Danji = (() => {
     for (const k of MM.keys()) { const [p0, dn, h] = k.split('|'); const p = pnuFor(p0, dn); const kk = `${p}|${dn}|${h}`; if (!seen.has(kk)) seen.set(kk, [p, dn, h]); }
     for (const mk of Object.keys(S.cx.memos || {})) { if (!mk.startsWith(cx.id + '|')) continue; const [, p0, dn, h] = mk.split('|'); const p = pnuFor(p0, dn), kk = `${p}|${dn}|${h}`; if (!seen.has(kk)) seen.set(kk, [p, dn, h]); }   // 예전 호별 메모만 있는 호
     for (const k of (S.extra && S.extra[cx.id]) || []) { const [p, dn, h] = k.split('|'); if (!seen.has(k)) seen.set(k, [p, dn, h]); }
-    return [...seen.values()].map(([p, dn, h]) => rowOf(cx, C, MM, p, (dongOf(C, dn) || {}).dong || dn, h));
+    // 11/3 선배: 상가·관리동 등 아파트가 아닌 동은 단지 장부에 안 보이게 (기록은 지우지 않고 목록에서만 뺌 · 동 목록도 원래 이 동들은 뺌)
+    return [...seen.values()].filter(([, dn]) => !/상가|관리|경로|어린이|커뮤니티|주민|근린/.test(dn || '')).map(([p, dn, h]) => rowOf(cx, C, MM, p, (dongOf(C, dn) || {}).dong || dn, h));
   }
   // 10/31 선배: 단지를 누르면 그 단지의 모든 호 (받아 온 동부터 차례로) + 장부·매물에만 있는 호
   function rowsCx(cx, C, MM) {
