@@ -1,8 +1,8 @@
 name: realmap-seoul-zones
-# 서울시 정비사업 자료를 받아 저장소에 저장 (분기마다 + 수동 실행)
+# 서울시 정비사업 자료를 받아 저장소에 저장 (매달 6일 새벽 + 수동 실행 · 11/3 월간 신문용으로 분기→매달)
 on:
   schedule:
-    - cron: '0 19 5 1,4,7,10 *'
+    - cron: '0 19 5 * *'
   workflow_dispatch:
 permissions:
   contents: write
