@@ -24,5 +24,11 @@
       "source": "/j/:code",
       "destination": "/join.html?c=:code"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/backup",
+      "schedule": "0 18 * * *"
+    }
   ]
 }
