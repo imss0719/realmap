@@ -93,6 +93,7 @@
     document.head.appendChild(sc);
   }
   function setup(msg) {
+    if (/bot|crawl|spider|slurp|Yeti|Lighthouse|Google-InspectionTool/i.test(navigator.userAgent)) return;   // 11/3 검색 로봇에게는 '준비 중' 안내창을 띄우지 않음 (구글이 빈 페이지로 판단했음)
     const s = $('setup'); s.hidden = false;
     s.innerHTML = `<div><b>아직 준비 중입니다</b><span>${msg}</span><a href="check.html">연결 점검 페이지 열기</a></div>`;
   }
@@ -450,7 +451,10 @@
     const head = headA({ title: titleOf(name, p), badge: PK[kd][0], sub: name ? `${esc(p.addr || p.jibun)}${p.road ? ' · ' + esc(p.road) : ''}` : esc(p.road || ''), meta: meta.filter(Boolean) }, chipsWarn);
     // 공시지가 (원/㎡)
     const lpv = lp && lp.price ? lp.price : c && c.price ? c.price : 0, lpy = lp && lp.year ? lp.year : '';
-    const lpBig = () => lpv && c && c.area
+    const G = kd === 'land' ? null : grpSum();
+    const lpBig = () => G && G.priced
+      ? { small: `공시지가${lpy ? ` (${lpy}.01.01)` : ''} · <b style="color:#F2B705">${G.n}개 필지 합계</b> · 최근 ${yrs}년 거래 없음`, big: won(G.val / 1e4).replace(/원$/, ''), side: `㎡당 ${n(G.val / G.area / 1e4, 0)}만 · 평당 ${n(G.val / G.area * 3.305785 / 1e4, 0)}만 (평균)` }
+      : lpv && c && c.area
       ? { small: `공시지가${lpy ? ` (${lpy}.01.01)` : ''} · 최근 ${yrs}년 ${kd === 'land' ? '이 땅' : '이 필지'} 거래 없음`, big: won(lpv * c.area / 1e4).replace(/원$/, ''), side: `㎡당 ${n(lpv / 1e4, 0)}만 · 평당 ${n(lpv * 3.305785 / 1e4, 0)}만` }
       : lpv ? { small: `공시지가${lpy ? ` (${lpy}.01.01)` : ''} · 최근 ${yrs}년 거래 없음`, big: `㎡당 ${n(lpv / 1e4, 0)}만원`, side: `평당 ${n(lpv * 3.305785 / 1e4, 0)}만` }
         : { small: `최근 ${yrs}년 거래 없음`, big: '-', side: '' };
@@ -479,7 +483,7 @@
         const nr = T && T.near && T.near.land;
         cells = [own ? lpCell : ['최대 연면적', R ? `<b>약 ${pyS(R.maxF)}</b>` : '<b>-</b>'], ['건폐율 · 용적률', R ? `<b>${R.bc}% · ${R.fa}%</b>` : '<b>-</b>'], ['주변 땅 평당', nr && nr.med ? `<b>${n(nr.med / 0.3025, 0)}만</b>` : T ? '<b>-</b>' : dot]];
       } else {
-        cells = [own ? lpCell : ['대지면적', c && c.area ? `<b>${pyS(c.area)}</b>` : '<b>-</b>'], ['연면적', gfa ? `<b>${pyS(gfa)}</b>` : '<b>-</b>'], R && R.rest > R.maxF * 0.05 ? ['더 지을 수 있는', `<b>약 ${pyS(R.rest)}</b>`] : ['용적률', R && R.nowRat ? `<b>${n(R.nowRat, 0)}%</b>` : rc && rc.vlRat ? `<b>${n(rc.vlRat, 0)}%</b>` : '<b>-</b>']];
+        cells = [own ? lpCell : G ? [`대지면적 (${G.n}필지)`, `<b>${pyS(G.area)}</b>`] : ['대지면적', c && c.area ? `<b>${pyS(c.area)}</b>` : '<b>-</b>'], ['연면적', gfa ? `<b>${pyS(gfa)}</b>` : '<b>-</b>'], R && R.rest > R.maxF * 0.05 ? ['더 지을 수 있는', `<b>약 ${pyS(R.rest)}</b>`] : ['용적률', R && R.nowRat ? `<b>${n(R.nowRat, 0)}%</b>` : rc && rc.vlRat ? `<b>${n(rc.vlRat, 0)}%</b>` : '<b>-</b>']];
       }
     }
     const top = H ? `<small>${H.small}</small><div class="hp"><b class="${H.big === '-' ? 'none' : ''}">${H.big}</b>${H.side ? `<span>${H.side}</span>` : ''}</div>` : `<small>최근 실거래 · 공시지가</small><div class="hp">${dot}</div>`;
@@ -975,7 +979,7 @@
     };
     const used = rc && rc.vlArea ? rc.vlArea : ts.reduce((s, t) => s + tUsed(t), 0);
     // 여러 필지에 걸친 건물(합필·부속지번)은 건축물대장의 대지면적(묶인 필지 전체)을 기준으로 계산
-    const bPlat = (rc && rc.platArea) || Math.max(0, ...ts.map(t => t.platArea || 0));
+    const bPlat = (rc && rc.platArea) || Math.max(0, ...ts.map(t => t.platArea || 0)) || (grpSum() || {}).area || 0;   // 11/3 대장에 대지면적이 없으면 묶인 필지 면적 합계
     const multi = atchList().length > 0 && bPlat > c.area * 1.02;
     const base = multi ? bPlat : c.area;
     const site = (rc && rc.platArea) || bPlat || c.area;
@@ -2004,14 +2008,23 @@
 
   // ---------- 여러 필지에 걸친 건물 ----------
   const atchList = () => (S.d.bld && S.d.bld.atch && S.d.bld.atch.ok) ? S.d.bld.atch.data : [];
+  // 11/3 선배: 여러 필지에 걸친 건물은 대지면적·공시지가를 묶인 필지 전체로 합침 (부속 필지 면적·공시지가를 다 받았을 때만)
+  function grpSum() {
+    const L = atchList(), c = chr(); if (!L.length || !c || !c.area || L.some(a => !a.lc)) return null;
+    if (L.some(a => !a.lc.area)) return null;
+    const area = c.area + L.reduce((s, a) => s + a.lc.area, 0), val = (c.price || 0) * c.area + L.reduce((s, a) => s + (a.lc.price || 0) * a.lc.area, 0);
+    return { n: L.length + 1, area, val, priced: !!c.price && L.every(a => a.lc.price) };
+  }
   const pnuJibun = pnu => { pnu = String(pnu); const b = Number(pnu.slice(11, 15)), j = Number(pnu.slice(15, 19)); return `${pnu[10] === '2' ? '산' : ''}${b}${j ? '-' + j : ''}`; };
   // 부속지번 필지 경계를 대표 필지와 함께 묶어서 그립니다
   async function drawAtch(tok) {
     const list = atchList();
     if (!list.length) return;
     const K = kakao.maps;
-    const rs = await Promise.all(list.slice(0, 30).map(a => api(`/api/parcel?pnu=${a.pnu}`).catch(() => null)));
+    const [rs, cs] = await Promise.all([Promise.all(list.slice(0, 30).map(a => api(`/api/parcel?pnu=${a.pnu}`).catch(() => null))),
+      Promise.all(list.slice(0, 30).map(a => api(`/api/land?pnu=${a.pnu}&only=chr`).then(j => j.chr).catch(() => null)))]);
     if (tok !== S.tok) return;
+    cs.forEach((c, i) => { if (c) list[i].lc = c; });
     rs.forEach((p, i) => {
       if (!p) return;
       list[i].addr = p.addr;
@@ -2035,7 +2048,7 @@
     const list = atchList();
     if (list.length) {
       return `<section><h2>여러 필지에 걸친 건물<span>${list.length + 1}개 필지</span></h2>
-        <div class="glist"><span class="g main">${esc(S.sel.jibun || pnuJibun(S.sel.pnu)).replace(/[가-힣]+$/, '')} <small>대표</small></span>${list.map(a => `<button class="g" data-gp="${a.pnu}">${esc(a.jibun)}</button>`).join('')}</div></section>`;
+        <div class="glist"><span class="g main">${esc(S.sel.jibun || pnuJibun(S.sel.pnu)).replace(/[가-힣]+$/, '')} <small>대표</small></span>${list.map(a => `<button class="g" data-gp="${a.pnu}">${esc(a.jibun)}</button>`).join('')}</div>${(G => G ? `<p class="note" style="margin-top:8px">${G.n}개 필지 합계 · 대지 <b>${n(G.area, 1)}㎡ (${pyS(G.area)})</b>${G.priced ? ` · 공시지가 총 <b>${won(G.val / 1e4)}</b>` : ''}</p>` : '')(grpSum())}</section>`;
     }
     if (!titles().length && S.sel.bldPnu && S.sel.bldOk && S.d.bld) {
       return `<div class="gnote"><b>이 땅 위 건물은 ${esc(pnuJibun(S.sel.bldPnu))}번지에 대장이 등록되어 있습니다.</b><span>건물이 여러 필지에 걸쳐 있는 경우로, 건물 정보는 대표 필지에서 확인하실 수 있습니다.</span><button data-gp="${S.sel.bldPnu}">대표 필지 정보 보기</button></div>`;
