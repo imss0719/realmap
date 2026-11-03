@@ -1077,6 +1077,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
   }
   function drawAds() {
     const box = $('ad'); if (!box) return;
+    bvCss();   // 11/3 카드 사진의 '크게 보기' 표시
     const b = S.bk || {}, P = S.plan || {}, now = new Date().toISOString(), soon = new Date(Date.now() + 7 * 864e5).toISOString(), old = new Date(Date.now() - 30 * 864e5).toISOString();
     const L = S.items || [], miss = x => adMissing(x, S.bk).filter(m => m !== '중개사무소 정보');
     // 10/28 선배 결정: 목록 하나 — 게시 중 + 기간이 끝난 지 30일 안 된 광고(다시 게시) · 빈 칸 때문에 안 보이는 광고는 있을 때만 노란 줄 한 줄
@@ -1094,7 +1095,8 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       const acts = lv ? `<button type="button" class="y" data-ax="send" data-id="${x.id}">💬 손님에게 보내기</button><button type="button" data-ax="photo" data-id="${x.id}">📷 사진 변경</button><button type="button" data-ax="fix" data-id="${x.id}">매물장에서 고치기</button><button type="button" data-ax="renew" data-id="${x.id}">30일 연장</button><button type="button" class="r" data-ax="unpub" data-id="${x.id}">내리기</button>`
         : `<button type="button" class="y" data-ax="pub" data-id="${x.id}">다시 게시 (30일)</button><button type="button" data-ax="fix" data-id="${x.id}">매물장에서 고치기</button>`;
       const a0 = x.ad || {}, info = [x.area ? `면적 ${x.area}㎡` : '', a0.fl || a0.tfl ? `${a0.fl || '?'}${/^\d+$/.test(a0.fl || '') ? '층' : ''} / ${a0.tfl ? a0.tfl + '층' : '?'}` : '', a0.movein || '', x.mgmt ? `관리비 ${x.mgmt}만` : a0.nomgmt ? '관리비 없음' : '', a0.park ? `주차 ${a0.park}` : '', x.no ? `No. ${x.no}` : ''].filter(Boolean).join(' · ');
-      return `<div class="adc${lv ? '' : ' end'}"><a class="ph"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}${lv ? ` href="/?pnu=${esc(x.pnu || p0.pnu)}&lst=1" target="_blank" rel="noopener" title="지도에서 손님이 보는 모습"` : ''}>${ph ? '' : '사진 없음'}</a>
+      // 11/3 선배: 사진을 누르면 지도로 가지 않고 그 자리에서 '크게 보기' (패드로 손님에게 설명) — 지도는 크게 보기 안 [지도에서 보기 ↗]
+      return `<div class="adc${lv ? '' : ' end'}">${lv ? `<button type="button" class="ph" data-ax="big" data-id="${x.id}"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}>${ph ? '' : '사진 없음'}<span class="zm">🔍 크게 보기</span></button>` : `<span class="ph"${ph ? ` style="background-image:url('${esc(ph.url)}')"` : ''}>${ph ? '' : '사진 없음'}</span>`}
         <div class="tx"><b class="p"><span class="kd ${x.kind}">${KIND[x.kind]}</span>${esc(priceText(x))}</b><div class="m">${esc(where)}${meta ? ' · ' + esc(meta) : ''}</div>${info ? `<div class="info">${esc(info)}</div>` : ''}${st}</div><div class="acts">${acts}</div></div>`;
     };
     const g0 = gap[0], gm = g0 ? miss(g0) : [];
@@ -1106,7 +1108,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
       ${g0 ? `<div class="adw">⚠ ${gap.length}건이 빈 칸(${esc(gm.slice(0, 2).join('·'))}${gm.length > 2 ? ' 등' : ''}) 때문에 지도에서 안 보입니다<span class="sp"></span><button type="button" id="adGap">채우기</button></div>` : ''}
       ${list.length > AF_MIN ? afBar(list) : ''}
       ${list.length ? `<div id="adList"></div>` : '<div class="ade">지금 지도에 올라 있는 매물이 없습니다. 위에서 종류를 고르고 <b>[＋ 올리기]</b>를 누르면 매물장에서 등록한 뒤, 표의 <b>[리얼맵 등록]</b>에서 사진을 올려 게시합니다.</div>'}
-      <div class="adf">사진을 누르면 지도에서 손님이 보는 모습 그대로 열립니다 · 단지 장부·고객관리·알림은 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
+      <div class="adf">사진을 누르면 손님에게 보여 주기 좋게 크게 열립니다 · 단지 장부·고객관리·알림은 <button type="button" id="adBook">중개장부 열기</button> · <button type="button" id="adHome">${b.home === 'ads' ? '처음 화면을 중개장부로' : '처음 화면을 내 광고로'}</button></div></div>`;
     // 10/30 선배: 내 광고에서는 유형만 고르고 [＋ 올리기] → 그 종류 매물장의 등록 칸으로 (정보는 매물장 입력창 한 곳에서만)
     box.querySelectorAll('[data-aty]').forEach(b => b.onclick = () => { S.adTy = b.dataset.aty; box.querySelectorAll('[data-aty]').forEach(z => z.setAttribute('aria-pressed', z === b)); });
     $('adGo').onclick = () => { if (!S.adTy) return toast('올릴 매물 종류를 먼저 골라 주세요'); goRegister(S.adTy); };
@@ -1151,6 +1153,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
     if (q) L = L.filter(x => { const p0 = (x.places && x.places[0]) || {}; return [x.bname, x.addr, p0.addr, p0.dong, p0.ho, x.no, x.ptype].filter(Boolean).join(' ').replace(/\s/g, '').toLowerCase().includes(q.replace(/^no\.?/, '')); });
     if (F.sort === 'new') L = L.slice().sort((a, b) => String((b.pub || {}).at || '').localeCompare(String((a.pub || {}).at || '')));
     else if (F.sort === 'price') L = L.slice().sort((a, b) => afMoney(b) - afMoney(a));   // 만료 가까운 순은 drawAds 순서 그대로 (게시 중 → 끝난 광고)
+    S.adShown = L;
     el.innerHTML = L.length ? `<div class="adl">${L.map(S.adCard).join('')}</div>` : '<div class="ade">고른 조건에 맞는 광고가 없습니다.</div>';
     if ($('afN')) $('afN').innerHTML = `전체 <b>${all.length}건</b> 중 <b>${L.length}건</b> 보는 중${F.cat !== 'all' || F.deal !== 'all' || q ? ' · <button type="button" id="afX">모두 보기</button>' : ''}`;
     if ($('afX')) $('afX').onclick = () => { Object.assign(S.af, { cat: 'all', deal: 'all', q: '' }); afSave(); const b = $('adF'); b.querySelectorAll('[data-afc]').forEach(z => z.setAttribute('aria-pressed', z.dataset.afc === 'all')); b.querySelectorAll('[data-afd]').forEach(z => z.setAttribute('aria-pressed', z.dataset.afd === 'all')); $('afQ').value = ''; afList(); };
@@ -1166,11 +1169,138 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
     }
     afList();
   }
+  // ---------- 11/3 내 광고 '크게 보기' (패드로 손님에게 설명) ----------
+  //   손님에게 보낸 링크(office.html?ad=)와 같은 공개 정보만 — 호수·의뢰인 연락처·메모는 나오지 않음
+  //   가로: 사진 왼쪽 · 정보 오른쪽 / 세로: 사진 위 · 정보 아래 · 사진을 한 번 더 누르면 사진만 · 사진이 없으면 위치 지도
+  const BV = { list: [], i: 0, ph: 0, pub: null, at: 0 };
+  function bvCss() {
+    if ($('bvCss')) return;
+    const st = document.createElement('style'); st.id = 'bvCss';
+    st.textContent = `.adc .ph{border:0;padding:0;cursor:pointer;position:relative;font:inherit;overflow:hidden}.adc span.ph{cursor:default}
+.adc .ph .zm{position:absolute;right:5px;bottom:5px;background:rgba(20,33,46,.85);color:#fff;font-size:11.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap}
+#bv{position:fixed;inset:0;z-index:300;background:rgba(10,16,24,.82);display:flex;align-items:center;justify-content:center;padding:18px}
+#bv .bx{width:min(1280px,100%);height:min(820px,100%);background:#fff;border-radius:16px;overflow:hidden;display:flex;position:relative}
+#bv .pv{flex:1.5;min-width:0;background:#111;position:relative;display:flex;flex-direction:column}
+#bv .im{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;cursor:zoom-in;user-select:none;touch-action:pan-y}
+#bv .im img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+#bv .cnt{position:absolute;right:12px;top:12px;background:rgba(0,0,0,.6);color:#fff;font-size:13px;border-radius:12px;padding:2px 10px}
+#bv .ar{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.88);font-size:24px;font-weight:900;cursor:pointer;color:#14212E}
+#bv .ar.l{left:12px}#bv .ar.r{right:12px}
+#bv .th{display:flex;gap:6px;padding:8px;background:#1E2B38;overflow-x:auto;flex:none}
+#bv .th button{flex:none;width:72px;height:52px;border:0;border-radius:6px;background:#445 center/cover no-repeat;opacity:.6;cursor:pointer;padding:0}
+#bv .th button.on{opacity:1;outline:3px solid #F2B705;outline-offset:-3px}
+#bv .mp{position:absolute;inset:0;background:#E9EEF3;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#14212E;font-size:22px;font-weight:800;line-height:1.5}
+#bv .mp small{display:block;font-size:14px;color:#5E6A77;font-weight:600}
+#bv .if{flex:1;min-width:300px;max-width:440px;display:flex;flex-direction:column;min-height:0}
+#bv .sc{flex:1;overflow-y:auto;padding:22px 22px 12px}
+#bv .x{position:absolute;right:12px;top:10px;width:40px;height:40px;border-radius:50%;border:0;background:#EEF1F4;font-size:22px;cursor:pointer;z-index:3;color:#14212E}
+#bv .kk{color:#5E6A77;font-weight:700;font-size:14px;padding-right:44px}
+#bv .pp{font-size:30px;font-weight:900;margin:6px 0 4px;line-height:1.25}
+#bv .wh{color:#5E6A77;font-size:14px}
+#bv dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:7px 10px;background:#F6F7F9;border-radius:12px;padding:13px 15px;margin:14px 0;font-size:15px}#bv dt{color:#5E6A77}#bv dd{margin:0;font-weight:600}
+#bv .ds{font-size:15px;line-height:1.7;white-space:pre-line;margin:0}
+#bv .nv{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px;border-top:1px solid #EEF1F4}
+#bv .nv button,#bv .nv a{border:1px solid #DCE2E8;background:#fff;border-radius:10px;padding:11px 6px;font:inherit;font-size:14px;font-weight:800;text-align:center;color:#14212E;text-decoration:none;cursor:pointer}
+#bv .nv button:disabled{opacity:.35;cursor:default}
+#bv .of{padding:0 16px 12px;font-size:12.5px;color:#5E6A77}
+#bv.full .if{display:none}#bv.full .im{cursor:zoom-out}
+@media (orientation:portrait),(max-width:760px){#bv{padding:0}#bv .bx{flex-direction:column;border-radius:0;height:100%}#bv .pv{flex:none;height:50%}#bv.full .pv{height:100%}#bv .if{max-width:none;min-width:0;flex:1}#bv dl{grid-template-columns:repeat(2,80px minmax(0,1fr))}#bv .x{right:auto;left:10px;top:10px;background:rgba(0,0,0,.55);color:#fff}#bv .kk{padding-right:0}}`;
+    document.head.appendChild(st);
+  }
+  async function bvPub() {   // 손님 링크와 같은 공개 자료 (서버 60초 캐시)
+    if (BV.pub && Date.now() - BV.at < 60e3) return BV.pub;
+    const reg = String((S.bk || {}).regno || '').replace(/\D/g, '');
+    if (!reg) throw new Error('등록번호가 확인된 중개사무소만 크게 보기를 쓸 수 있습니다.');
+    const j = await (await fetch(`/api/auth?action=office&r=${reg}`)).json();
+    if (!j || j.ok === false) throw new Error((j && j.message) || '잠시 연결이 원활하지 않습니다.');
+    BV.pub = j; BV.at = Date.now(); return j;
+  }
+  function bvKakao() {
+    if (window.kakao && kakao.maps && kakao.maps.LatLng) return Promise.resolve(true);
+    if (!BV.kp) BV.kp = new Promise(async ok => {
+      try {
+        if (!window.kakao || !kakao.maps) { const cfg = await api('/api/config'); if (!cfg.kakaoKey) return ok(false); await new Promise((r, f) => { const sc = document.createElement('script'); sc.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(cfg.kakaoKey)}&libraries=services&autoload=false`; sc.onload = r; sc.onerror = f; document.head.appendChild(sc); }); }
+        kakao.maps.load(() => ok(true));
+      } catch { ok(false); }
+      setTimeout(() => ok(false), 8000);
+    });
+    return BV.kp;
+  }
+  async function bigView(id) {
+    bvCss();
+    const L = (S.adShown || S.adAll || []).filter(pubLive);
+    let pub; try { toast('여는 중…', 1500); pub = await bvPub(); } catch (e) { return toast(e.message, 4000); }
+    const idOf = z => String(z.k || '').split(':').slice(1).join(':'), M = new Map((pub.items || []).map(z => [idOf(z), z]));
+    BV.list = L.map(x => M.get(x.id)).filter(Boolean); BV.o = pub.office || {};
+    BV.i = Math.max(0, BV.list.findIndex(z => idOf(z) === id));
+    if (!BV.list.length || idOf(BV.list[BV.i]) !== id) return toast('이 매물은 지도에 반영되는 중입니다. 잠시 뒤 다시 눌러 주세요.', 4000);
+    $('toast').hidden = true;
+    BV.ph = 0; bvDraw();
+  }
+  function bvClose() { const d = $('bv'); if (d) d.remove(); document.removeEventListener('keydown', bvKey); document.body.style.overflow = ''; }
+  function bvKey(e) { if (e.key === 'Escape') bvClose(); else if (e.key === 'ArrowLeft') bvPh(-1); else if (e.key === 'ArrowRight') bvPh(1); }
+  function bvPh(dv) { const x = BV.list[BV.i], n = (x.photos || []).length; if (n < 2) return; BV.ph = (BV.ph + dv + n) % n; bvDraw(true); }
+  function bvDraw(keepFull) {
+    const x = BV.list[BV.i], o = BV.o; if (!x) return bvClose();
+    const n = v => Number(v || 0).toLocaleString();
+    const wonF = v => { v = Math.round(v || 0); const e = Math.floor(v / 10000), m = v % 10000; return v ? `${e ? e + '억' : ''}${e && m ? ' ' : ''}${m ? m.toLocaleString() + '만' : ''}원` : '0원'; };
+    const priceFull = x.kind === 'wolse' ? `보증금 ${x.deposit ? wonF(x.deposit) : '없음'} · 월 ${n(x.rent)}만원` : x.kind === 'presale' ? `분양가 ${wonF(x.price)} + 프리미엄 ${wonF(x.pr)}` : `${KIND[x.kind] || ''} ${wonF(x.kind === 'jeonse' ? x.deposit : x.price)}`;
+    const land = (x.pbase || x.ptype) === '토지', MGN = { gen: '공용관리비', elec: '전기', water: '수도', gas: '가스', heat: '난방', net: '인터넷', tv: 'TV', etc: '기타' };
+    const mg = x.mgmt ? `월 ${n(x.mgmt)}만원${({ fix: ' (정액)', use: ' (사용량에 따라 부과)', rule: ' (관리규약에 따라 부과)' })[x.mgmtT] || ''}${x.mgmtInc && x.mgmtInc.length ? ' · 포함: ' + x.mgmtInc.map(k => MGN[k] || k).join('·') : ''}${x.mgmtTx ? ' · ' + x.mgmtTx : ''}` : x.nomgmt ? '없음' : '';
+    const f = [   // office.html adCard 와 같은 항목 (손님 링크와 똑같이)
+      x.area && [x.ak === 'land' ? '토지면적' : x.ak === 'tot' ? '연면적' : '전용면적', `${Number(x.area).toLocaleString(undefined, { maximumFractionDigits: 2 })}㎡ (${(x.area / 3.305785).toFixed(1)}평)`],
+      x.use && [land ? '지목' : '건축물 용도', x.use], land && x.zone && ['용도지역', x.zone],
+      (x.flr || x.tfl) && ['층', `${x.flr || '-'}${x.tfl ? ' / 총 ' + x.tfl + '층' : ''}`],
+      x.dir && ['방향', `${x.dir} (${x.dirB || '주실 기준'})`],
+      (x.rooms != null || x.baths != null) && ['방·욕실', `방 ${x.rooms ?? '-'} · 욕실 ${x.baths ?? '-'}`],
+      mg && ['관리비', mg], x.premium && ['권리금', wonF(x.premium)],
+      x.biz && [(x.pbase || x.ptype) === '상가' ? '현재 업종' : '현재 용도', x.biz],
+      (x.wc || x.wcn != null) && ['화장실', [x.wc, x.wcn != null ? `${x.wcn}개` : ''].filter(Boolean).join(' · ')],
+      x.loanTx && ['융자', x.loanTx], x.occ && ['현재 상태', { self: '입주(자가 사용)', rent: '임차 중', empty: '공실' }[x.occ]],
+      x.strct && ['건축구조', x.strct], x.pow && ['사용전력', `${x.pow}kW`], x.ch && ['층고', `${x.ch}m`], x.hoist && ['호이스트', `${x.hoist}톤`],
+      x.trl && ['추레라', x.trl === 'y' ? '진입 가능' : '진입 불가'], x.facx && ['시설', x.facx], x.movein && ['입주 가능일', x.movein],
+      x.park && ['주차', x.park], x.elev && ['승강기', `${x.elev}대`], x.hhld && ['세대수', `${n(x.hhld)}세대`], x.appr && ['사용승인일', x.appr],
+    ].filter(Boolean);
+    const dong = x.dong ? (/동$/.test(x.dong) ? x.dong : x.dong + '동') : '', where = [x.addr, dong].filter(Boolean).join(' ');
+    const what = [x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype, x.bname].filter(Boolean).join(' · ');
+    const ph = x.photos || [], k = Math.min(BV.ph, Math.max(0, ph.length - 1));
+    const full = keepFull && $('bv') && $('bv').classList.contains('full');
+    bvClose();
+    const d = document.createElement('div'); d.id = 'bv'; if (full) d.classList.add('full');
+    d.innerHTML = `<div class="bx" role="dialog" aria-label="매물 크게 보기"><button type="button" class="x" data-bv="x" aria-label="닫기">×</button>
+      <div class="pv"><div class="im" data-bv="im">${ph.length ? `<img src="${esc(ph[k])}" alt="매물 사진 ${k + 1}">${ph.length > 1 ? `<span class="cnt">${k + 1} / ${ph.length}</span><button type="button" class="ar l" data-bv="pl" aria-label="이전 사진">‹</button><button type="button" class="ar r" data-bv="pr" aria-label="다음 사진">›</button>` : ''}` : `<div class="mp" id="bvMap"><div>${esc(x.bname || x.addr || '')}<small>${esc(where)}</small></div></div>`}</div>
+        ${ph.length > 1 ? `<div class="th">${ph.map((u, i) => `<button type="button" data-bv="t${i}" class="${i === k ? 'on' : ''}" style="background-image:url('${esc(u)}')" aria-label="사진 ${i + 1}"></button>`).join('')}</div>` : ''}</div>
+      <div class="if"><div class="sc"><div class="kk">${esc(what || KIND[x.kind] || '')}</div><div class="pp">${esc(priceFull)}</div><div class="wh">${esc(where)}</div>
+        ${f.length ? `<dl>${f.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>` : ''}${x.desc ? `<p class="ds">${esc(x.desc)}</p>` : ''}</div>
+        <div class="nv"><button type="button" data-bv="prev"${BV.i ? '' : ' disabled'}>‹ 이전 매물</button><a href="/?pnu=${esc(x.pnu)}&lst=1" target="_blank" rel="noopener">지도에서 보기 ↗</a><button type="button" data-bv="next"${BV.i < BV.list.length - 1 ? '' : ' disabled'}>다음 매물 ›</button></div>
+        <div class="of">${esc(o.office || '')}${o.ceo ? ' · 대표 ' + esc(o.ceo) : ''} · 등록번호 확인</div></div></div>`;
+    document.body.appendChild(d); document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', bvKey);
+    d.onclick = e => {
+      if (e.target === d) return bvClose();
+      const b = e.target.closest('[data-bv]'); if (!b) return;
+      const a = b.dataset.bv;
+      if (a === 'x') bvClose();
+      else if (a === 'pl') bvPh(-1); else if (a === 'pr') bvPh(1);
+      else if (a[0] === 't') { BV.ph = +a.slice(1); bvDraw(true); }
+      else if (a === 'prev' && BV.i > 0) { BV.i--; BV.ph = 0; bvDraw(); }
+      else if (a === 'next' && BV.i < BV.list.length - 1) { BV.i++; BV.ph = 0; bvDraw(); }
+      else if (a === 'im' && ph.length) d.classList.toggle('full');   // 사진을 한 번 더 누르면 사진만
+    };
+    const im = d.querySelector('.im'); let sx = null;   // 손가락으로 넘기기
+    im.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+    im.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) { e.preventDefault(); bvPh(dx < 0 ? 1 : -1); } });
+    if (!ph.length && x.lat && x.lng) bvKakao().then(ok => {   // 사진이 없으면 위치 지도 (못 불러오면 주소 그대로)
+      const el = $('bvMap'); if (!ok || !el || !$('bv')) return;
+      try { const pos = new kakao.maps.LatLng(x.lat, x.lng); el.innerHTML = ''; const m = new kakao.maps.Map(el, { center: pos, level: 3 }); new kakao.maps.Marker({ position: pos, map: m }); m.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT); } catch { /* 주소 그대로 */ }
+    });
+  }
   async function adAct(x) {
     {
       const it = S.items.find(i => i.id === x.dataset.id); if (!it) return;
       const a = x.dataset.ax;
       if (a === 'edit' || a === 'photo') return pubSheet(it, true);
+      if (a === 'big') return bigView(it.id);
       if (a === 'send') return shareOf(it);   /* 11/1 선배: 내 광고 [손님에게 보내기] — 지도 없이 이 매물 정보만 보이는 링크 */
       if (a === 'fix') return fixInLedger(it);
       if (a === 'pub') return pubSheet(it);
