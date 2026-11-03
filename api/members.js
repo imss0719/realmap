@@ -256,12 +256,19 @@ async function brokers(req, res) {
         if (L.length) { const seen = (await redis(['MGET', ...L.map(m => `realmap:sseen:${m.uid}`)]).catch(() => [])) || []; L.forEach((m, z) => { m.seen = seen[z] || ''; }); }
         return L.sort((x, y) => String(x.at).localeCompare(String(y.at)));
       }));
+      // 11/3 아파트 단지 장부에 적은 호 기록 수 (노란 [매물] 표시 없이 기록만 한 것도 보이게) — 담은 단지 수 · 기록한 호 수
+      const hjs = await Promise.all(ch.map(async id => {
+        let d = null; try { const v = await redis(['GET', `realmap:cx:${id}`]); d = v ? JSON.parse(v) : null; } catch { d = null; }
+        const cxs = (d && d.items) || []; if (!cxs.length) return { c: 0, h: 0 };
+        const ns = await Promise.all(cxs.map(c => redis(['HLEN', `realmap:hj:${id}:${c.id}`]).catch(() => 0)));
+        return { c: cxs.length, h: ns.reduce((a, b) => a + (Number(b) || 0), 0) };
+      }));
       for (let k = 0; k < ch.length; k++) {
         const j = v => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
         const u = j(us && us[k]) || {}, P = await planOf(ch[k]);
         const pr = j(pls && pls[k]) || {};
         rows.push({ id: ch[k], nickname: u.nickname || '', email: u.email || '', joined: u.joined || '', last: u.last || '', bk: j(bks && bks[k]), plan: planView(P), stat: j(sts && sts[k]),
-          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '', staff: (sns[k] || []).length, staffL: sns[k] || [] });
+          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '', staff: (sns[k] || []).length, staffL: sns[k] || [], hj: hjs[k] || { c: 0, h: 0 } });
       }
     }
     rows.sort((a, b) => String((b.stat && b.stat.up) || b.last).localeCompare(String((a.stat && a.stat.up) || a.last)));
