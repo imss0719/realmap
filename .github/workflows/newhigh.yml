@@ -1,0 +1,33 @@
+name: realmap-newhigh
+# 11/5 아파트 신고가 · 새 실거래 (scripts/newhigh.mjs) — 매일 새벽 3시 10분(한국 · 다른 공공데이터 작업과 시간 겹치지 않게) · 서울 25개 구
+#   처음 며칠은 2006년부터의 거래를 구마다 쌓음 (하루 호출 2,000번까지 · 마포부터) → 다 쌓이면 매일 최근 4개월만
+#   결과: data/nh-11.json (지도 라벨의 ▲ 신고가 · N 새 거래) + data/nh/s-<구>.json (상태)
+on:
+  schedule:
+    - cron: '10 18 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: realmap-newhigh
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: 신고가 계산
+        run: node scripts/newhigh.mjs
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          MINUTES: '50'
+      - name: 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/nh-11.json data/nh/*.json
+          git diff --cached --quiet || (git commit -m "아파트 신고가·새 거래 갱신" && (git push || (git pull --rebase origin main && git push)))
