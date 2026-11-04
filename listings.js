@@ -199,11 +199,15 @@
 window.RpWin = (() => {
   const K = 'rm.rpwin', W = () => innerWidth, Hh = () => innerHeight;
   const get = () => { try { return JSON.parse(localStorage.getItem(K) || 'null'); } catch { return null; } };
-  const clamp = (P, x, y) => { const w = P.offsetWidth || 440; return [Math.max(4, Math.min(W() - w - 4, x)), Math.max(4, Math.min(Hh() - 80, y))]; };
+  // 11/4 아파트·오피 입력창은 #dj(z-index 4) 안에 있어서 위 메뉴(z-index 20)에 가려짐 → 창 머리가 #dj 위쪽 경계 아래로만 오게 (닫기 버튼이 늘 보이게)
+  const fzv = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fz')) || 1;
+  const minY = P => { const d = P.closest('#dj'); return d ? Math.ceil(d.getBoundingClientRect().top / fzv()) + 4 : 4; };
+  const clamp = (P, x, y) => { const w = P.offsetWidth || 440, m = minY(P); return [Math.max(4, Math.min(W() - w - 4, x)), Math.max(m, Math.min(Hh() - 80, y))]; };
+  const fitH = (P, y) => { if (P.closest('#dj')) P.style.maxHeight = Math.max(200, Math.floor(Hh() / fzv() - y - 12)) + 'px'; };
   function place(P) {
     if (W() <= 1100) return;
     const v = get(); const [x, y] = clamp(P, v ? v.x : W() - 470, v ? v.y : 96);
-    P.style.left = x + 'px'; P.style.top = y + 'px';
+    P.style.left = x + 'px'; P.style.top = y + 'px'; fitH(P, y);
   }
   function drag(P) {
     const h = P.querySelector('.rp-h'); if (!h || h._dg) return; h._dg = true;
@@ -212,7 +216,7 @@ window.RpWin = (() => {
       e.preventDefault();
       const r = P.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
       document.body.classList.add('rzwin');
-      const mv = ev => { const [x, y] = clamp(P, ev.clientX - dx, ev.clientY - dy); P.style.left = x + 'px'; P.style.top = y + 'px'; };
+      const mv = ev => { const [x, y] = clamp(P, ev.clientX - dx, ev.clientY - dy); P.style.left = x + 'px'; P.style.top = y + 'px'; fitH(P, y); };
       const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); document.body.classList.remove('rzwin'); try { localStorage.setItem(K, JSON.stringify({ x: parseInt(P.style.left, 10), y: parseInt(P.style.top, 10) })); } catch { /* 이번만 */ } };
       addEventListener('pointermove', mv); addEventListener('pointerup', up);
     });
