@@ -236,6 +236,7 @@ async function bkGate(uid) {
 // 공개 목록은 한 덩어리 해시 realmap:pub { '<회원id>:<매물id>': 공개용 요약 JSON } — 호수·소유자 연락처·메모는 절대 넣지 않습니다.
 // 시범 운영: 운영자만 게시 가능. 환경변수 PUB_OPEN=1 이면 중개사 정보를 입력한 PRO 회원 모두 게시 가능.
 export const PUB_KEY = 'realmap:pub';
+export const PUBN_KEY = 'realmap:pubn';   // 11/4 회원 id → 게시 중 매물 만료일 목록(JSON)
 const PUB_DAYS = 30;
 const RESID = ['아파트', '빌라', '오피스텔', '주택'];
 // 10/26 세부 유형 → 원래 큰 유형 (listings.js tbase 와 같은 규칙) — 광고 필수 항목·방향 맞추기는 이 값으로
@@ -310,7 +311,7 @@ function pubSummary(uid, x, bk) {
 }
 // 매물장이 바뀔 때마다 공개 목록을 맞춥니다: 진행 중 + 게시 + 필수 항목 완비 → 올림, 아니면 내림
 export async function syncPub(uid, items, bk, P) {
-  const set = [], del = [], now = new Date().toISOString();
+  const set = [], del = [], exps = [], now = new Date().toISOString();
   const bkOk = (ADMIN_ID && String(uid) === ADMIN_ID) || !!(bk && bk.verified); // 확인된 중개사무소만 지도에
   // 요금제 광고 한도: 먼저 게시한 순서대로 남기고, 넘치는 것은 내림 (무료로 내려갔을 때 등)
   const cap = P ? P.ad : 1e9;
@@ -319,10 +320,12 @@ export async function syncPub(uid, items, bk, P) {
     if (!x.pub) continue;
     const field = `${uid}:${x.id}`;
     if (x.pub.on && x.status === 'on' && x.pub.exp > now && !keep.has(x.id)) x.pub.on = false;
-    if (x.pub.on && x.status === 'on' && canPub(uid) && bkOk && !adMissing(x, bk).length) set.push(field, JSON.stringify(pubSummary(uid, x, bk)));
+    if (x.pub.on && x.status === 'on' && canPub(uid) && bkOk && !adMissing(x, bk).length) exps.push(x.pub.exp), set.push(field, JSON.stringify(pubSummary(uid, x, bk)));
     else { if (x.pub.on && x.status !== 'on') x.pub.on = false; del.push(field); }
   }
-  await pipe([...(set.length ? [['HSET', PUB_KEY, ...set]] : []), ...(del.length ? [['HDEL', PUB_KEY, ...del]] : [])]);
+  // 11/4 사무소별 광고 수 (지도 사무소 카드 'n건 모두 보기'용): 게시 중인 매물의 게시 만료일만 모아 둠 → 읽을 때 만료 안 된 것만 셈
+  const pn = exps.length ? [['HSET', PUBN_KEY, String(uid), JSON.stringify(exps)]] : [['HDEL', PUBN_KEY, String(uid)]];
+  await pipe([...(set.length ? [['HSET', PUB_KEY, ...set]] : []), ...(del.length ? [['HDEL', PUB_KEY, ...del]] : []), ...pn]);
 }
 // 아파트·오피스텔은 같은 동·같은 라인이면 방향이 같음 → 매물 방향 ↔ 단지관리 라인 방향을 서로 채움
 //   매물에 방향이 비어 있으면: 단지관리 라인 방향 → 같은 동·라인의 다른 매물 방향 순으로 채움
@@ -800,15 +803,26 @@ export default async function (req, res) {
     if (action === 'offices') {
       if (!R_URL || !R_TOKEN) return send(res, 200, { ok: true, items: [] }, 300);
       const raw = (await redis(['HGETALL', 'realmap:regno']).catch(() => [])) || [], pairs = [], items = [];
+      // 11/4 사무소별 게시 중 광고 수 — 처음 한 번은 지금 공개 목록으로 채움 (그 뒤로는 syncPub이 회원 저장 때마다 갱신)
+      if (!(await redis(['EXISTS', 'realmap:pubn:ok']).catch(() => 1))) {
+        try {
+          const all = (await redis(['HGETALL', PUB_KEY])) || [], by = {};
+          for (let i = 0; i < all.length; i += 2) { const u = String(all[i]).split(':')[0]; try { const v = JSON.parse(all[i + 1]); if (v.exp) (by[u] = by[u] || []).push(v.exp); } catch { /* 건너뜀 */ } }
+          const f = Object.entries(by).flatMap(([u, e]) => [u, JSON.stringify(e)]);
+          await pipe([...(f.length ? [['HSET', PUBN_KEY, ...f]] : []), ['SET', 'realmap:pubn:ok', '1']]);
+        } catch { /* 다음에 다시 */ }
+      }
+      const pnRaw = (await redis(['HGETALL', PUBN_KEY]).catch(() => [])) || [], pnOf = {}, nowIso = new Date().toISOString();
+      for (let i = 0; i < pnRaw.length; i += 2) { try { pnOf[String(pnRaw[i])] = JSON.parse(pnRaw[i + 1]).filter(e => e > nowIso).length; } catch { /* 건너뜀 */ } }
       for (let i = 0; i < raw.length; i += 2) pairs.push([String(raw[i]), String(raw[i + 1])]);
       for (let i = 0; i < pairs.length; i += 200) {
         const ch = pairs.slice(i, i + 200), vals = (await redis(['MGET', ...ch.map(([, u]) => `realmap:bk:${u}`)]).catch(() => [])) || [];
-        ch.forEach(([d], k) => {
+        ch.forEach(([d, u], k) => {
           let b = null; try { b = vals[k] ? JSON.parse(vals[k]) : null; } catch { b = null; }
           if (!b || !b.verified || digitsOf(b.regno) !== d) return;   // 해지·승인 대기는 빼기
           const pos = b.lat > 33 && b.lng > 124;
           if (!pos && !b.addr) return;
-          items.push({ office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile || '', verified: true, photo: b.photo || '', lat: pos ? b.lat : null, lng: pos ? b.lng : null, posv: pos ? b.posv || 1 : 0 });   // 11/2 위치가 아직 없으면(회원이 중개장부를 안 열어 봄) 주소만 → 지도 화면이 주소로 찾음
+          items.push({ n: pnOf[u] || 0, office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile || '', verified: true, photo: b.photo || '', lat: pos ? b.lat : null, lng: pos ? b.lng : null, posv: pos ? b.posv || 1 : 0 });   // 11/2 위치가 아직 없으면(회원이 중개장부를 안 열어 봄) 주소만 → 지도 화면이 주소로 찾음
         });
       }
       return send(res, 200, { ok: true, items }, 300);
