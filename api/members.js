@@ -263,12 +263,14 @@ async function brokers(req, res) {
         const ns = await Promise.all(cxs.map(c => redis(['HLEN', `realmap:hj:${id}:${c.id}`]).catch(() => 0)));
         return { c: cxs.length, h: ns.reduce((a, b) => a + (Number(b) || 0), 0) };
       }));
+      // 11/4 고객관리에 등록한 고객 수 (내용은 열지 않고 개수만 · 암호화된 그대로)
+      const cus = await Promise.all(ch.map(id => redis(['HLEN', `realmap:cu:${id}`]).then(n => Number(n) || 0).catch(() => 0)));
       for (let k = 0; k < ch.length; k++) {
         const j = v => { try { return v ? JSON.parse(v) : null; } catch { return null; } };
         const u = j(us && us[k]) || {}, P = await planOf(ch[k]);
         const pr = j(pls && pls[k]) || {};
         rows.push({ id: ch[k], nickname: u.nickname || '', email: u.email || '', joined: u.joined || '', last: u.last || '', bk: j(bks && bks[k]), plan: planView(P), stat: j(sts && sts[k]),
-          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '', staff: (sns[k] || []).length, staffL: sns[k] || [], hj: hjs[k] || { c: 0, h: 0 } });
+          src: { by: pr.by || '', why: pr.why || '', memo: pr.memo || '', mon: pr.mon || 0, at: pr.at || '' }, opmemo: (oms && oms[k]) || '', staff: (sns[k] || []).length, staffL: sns[k] || [], hj: hjs[k] || { c: 0, h: 0 }, cu: cus[k] || 0 });
       }
     }
     rows.sort((a, b) => String((b.stat && b.stat.up) || b.last).localeCompare(String((a.stat && a.stat.up) || a.last)));
