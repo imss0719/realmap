@@ -63,6 +63,23 @@
   (() => { let i = 3; try { const v = localStorage.getItem('rm.fz2'); const o = localStorage.getItem('rm.fz'); if (v !== null) i = +v; else if (o !== null) i = +o + 2; } catch { /* 무시 */ } setFz(i); $('fzDn').onclick = () => setFz(S.fz - 1); $('fzUp').onclick = () => setFz(S.fz + 1); })();
 
   // ---------- 시작 ----------
+  // 11/4 선배: 바뀐 점을 중개사 회원에게 한 번씩 알림 — 다음 소식은 NEWS의 id·기간·문구만 바꾸면 됨 (id가 바뀌면 다시 한 번 뜸)
+  const NEWS = { id: 'n20261105', from: '2026-11-05T00:00:00+09:00', to: '2026-11-08T00:00:00+09:00', tag: '리얼맵 새 소식 · 11월 5일', title: '아파트·오피 장부가 더 편해졌습니다',
+    items: [['매물 여부는 맨 앞 <span class="np-dot"></span> 버튼 하나로', '켜면 매물, 끄면 장부 기록으로 남습니다.'], ['매물을 꺼도 적어 둔 정보는 그대로', '받은 곳·거래·가격이 표에 흐리게 남고, 다시 켜면 그대로 매물이 됩니다.'], ['내 물건이 아니어도 미리 적어 두세요', '꺼진 호에도 구분·거래·가격을 적을 수 있습니다.']] };
+  function newsPop() {
+    const now = Date.now(); if (now < Date.parse(NEWS.from) || now >= Date.parse(NEWS.to)) return;
+    try { if (localStorage.getItem('rm.news') === NEWS.id) return; } catch { return; }   // 저장이 안 되는 브라우저는 매번 뜨지 않게 아예 안 띄움
+    if (document.getElementById('np_box')) return;
+    const st = document.createElement('style');
+    st.textContent = '#np_bg{position:fixed;inset:0;background:rgba(15,23,35,.45);z-index:9998}#np_box{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);z-index:9999}#np_box .np-h{background:#14202e;color:#fff;padding:18px 22px}#np_box .np-h small{color:#F5B800;font-weight:700;font-size:13px}#np_box .np-h b{display:block;font-size:20px;margin-top:4px}#np_box ul{margin:0;padding:18px 22px 6px;list-style:none}#np_box li{display:flex;gap:12px;margin-bottom:16px;font-size:15px;line-height:1.5;color:#222}#np_box li i{flex:none;width:24px;height:24px;border-radius:50%;background:#FFF3C4;color:#8a6500;font-style:normal;font-weight:800;text-align:center;line-height:24px;font-size:13px}#np_box li em{font-style:normal;color:#666;font-size:13.5px;display:block}#np_box .np-dot{display:inline-block;width:11px;height:11px;border-radius:50%;background:#F5B800;border:1.5px solid #d9a200;vertical-align:-1px}#np_box .np-f{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 22px 20px}#np_box .np-f span{font-size:12.5px;color:#999}#np_box .np-f button{background:#F5B800;border:0;border-radius:10px;padding:10px 28px;font-size:15px;font-weight:700;cursor:pointer;color:#111}';
+    const bg = document.createElement('div'); bg.id = 'np_bg';
+    const box = document.createElement('div'); box.id = 'np_box'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    box.innerHTML = `<div class="np-h"><small>${NEWS.tag}</small><b>${NEWS.title}</b></div><ul>${NEWS.items.map(([t, d], i) => `<li><i>${i + 1}</i><div><b>${t}</b><em>${d}</em></div></li>`).join('')}</ul><div class="np-f"><span>이 안내는 한 번만 보입니다</span><button type="button" id="np_ok">확인</button></div>`;
+    const close = () => { try { localStorage.setItem('rm.news', NEWS.id); } catch { /* 무시 */ } [st, bg, box].forEach(e => e.remove()); document.removeEventListener('keydown', key); };
+    const key = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); close(); } };
+    document.head.appendChild(st); document.body.append(bg, box);
+    box.querySelector('#np_ok').onclick = close; bg.onclick = close; document.addEventListener('keydown', key); box.querySelector('#np_ok').focus();
+  }
   async function init() {
     try { S.me = await api('/api/auth?action=me'); } catch { S.me = { member: false }; }
     // 처음 오는 분(로그인 전 · 중개사 서비스 시작 전)은 소개 페이지로
@@ -89,6 +106,7 @@
       toast(e.message, 4000);
     }
     draw(); poll();
+    if (S.bk) setTimeout(newsPop, 600);   // 11/4 새 소식 안내 (기간 안에 기기마다 한 번)
     // 고객관리: 화면을 열지 않아도 매물 상세의 '맞는 고객'·알림에 쓰도록 미리 불러 둠
     if (window.Cust) Cust.init(custHost()).then(() => { if (S.mode === 'list') draw(); }).catch(() => {});
     // 알림 (10/31 정리: 고객 매칭 · 광고 기간 끝남 · 리얼맵 소식)
