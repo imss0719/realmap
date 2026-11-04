@@ -1,0 +1,37 @@
+name: realmap-newhigh-test
+# 11/4 시험: 아파트 신고가 (scripts/newhigh-test.mjs) — 수동 실행
+#   [Run workflow]에서 구 코드·기간을 넣고 실행 (기본: 마포 11440 · 250개월 = 2006년부터)
+#   결과: Actions 실행 화면의 요약표 + data/newhigh-test-<구>.json (지도에는 아직 안 씀)
+on:
+  workflow_dispatch:
+    inputs:
+      gu:
+        description: '구 코드 (마포 11440)'
+        default: '11440'
+      months:
+        description: '기간 (개월 · 250 = 2006년부터)'
+        default: '250'
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: 신고가 시험
+        run: node scripts/newhigh-test.mjs
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          GU: ${{ github.event.inputs.gu }}
+          MONTHS: ${{ github.event.inputs.months }}
+          MINUTES: '50'
+      - name: 저장
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/newhigh-test-*.json
+          git diff --cached --quiet || (git commit -m "아파트 신고가 시험 결과" && (git push || (git pull --rebase origin main && git push)))
