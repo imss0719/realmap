@@ -1445,10 +1445,10 @@ window.Danji = (() => {
     if (s.src && !s.done) {
       const ls = (s.mine || []).find(z => z.status !== 'done'), live = ls && S.host.pubCell && /게시/.test(S.host.pubCell(ls.id) || '');
       if (live && !confirm(`${UL(x)}를 매물에서 해제할까요?\n리얼맵 지도 광고도 함께 내려갑니다.`)) return;
-      saveRow(cx, x, D => { D.st = { src: '', k: [], hold: false, office: '' }; });
-      toast(live ? '매물에서 해제했습니다 (리얼맵 광고도 내림)' : '매물에서 해제했습니다');
+      saveRow(cx, x, D => { D.so = { src: D.st.src, k: [...(D.st.k || [])], office: D.st.office || '' }; D.st = { src: '', k: [], hold: false, office: '' }; });   // 11/4 적어 둔 정보는 그대로 (so에 보관)
+      toast(live ? '매물에서 해제했습니다 (리얼맵 광고도 내림 · 적어 둔 정보는 그대로)' : '매물에서 해제했습니다 (적어 둔 정보는 그대로)');
     } else {
-      saveRow(cx, x, D => { D.st = { src: 'mine', k: [D.live === 'tenant' ? 'sale' : 'jeonse'], hold: false, office: '' }; });
+      saveRow(cx, x, D => { const o = D.so || {}; D.st = { src: o.src || 'mine', k: (o.k || []).length ? [o.k[0]] : [D.live === 'tenant' ? 'sale' : 'jeonse'], hold: false, office: o.src === 'other' ? o.office || '' : '' }; D.so = null; });   // 11/4 꺼 두었던 구분·거래 그대로 다시
       toast('매물로 등록했습니다');
     }
     if (S.pk && S.pk.key === x.key) setTimeout(() => drawPanel(true), 0);
@@ -1515,7 +1515,8 @@ window.Danji = (() => {
     const row = (t, inner, cls = '') => `<div class="rpr ${cls}"><b>${t}</b><div class="rpv">${inner}</div></div>`;
     // 10/29 띄운 입력창(서식형, 시안 4): 두 칸씩 한 줄 · 매물 등록·해제는 표 맨 앞 ● · 거래는 하나만 · 보류·되돌리기·통화 기록 없음 · 옵션은 늘
     S.pkDraft = null;
-    const isMk = !!s.src && !s.done, dis = ro ? 'disabled' : '', mdis = ro || !isMk ? 'disabled' : '', k0 = isMk ? (s.k || [])[0] || '' : '';
+    // 11/4 선배: 매물이든 아니든 입력창은 똑같이 — 매물 [●/○]는 '올리느냐 마느냐'만. 꺼져 있으면 보관해 둔 구분·거래(r.so)를 보여 주고 고치면 거기에 저장
+    const isMk = !!s.src && !s.done, sv = isMk ? s : (r.so || {}), dis = ro ? 'disabled' : '', mdis = dis, k0 = (sv.k || [])[0] || '';
     const seg1 = (g, list, cur, d) => `<span class="rpseg" data-g="${g}">${list.map(([k, t]) => `<button type="button" data-v="${k}" aria-pressed="${cur === k}" ${d}>${t}</button>`).join('')}</span>`;
     const W = (f, val, w = 74, d = dis) => `<span class="wonw"><input class="rpi rpw" data-f="${f}" data-won${f === 'mg' ? '="dec"' : ''} value="${val ? esc(String(val)) : ''}" inputmode="${f === 'mg' ? 'decimal' : 'numeric'}" style="width:${w}px" ${d}><i class="wonh">${esc(window.wonH ? window.wonH(val) : '')}</i></span>`;
     const F1 = (t, h, c = '') => `<div class="fr f1 ${c}"><b>${t}</b><div>${h}</div></div>`;
@@ -1532,9 +1533,9 @@ window.Danji = (() => {
     P.innerHTML = `<div class="rp-h" title="잡고 끌면 창이 옮겨집니다"><span class="grip">⠿</span><b>${S.cur === '__all' ? `<small>${esc(cx.name)}</small> ` : ''}${esc(UL(x))}</b>${meta ? `<span class="rptg">${esc(meta)}</span>` : ''}${isMk ? '<span class="mkb">● 매물</span>' : ''}<button type="button" class="rp-x" id="rp_x" aria-label="닫기 (Esc)">✕</button></div>
       ${ro ? `<p class="rpwarn">${S.L[cx.id] && S.L[cx.id].err ? esc(S.L[cx.id].err) : '요금제 단지 한도를 넘은 단지라 보기만 됩니다'}</p>` : ''}
       <div class="rpbody">
-      <div class="rpsec">매물<small>${isMk ? '' : '표 맨 앞 ○ 를 누르면 매물로 등록됩니다'}</small></div>
-      <div class="fgrp mk${isMk ? '' : ' off'}">
-      ${F1('구분', `${seg1('msrc', [['mine', '내 물건'], ['other', '타부동산']], isMk ? s.src : '', mdis)}${isMk && s.src === 'other' ? ` <input class="rpi" data-f="of" value="${esc(s.office || '')}" maxlength="30" style="width:130px" ${dis}>` : ''}`)}
+      <div class="rpsec">매물<small>${isMk ? '' : '매물 꺼짐 · 표 맨 앞 ○ 를 누르면 매물로 올라갑니다'}</small></div>
+      <div class="fgrp mk">
+      ${F1('구분', `${seg1('msrc', [['mine', '내 물건'], ['other', '타부동산']], sv.src || '', mdis)}${sv.src === 'other' ? ` <input class="rpi" data-f="of" value="${esc(sv.office || '')}" maxlength="30" style="width:130px" ${dis}>` : ''}`)}
       ${F2('거래', seg1('mk', [['sale', '매매'], ['jeonse', '전세'], ['wolse', '월세']], k0, mdis), prLb, prH)}
       ${F1('방·욕실', `<input class="rpi rpsm" data-f="rm" value="${r.rm || ''}" inputmode="numeric" maxlength="2" ${dis}><i class="u">/</i><input class="rpi rpsm" data-f="bt" value="${r.bt || ''}" inputmode="numeric" maxlength="2" ${dis}>`)}
       ${window.Mg ? Mg.rows({ mg2: r.mgd }, `${W('mg', r.mg, 50)}<i class="u">만원</i>`, { dis, nd: isMk && s.src === 'mine' ? Mg.miss({ mg2: r.mgd }, r.mg) : [], row: (t, h, c) => F1(t, h, 'mgr' + c) }) : F1('관리비', `${W('mg', r.mg, 50)}<i class="u">만원</i>`)}
@@ -1583,7 +1584,7 @@ window.Danji = (() => {
         if (f === 'mv') return save(D => { const m = mvParse(val), q0 = mvParse(D.moveIn).q; D.moveIn = mvJoin(m.date, m.q || q0); });
         if (f === 'exp') return save(D => { D.exp = val; });
         if (f === 'ps' || f === 'pj' || f === 'pwd' || f === 'pwr') { const k = { ps: 'sale', pj: 'jeonse', pwd: 'wd', pwr: 'wr' }[f], n = +(String(val).replace(/\D/g, '') || 0); if (S.pkDraft) { S.pkDraft.vals[k] = n || 0; return; } return save(D => { D.pr = { ...D.pr, [k]: n || 0 }; }); }
-        if (f === 'of') return save(D => { if (D.st.src) D.st = { ...D.st, office: val.trim() }; });
+        if (f === 'of') return save(D => { if (D.st.src) D.st = { ...D.st, office: val.trim() }; else D.so = { src: 'other', k: [], ...(D.so || {}), office: val.trim() }; });
         if (f === 'imp' || f === 'opt' || f === 'note') return save(D => { D[f] = val.trim(); });
       };
       el.dataset.last = orig;
@@ -1609,13 +1610,15 @@ window.Danji = (() => {
     P.querySelectorAll('[data-rpcall]').forEach(a => a.onclick = () => { const t = T[+a.dataset.rpcall]; actRow(cx, x, 'call', { label: (t && t.l) || '연락처' }); });
     // 매물 (나와 있는 호)
     const NONE = { src: '', k: [], hold: false, office: '' }, ORD = ['sale', 'jeonse', 'wolse'];
-    P.querySelectorAll('[data-g="msrc"] [data-v]').forEach(b => b.onclick = () => { save(D => { D.st = { ...D.st, src: b.dataset.v, office: b.dataset.v === 'other' ? D.st.office || '' : '' }; }); setTimeout(() => drawPanel(true), 0); });
+    // 11/4 매물이 꺼져 있으면 구분·거래는 보관 칸(so)에 — 매물로 올라가지 않음
+    const onMk = D => !!(D.st && D.st.src);
+    P.querySelectorAll('[data-g="msrc"] [data-v]').forEach(b => b.onclick = () => { save(D => { const v0 = b.dataset.v; if (onMk(D)) D.st = { ...D.st, src: v0, office: v0 === 'other' ? D.st.office || '' : '' }; else { const o = D.so || { k: [] }; D.so = { ...o, src: v0, office: v0 === 'other' ? o.office || '' : '' }; } }); setTimeout(() => drawPanel(true), 0); });
     P.querySelectorAll('[data-g="mk"] [data-v]').forEach(b => b.onclick = () => {   // 10/29 거래는 하나만
-      const k = b.dataset.v; if ((x.st.k || [])[0] === k && (x.st.k || []).length === 1) return;
-      save(D => { D.st = { ...D.st, k: [k] }; }); setTimeout(() => drawPanel(true), 0);
+      const k = b.dataset.v, cur = isMk ? x.st.k || [] : (r.so && r.so.k) || []; if (cur[0] === k && cur.length === 1) return;
+      save(D => { if (onMk(D)) D.st = { ...D.st, k: [k] }; else D.so = { src: '', office: '', ...(D.so || {}), k: [k] }; }); setTimeout(() => drawPanel(true), 0);
     });
     const hold = P.querySelector('[data-hold]'); if (hold) hold.onchange = () => save(D => { D.st = { ...D.st, hold: hold.checked }; });
-    const toled = P.querySelector('[data-toled]'); if (toled) toled.onclick = () => { if (!confirm(`${UL(x)}를 매물에서 내릴까요?\n호 기록은 그대로 남고, 내린 기록도 남습니다.`)) return; save(D => { D.st = { ...NONE }; }); toast('매물에서 내렸습니다 (호 기록은 그대로)'); setTimeout(() => drawPanel(true), 0); };
+    const toled = P.querySelector('[data-toled]'); if (toled) toled.onclick = () => { if (!confirm(`${UL(x)}를 매물에서 내릴까요?\n호 기록은 그대로 남고, 내린 기록도 남습니다.`)) return; save(D => { D.so = { src: D.st.src, k: [...(D.st.k || [])], office: D.st.office || '' }; D.st = { ...NONE }; }); toast('매물에서 내렸습니다 (적어 둔 정보·호 기록은 그대로)'); setTimeout(() => drawPanel(true), 0); };
     const card = P.querySelector('[data-card]'); if (card) card.onclick = () => cardFrom(x);
     // 매물장으로 (아직 안 나온 호): 받은 곳 · 거래 · 가격을 넣고 [매물장에 올리기]
     const mo = P.querySelector('[data-mkopen]'); if (mo) mo.onclick = () => { S.pkMk = true; S.pkDraft = null; drawPanel(true); const f = P.querySelector('#rp_dpr input'); if (f) f.focus(); };
@@ -2105,7 +2108,7 @@ window.Danji = (() => {
   // 10/30 선배: 입주 = [즉시·협의 버튼] 따로 + [날짜] 따로 (서로 지우지 않음) · 저장은 한 칸에 '27년12월초 협의'처럼
   const mvParse = v => { v = String(v || '').trim(); const m = v.match(/^(.*?)\s*(즉시입주|즉시|협의)$/); const q = m ? (m[2] === '즉시' ? '즉시입주' : m[2]) : ''; return { q, date: (m ? m[1] : v).trim() }; };
   const mvJoin = (d, q) => [d, q].filter(Boolean).join(' ');
-  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, mgd: null, ln: 0, lnr: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, hist: [] });
+  const EMPTY_REC = () => ({ st: { src: '', k: [], hold: false, office: '' }, so: null, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, mgd: null, ln: 0, lnr: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, hist: [] });
   // '8억 5천' · '8억5000' · '8.5억' · '85000' · '5천' → 만원
   function parseMan(v) {
     const s = String(v || '').replace(/[,\s원]/g, '').replace(/만$/, '');
@@ -2120,7 +2123,7 @@ window.Danji = (() => {
   const fmtT = iso => { const d = new Date(Date.parse(iso) + 9 * 3600e3), p = n => String(n).padStart(2, '0'); return `${String(d.getUTCFullYear()).slice(2)}.${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; };
   const todayK = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const hjPost = body => api('/api/auth?action=hj', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, pr: r.pr, ar: r.ar || 0, live: r.live, exp: r.exp, moveIn: r.moveIn, rm: r.rm || 0, bt: r.bt || 0, mg: r.mg || 0, mgd: r.mgd || null, ln: r.ln || 0, lnr: r.lnr || '', opt: r.opt, tels: r.tels, note: r.note, imp: r.imp || '', cd: r.cd || 0, cr: r.cr || 0, mk: r.mk || '' }));
+  const fieldsOf = r => JSON.parse(JSON.stringify({ st: r.st, so: r.so || null, pr: r.pr, ar: r.ar || 0, live: r.live, exp: r.exp, moveIn: r.moveIn, rm: r.rm || 0, bt: r.bt || 0, mg: r.mg || 0, mgd: r.mgd || null, ln: r.ln || 0, lnr: r.lnr || '', opt: r.opt, tels: r.tels, note: r.note, imp: r.imp || '', cd: r.cd || 0, cr: r.cr || 0, mk: r.mk || '' }));
 
   async function saveMemo(cx, key, text) {
     try {
