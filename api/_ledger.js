@@ -247,7 +247,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   if (guard && JSON.stringify([rec.st, rec.pr, rec.rm || 0, rec.bt || 0, rec.mg || 0, rec.moveIn || '', rec.mgd || null, rec.ln || 0, rec.lnr || '']) !== stp0) { const why = await guard(key); if (why) return fail(res, 403, 'publock', why); }
   rec.up = now;
   if (who) { rec.by = who.id; rec.byn = who.n; }
-  const empty = !rec.hist.length && !rec.st.src && !rec.so && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
+  const empty = !rec.hist.length && !rec.st.src && !rec.so && !rec.deal && !rec.imp && !rec.impd && !rec.cd && !rec.cr && !rec.mk && !(rec.pr && (rec.pr.sale || rec.pr.jeonse || rec.pr.wd || rec.pr.wr)) && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
   if (empty) await redis(['HDEL', H, key]);
   else { await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, id]); }
   if (movedMemo) await saveCx();
