@@ -241,7 +241,9 @@ window.Board = (() => {
     $('bdLay').classList.toggle('hastree', treeOn());
     if (!treeOn()) { T.innerHTML = ''; return; }
     // 10/30 선배: 아파트·오피 탭 = '단지 없는 매물' — 왼쪽은 아파트 화면의 단지 탐색기를 그대로 (누르면 아파트 화면으로)
-    const dj = orphOn() && H.djTree && H.djTree(T); $('bdLay').classList.toggle('djt', !!dj); if (dj) return;
+    const dj = orphOn() && H.djTree && H.djTree(T); $('bdLay').classList.toggle('djt', !!dj);
+    // 11/4 선배: 개별매물도 다른 단지 화면처럼 [전체 · 매물만]을 왼쪽 탐색기 머리에 (제목 옆 것은 CSS로 숨김)
+    if (dj) { const h = T.querySelector('.tth'); if (h && !h.querySelector('.bst')) h.insertAdjacentHTML('beforeend', bstHtml()); wireBst(T); return; }
     const base = H.items().filter(x => pass(x)), tr = B.tr || {}, flat = flatCat() || B.cat === 'redev';
     const top = {}, sub = {};
     base.forEach(x => { const h = topOf(x); top[h] = (top[h] || 0) + 1; if (!flat && x.bname) { const s = sub[h] || (sub[h] = {}); s[x.bname] = (s[x.bname] || 0) + 1; } });
@@ -257,7 +259,8 @@ window.Board = (() => {
   }
   // 10/30 [전체 · 매물만] — 넓은 화면은 왼쪽 탐색기 머리에 (선배) · 탐색기가 숨는 좁은 화면·지도 열 때는 위 막대 제목 옆 (CSS로 하나만 보임)
   const bstHtml = () => { const mk = B.fs[0] === 'on'; return `<span class="bst" role="tablist" aria-label="장부 고르기">${[['', '전체'], ['on', '매물만']].map(([k, t]) => `<button type="button" data-bst="${k}" aria-pressed="${(k === 'on') === mk}">${t}</button>`).join('')}</span>`; };
-  const wireBst = root => root.querySelectorAll('[data-bst]').forEach(b => b.onclick = () => { const v = b.dataset.bst ? [b.dataset.bst] : []; if (String(B.fs) === String(v)) return; B.fs = v; B.tr = null; B.pk = null; B.fitNext = true; refresh(); });
+  const wireBst = root => root.querySelectorAll('[data-bst]').forEach(b => b.onclick = e => { e.stopPropagation();   // 11/4 단지 탐색기 안에서 눌러도 아파트 화면으로 넘어가지 않게
+     const v = b.dataset.bst ? [b.dataset.bst] : []; if (String(B.fs) === String(v)) return; B.fs = v; B.tr = null; B.pk = null; B.fitNext = true; refresh(); });
   // ---------- 위 거르기 막대 ----------
   // 10/28 단순화(5단계): 위 막대는 상태 · 찾기 · 지도로 보기만 · 10/30 상태 → [전체 · 매물만] (아파트와 같게 · 넓은 화면은 탐색기 머리)
   //   매물 등록은 아래 주소 줄 하나 · 고치기는 줄을 누르면 오른쪽 입력창 · 지도 광고는 표 맨 끝 '리얼맵' 칸
