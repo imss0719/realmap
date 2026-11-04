@@ -339,7 +339,7 @@
       .then(j => { if (tok === S.tok) { S.d.kapt = j; render(); } }).catch(e => { if (tok === S.tok) { S.d.kapt = { error: e.message }; render(); } });
     return S.d.kapt;
   }
-  // 11/1 같은 법정동 아파트끼리 84㎡ 최근 6개월 최고가 순위 (지도 라벨과 같은 /api/aptmap 자료 · 84㎡ 거래 단지가 3곳 이상일 때만)
+  // 11/1 같은 법정동 아파트끼리 84㎡ 순위 (11/5부터 라벨에 보이는 최근 거래가 기준) (지도 라벨과 같은 /api/aptmap 자료 · 84㎡ 거래 단지가 3곳 이상일 때만)
   function danjiRank() {
     const p = S.sel; if (!p || !p.c) return null;
     const lawd = String(p.pnu).slice(0, 5), e = T.regions.get(`apt:${lawd}`);
@@ -348,8 +348,8 @@
       return null;
     }
     const dong = p.dongName, cx = cxNorm(cxName());
-    const m = kingGroups(e.items).get(dong); if (!m || m.size < 3) return null;   // 11/1 지도 왕관과 같은 기준 (84㎡ 6개월 최고가)
-    const L = [...m.entries()].sort((a, z) => z[1].x84 - a[1].x84);
+    const m = kingGroups(e.items).get(dong); if (!m || m.size < 3) return null;   // 지도 구 대장과 같은 기준 (84㎡ 최근 거래가 · 11/5)
+    const L = [...m.entries()].sort((a, z) => p84(z[1]) - p84(a[1]));
     const i = L.findIndex(([c]) => (cx.length >= 2 && c === cx) || e.items.some(y => y.pnu === p.pnu && cxNorm(y.n) === c));
     return i < 0 ? null : { dong, i: i + 1, n: L.length };
   }
@@ -3046,23 +3046,26 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   // 11/1 대장 아파트: 같은 법정동에서 84㎡ 최근 6개월 최고가(중개거래)가 가장 높은 단지 하나에 왕관 — 84㎡ 거래 단지가 3곳 이상인 동만
   const dongOf = x => String(x.a || '').split(' ').slice(-2, -1)[0] || '';
+  // 11/5 고침(선배: '마포 1위보다 비싼 단지가 보인다'): 대장 기준을 '6개월 최고가'에서 '라벨에 보이는 84㎡ 최근 거래가'로
+  //   (6개월 최고가는 한 번 튄 거래로 정해져서, 라벨에는 더 낮은 최근 가격이 보이는데 1위가 되는 일이 있었음)
+  const p84 = x => { const rs = (x.pa || []).filter(r => r[0] >= 80 && r[0] <= 86); if (!rs.length) return 0; return rs.sort((a, z) => z[2].localeCompare(a[2]))[0][1]; };
   function kingGroups(items) {   // 동 → (단지 이름 → 그 단지의 최고가 필지) · 한 단지가 여러 필지면 하나로 셈
     const by = new Map();
-    for (const x of items) if (x.x84 > 0) {
+    for (const x of items) if (p84(x) > 0) {
       const d = dongOf(x), c = cxNorm(x.n) || x.id; if (!d) continue;
       const m = by.get(d) || by.set(d, new Map()).get(d), o = m.get(c);
-      if (!o || x.x84 > o.x84) m.set(c, x);
+      if (!o || p84(x) > p84(o)) m.set(c, x);
     }
     return by;
   }
   // 11/5 선배 결정: 동 대장 표시는 없앰 → 구 대장 하나만 (금색 테두리 + '마포 1위' 꼬리표 · 왕관 없음)
-  //   구 대장 = 그 구(지도 자료 한 묶음)에서 84㎡ 최근 6개월 최고가(중개거래) 1위 단지 · 84㎡ 거래 단지가 3곳 이상일 때만
+  //   구 대장 = 그 구(지도 자료 한 묶음)에서 라벨에 보이는 84㎡ 최근 거래가(중개거래 우선) 1위 단지 · 84㎡ 거래 단지가 3곳 이상일 때만
   function kingMark(items, rgName) {
     const m = new Map();
-    for (const x of items) if (x.x84 > 0) { const c = cxNorm(x.n) || x.id, o = m.get(c); if (!o || x.x84 > o.x84) m.set(c, x); }
+    for (const x of items) if (p84(x) > 0) { const c = cxNorm(x.n) || x.id, o = m.get(c); if (!o || p84(x) > p84(o)) m.set(c, x); }
     if (m.size < 3) return;
     const w = String(rgName || '').split(' ').slice(1).filter(Boolean), full = w.join(' ') || '이 지역';
-    const top = [...m.values()].sort((a, z) => z.x84 - a.x84)[0];
+    const top = [...m.values()].sort((a, z) => p84(z) - p84(a))[0];
     top.king = { gu: w.map(t => t.replace(/(시|군|구)$/, '')).join(' ') || '지역', full, n: m.size };
   }
   // 11/5 아파트 신고가(▲ 빨간 가격 · 처음 본 날부터 14일) · 새 실거래(N 파란 동그라미 · 7일) — data/nh-11.json (scripts/newhigh.mjs가 매일 만듦 · 서울)
@@ -3100,7 +3103,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     el.classList.toggle('king', !!x.king);
     const v = nhOf(x), nw = nhNew(v), hs = (v && v.h) || [];
     el.innerHTML = `${nw ? '<i class="bdg nnew" aria-label="새 실거래">N</i>' : ''}${x.king ? `<i class="bdg gutag">${esc(x.king.gu)} 1위</i>` : ''}<span class="nm">${esc(x.n || '')}</span>${rows.map(r => { const hi = nhRow(v, r); return `<span class="r"><i>${r[0]}</i><b${hi ? ' class="nhi"' : ''}>${hi ? '<i class="up">▲</i>' : ''}${val(r)}</b></span>`; }).join('')}`;
-    el.title = (x.king ? `🏆 ${x.king.full} 대장 · 84㎡ 최근 6개월 최고가 1위 (${x.king.n}개 단지 중)\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
+    el.title = (x.king ? `🏆 ${x.king.full} 대장 · 84㎡ 최근 거래가 1위 (${x.king.n}개 단지 중 · 최근 6개월 중개거래)\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
   }
   // 11/1 상가·건물 라벨: 가격 + 직거래면 네모 "직" + 거래 연월 · 평당가는 대지 기준
   function btLabel(el, x) {
