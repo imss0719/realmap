@@ -366,6 +366,7 @@ window.Danji = (() => {
       const a = x.ad || {}, live = a.live || (x.curRent || x.curDep ? 'tenant' : '');
       row.a = x.area || 0; row.dir = a.dir || ''; row.lt = a.ty || a.spy ? { t: a.ty || '', py: a.spy || 0 } : null;
       row.r = { live, cd: x.curDep || 0, cr: x.curRent || 0, exp: /^\d{4}-\d{2}-\d{2}$/.test(x.exp || '') ? x.exp : '', tels: (x.contacts || []).filter(c => c.phone).map(c => ({ l: c.role || '', n: c.phone, m: c.name || '' })), imp: x.imp || '' };
+      if (x.status === 'hold') row.st = { ...row.st, src: '', k: [], hold: false, fromLs: false };   // 11/4 개별매물: 끄면(카드 보류) ○ — 매물장과 같게 ('보류' 글자 없이 · 카드 정보는 그대로)
       row.st.dl = dleft(row.r.exp); row.st.exp = row.st.dl != null && row.st.dl >= EXPWIN[0] && row.st.dl <= EXPWIN[1];
       return row;
     });
@@ -1105,7 +1106,7 @@ window.Danji = (() => {
   function queue(key, fn) { S.q = S.q || {}; const p = (S.q[key] || Promise.resolve()).then(fn, fn); S.q[key] = p.catch(() => {}); return p; }
   function putSum(cx, key, rec) {
     const L = S.L[cx.id]; if (!L || !L.units) return;
-    const empty = !rec.hist.length && !rec.st.src && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.imp && !rec.cd && !rec.cr && !rec.mk && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
+    const empty = !rec.hist.length && !rec.st.src && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.imp && !rec.cd && !rec.cr && !rec.mk && !rec.so && !rec.deal && !rec.impd && !(rec.pr && (rec.pr.sale || rec.pr.jeonse || rec.pr.wd || rec.pr.wr)) && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
     if (empty) delete L.units[key]; else L.units[key] = { ...rec, hist: rec.hist.slice(0, 3), histN: rec.hist.length };
   }
   // mutate는 '값을 정하는' 함수여야 함(두 번 적용돼도 같은 결과) — 화면에 먼저 반영하고 서버에 차례로 저장
@@ -1345,7 +1346,8 @@ window.Danji = (() => {
     // 누른 순간의 상태에서 '다음 상태'를 정해 저장 (여러 번 적용돼도 같은 결과)
     const NONE = { src: '', k: [], hold: false, office: '' }, ORD = ['sale', 'jeonse', 'wolse'];
     const base = cur.src ? { src: cur.src, k: [...cur.k], hold: !!cur.hold, office: cur.office || '' } : { ...NONE, k: [] };
-    const set = nx => { saveRow(cx, x, D => { D.st = JSON.parse(JSON.stringify(nx)); }); endEdit(cx); };
+    const so0 = base.src ? { src: base.src, k: [...base.k], office: base.office } : null;   // 11/4 표 칸에서 매물을 빼도 적어 둔 구분·거래는 남김
+    const set = nx => { saveRow(cx, x, D => { D.st = JSON.parse(JSON.stringify(nx)); if (nx.src) D.so = null; else if (so0) D.so = so0; }); endEdit(cx); };
     p.querySelectorAll('[data-sk]').forEach(b => b.onclick = () => {
       const [src, k] = b.dataset.sk.split(':');
       if (base.src !== src) return set({ src, k: [k], hold: false, office: src === 'other' ? base.office : '' });
@@ -1445,10 +1447,12 @@ window.Danji = (() => {
     if (s.src && !s.done) {
       const ls = (s.mine || []).find(z => z.status !== 'done'), live = ls && S.host.pubCell && /게시/.test(S.host.pubCell(ls.id) || '');
       if (live && !confirm(`${UL(x)}를 매물에서 해제할까요?\n리얼맵 지도 광고도 함께 내려갑니다.`)) return;
-      saveRow(cx, x, D => { D.so = { src: D.st.src, k: [...(D.st.k || [])], office: D.st.office || '' }; D.st = { src: '', k: [], hold: false, office: '' }; });   // 11/4 적어 둔 정보는 그대로 (so에 보관)
+      const so0 = { src: s.src, k: [...(s.k || [])], office: s.office || '' };   // 11/4 고침: 미리 정해 둠 (saveRow가 두 번 적용해 so가 빈 값으로 덮이던 것)
+      saveRow(cx, x, D => { D.so = so0; D.st = { src: '', k: [], hold: false, office: '' }; });   // 11/4 적어 둔 정보는 그대로 (so에 보관)
       toast(live ? '매물에서 해제했습니다 (리얼맵 광고도 내림 · 적어 둔 정보는 그대로)' : '매물에서 해제했습니다 (적어 둔 정보는 그대로)');
     } else {
-      saveRow(cx, x, D => { const o = D.so || {}; D.st = { src: o.src || 'mine', k: (o.k || []).length ? [o.k[0]] : [D.live === 'tenant' ? 'sale' : 'jeonse'], hold: false, office: o.src === 'other' ? o.office || '' : '' }; D.so = null; });   // 11/4 꺼 두었던 구분·거래 그대로 다시
+      const u0 = ((S.L[cx.id] || {}).units || {})[x.key] || x.r || {}, o = u0.so || {}, st0 = { src: o.src || 'mine', k: (o.k || []).length ? [o.k[0]] : [], hold: false, office: o.src === 'other' ? o.office || '' : '' };   // 11/4 고침: 미리 정해 둠 · 거래는 자동으로 고르지 않음
+      saveRow(cx, x, D => { D.st = st0; D.so = null; });   // 11/4 꺼 두었던 구분·거래 그대로 다시
       toast('매물로 등록했습니다');
     }
     if (S.pk && S.pk.key === x.key) setTimeout(() => drawPanel(true), 0);
@@ -1522,7 +1526,7 @@ window.Danji = (() => {
     const F1 = (t, h, c = '') => `<div class="fr f1 ${c}"><b>${t}</b><div>${h}</div></div>`;
     const F2 = (t1, h1, t2, h2, c = '') => `<div class="fr f2 ${c}"><b>${t1}</b><div>${h1}</div><b>${t2}</b><div>${h2}</div></div>`;
     const prLb = { sale: '매매가', jeonse: '전세가', wolse: '보증·월세' }[k0] || '가격';
-    const prH = k0 === 'sale' ? W('ps', pr.sale) : k0 === 'jeonse' ? W('pj', pr.jeonse) : k0 === 'wolse' ? `${W('pwd', pr.wd, 62)}<i class="u">/</i><input class="rpi rpw" data-f="pwr" data-won value="${pr.wr || ''}" inputmode="numeric" style="width:40px" ${dis}>` : '<i class="u">● 등록 후</i>';
+    const prH = k0 === 'sale' ? W('ps', pr.sale) : k0 === 'jeonse' ? W('pj', pr.jeonse) : k0 === 'wolse' ? `${W('pwd', pr.wd, 62)}<i class="u">/</i><input class="rpi rpw" data-f="pwr" data-won value="${pr.wr || ''}" inputmode="numeric" style="width:40px" ${dis}>` : '<i class="u">거래를 먼저 골라 주세요</i>';
     const mvP = mvParse(r.moveIn);   // 10/30 버튼(즉시·협의)과 날짜는 따로
     const H = R0 && R0.hist ? R0.hist : (r.hist || []);
     const meta = [sp ? sp.v + '평' : '', x.a ? (+x.a).toFixed(2) + '㎡' : ''].filter(Boolean).join(' · ');
@@ -1614,11 +1618,11 @@ window.Danji = (() => {
     const onMk = D => !!(D.st && D.st.src);
     P.querySelectorAll('[data-g="msrc"] [data-v]').forEach(b => b.onclick = () => { save(D => { const v0 = b.dataset.v; if (onMk(D)) D.st = { ...D.st, src: v0, office: v0 === 'other' ? D.st.office || '' : '' }; else { const o = D.so || { k: [] }; D.so = { ...o, src: v0, office: v0 === 'other' ? o.office || '' : '' }; } }); setTimeout(() => drawPanel(true), 0); });
     P.querySelectorAll('[data-g="mk"] [data-v]').forEach(b => b.onclick = () => {   // 10/29 거래는 하나만
-      const k = b.dataset.v, cur = isMk ? x.st.k || [] : (r.so && r.so.k) || []; if (cur[0] === k && cur.length === 1) return;
+      const k = b.dataset.v, on0 = !!x.st.src && !x.st.done, cur = on0 ? x.st.k || [] : (r.so && r.so.k) || [];   // 11/4 고침: isMk는 drawPanel 안의 이름이라 여기서 오류 → 거래 버튼이 안 눌리던 것 if (cur[0] === k && cur.length === 1) return;
       save(D => { if (onMk(D)) D.st = { ...D.st, k: [k] }; else D.so = { src: '', office: '', ...(D.so || {}), k: [k] }; }); setTimeout(() => drawPanel(true), 0);
     });
     const hold = P.querySelector('[data-hold]'); if (hold) hold.onchange = () => save(D => { D.st = { ...D.st, hold: hold.checked }; });
-    const toled = P.querySelector('[data-toled]'); if (toled) toled.onclick = () => { if (!confirm(`${UL(x)}를 매물에서 내릴까요?\n호 기록은 그대로 남고, 내린 기록도 남습니다.`)) return; save(D => { D.so = { src: D.st.src, k: [...(D.st.k || [])], office: D.st.office || '' }; D.st = { ...NONE }; }); toast('매물에서 내렸습니다 (적어 둔 정보·호 기록은 그대로)'); setTimeout(() => drawPanel(true), 0); };
+    const toled = P.querySelector('[data-toled]'); if (toled) toled.onclick = () => { if (!confirm(`${UL(x)}를 매물에서 내릴까요?\n호 기록은 그대로 남고, 내린 기록도 남습니다.`)) return; const so0 = { src: x.st.src, k: [...(x.st.k || [])], office: x.st.office || '' }; save(D => { D.so = so0; D.st = { ...NONE }; }); toast('매물에서 내렸습니다 (적어 둔 정보·호 기록은 그대로)'); setTimeout(() => drawPanel(true), 0); };
     const card = P.querySelector('[data-card]'); if (card) card.onclick = () => cardFrom(x);
     // 매물장으로 (아직 안 나온 호): 받은 곳 · 거래 · 가격을 넣고 [매물장에 올리기]
     const mo = P.querySelector('[data-mkopen]'); if (mo) mo.onclick = () => { S.pkMk = true; S.pkDraft = null; drawPanel(true); const f = P.querySelector('#rp_dpr input'); if (f) f.focus(); };
@@ -1840,7 +1844,8 @@ window.Danji = (() => {
       if (r.st && r.st.src) { o.src = r.st.src; o.k = r.st.k || []; o.hold = !!r.st.hold; o.office = r.st.office; o.pr = prShort(o.k[0], r.pr); return o; }
     }
     // 10/28: 관리장부에서 [관리장부로] 내린 호는 매물 카드가 '보류'로 남아 있어도 매물로 보지 않음 (장부에 기록이 있는 호)
-    if (live && !(r && live.status === 'hold')) { o.src = 'mine'; o.k = [KK[live.kind] || 'sale']; o.hold = live.status === 'hold'; o.fromLs = true; o.lsp = { sale: live.kind === 'sale' ? live.price || 0 : 0, jeonse: live.kind === 'jeonse' ? live.deposit || 0 : 0, wd: live.kind === 'wolse' ? live.deposit || 0 : 0, wr: live.kind === 'wolse' ? live.rent || 0 : 0 }; o.prn = (live.kind === 'sale' || live.kind === 'presale' ? live.price : live.deposit) || 0; o.pr = live.kind === 'sale' ? shortWon(live.price) : live.kind === 'jeonse' ? shortWon(live.deposit) : live.kind === 'wolse' ? `${shortWon(live.deposit)}/${live.rent || ''}` : shortWon(live.pr); }
+    if (live && !(r && (live.status === 'hold' || r.so))) {   // 11/4 장부에서 끈 호(so 있음)는 카드가 아직 '진행'이어도 꺼진 것으로
+     o.src = 'mine'; o.k = [KK[live.kind] || 'sale']; o.hold = live.status === 'hold'; o.fromLs = true; o.lsp = { sale: live.kind === 'sale' ? live.price || 0 : 0, jeonse: live.kind === 'jeonse' ? live.deposit || 0 : 0, wd: live.kind === 'wolse' ? live.deposit || 0 : 0, wr: live.kind === 'wolse' ? live.rent || 0 : 0 }; o.prn = (live.kind === 'sale' || live.kind === 'presale' ? live.price : live.deposit) || 0; o.pr = live.kind === 'sale' ? shortWon(live.price) : live.kind === 'jeonse' ? shortWon(live.deposit) : live.kind === 'wolse' ? `${shortWon(live.deposit)}/${live.rent || ''}` : shortWon(live.pr); }
     else if (mine.length && !r) o.done = false;
     return o;
   }
