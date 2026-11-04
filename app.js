@@ -3131,13 +3131,41 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     $('mtLst').setAttribute('aria-pressed', LS.on);
     try { const v = JSON.parse(localStorage.getItem('rm.lsf') || 'null'); if (v) { if (['sale', 'rent'].includes(v.deal)) LS.deal = v.deal; LS.types = v.types || {}; } } catch { /* 저장소 없음 */ }
     $('mtLst').onclick = () => { LS.on = !LS.on; $('mtLst').setAttribute('aria-pressed', LS.on); lsSave(); fbSync(); drawListings(); drawTrades();
-      if (LS.on) toast(LS.items.length ? `중개사가 올린 매물 ${LS.items.length}건 · 흰 바탕에 노란 테두리가 매물입니다` : '아직 지도에 올라온 매물이 없습니다'); };
+      if (LS.on) toast(LSV2 ? '흰 바탕에 노란 테두리가 중개사가 올린 매물입니다' : LS.items.length ? `중개사가 올린 매물 ${LS.items.length}건 · 흰 바탕에 노란 테두리가 매물입니다` : '아직 지도에 올라온 매물이 없습니다'); };
     kakao.maps.event.addListener(S.map, 'idle', drawListings);
     const ofc = String(new URLSearchParams(location.search).get('office') || '').replace(/\D/g, '');
     if (ofc) { LS.on = true; LS.ofc = ofc; $('mtLst').setAttribute('aria-pressed', true); }
     fbInit();
     api('/api/auth?action=offices').then(j => { const A = j.items || []; LS.ofs = A.filter(b => b.lat && b.lng); drawOffices(); ofNoPos(A.filter(b => !(b.lat && b.lng) && b.addr)); }).catch(() => { /* 서버가 예전 파일이면 광고 있는 사무소만 */ });   // 11/2
+    if (LSV2) { kakao.maps.event.addListener(S.map, 'idle', () => lsFetch()); lsFetch(true); return; }
     api('/api/auth?action=pubs').then(j => { LS.all = (j.items || []).filter(x => x.lat && x.lng); LS.items = LS.all; LS.loaded = true; setTimeout(opFixPos, 1500); if (LS.ofc) ofcOn(); drawListings(); drawTrades(); if (S.sel) render(); }).catch(() => { LS.loaded = true; });
+  }
+  // 11/4 시험: 지도 광고를 '화면 범위'만 받기 (광고가 수천 건이 되어도 지도가 무겁지 않게)
+  //   켜는 법: 주소 뒤에 ?lsv=2 (한 번 열면 이 브라우저에 기억 · ?lsv=1 이면 끔) — 선배 확인 후 기본으로 바꿀 예정
+  //   받은 매물은 LS.cache(키 → 매물)에 쌓아 두고 LS.all = 쌓인 전부 · 한 중개사 모아 보기는 그 사무소 매물 전체를 따로 받음
+  const LSV2 = (() => { try { const q = new URLSearchParams(location.search).get('lsv'); if (q === '2') localStorage.setItem('rm.lsv2', '1'); if (q === '1') localStorage.removeItem('rm.lsv2'); return localStorage.getItem('rm.lsv2') === '1'; } catch { return false; } })();
+  LS.cache = new Map(); LS.got = [];
+  const lsMerge = arr => { for (const x of arr || []) if (x && x.k && x.lat && x.lng) LS.cache.set(x.k, x); LS.all = [...LS.cache.values()]; if (!LS.ofc) LS.items = LS.all; };
+  async function lsFetch(first) {
+    if (!S.map) return;
+    const b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast(), g = 0.02;
+    const box = [sw.getLat(), sw.getLng(), ne.getLat(), ne.getLng()];
+    if (LS.got.some(q => q[0] <= box[0] && q[1] <= box[1] && q[2] >= box[2] && q[3] >= box[3])) return;   // 이미 받은 범위 안
+    const h = (box[2] - box[0]) * 0.5, w = (box[3] - box[1]) * 0.5;   // 둘레를 반씩 더 받아 조금 움직여도 다시 안 받음 · 0.02° 칸에 맞춰 같은 주소 → 1분 캐시가 잘 맞음
+    const q = [Math.floor((box[0] - h) / g) * g, Math.floor((box[1] - w) / g) * g, Math.ceil((box[2] + h) / g) * g, Math.ceil((box[3] + w) / g) * g].map(v => +v.toFixed(2));
+    try {
+      const j = await api('/api/auth?action=pubs&bb=' + q.join(','));
+      LS.got.push(q); if (LS.got.length > 40) LS.got.shift();
+      lsMerge(j.items);
+    } catch { /* 다음 이동 때 다시 */ }
+    if (first) { LS.loaded = true; setTimeout(opFixPos, 1500); if (LS.ofc) return lsOfc(LS.ofc); }
+    drawListings(); drawTrades(); if (first && S.sel) render();
+  }
+  // 한 중개사 매물 전체 (화면 밖 매물까지) → 받은 뒤 ofcOn
+  async function lsOfc(r, fromMap) {
+    try { const j = await api('/api/auth?action=office&r=' + encodeURIComponent(r)); lsMerge(j.items); } catch { /* 받은 것만으로 */ }
+    if (LS.ofc !== r) return;
+    ofcOn(fromMap); drawListings(); drawTrades();
   }
   const OFC_LV = 5, OFC = {};
   // 10/29 중개사 소개 페이지 [지도에서 모아 보기] → /?office=등록번호숫자 : 그 중개사 매물만 지도에 + 위에 '모두 보기' 띠
@@ -3312,7 +3340,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     }
     // 11/2 선배: 광고가 0건이어도 확인된 회원 사무소는 지도에 (숫자 없이) — 한 중개사 매물만 볼 때는 그 사무소만
     if (!LS.ofc) for (const b of LS.ofs || []) { const r = String(b.regno || '').replace(/\D/g, ''); if (!r || m.has(r) || !(b.lat > 33) || !(b.lng > 124)) continue; m.set(r, { r, bk: b, list: [], last: '' }); }
-    for (const e of m.values()) e.score = Math.min(e.list.length, 30) + (now - Date.parse(e.last || 0) < 30 * 864e5 ? 5 : 0) + (e.bk.photo ? 3 : 0);
+    // 11/4 사무소 매물 수: 시험판(LSV2)은 화면 근처만 받아 두므로 사무소 목록의 전체 광고 수(n)를 씀 · 지금 방식은 받은 전체(list) 그대로
+    const tot = LSV2 ? new Map((LS.ofs || []).map(b => [String(b.regno || '').replace(/\D/g, ''), b.n || 0])) : null;
+    for (const e of m.values()) { e.cnt = tot ? Math.max(e.list.length, tot.get(e.r) || 0) : e.list.length; e.score = Math.min(e.cnt, 30) + (now - Date.parse(e.last || 0) < 30 * 864e5 ? 5 : 0) + (e.bk.photo ? 3 : 0); }
     return [...m.values()].sort((a, b) => b.score - a.score);
   }
   // 11/2 확인된 사무소인데 위치가 아직 없으면(회원이 중개장부를 안 열어 봄): 주소로 찾아 바로 표시 · 운영자 화면이면 찾은 자리를 저장
@@ -3408,11 +3438,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const show = new Set();
     for (const e of L) {
       const mode = !big.has(e.r) ? 'dot' : 'circle';   // 10/29 겹쳐도 점으로 줄이지 않음 — 매물이 위, 마우스 올리면 맨 위로
-      const id = `${e.r}:${mode}:${e.list.length}`; show.add(id);
+      const id = `${e.r}:${mode}:${e.cnt}`; show.add(id);
       let o = OF.ovs.get(id);
       if (!o) {
         const el = document.createElement('button'); el.type = 'button'; el.className = 'ofp ' + mode;
-        const nm = ofName(e.bk), n = e.list.length;
+        const nm = ofName(e.bk), n = e.cnt;
         el.title = `${e.bk.office} · 게시 중 매물 ${n}건`;
         el.innerHTML = mode === 'circle' ? `${ofAv(e.bk, 'av')}<em${n ? '' : ' class="z"'}>${n}</em><span class="tp">${esc(nm)} · 매물 ${n}</span>` : `<span class="tp">${esc(nm)} · 매물 ${n}</span>`;   // 11/2 선배: 0건도 '0'으로 (올려야겠다는 마음이 들게) · 0은 회색
         el.onclick = ev => { ev.stopPropagation(); ofCard(e.r); };
@@ -3432,7 +3462,10 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     let c = $('ofCard'); if (!c) { c = document.createElement('div'); c.id = 'ofCard'; box.appendChild(c); kakao.maps.event.addListener(S.map, 'click', () => { const z = $('ofCard'); if (z) z.hidden = true; }); }
     const telFmt = v => { const d = String(v || '').replace(/\D/g, ''); if (/^02/.test(d)) return d.length === 9 ? d.replace(/^(02)(\d{3})(\d{4})$/, '$1-$2-$3') : d.replace(/^(02)(\d{4})(\d{4})$/, '$1-$2-$3'); if (/^(15|16|18)\d{6}$/.test(d)) return d.replace(/^(\d{4})(\d{4})$/, '$1-$2'); if (/^0505/.test(d) && d.length === 12) return d.replace(/^(\d{4})(\d{4})(\d{4})$/, '$1-$2-$3'); if (d.length === 11) return d.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3'); if (d.length === 10) return d.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3'); return String(v || ''); };
     const tel = s => { const d = String(s || '').replace(/\D/g, ''), t = telFmt(s); return !d ? '' : IS_PHONE ? `<a class="tl" href="tel:${d}">${/^01/.test(d) ? '📱' : '☎'} ${esc(t)}</a>` : `<button type="button" class="tl" data-cp="${esc(t)}">${/^01/.test(d) ? '📱' : '☎'} ${esc(t)}</button>`; };   // 10/29 번호에 '-'
-    const L = [...e.list].sort((a, z) => String(z.at || '').localeCompare(String(a.at || ''))), n = L.length;
+    // 11/4 화면 범위만 받는 시험판(LSV2)에서는 화면 밖 매물이 빠져 있으므로, 숫자는 사무소 목록(/api/auth?action=offices)의 전체 광고 수로
+    const L = [...e.list].sort((a, z) => String(z.at || '').localeCompare(String(a.at || ''))), n = e.cnt;
+    // 시험판: 이 사무소 매물이 화면 근처에 하나도 없으면(먼 곳에만 올림) 그 사무소 매물을 받아 사진 3건까지 채운 뒤 다시 그림
+    if (LSV2 && n && !L.length && !(ofCard.f || (ofCard.f = new Set())).has(r)) { ofCard.f.add(r); api('/api/auth?action=office&r=' + encodeURIComponent(r)).then(j => { lsMerge(j.items); ofCard(r); }).catch(() => {}); }
     const gu = (String(b.addr || '').split(' ').find(w => /(동|가|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w))) || '';
     c.innerHTML = `<div class="h">${ofAv(b, 'av')}<div class="t"><b>${esc(b.office)}<span class="ver">등록번호 확인</span></b><small>대표 ${esc(b.ceo || '')}${gu ? ' · ' + esc(gu) : ''}</small></div><a class="ofi" href="/office.html?r=${r}">소개 ›</a><button type="button" class="x" aria-label="닫기">×</button></div>
       <div class="tels">${tel(b.tel)}${b.mobile && String(b.mobile).replace(/\D/g, '') !== String(b.tel || '').replace(/\D/g, '') ? tel(b.mobile) : ''}</div>
@@ -3442,7 +3475,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     c.querySelector('.x').onclick = () => { c.hidden = true; };
     c.querySelectorAll('[data-cp]').forEach(t => t.onclick = () => { try { navigator.clipboard.writeText(t.dataset.cp); toast('번호를 복사했습니다'); } catch { /* 복사 안 됨 */ } });
     c.querySelectorAll('[data-i]').forEach(t => t.onclick = () => { const x = L[+t.dataset.i]; c.hidden = true; S.lstJump = true; pickPnu(x.pnu); });
-    if (c.querySelector('.all')) c.querySelector('.all').onclick = () => { c.hidden = true; LS.ofc = r; if (!LS.on) { LS.on = true; $('mtLst').setAttribute('aria-pressed', true); lsSave(); } ofcOn(true); drawListings(); drawTrades(); };
+    if (c.querySelector('.all')) c.querySelector('.all').onclick = () => { c.hidden = true; LS.ofc = r; if (!LS.on) { LS.on = true; $('mtLst').setAttribute('aria-pressed', true); lsSave(); } if (LSV2) return lsOfc(r, true); ofcOn(true); drawListings(); drawTrades(); };
   }
   // 이 필지의 매물 (필지창 맨 위)
   const cxNorm = s => String(s || '').replace(/\(.*?\)|\s|아파트$/g, '');
