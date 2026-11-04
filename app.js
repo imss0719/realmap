@@ -3124,7 +3124,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(132, Math.max(104, String(x.n || '').length * 10.5 + 14)) : rows ? Math.min(118, Math.max(66, String(x.n || '').length * 10.5 + 14)) : x.j ? 80 : 62, h = pre ? 30 + (rows.length ? 12 + rows.length * 15 : 14) : rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(144, Math.max(112, String(x.n || '').length * 11.5 + 14)) : rows ? Math.min(130, Math.max(72, String(x.n || '').length * 11.5 + 14)) : x.j ? 88 : 68, h = pre ? 32 + (rows.length ? 13 + rows.length * 16.5 : 15) : rows ? 17 + rows.length * 16.5 + (x.king ? 13 : 0) : 26, cy = pt.y - 0.7 * (h - 26) - (x.king ? 4 : 0);   // 11/5 글씨 1단계 키움에 맞춰 크기 계산도   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
