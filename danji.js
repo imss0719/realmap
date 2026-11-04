@@ -832,12 +832,14 @@ window.Danji = (() => {
     return one(t[0]) + (t.length > 1 ? ` <small>외 ${t.length - 1}</small>` : '');
   }
   // 의뢰가격 칸 하나: 그 거래가 걸려 있을 때만 (장부엔 없고 매물관리에만 있는 매물은 그 가격)
+  // 11/4 선배: 매물을 꺼도 표에는 적어 둔 받은 곳·거래·가격을 그대로 (매물 여부는 맨 앞 ●/○ 로만)
+  const vsOf = x => { const s = x.st, o = (x.r || {}).so; if (s.src || s.done || !o || !(o.src || (o.k || []).length)) return s; return { ...s, src: o.src || '', k: o.k || [], office: o.office || '', hold: false, off: true }; };
   function prCell(x, f) {
-    const s = x.st, r = x.r || {}, k = f === 'sale' ? 'sale' : f === 'jeonse' ? 'jeonse' : 'wolse';
+    const s = vsOf(x), r = x.r || {}, k = f === 'sale' ? 'sale' : f === 'jeonse' ? 'jeonse' : 'wolse';
     if (s.done) { const d = r.deal; if (!d || d.k !== k || f === 'wr' && !d.r) return '<span class="mut">-</span>'; return `<span class="dn">${f === 'wr' ? d.r : cw(d.a)}</span>`; }
     if (!(s.k || []).includes(k)) return '<span class="mut">-</span>';
     const v = r.pr ? r.pr[f] : (s.k.length === 1 && f !== 'wr' ? s.prn : 0);
-    return v ? `<b class="pv ${k}">${f === 'wr' ? v : cw(v)}</b>` : '<span class="mut">-</span>';
+    return v ? `<b class="pv ${k}${s.off ? ' offv' : ''}"${s.off ? ' style="opacity:.4"' : ''}>${f === 'wr' ? v : cw(v)}</b>` : '<span class="mut">-</span>';
   }
   function cellHtml(x, c) {
     const r = x.r || {}, s = x.st;
@@ -849,11 +851,11 @@ window.Danji = (() => {
       case 'ar': { const p = supPy(x); return p ? `<b class="${p.est ? 'est' : ''}"${p.est ? ' title="전용면적으로 계산한 공급평입니다. 눌러서 정확히 적으면 같은 라인에 모두 들어갑니다"' : p.sup ? ` title="전용 ${p.ex}㎡ · 공급 ${p.sup}㎡"` : ''}>${p.v}</b>` : '<span class="mut">-</span>'; }   // 10/31 대장 공급면적이면 마우스를 올리면 전용·공급
       case 'ty': return tyOf(x) ? `<b>${esc(tyOf(x))}</b>` : '<span class="mut">-</span>';   // 10/28 칸 폭: '입력 84.97' 안내 없앰 (전용면적은 입력창에서)
       case 'dir': return x.dir ? esc(x.dir) : '<span class="mut">-</span>';
-      case 'of': return s.done ? `<span class="p done">계약됨 ✓</span>` : !s.src ? '<span class="mut">-</span>' : `<span class="${s.src === 'mine' ? 'ofm' : ''}">${esc(ofTxt(s))}</span>${s.hold ? ' <small class="hold">보류</small>' : ''}`;
-      case 'kd': {
+      case 'of': { const s = vsOf(x); return `<span${s.off ? ' class="offv" style="opacity:.4" title="매물 꺼짐 (적어 둔 정보)"' : ''}>${s.done ? `<span class="p done">계약됨 ✓</span>` : !s.src ? '<span class="mut">-</span>' : `<span class="${s.src === 'mine' ? 'ofm' : ''}">${esc(ofTxt(s))}</span>${s.hold ? ' <small class="hold">보류</small>' : ''}`}</span>`; }
+      case 'kd': { const s = vsOf(x);
         if (s.done) { const d = r.deal; return d ? `<span class="p done">${KN[d.k]}</span>` : '<span class="mut">-</span>'; }
-        if (!s.src || !s.k.length) return '<span class="mut">-</span>';
-        return `<span class="${s.hold ? 'hold' : ''}">${s.k.map(k => `<span class="p ${(s.src === 'mine' ? 'f-' : 'o-') + k}" title="${KN[k]}">${KN[k][0]}</span>`).join('')}</span>`;
+        if (!(s.src || s.off) || !s.k.length) return '<span class="mut">-</span>';
+        return `<span class="${s.hold ? 'hold' : ''}${s.off ? ' offv' : ''}"${s.off ? ' style="opacity:.4"' : ''}>${s.k.map(k => `<span class="p ${(s.src === 'other' ? 'o-' : 'f-') + k}" title="${KN[k]}">${KN[k][0]}</span>`).join('')}</span>`;
       }
       case 'ps': case 'pj': case 'pwd': case 'pwr': return prCell(x, c.f);
       case 'gap': { if (s.done || !(s.k || []).includes('sale')) return '<span class="mut">-</span>'; const v = (r.pr && r.pr.sale) || (s.k.length === 1 ? s.prn : 0), g = v && gapOf(x, v); return g ? `<b class="gap${g.est ? ' est' : ''}" title="매매가 - 현상태 보증금 (자동 계산)">${cw(g.v)}</b>` : '<span class="mut">-</span>'; }
