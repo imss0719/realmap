@@ -110,6 +110,21 @@ a{color:inherit}
 .zr .tg{display:inline-block;font-size:12px;font-weight:900;border-radius:999px;padding:1px 9px;margin-left:6px;vertical-align:2px}.zr .tg.e{background:var(--gold);color:var(--navy)}.zr .tg.t{background:#EEF1F4;color:#5E6A77}
 .zr .ac{display:flex;gap:6px}.zr .ac a{white-space:nowrap;border-radius:9px;padding:8px 12px;font-weight:800;font-size:13.5px;text-decoration:none}.zr .ac .v{border:1.5px solid var(--line);color:var(--fg);background:#fff}.zr .ac .g{background:var(--gold);color:var(--navy)}
 @media(max-width:560px){.zr{grid-template-columns:1fr}.zr .ac a{flex:1;text-align:center}}
+/* 11/4 실제 화면 6장 · 요금 비교표 · 질문 추가 (기존 내용은 그대로) */
+.rshots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.rshots figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.rshots .fr2{position:relative;height:230px;background:#EEF1F4;border-bottom:1px solid var(--line)}.rshots .fr2 img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.rshots .n{position:absolute;left:10px;top:10px;width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--navy);font-weight:900;display:grid;place-items:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.rshots figcaption{padding:13px 15px 15px}.rshots figcaption b{display:block;font-size:16px;margin-bottom:4px}.rshots figcaption span{font-size:14px;color:var(--muted);line-height:1.6}
+.rnote{font-size:13px;color:var(--muted);margin-top:12px}
+.trial{background:linear-gradient(135deg,#14212E,#1F3550);color:#fff;border-radius:18px;padding:22px 26px;display:flex;gap:20px;align-items:center;margin:40px 0 18px}.trial .tl{flex:1}.trial b{font-size:22px;display:block}.trial b em{font-style:normal;color:var(--gold)}.trial p{margin:6px 0 0;color:#C9D3DE;font-size:15px;line-height:1.6}.trial p strong{color:#fff}
+.tline{display:flex;flex-wrap:wrap;margin-top:12px;font-size:12.5px;font-weight:700}.tline span{padding:6px 12px;background:rgba(255,255,255,.1)}.tline span:first-child{background:var(--gold);color:var(--navy);border-radius:8px 0 0 8px}.tline span:last-child{border-radius:0 8px 8px 0}
+.pt{width:100%;border-collapse:separate;border-spacing:0;font-size:15px;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.pt th,.pt td{padding:13px 12px;text-align:center;border-bottom:1px solid var(--line)}.pt tbody tr:last-child td{border-bottom:0}.pt td:first-child,.pt th:first-child{text-align:left;color:var(--muted);font-weight:700;width:22%}
+.pt thead th{background:#F4F6F9;font-size:16px}.pt thead th small{display:block;font-size:12px;color:var(--muted);font-weight:600}.pt thead th b{display:block;font-size:22px;margin-top:4px}
+.pt .bs{background:#FFF8DB}.pt thead .bs{background:#FFE9A3}.pt .tagp{display:inline-block;background:var(--navy);color:#FFD95A;font-size:11px;border-radius:999px;padding:1px 8px;margin-bottom:4px}
+.pnote{font-size:14px;color:var(--muted);line-height:1.8;margin-top:12px}.pnote b{color:var(--fg)}
+@media(max-width:900px){.rshots{grid-template-columns:1fr 1fr}.trial{flex-direction:column;align-items:stretch}}
+@media(max-width:560px){.pt thead th small{display:none}.rshots{grid-template-columns:1fr}.rshots .fr2{height:210px}.pt{font-size:13px}.pt th,.pt td{padding:9px 5px}.pt thead th b{font-size:16px}.pt td:first-child{width:auto}}
 </style>
 </head>
 <body>
@@ -132,6 +147,10 @@ a{color:inherit}
   <div class="zchips" id="zch"><button type="button" data-zq="마포구">마포</button><button type="button" data-zq="서대문구">서대문</button><button type="button" data-zq="은평구">은평</button><button type="button" data-zq="용산구">용산</button><button type="button" data-zq="성동구">성동</button><button type="button" data-zq="광명시">광명</button><button type="button" data-zq="성남시">성남</button><button type="button" data-zq="안양시">안양</button></div>
   <div id="zres" class="zres"><p class="zmsg">구역 이름·동·구(시)를 넣어 보세요. 1순위가 비어 있는 곳은 👑 표시가 붙습니다.</p></div>
 </div></div>
+
+<div class="sec" id="real"><h2>손님 화면에서 내 매물은 이렇게 보입니다</h2><p class="lead">지도 핀 하나에서 전화 한 통까지, 손님이 보는 순서 그대로입니다.</p>
+  <div class="rshots"><figure><div class="fr2"><span class="n">1</span><img src="/guide/promo-real1.webp" alt="지도 위에 가격 핀" loading="lazy"></div><figcaption><b>지도 위에 가격 핀</b><span>매매·전세·월세를 색으로 구분해, 실거래가와 섞이지 않게 표시됩니다.</span></figcaption></figure><figure><div class="fr2"><span class="n">2</span><img src="/guide/promo-real2.webp" alt="단지·필지를 누르면 매물 목록" loading="lazy"></div><figcaption><b>단지·필지를 누르면 매물 목록</b><span>그 자리 광고 매물이 옆에 모이고, 한 중개사 매물만 모아 볼 수도 있습니다.</span></figcaption></figure><figure><div class="fr2"><span class="n">3</span><img src="/guide/promo-real3.webp" alt="상세 정보는 자동" loading="lazy"></div><figcaption><b>상세 정보는 자동</b><span>면적·층·주차·세대수·사용승인일은 건축물대장에서, 같은 평형 최근 실거래와 호가 비교까지 붙습니다.</span></figcaption></figure><figure><div class="fr2"><span class="n">4</span><img src="/guide/promo-real4.webp" alt="중개사 소개 → 바로 연락" loading="lazy"></div><figcaption><b>중개사 소개 → 바로 연락</b><span>사무소 이름·대표·전화가 함께 나가고, 그 중개사 매물 전부로 이어집니다.</span></figcaption></figure><figure><div class="fr2"><span class="n">5</span><img src="/guide/promo-real5.webp" alt="태블릿 '크게 보기'" loading="lazy"></div><figcaption><b>태블릿 '크게 보기'</b><span>사무실에서 손님에게 사진과 정보를 화면 가득 보여 주며 브리핑. 사진엔 사무소 이름이 자동으로 들어갑니다.</span></figcaption></figure><figure><div class="fr2"><span class="n">6</span><img src="/guide/promo-real6.webp" alt="재개발 구역 페이지에도" loading="lazy"></div><figcaption><b>재개발 구역 페이지에도</b><span>구역마다 '이 구역 중개사무소' 칸 — 매물이 많은 사무소가 1순위로 맨 위에 소개됩니다.</span></figcaption></figure></div>
+  <p class="rnote">실제 리얼맵 화면 · 중개사 정보와 매물 주소는 가렸습니다</p></div>
 
 <div class="sec"><h2>이렇게 올립니다</h2><p class="lead">처음 한 번 사무소 확인, 그다음부터는 매물 하나에 1분이면 됩니다.</p>
   <div class="steps">
@@ -169,7 +188,19 @@ a{color:inherit}
       <a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a></div>
   </div>
   <div class="pc"><div class="l"><small>더 많이 올릴 때</small><b>광고 <strong>300건</strong> · 월 9,900원</b><p>포털 매물 광고 <strong>5건 값도 안 되는 돈</strong>으로 300건을 올립니다.</p></div>
-    <div class="r"><span>건당</span><b>30<i>원</i></b><small>부가세 별도 · 9,000원 ÷ 300건</small></div></div>
+    <div class="r"><span>건당</span><b>33<i>원</i></b><small>부가세 포함 · 9,900원 ÷ 300건</small></div></div>
+  <div class="trial" id="price"><div class="tl"><b>가입하면 <em>2주간 Basic 전부 무료</em></b><p>2주 동안 지도 광고 300건까지 올려 보세요. 끝나면 <strong>자동 결제 없이 무료로 바뀝니다.</strong></p>
+    <div class="tline"><span>가입 ~ 2주: 광고 300건</span><span>그 뒤: 무료 10건 (계속)</span><span>더 필요하면: 요금제 신청</span></div></div><a class="btn y" href="/promo.html?go=1" data-go>2주 무료로 시작</a></div>
+  <table class="pt"><thead><tr><th></th><th><small>처음 써보는 분</small>무료<b>0원</b></th><th class="bs"><span class="tagp">가장 많이 선택</span><small>1인·2인 사무소</small>Basic<b>9,900원</b></th><th><small>매물이 많은 사무소</small>Premium<b>19,900원</b></th><th><small>중개법인·대형</small>VIP<b>29,900원</b></th></tr></thead>
+  <tbody>
+  <tr><td>지도 광고</td><td>10건</td><td class="bs"><b>300건</b></td><td>1,000건</td><td>3,000건</td></tr>
+  <tr><td>중개장부 매물</td><td>10건</td><td class="bs">1,000건</td><td>5,000건</td><td>무제한*</td></tr>
+  <tr><td>아파트 단지 장부</td><td>3곳</td><td class="bs">20곳</td><td>50곳</td><td>100곳</td></tr>
+  <tr><td>고객 관리</td><td>10명</td><td class="bs">1,000명</td><td>5,000명</td><td>무제한</td></tr>
+  <tr><td>소개 페이지 · QR · 사진 워터마크</td><td>✓</td><td class="bs">✓</td><td>✓</td><td>✓</td></tr>
+  <tr><td>직원 함께 쓰기</td><td>—</td><td class="bs" colspan="3">1명당 월 2,900원</td></tr>
+  </tbody></table>
+  <p class="pnote">월 요금 · 부가세 포함 · <b>결제</b> 계좌이체로 1개월 / 6개월 / <b>12개월(2개월 무료)</b> 중 선택 · <b>현금영수증·세금계산서 발행</b><br>* 무제한의 공정 사용 한도는 매물 30,000건입니다.</p>
   <p style="margin-top:14px;color:var(--muted);font-size:14px">요금은 부가세 포함입니다. 자세한 요금은 <a href="/pro.html#price">요금 안내</a>를 봐 주세요.</p></div></div>
 
 <div class="sec faq"><h2>자주 묻는 질문</h2>
@@ -177,6 +208,11 @@ a{color:inherit}
   <details><summary>다른 광고 사이트에 올린 매물도 같이 올려도 되나요?</summary><p>네. 의뢰받은 매물이라면 여러 곳에 함께 올리셔도 됩니다. 리얼맵은 30일마다 [연장]을 눌러 거래 가능 여부를 다시 확인받습니다.</p></details>
   <details><summary>사진은 몇 장까지 올릴 수 있나요?</summary><p>매물 하나에 30장까지 올릴 수 있고, 첫 번째 사진이 대표 사진으로 지도 카드에 보입니다.</p></details>
   <details><summary>소개 페이지는 어디서 고치나요?</summary><p>중개장부 → 설정 → 우리 사무소에서 대표 사진·한 줄 소개·전문 분야·활동 동네를 고치고, 링크를 복사할 수 있습니다.</p></details>
+  <details><summary>장부는 안 쓰고 지도 광고만 해도 되나요?</summary><p>네. 광고만 쓰셔도 됩니다. 사무소 확인 후 지도에서 필지를 누르고 매물을 올리시면 됩니다. 중개장부를 함께 쓰시면 매물 정보를 고칠 때 광고도 같이 바뀝니다.</p></details>
+  <details><summary>2주 무료가 끝나면 자동으로 결제되나요?</summary><p>아니요. 카드 등록이 없어서 자동 결제가 없습니다. 2주가 지나면 무료(지도 광고 10건)로 바뀌고, 더 쓰시려면 중개장부 [설정 → 요금제]에서 신청하시면 됩니다.</p></details>
+  <details><summary>무료로 바뀌면 10건이 넘는 광고는 어떻게 되나요?</summary><p>먼저 올린 10건만 지도에 남고, 나머지는 지도에서 내려갑니다. 매물은 지우지 않고 장부에 그대로(보기 전용) 남아 있어서, 요금제를 신청하시면 다시 올리실 수 있습니다.</p></details>
+  <details><summary>결제는 어떻게 하나요? 영수증은요?</summary><p>계좌이체로 받습니다. 현금영수증(지출증빙)이나 전자세금계산서 중 원하시는 쪽으로 발행해 드립니다.</p></details>
+  <details><summary>30일 연장을 안 누르면 어떻게 되나요?</summary><p>그 광고는 지도에서 내려가고 장부에는 그대로 남습니다. 거래가 끝나지 않았다면 언제든 다시 올리실 수 있습니다.</p></details>
 </div>
 
 <div class="end"><h2>첫 매물, 지금 1분이면 올라갑니다</h2><p>매물 광고 10건까지 무료 · 카드 등록 없이 시작</p><a class="btn y" href="/promo.html?go=1" data-go>무료로 매물 올리기</a></div>
