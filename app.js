@@ -3144,12 +3144,13 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     all.sort((a, z) => (z.king ? 1 : 0) - (a.king ? 1 : 0) || z.c - a.c || z.d.localeCompare(a.d));   // 11/1 대장 단지가 먼저 자리 잡음 (11/5 구 대장)
     // 11/1 아파트 평형별 라벨: 멀리(레벨 4~5) = 이름 + 대표 평형 하나 · 가까이(1~3) = 이름 + 평형별 모두
     const far = S.map.getLevel() >= 4;
+    const MZ = mobile() ? 1.1 : 1;   // 11/5 휴대폰은 라벨 글씨가 한 단계 더 크니 겹침 계산도
     const placed = lsPoints().map(q => ({ x: q.x, y: q.y, w: 62, h: 24 })), show = new Set();
     for (const x of all) {
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(144, Math.max(112, String(x.n || '').length * 11.5 + 14)) : rows ? Math.min(130, Math.max(72, String(x.n || '').length * 11.5 + 14)) : x.j ? 88 : 68, h = pre ? 32 + (rows.length ? 13 + rows.length * 16.5 : 15) : rows ? 17 + rows.length * 16.5 + (x.king ? 13 : 0) : 26, cy = pt.y - 0.7 * (h - 26) - (x.king ? 4 : 0);   // 11/5 글씨 1단계 키움에 맞춰 크기 계산도   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = (pre ? Math.min(144, Math.max(112, String(x.n || '').length * 11.5 + 14)) : rows ? Math.min(130, Math.max(72, String(x.n || '').length * 11.5 + 14)) : x.j ? 88 : 68) * MZ, h = (pre ? 32 + (rows.length ? 13 + rows.length * 16.5 : 15) : rows ? 17 + rows.length * 16.5 + (x.king ? 13 : 0) : 26) * MZ, cy = pt.y - 0.7 * (h - 26) - (x.king ? 4 : 0);   // 11/5 글씨 1단계 키움에 맞춰 크기 계산도   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);

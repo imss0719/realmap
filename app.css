@@ -971,3 +971,13 @@ a.favbtn{text-decoration:none}
 
 /* 11/2 광고 0건 사무소: 숫자 0을 회색으로 */
 .ofp.circle em.z{background:#868E96;color:#fff}
+/* 11/5 선배: 휴대폰은 같은 px이라도 실제로 작게 보이고 카카오 바탕 글씨가 커서 → 지도 라벨만 한 단계 더 (PC는 그대로) */
+@media (max-width:760px){
+  .tlabel b{font-size:14px}
+  .tlabel small,.tlabel.k-rh small,.tlabel.k-offi small{font-size:11px}
+  .tlabel.mp .nm{font-size:12.5px;max-width:150px}
+  .tlabel.mp .r>i{font-size:11px}
+  .tlabel.k-pre .nm{font-size:12.5px}.tlabel.k-pre .pr>i{font-size:11px}.tlabel.k-pre .pr b{font-size:14px}
+  .tlabel .bdg.gutag{font-size:10px}
+  .tlabel .bdg.nnew{width:15px;height:15px;font-size:9px}
+}
