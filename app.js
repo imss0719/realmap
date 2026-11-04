@@ -163,12 +163,20 @@
         <path d="M22 60l18-4 4 18-18 5z" fill="none" stroke="${K2}" stroke-width="2"/><path d="M56 70l22 4-3 22-22-4z" fill="${Y}" opacity=".9"/><path d="M92 54l16-4 2 16-16 3z" fill="none" stroke="${K2}" stroke-width="2"/>
         <path d="M66 74c0-14 10-24 0-38" fill="none"/><path d="M67 80s-16-15-16-27a16 16 0 0132 0c0 12-16 27-16 27z" fill="${N}"/><circle cx="67" cy="53" r="6" fill="#fff"/>
         <circle cx="101" cy="94" r="10" fill="none" stroke="${N}" stroke-width="4"/><path d="M108 101l9 9" stroke="${N}" stroke-width="5" stroke-linecap="round"/></svg>`,
+      news: `<svg viewBox="0 0 132 132" aria-hidden="true"><rect x="30" y="20" width="80" height="96" rx="3" fill="${K}"/><rect x="22" y="26" width="80" height="96" rx="3" fill="#fff" stroke="${N}" stroke-width="3"/>
+        <rect x="32" y="36" width="60" height="9" rx="1" fill="${N}"/><path d="M32 51h60" stroke="${N}" stroke-width="1.5"/><path d="M32 54h60" stroke="${N}" stroke-width="1"/>
+        <rect x="32" y="60" width="28" height="22" fill="${Y}"/><path d="M36 76l7-8 6 5 7-9" fill="none" stroke="${N}" stroke-width="2" stroke-linejoin="round"/>
+        ${[0, 1, 2, 3].map(r => `<rect x="65" y="${61 + r * 6}" width="${r === 3 ? 18 : 27}" height="2.5" rx="1" fill="${K2}"/>`).join('')}
+        ${[0, 1, 2, 3].map(r => `<rect x="32" y="${90 + r * 6}" width="${r % 2 ? 50 : 60}" height="2.5" rx="1" fill="${K2}"/>`).join('')}
+        <circle cx="104" cy="34" r="15" fill="#E03131"/><text x="104" y="38" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">11월</text></svg>`,
       pro: `<svg viewBox="0 0 132 132" aria-hidden="true"><rect x="26" y="20" width="64" height="94" rx="8" fill="${N}"/><rect x="32" y="30" width="52" height="78" rx="3" fill="#fff"/><rect x="44" y="14" width="28" height="12" rx="4" fill="${Y}"/>
         ${[0, 1, 2, 3].map(r => `<rect x="38" y="${40 + r * 16}" width="8" height="8" rx="2" fill="${r === 1 ? Y : K}"/><rect x="50" y="${41 + r * 16}" width="${r % 2 ? 22 : 28}" height="3" rx="1.5" fill="${N}" opacity=".8"/><rect x="50" y="${46 + r * 16}" width="16" height="2.5" rx="1.25" fill="${K2}"/>`).join('')}
         <rect x="70" y="56" width="46" height="40" rx="8" fill="${Y}"/><path d="M82 82V72l11-8 11 8v10z" fill="${N}"/><rect x="90" y="75" width="6" height="7" fill="${Y}"/>
         <circle cx="112" cy="58" r="9" fill="#fff" stroke="${N}" stroke-width="3"/><path d="M108 58l3 3 5-6" fill="none" stroke="${N}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     };
     const SL = [
+      // 11/3 월간 리얼맵 (매달 새 호 나오면 '11월호'·질문 문구와 그림 속 '11월' 바꾸기)
+      { il: IL.news, t: '월간 리얼맵<br>11월호 나왔습니다', s: '서울 아파트 평당가 1위 동네는?', b: '신문 보기', h: '/news.html' },
       { il: IL.zone, t: '서울 재개발·재건축,<br>지금 무슨 단계일까요?', s: '정비사업 830곳 진행 상황을 지도로', b: '현황 보기', h: '/seoul/' },
       { il: IL.guide, t: '처음 오셨나요?', s: '주소 하나로 땅·건물·실거래가까지', b: '사용법 보기', h: '/guide.html' },
       { il: IL.pro, t: '중개사이신가요?', s: '꼭 필요한 기능만 남긴 중개장부', b: '무료로 써 보기', h: '/pro.html' },

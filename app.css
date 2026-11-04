@@ -40,6 +40,9 @@ button{font:inherit}
 .sheet-head{display:none}
 .intro{padding:28px 20px;color:var(--muted);display:flex;flex-direction:column;gap:10px}
 .intro b{color:var(--fg);font-size:16px}
+.newsbn{display:flex;align-items:center;gap:12px;background:#EDEDE8;border:1.5px solid var(--fg);padding:10px 12px;text-decoration:none;color:var(--fg);margin-bottom:6px}.newsbn:hover{background:#E3E3DC}
+.newsbn .ic{width:34px;height:40px;flex:none;background:#fff;border:1.5px solid var(--fg);position:relative}.newsbn .ic:before{content:"";position:absolute;left:5px;right:5px;top:6px;height:5px;background:var(--fg)}.newsbn .ic:after{content:"";position:absolute;left:5px;right:5px;top:15px;height:17px;background:repeating-linear-gradient(#ADB5BD 0 2px,transparent 2px 5px)}
+.newsbn .tx{flex:1;display:flex;flex-direction:column;gap:2px}.newsbn .tx b{font-size:15px}.newsbn .tx b i{font-style:normal;background:#E03131;color:#fff;font-size:10px;padding:1px 5px;margin-left:6px;vertical-align:2px}.newsbn small{font-size:12.5px;color:var(--muted)}.newsbn em{font-style:normal;font-size:20px;font-weight:800}
 .introx{margin:8px -20px -28px;padding:14px 20px 20px;background:#FFFBEA;border-top:1px dashed #E8DDAE}
 .introx h2{margin:10px 0 6px;font-size:13.5px;color:var(--fg)}.introx h2:first-child{margin-top:0}
 .introx .ich{display:flex;flex-wrap:wrap;gap:6px}.introx .ich a{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;font-size:13px;color:var(--fg);font-weight:700;text-decoration:none}
