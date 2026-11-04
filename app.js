@@ -3465,8 +3465,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         el.classList.add('sm');
         el.innerHTML = `<i>${HOUSE}</i>${L.length > 1 ? `<b>${L.length}</b>` : ''}`;
         el.onclick = ev => { ev.stopPropagation(); grayCard(L); };
-        o = new K.CustomOverlay({ position: c.ll, content: el, xAnchor: .5, yAnchor: .5, zIndex: 3, clickable: true });
-        { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(3); }
+        o = new K.CustomOverlay({ position: c.ll, content: el, xAnchor: .5, yAnchor: .5, zIndex: 2, clickable: true });   // 11/5 선배: 회색 부동산 표시가 실거래 가격(3)을 가림 → 실거래 라벨 아래로
+        { const ov = o; el.onmouseenter = () => ov.setZIndex && ov.setZIndex(30); el.onmouseleave = () => ov.setZIndex && ov.setZIndex(2); }
         GR.ovs.set(id, o);
       }
       if (!o.getMap()) o.setMap(S.map);
