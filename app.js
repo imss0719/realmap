@@ -1244,6 +1244,14 @@
     catch (e) { if (tok === S.tok) { S.d.unit[key] = { error: e.message }; render(); } }
   }
 
+  // 11/5 실거래 탭 맨 위: 이 필지(아파트)의 최근 3개월 신고가 (지도 라벨 ▲는 2주 · 여기는 3개월)
+  function nhCard() {
+    if (!S.sel || !S.sel.pnu || typeof nhOk !== 'function' || !nhOk()) return '';
+    if (!NH.d) { loadNh().then(() => render()); return ''; }
+    const v = NH.d[S.sel.pnu]; if (!v || !v.h || !v.h.length) return '';
+    const hs = v.h.slice().sort((a, z) => z[2].localeCompare(a[2]));
+    return `<section class="nhc"><h2><i class="up">▲</i> 최근 신고가<span>최근 3개월 · 해제·직거래 제외</span></h2><ul>${hs.map(h => `<li><b>전용 ${h[0]}㎡</b> <em>${won(h[1])}</em> <small>${ymd(h[2])} · 이전 최고 ${won(h[3])} (${ymd(h[4])}) · +${Math.round((h[1] / h[3] - 1) * 1000) / 10}%</small></li>`).join('')}</ul></section>`;
+  }
   // 실거래 탭
   function tradeTab() {
     if (!S.d.bld) return skel();
@@ -1269,7 +1277,7 @@
     // 11/1 [실거래] 탭을 누르면 실거래부터: 긴 '전세 안전 점검'은 [전세안전] 버튼이나 아래 링크로 열었을 때만 맨 위에
     const safe = S.safeOpen ? safeSection(T) : '';
     const safeLink = !safe && safeSection(T) ? '<button type="button" class="safelink" data-safeopen>🛡 전세 안전 점검 보기 ›</button>' : '';
-    const out = [safe || jeonseCard(T), safeLink, `<div class="ctl">${segM}${segP}</div>`, S.tradeEx ? `<button type="button" class="exchip" data-exoff>전용 ${S.tradeEx}㎡만 보는 중 ✕</button>` : ''];
+    const out = [nhCard(), safe || jeonseCard(T), safeLink, `<div class="ctl">${segM}${segP}</div>`, S.tradeEx ? `<button type="button" class="exchip" data-exoff>전용 ${S.tradeEx}㎡만 보는 중 ✕</button>` : ''];
     out.push(gap ? gapChart(T.rows) : trendChart(list, S.tradeMode));
     if (T.partial) out.push(`<p class="note loadmore"><span class="spin"></span>최근 ${T.partial.done / 12}년치를 먼저 보여 드리고, 나머지 ${(T.partial.total - T.partial.done) / 12}년치를 이어서 불러오는 중입니다.</p>`);
     out.push(list.length ? `<ul class="trades">${items}</ul>${list.length > 40 && !S.showAll ? `<button class="more" id="moreT">${n(list.length - 40)}건 더 보기</button>` : ''}` : `<div class="empty">최근 ${S.months / 12}년 동안 이 필지에서 신고된 ${S.tradeMode === 'rent' ? '전월세' : '매매'} 거래가 없습니다.</div>`);
@@ -2972,7 +2980,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     drawTrades();
     const jobs = [];
     if (btAny()) for (const rg of uniq) jobs.push(loadBt(rg).then(drawTrades));
-    if (kindOn('apt')) jobs.push(loadPre().then(drawTrades));   // 11/2 입주 예정 아파트 (아파트 칩과 같이 켜짐)
+    if (kindOn('apt')) jobs.push(loadPre().then(drawTrades));
+    if (kindOn('apt') && nhOk()) jobs.push(loadNh().then(drawTrades));   // 11/5 신고가·새 거래   // 11/2 입주 예정 아파트 (아파트 칩과 같이 켜짐)
     for (const k of Object.keys(TK)) if (kindOn(k)) for (const rg of uniq) jobs.push(loadRegion(k, rg).then(drawTrades));
     await Promise.all(jobs);
     drawTrades();
@@ -3053,7 +3062,29 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       top.king = { dong, n: m.size };
     }
   }
-  const CROWN = '<i class="bdg crown" aria-hidden="true"><svg width="20" height="15" viewBox="0 0 20 15"><path d="M2 12.5 1 3.5l5 4 4-6 4 6 5-4-1 9z" fill="#F2B705"/><rect x="2" y="12.5" width="16" height="2" rx="1" fill="#F2B705"/></svg></i>';
+  // 11/5 선배 결정: 왕관 D안 — 이름 앞 작은 왕관(남색 테두리) + 라벨 금색 테두리 (라벨 밖으로 튀어나오지 않음)
+  const CROWN = '<i class="bdg crown" aria-hidden="true"><svg width="11" height="9" viewBox="-1 0 22 16" style="overflow:visible"><path d="M2 12.5 1 3.5l5 4 4-6 4 6 5-4-1 9z" fill="#F5C800" stroke="#14212E" stroke-width="2" stroke-linejoin="round"/><rect x="2" y="12.5" width="16" height="2" rx="1" fill="#F5C800" stroke="#14212E" stroke-width="2"/></svg></i>';
+  // 11/5 아파트 신고가(▲ 빨간 가격 · 처음 본 날부터 14일) · 새 실거래(N 파란 동그라미 · 7일) — data/nh-11.json (scripts/newhigh.mjs가 매일 만듦 · 서울)
+  //   신고가 = 같은 단지·평형의 2006년부터 최고가보다 1% 이상 (해제·직거래 제외) · 범례 없음(선배 결정) · 뜻은 라벨에 마우스를 올리면
+  //   NH_OPEN=false 동안은 운영자(선배)에게만 보임 — 첫 계산 결과 확인 뒤 true로
+  const NH_OPEN = false;
+  const NH = { p: null, d: null, v: 0 };
+  const nhOk = () => NH_OPEN || !!(S.me && S.me.op);
+  function loadNh() {
+    if (NH.p) return NH.p;
+    NH.p = fetch('/data/nh-11.json').then(r => r.ok ? r.json() : { d: {} }).then(j => { NH.d = j.d || {}; NH.v++; }).catch(() => { NH.d = {}; });
+    return NH.p;
+  }
+  const kstDay = (n = 0) => new Date(Date.now() + 9 * 3600e3 + n * 86400e3).toISOString().slice(0, 10).replace(/-/g, '');
+  function nhOf(x) {   // 이 단지의 신고가·새 거래 (필지번호로 찾고, 없으면 '동|지번')
+    if (!NH.d || !nhOk()) return null;
+    let v = x.pnu && NH.d[x.pnu];
+    if (!v) { const w = String(x.a || '').split(' '); v = NH.d[w.slice(-2).join('|')]; }
+    return v || null;
+  }
+  // 라벨 줄에 보이는 거래가 바로 그 신고가일 때만 ▲ (같은 평형 · 같은 값 · 같은 날)
+  const nhRow = (v, r) => v && v.h ? v.h.find(h => h[0] === r[0] && h[1] === r[1] && h[2] === r[2] && h[5] >= kstDay(-14)) : null;
+  const nhNew = v => !!(v && v.n && v.n >= kstDay(-7));
   // 11/1 아파트 평형별 줄 (서버 x.pa = [[전용㎡, 가격, 거래일, 건수], ...]) · 서버가 예전 파일이면 null → 예전 한 줄 라벨
   function aptRows(x, far) {
     if (x.k !== 'apt' || !Array.isArray(x.pa) || !x.pa.length) return null;
@@ -3066,8 +3097,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const val = r => py ? `<i class="tpy">평</i>${n(Math.round(r[1] / (r[0] / 3.305785) / 10) * 10)}만` : eok(r[1]);
     el.classList.add('mp');
     el.classList.toggle('king', !!x.king);
-    el.innerHTML = `${x.king ? CROWN : ''}<span class="nm">${esc(x.n || '')}</span>${rows.map(r => `<span class="r"><i>${r[0]}</i><b>${val(r)}</b></span>`).join('')}`;
-    el.title = (x.king ? `👑 ${x.king.dong} 대장\n` : '') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
+    const v = nhOf(x), nw = nhNew(v), hs = (v && v.h) || [];
+    el.innerHTML = `${nw ? '<i class="bdg nnew" aria-label="새 실거래">N</i>' : ''}<span class="nm">${x.king ? CROWN : ''}${esc(x.n || '')}</span>${rows.map(r => { const hi = nhRow(v, r); return `<span class="r"><i>${r[0]}</i><b${hi ? ' class="nhi"' : ''}>${hi ? '<i class="up">▲</i>' : ''}${val(r)}</b></span>`; }).join('')}`;
+    el.title = (x.king ? `👑 ${x.king.dong} 대장\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
   }
   // 11/1 상가·건물 라벨: 가격 + 직거래면 네모 "직" + 거래 연월 · 평당가는 대지 기준
   function btLabel(el, x) {
@@ -3091,11 +3123,11 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(132, Math.max(104, String(x.n || '').length * 10.5 + 14)) : rows ? Math.min(106, Math.max(66, String(x.n || '').length * 10.5 + 14)) : x.j ? 80 : 62, h = pre ? 30 + (rows.length ? 12 + rows.length * 15 : 14) : rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(132, Math.max(104, String(x.n || '').length * 10.5 + 14)) : rows ? Math.min(118, Math.max(66, String(x.n || '').length * 10.5 + 14 + (x.king ? 12 : 0))) : x.j ? 80 : 62, h = pre ? 30 + (rows.length ? 12 + rows.length * 15 : 14) : rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
-      if (o && rows && o._far !== far) { (pre ? preLabel : aptLabel)(o.getContent(), x, rows); o._far = far; }
+      if (o && rows && (o._far !== far || (!pre && o._nv !== NH.v))) { (pre ? preLabel : aptLabel)(o.getContent(), x, rows); o._far = far; o._nv = NH.v; }   // 11/5 신고가 자료가 들어오면 라벨도 다시
       if (!o) {
         const el = document.createElement('button');
         el.type = 'button'; el.className = `tlabel k-${x.k}`;
@@ -3107,7 +3139,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         if (BTK[x.k]) btLabel(el, x);
         el.onclick = ev => { ev.stopPropagation(); if (pre) preCard(x); else pick(x.lat, x.lng); };
         o = new K.CustomOverlay({ position: ll, content: el, yAnchor: 1.2, zIndex: 3, clickable: true });
-        o._far = far;
+        o._far = far; o._nv = NH.v;
         T.ovs.set(x.id, o);
       }
       if (!o.getMap()) o.setMap(S.map);
