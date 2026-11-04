@@ -2919,7 +2919,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       // 서버가 요청한 종류의 자료를 돌려줬는지 확인 (예전 서버 파일이면 모든 종류에 아파트 자료가 와서 겹쳐 보입니다)
       if ((j.kind || 'apt') !== kind) { console.warn('api/aptmap.js 파일이 최신이 아닙니다'); e.items = []; return []; }
       e.items = j.items.map((x, i) => ({ ...x, k: kind, id: `${key}:${i}`, lawd: rg.lawd }));
-      if (kind === 'apt') kingMark(e.items, rg.name);
+      if (kind === 'apt') { e.items = aptMerge(e.items); kingMark(e.items, rg.name); }
       e.items.filter(x => x.lat == null).forEach(x => T.geoQ.push(x));
       geoSort(); geoNext();
       return e.items;
@@ -3046,6 +3046,27 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   // 11/1 대장 아파트: 같은 법정동에서 84㎡ 최근 6개월 최고가(중개거래)가 가장 높은 단지 하나에 왕관 — 84㎡ 거래 단지가 3곳 이상인 동만
   const dongOf = x => String(x.a || '').split(' ').slice(-2, -1)[0] || '';
+  // 11/5 선배: 국토부 실거래는 한 단지를 'N단지'로 나눠 신고하는 곳이 있음 → 실제로 한 단지인 곳은 이름을 하나로 합쳐 라벨 하나로
+  //   (상암월드컵파크 1~12단지처럼 정말 따로인 단지는 그대로 — 그래서 자동 규칙이 아니라 목록으로) · 필요하면 여기에 한 줄씩 추가
+  const APT_ONE = [[/^마포래미안푸르지오\s*\d단지$/, '마포래미안푸르지오']];
+  function aptMerge(items) {
+    const out = [], by = new Map();
+    for (const x of items) {
+      const hit = APT_ONE.find(([re]) => re.test(String(x.n || '').trim()));
+      if (!hit) { out.push(x); continue; }
+      const k = dongOf(x) + '|' + hit[1], g = by.get(k);
+      if (!g) { const y = { ...x, n: hit[1], pnus: x.pnu ? [x.pnu] : [], pa: (x.pa || []).map(r => [...r]) }; by.set(k, y); out.push(y); continue; }
+      // 합치기: 평형마다 더 최근 거래 · 건수는 더함 · 자리는 거래가 더 많은 쪽
+      const rows = new Map(g.pa.map(r => [r[0], r]));
+      for (const r of x.pa || []) { const o = rows.get(r[0]); if (!o) rows.set(r[0], [...r]); else { const c = o[3] + r[3]; if (r[2] > o[2]) { o[1] = r[1]; o[2] = r[2]; } o[3] = c; } }
+      g.pa = [...rows.values()].sort((a, z) => a[0] - z[0]);
+      if (x.pnu) g.pnus.push(x.pnu);
+      if ((x.c || 0) > (g.c || 0) && x.lat != null) { g.lat = x.lat; g.lng = x.lng; g.a = x.a; g.pnu = x.pnu; }
+      g.c = (g.c || 0) + (x.c || 0); g.x84 = Math.max(g.x84 || 0, x.x84 || 0);
+      if (x.d > g.d) { g.d = x.d; g.p = x.p; g.ar = x.ar; g.f = x.f; }
+    }
+    return out;
+  }
   // 11/5 고침(선배: '마포 1위보다 비싼 단지가 보인다'): 대장 기준을 '6개월 최고가'에서 '라벨에 보이는 84㎡ 최근 거래가'로
   //   (6개월 최고가는 한 번 튄 거래로 정해져서, 라벨에는 더 낮은 최근 가격이 보이는데 1위가 되는 일이 있었음)
   const p84 = x => { const rs = (x.pa || []).filter(r => r[0] >= 80 && r[0] <= 86); if (!rs.length) return 0; return rs.sort((a, z) => z[2].localeCompare(a[2]))[0][1]; };
@@ -3082,7 +3103,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   const kstDay = (n = 0) => new Date(Date.now() + 9 * 3600e3 + n * 86400e3).toISOString().slice(0, 10).replace(/-/g, '');
   function nhOf(x) {   // 이 단지의 신고가·새 거래 (필지번호로 찾고, 없으면 '동|지번')
     if (!NH.d || !nhOk()) return null;
-    let v = x.pnu && NH.d[x.pnu];
+    let v = null;
+    for (const p of new Set([x.pnu, ...(x.pnus || [])].filter(Boolean))) { const w = NH.d[p]; if (w) v = v ? { h: [...(v.h || []), ...(w.h || [])], n: [v.n, w.n].filter(Boolean).sort().pop() } : w; }   // 11/5 합친 단지(1~4단지)는 필지마다 모아서
     if (!v) { const w = String(x.a || '').split(' '); v = NH.d[w.slice(-2).join('|')]; }
     return v || null;
   }
