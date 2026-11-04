@@ -2919,7 +2919,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       // 서버가 요청한 종류의 자료를 돌려줬는지 확인 (예전 서버 파일이면 모든 종류에 아파트 자료가 와서 겹쳐 보입니다)
       if ((j.kind || 'apt') !== kind) { console.warn('api/aptmap.js 파일이 최신이 아닙니다'); e.items = []; return []; }
       e.items = j.items.map((x, i) => ({ ...x, k: kind, id: `${key}:${i}`, lawd: rg.lawd }));
-      if (kind === 'apt') kingMark(e.items);
+      if (kind === 'apt') kingMark(e.items, rg.name);
       e.items.filter(x => x.lat == null).forEach(x => T.geoQ.push(x));
       geoSort(); geoNext();
       return e.items;
@@ -3055,15 +3055,16 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     }
     return by;
   }
-  function kingMark(items) {
-    for (const [dong, m] of kingGroups(items)) {
-      if (m.size < 3) continue;
-      const top = [...m.values()].sort((a, z) => z.x84 - a.x84)[0];
-      top.king = { dong, n: m.size };
-    }
+  // 11/5 선배 결정: 동 대장 표시는 없앰 → 구 대장 하나만 (금색 테두리 + '마포 1위' 꼬리표 · 왕관 없음)
+  //   구 대장 = 그 구(지도 자료 한 묶음)에서 84㎡ 최근 6개월 최고가(중개거래) 1위 단지 · 84㎡ 거래 단지가 3곳 이상일 때만
+  function kingMark(items, rgName) {
+    const m = new Map();
+    for (const x of items) if (x.x84 > 0) { const c = cxNorm(x.n) || x.id, o = m.get(c); if (!o || x.x84 > o.x84) m.set(c, x); }
+    if (m.size < 3) return;
+    const w = String(rgName || '').split(' ').slice(1).filter(Boolean), full = w.join(' ') || '이 지역';
+    const top = [...m.values()].sort((a, z) => z.x84 - a.x84)[0];
+    top.king = { gu: w.map(t => t.replace(/(시|군|구)$/, '')).join(' ') || '지역', full, n: m.size };
   }
-  // 11/5 선배 결정: 왕관 D안 — 이름 앞 작은 왕관(남색 테두리) + 라벨 금색 테두리 (라벨 밖으로 튀어나오지 않음)
-  const CROWN = '<i class="bdg crown" aria-hidden="true"><svg width="11" height="9" viewBox="-1 0 22 16" style="overflow:visible"><path d="M2 12.5 1 3.5l5 4 4-6 4 6 5-4-1 9z" fill="#F5C800" stroke="#14212E" stroke-width="2" stroke-linejoin="round"/><rect x="2" y="12.5" width="16" height="2" rx="1" fill="#F5C800" stroke="#14212E" stroke-width="2"/></svg></i>';
   // 11/5 아파트 신고가(▲ 빨간 가격 · 처음 본 날부터 14일) · 새 실거래(N 파란 동그라미 · 7일) — data/nh-11.json (scripts/newhigh.mjs가 매일 만듦 · 서울)
   //   신고가 = 같은 단지·평형의 2006년부터 최고가보다 1% 이상 (해제·직거래 제외) · 범례 없음(선배 결정) · 뜻은 라벨에 마우스를 올리면
   //   NH_OPEN=false 동안은 운영자(선배)에게만 보임 — 첫 계산 결과 확인 뒤 true로
@@ -3098,8 +3099,8 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     el.classList.add('mp');
     el.classList.toggle('king', !!x.king);
     const v = nhOf(x), nw = nhNew(v), hs = (v && v.h) || [];
-    el.innerHTML = `${nw ? '<i class="bdg nnew" aria-label="새 실거래">N</i>' : ''}<span class="nm">${x.king ? CROWN : ''}${esc(x.n || '')}</span>${rows.map(r => { const hi = nhRow(v, r); return `<span class="r"><i>${r[0]}</i><b${hi ? ' class="nhi"' : ''}>${hi ? '<i class="up">▲</i>' : ''}${val(r)}</b></span>`; }).join('')}`;
-    el.title = (x.king ? `👑 ${x.king.dong} 대장\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
+    el.innerHTML = `${nw ? '<i class="bdg nnew" aria-label="새 실거래">N</i>' : ''}${x.king ? `<i class="bdg gutag">${esc(x.king.gu)} 1위</i>` : ''}<span class="nm">${esc(x.n || '')}</span>${rows.map(r => { const hi = nhRow(v, r); return `<span class="r"><i>${r[0]}</i><b${hi ? ' class="nhi"' : ''}>${hi ? '<i class="up">▲</i>' : ''}${val(r)}</b></span>`; }).join('')}`;
+    el.title = (x.king ? `🏆 ${x.king.full} 대장 · 84㎡ 최근 6개월 최고가 1위 (${x.king.n}개 단지 중)\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
   }
   // 11/1 상가·건물 라벨: 가격 + 직거래면 네모 "직" + 거래 연월 · 평당가는 대지 기준
   function btLabel(el, x) {
@@ -3115,7 +3116,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     if (kindOn('apt') && PRE.items) all.push(...PRE.items);
     T.regions.forEach(e => { if (e.items) for (const x of e.items) if (x.lat && x.lng && x.p && kindOn(x.k)) all.push(x); });   // 11/1 고른 묶음·칩만
     // 거래가 많은 건물부터 자리 잡고, 겹치는 라벨은 숨김
-    all.sort((a, z) => (z.king ? 1 : 0) - (a.king ? 1 : 0) || z.c - a.c || z.d.localeCompare(a.d));   // 11/1 왕관 단지가 먼저 자리 잡음
+    all.sort((a, z) => (z.king ? 1 : 0) - (a.king ? 1 : 0) || z.c - a.c || z.d.localeCompare(a.d));   // 11/1 대장 단지가 먼저 자리 잡음 (11/5 구 대장)
     // 11/1 아파트 평형별 라벨: 멀리(레벨 4~5) = 이름 + 대표 평형 하나 · 가까이(1~3) = 이름 + 평형별 모두
     const far = S.map.getLevel() >= 4;
     const placed = lsPoints().map(q => ({ x: q.x, y: q.y, w: 62, h: 24 })), show = new Set();
@@ -3123,7 +3124,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(132, Math.max(104, String(x.n || '').length * 10.5 + 14)) : rows ? Math.min(118, Math.max(66, String(x.n || '').length * 10.5 + 14 + (x.king ? 12 : 0))) : x.j ? 80 : 62, h = pre ? 30 + (rows.length ? 12 + rows.length * 15 : 14) : rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = pre ? Math.min(132, Math.max(104, String(x.n || '').length * 10.5 + 14)) : rows ? Math.min(118, Math.max(66, String(x.n || '').length * 10.5 + 14)) : x.j ? 80 : 62, h = pre ? 30 + (rows.length ? 12 + rows.length * 15 : 14) : rows ? 16 + rows.length * 15 + (x.king ? 13 : 0) : 24, cy = pt.y - 0.7 * (h - 24) - (x.king ? 4 : 0);   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
