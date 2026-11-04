@@ -48,7 +48,7 @@ const ymd = d => d ? d.slice(2).replace(/-/g, '.') : '';
 const plus2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); const t = new Date(Date.UTC(y + 2, m - 1, dd)); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
 const add2y = d => { if (!day(d)) return ''; const [y, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(y + 2, m - 1, dd)).toISOString().slice(0, 10); };
 
-const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, mgd: null, ln: 0, lnr: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, called: '', hist: [] });
+const EMPTY = () => ({ st: { src: '', k: [], hold: false, office: '' }, so: null, pr: { sale: 0, jeonse: 0, wd: 0, wr: 0 }, ar: 0, live: '', exp: '', moveIn: '', rm: 0, bt: 0, mg: 0, mgd: null, ln: 0, lnr: '', opt: '', tels: [], note: '', imp: '', impd: '', cd: 0, cr: 0, mk: '', deal: null, called: '', hist: [] });
 // 꼭 챙길 것 글에서 첫 날짜를 찾음: '11/15 중도금' · '11.15까지' · '11월 15일' · '2026-11-15' · '26.11.15' → 'YYYY-MM-DD' (지난 지 60일이 넘은 월·일은 내년으로)
 export function impDay(t, now = new Date(Date.now() + 9 * 3600e3)) {
   const s = String(t || '');
@@ -70,6 +70,8 @@ function clean(b) {
   const src = ['mine', 'other'].includes(st.src) ? st.src : '';
   return {
     st: { src, k: src ? KS.filter(k => (st.k || []).includes(k)) : [], hold: !!src && !!st.hold, office: src === 'other' ? str(st.office, 30) : '' },
+    // 11/4 선배: 매물을 꺼도 적어 둔 구분(내 물건·타부동산)·거래·부동산명은 남김 → 다시 켜면 그대로 (켜져 있을 때는 st가 기준)
+    so: (o => { o = o || {}; const s2 = ['mine', 'other'].includes(o.src) ? o.src : '', k2 = KS.filter(k => (o.k || []).includes(k)); return s2 || k2.length ? { src: s2, k: k2, office: s2 === 'other' ? str(o.office, 30) : '' } : null; })(b.so),
     pr: { sale: man(pr.sale), jeonse: man(pr.jeonse), wd: man(pr.wd), wr: man(pr.wr) },
     ar: (n => Number.isFinite(n) && n > 5 && n < 1000 ? Math.round(n * 100) / 100 : 0)(Number(b.ar)),   // 직접 적은 전용면적(㎡) — 건축물대장 면적이 없을 때
     live: LV[b.live] ? b.live : '',
@@ -83,7 +85,7 @@ function clean(b) {
     mk: ['y', 'r'].includes(b.mk) ? b.mk : '',  // 줄 표시: 노랑·빨강 (10/26)
   };
 }
-const FIELDS = ['st', 'pr', 'ar', 'live', 'exp', 'moveIn', 'rm', 'bt', 'mg', 'mgd', 'ln', 'lnr', 'opt', 'tels', 'note', 'imp', 'impd', 'cd', 'cr', 'mk', 'deal'];
+const FIELDS = ['st', 'so', 'pr', 'ar', 'live', 'exp', 'moveIn', 'rm', 'bt', 'mg', 'mgd', 'ln', 'lnr', 'opt', 'tels', 'note', 'imp', 'impd', 'cd', 'cr', 'mk', 'deal'];
 const snap = r => JSON.parse(JSON.stringify(Object.fromEntries(FIELDS.map(k => [k, r[k]]))));
 export const stTxt = st => !st.src ? '상태 없음' : `${st.src === 'mine' ? '내 매물' : '타부동산' + (st.office ? `(${st.office})` : '')}${st.k.length ? ' ' + st.k.map(k => KN[k]).join('·') : ''}${st.hold ? ' · 보류' : ''}`;
 const prTxt = (k, pr) => k === 'sale' ? `매매 ${won(pr.sale)}` : k === 'jeonse' ? `전세 ${won(pr.jeonse)}` : `월세 ${won(pr.wd)}/${pr.wr || 0}`;
@@ -245,7 +247,7 @@ export async function ledger({ redis, uid, cx, saveCx, send, fail, req, res, bod
   if (guard && JSON.stringify([rec.st, rec.pr, rec.rm || 0, rec.bt || 0, rec.mg || 0, rec.moveIn || '', rec.mgd || null, rec.ln || 0, rec.lnr || '']) !== stp0) { const why = await guard(key); if (why) return fail(res, 403, 'publock', why); }
   rec.up = now;
   if (who) { rec.by = who.id; rec.byn = who.n; }
-  const empty = !rec.hist.length && !rec.st.src && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
+  const empty = !rec.hist.length && !rec.st.src && !rec.so && !rec.ar && !rec.live && !rec.exp && !rec.tels.length && !rec.note && !rec.opt && !rec.moveIn && !rec.rm && !rec.bt && !rec.mg && !rec.mgd && !rec.ln && !rec.lnr;
   if (empty) await redis(['HDEL', H, key]);
   else { await redis(['HSET', H, key, seal(rec)]); await redis(['SADD', `realmap:hjs:${uid}`, id]); }
   if (movedMemo) await saveCx();
