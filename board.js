@@ -324,6 +324,7 @@ window.Board = (() => {
   const roleOnly = r => /^(소유자|소유주|연락처)?$/.test(String(r || '').trim());
   const ymdS = d => d ? String(d).slice(2).replace(/-/g, '.') : '';
   const expSoon = d => { const dl = (Date.parse(d) - Date.now()) / 864e5; return dl <= 90; };
+  const FADE = new Set(['src', 'kd', 'ps', 'pj', 'pdep', 'prent', 'prem', 'ppy', 'gap']);   // 11/4 매물 꺼진 줄에서 흐리게 할 칸
   function cell(x, c, n) {
     const P = places(x)[0] || {}, a = x.ad || {}, k = x.kind;
     switch (c) {
@@ -418,7 +419,7 @@ window.Board = (() => {
     return '';
   }
   function rowHtml(x, n, RO) {   // 10/28 칸에서 바로 고치기·줄 아래 펼침·노랑/빨강 표시는 없앰 → 줄을 누르면 오른쪽 입력창
-    const tds = VC().map(({ id: c }) => `<td class="c-${c}">${cell(x, c, n)}</td>`).join('');
+    const off = x.status !== 'on', tds = VC().map(({ id: c }) => `<td class="c-${c}">${off && FADE.has(c) ? `<span class="offv" style="opacity:.4;display:inline-block" title="매물 꺼짐 (적어 둔 정보)">${cell(x, c, n)}</span>` : cell(x, c, n)}</td>`).join('');   // 11/4 선배: 매물을 끄면 받은 곳·거래·가격을 흐리게 (아파트 장부와 같게)
     return `<tr id="b_${x.id}" data-id="${x.id}" class="${B.pk === x.id ? 'on pk' : ''}${B.selId === x.id ? ' sel' : ''}${x.status === 'done' ? ' dn' : ''}${RO.has(x.id) ? ' ro' : ''}">${tds}</tr>`;
   }
   // 왼쪽 칸(번호 ~ 물건명·주소) 고정 — 글자 크기로 칸 너비가 바뀌면 다시 잼
