@@ -230,5 +230,5 @@ export default handler(async (req, res) => {
     ]);
     return { area, price };
   });
-  send(res, 200, { ok: true, pnu: P.pnu, dong, ho, ...out }, 86400);
+  send(res, 200, { ok: true, pnu: P.pnu, dong, ho, ...out }, out.area && out.area.ok ? 86400 : 0);   // 11/5 공공데이터가 잠깐 거절한 결과(초당 제한 등)는 CDN에 하루 동안 붙잡히지 않게
 });
