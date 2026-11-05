@@ -61,7 +61,7 @@ for (const r of cls) {
 const KO = { 남: '남', 여: '여', 남여공학: '공', 남녀공학: '공' };
 const out = {};
 for (const r of info) {
-  const nm = clean(r.SCHUL_NM), knd = clean(r.SCHUL_KND_SC_NM);
+  const nm = clean(r.SCHUL_NM).replace(/[・·]/g, ''), knd = clean(r.SCHUL_KND_SC_NM);
   if (!nm || !/초등학교|중학교|고등학교|특수학교|각종학교/.test(knd)) continue;
   const code = clean(r.SD_SCHUL_CODE), c = C.get(code);
   const grades = c ? Object.keys(c.g).map(Number).sort((a, b) => a - b) : [];
