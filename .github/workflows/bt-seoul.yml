@@ -1,0 +1,49 @@
+name: realmap-bt-seoul
+# 11/5 건물·단독·공장 실거래 지도 자료를 서울 전체로 넓히기 — 2시간마다 아직 없는 구 1곳씩 (서울 약 2일) (scripts/landtrade-test.mjs · 구 하나 약 20분 · 공공데이터 약 1,000번)
+#   순서: 서대문 → 은평 → 용산 → 중구 → 종로 → 영등포 → 성동 → 나머지 · 서울이 다 차면 아무것도 안 하고 끝남
+#   수동 실행도 가능 (Run workflow) · 결과: data/bt/<구>.json (화면은 이 파일이 있는 구만 표시)
+on:
+  schedule:
+    - cron: '30 */2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bt-seoul
+  cancel-in-progress: false   # 앞 실행이 안 끝났으면 기다림 (겹쳐 돌지 않게)
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: 아직 없는 구 1곳 만들기
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          VWORLD_DOMAIN: 'https://realmap.online'
+          MONTHS: '250'
+          MINUTES: '50'
+          BT_STRICT: '1'
+        run: |
+          ORDER="11410 11380 11170 11140 11110 11560 11200 11470 11500 11530 11545 11590 11620 11650 11680 11710 11740 11215 11230 11260 11290 11305 11320 11350"
+          n=0
+          for g in $ORDER; do
+            [ -f "data/bt/$g.json" ] && continue
+            echo "== $g =="
+            GU=$g node scripts/landtrade-test.mjs || echo "$g 실패 · 다음 실행에 다시"
+            n=$((n+1)); break
+          done
+          [ $n -eq 0 ] && echo "서울 전체 완료"
+          true
+      - name: 저장
+        if: always()
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/bt/*.json data/landtrade-test-*.json 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "건물·단독·공장 실거래 자료 (서울 넓히기)" && (git push || (git pull --rebase origin main && git push)))
