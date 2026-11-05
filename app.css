@@ -1010,3 +1010,8 @@ a.favbtn{text-decoration:none}
 .hks.m span{color:#24386E;font-size:11px;font-weight:700}
 @media (prefers-color-scheme: dark){.hkbox .hk-main{background:#10261C}.hk-co,.hk-t,.hkbox .hk-main small{color:#5BC48F}}
 @media (max-width:760px){.hkpanel{gap:2px;padding:8px 10px}.hkpanel .dp-note{display:none}.hkpanel label{padding:2px 0}}
+.hk-ord{font-size:12px;font-weight:700;color:#0E7A4E;margin-left:4px}
+.hk-l.hk-r li{flex-direction:column;align-items:flex-start;gap:1px}
+.hk-l.hk-r li b{display:flex;align-items:center;gap:6px;max-width:100%}
+.hk-l.hk-r li span{white-space:normal}
+.hk-top{font-style:normal;background:#0E7A4E;color:#fff;font-size:10.5px;font-weight:800;border-radius:4px;padding:1px 5px;flex:none}

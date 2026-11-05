@@ -167,7 +167,7 @@
       for (const r of a.rows) {
         if (r[3] > 1) continue;   // 입시·보습(0) · 외국어(1)만 (예체능·독서실·직업 등은 뺌 — 11/5 선배 결정)
         const [Q, R] = hkKey(r[0], r[1]), k = Q + ',' + R;
-        (map.get(k) || map.set(k, { q: Q, r: R, L: [] }).get(k)).L.push([r[2], hSubj(r[2]), r[4]]);
+        (map.get(k) || map.set(k, { q: Q, r: R, L: [] }).get(k)).L.push([r[2], hSubj(r[2]), r[4], r[5] > 0 && r[5] <= 5000 ? r[5] : 0, r[6] || '']);   // 11/5 정원(5,000명 넘는 건 잘못 입력으로 보고 '-')·개원 연도
       }
       for (const b of map.values()) {
         const cx = HR * S3 * (b.q + b.r / 2), cy = HR * 1.5 * b.r;
@@ -246,15 +246,15 @@
     const [Q, R] = hkKey(la, ln), h = HK.A.map.get(Q + ',' + R);
     if (!h || hkN(h) < 3) { if (HK.card) { hkHideCard(); hkDraw(); } return false; }
     HK.selH = h; hkDraw();
-    const L = (HK.subj ? h.L.filter(x => x[1] === HK.subj) : h.L).slice().sort((a, b) => a[1].localeCompare(b[1], 'ko') || a[0].localeCompare(b[0], 'ko'));
+    const L = (HK.subj ? h.L.filter(x => x[1] === HK.subj) : h.L).slice().sort((a, b) => b[3] - a[3] || a[0].localeCompare(b[0], 'ko'));   // 11/5 A안: 정원 많은 순 · 위 3곳 '정원 상위'
     const cnt = {}; L.forEach(x => { cnt[x[1]] = (cnt[x[1]] || 0) + 1; });
     const el = $('zonecard');
     el.innerHTML = `<div class="zc-h"><span style="font-size:12px;color:var(--muted)">학원가 · 반경 약 75m</span><button id="zcClose" aria-label="닫기">×</button></div>
-      <div class="zc-h"><b>${HK.subj ? esc(HK.subj) + ' ' : ''}학원 ${L.length}곳</b></div>
+      <div class="zc-h"><b>${HK.subj ? esc(HK.subj) + ' ' : ''}학원 ${L.length}곳 <small class="hk-ord">정원 많은 순</small></b></div>
       <div class="zc-tags">${Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span>${esc(k)} ${v}</span>`).join('')}</div>
-      <ul class="hk-l">${L.map(x => `<li><b>${esc(x[0])}</b><span>${esc(x[1])}${x[2] ? ' · 교습소' : ''}</span></li>`).join('')}</ul>
+      <ul class="hk-l hk-r">${L.map((x, i) => `<li><b>${i < 3 && x[3] ? '<i class="hk-top">정원 상위</i>' : ''}${esc(x[0])}</b><span>${esc(x[1])}${x[2] ? ' · 교습소' : ''} · 정원 ${x[3] ? n(x[3]) + '명' : '-'}${x[4] ? ` · ${esc(x[4])}년~` : ''}</span></li>`).join('')}</ul>
       <button class="zc-go" id="zcGo">이 자리 필지 정보 보기</button>
-      <div class="zc-meta">출처 · 나이스 교육정보 개방포털 학원교습소정보 (${esc(HK.A.updated)} 기준) · 입시·보습·외국어 학원과 교습소 · 과목은 학원 이름으로 나눈 참고값입니다</div>`;
+      <div class="zc-meta">출처 · 나이스 교육정보 개방포털 학원교습소정보 (${esc(HK.A.updated)} 기준) · 입시·보습·외국어 학원과 교습소 · 과목은 학원 이름으로 나눈 참고값 · 정원은 교육청에 신고된 수강 정원 합계로 실제 수강생 수와 다를 수 있습니다</div>`;
     el.hidden = false; HK.card = true;
     if (mobile()) { $('hakpanel').hidden = true; $('panel').classList.add('closed'); }
     $('zcClose').onclick = () => { hkHideCard(); hkDraw(); };
