@@ -87,6 +87,9 @@
       <div class="grp">
         <button id="mtDev" aria-pressed="false">개발지도</button>
       </div>
+      <div class="grp">
+        <button id="mtHak" aria-pressed="false" title="배정 초등학교 · 학교 · 학원가 (서울)">학군</button>
+      </div>
     </div>
     <div class="measure" id="measure" hidden>
       <div class="dp-h"><b>면적·거리 재기</b><button id="msClose" aria-label="닫기">×</button></div>
@@ -114,6 +117,16 @@
       <label><input type="checkbox" data-jb="기타" checked><i style="background:#868E96"></i>정비구역 (구분 미등록)<em data-cnt="기타"></em></label>
       <a class="dp-link" href="/seoul/" target="_blank" rel="noopener">서울 정비사업 현황 보기 ›</a>
       <a class="dp-link" href="/gyeonggi/" target="_blank" rel="noopener">경기 정비사업 현황 보기 ›</a>
+    </div>
+    <!-- 11/5 학군 (서울): 배정 초등학교 통학구역 · 학교 위치 · 학원가 -->
+    <div class="devpanel hkpanel" id="hakpanel" hidden>
+      <div class="dp-h"><b>학군 <small>서울</small></b><button id="hkClose" aria-label="닫기">×</button></div>
+      <label><input type="checkbox" data-hk="zone" checked><i style="background:#168C5A"></i>배정 초등학교 통학구역</label>
+      <label><input type="checkbox" data-hk="sch" checked><i style="background:#fff;border:2.5px solid #0E7A4E;border-radius:50%;box-sizing:border-box"></i>학교 위치</label>
+      <label><input type="checkbox" data-hk="aca" checked><i style="background:#EB5757"></i>학원가</label>
+      <div class="hk-subj" id="hkSubj"><button type="button" data-s="" aria-pressed="true">전체</button><button type="button" data-s="수학" aria-pressed="false">수학</button><button type="button" data-s="영어" aria-pressed="false">영어</button><button type="button" data-s="국어·논술" aria-pressed="false">국어·논술</button><button type="button" data-s="과학" aria-pressed="false">과학</button></div>
+      <div class="dp-legend"><span><i style="background:#F2C94C"></i>3~7곳</span><span><i style="background:#F2994A"></i>8~19</span><span><i style="background:#EB5757"></i>20~39</span><span><i style="background:#B3261E"></i>40곳+</span></div>
+      <p class="dp-note">필지를 누르면 정보창 맨 위에 배정 초등학교가 나옵니다. 육각형(폭 150m)을 누르면 학원 목록이 나옵니다. 참고용이며 실제 배정은 교육지원청에서 확인해 주세요.</p>
     </div>
     <div class="zonecard" id="zonecard" hidden></div>
     <div class="pmcard" id="pmCard" hidden></div>

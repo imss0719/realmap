@@ -109,7 +109,7 @@
     S.geocoder = new K.services.Geocoder();
     S.places = new K.services.Places();
     S.rvc = new K.RoadviewClient();
-    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (S.rvRoad && S.view !== 'rv') return rvAt(la, ln); if (pmActive()) return; if (devHit(la, ln)) return; pick(la, ln); });   // 10/28 개발지역을 켜고 구역 안을 누르면 구역 카드 (필지 정보는 카드의 버튼으로)
+    K.event.addListener(S.map, 'click', e => { const la = e.latLng.getLat(), ln = e.latLng.getLng(); if (M.on) return measureClick(la, ln); if (S.rvRoad && S.view !== 'rv') return rvAt(la, ln); if (pmActive()) return; if (devHit(la, ln)) return; if (hkHit(la, ln)) return; pick(la, ln); });   // 10/28 개발지역을 켜고 구역 안을 누르면 구역 카드 (필지 정보는 카드의 버튼으로)
     K.event.addListener(S.map, 'mousemove', e => devHover(e.latLng.getLat(), e.latLng.getLng()));
     K.event.addListener(S.map, 'mouseout', () => devHover());
 
@@ -126,6 +126,7 @@
     $('vMap').onclick = () => { if (S.view === 'rv') setView('map'); else rvRoad(false); };
     $('vRv').onclick = () => { if (S.view === 'rv') return; rvRoad(!S.rvRoad); };
     devInit();
+    hkInit();
     tradeMapInit();
     lsInit();
     measureInit();
@@ -141,6 +142,154 @@
     } else toast(qs.get('promo') ? '매물이 있는 필지를 누르고 [여기 매물 광고하기]를 눌러 주세요' : '필지를 누르면 정보가 열립니다', qs.get('promo') ? 7000 : 2600);
     // 첫 화면으로 그냥 들어온 분께만 안내 창 (공유 링크·정비사업 페이지·매물 보기로 온 경우는 띄우지 않음)
     if (!pnu && !(qla > 33) && !qs.get('lst') && !qs.get('office') && !qs.get('promo') && !qs.get('login') && qs.get('from') !== 'seoul') setTimeout(welcome, 1500);
+  }
+
+  // ---------- 11/5 학군 (서울만): 배정 초등학교 통학구역 · 학교 위치 · 학원가(150m 육각형) ----------
+  //   자료: data/hakgu-11.json (학구도 → 서울만 · scratchpad에서 변환) · data/aca-11.json (scripts/academy.mjs 매달)
+  //   [학군]을 켠 사람에게만 보임 (끈 상태에선 아무것도 안 바뀜) · 지도 5단계 이하에서만 그림 (6단계부터는 가격지도)
+  const HK = { on: false, want: { zone: true, sch: true, aca: true }, subj: '', Z: null, A: null, sh: [], ld: null, selZ: new Set(), selKey: null, selH: null, card: false, hint: 0 };
+  const HSUBJ = [['수학', /수학|매쓰|매스|math/i], ['영어', /영어|잉글|english|esl|토플|토익|sat\b/i], ['국어·논술', /국어|논술|독서|글쓰기|문해|한글|책/], ['과학', /과학|사이언스|물리|화학|생물|생명/]];
+  const hSubj = nm => { for (const [k, re] of HSUBJ) if (re.test(nm)) return k; return '종합·기타'; };
+  const HR = 87, HKX = 111320 * Math.cos(37.55 * Math.PI / 180), HKY = 110950, S3 = Math.sqrt(3);   // 육각형 반지름 87m → 폭 약 150m
+  function hkKey(la, ln) {
+    const x = (ln - 126.9) * HKX, y = (la - 37.55) * HKY, q = (S3 / 3 * x - y / 3) / HR, r = (2 / 3 * y) / HR, s = -q - r;
+    let Q = Math.round(q), R = Math.round(r); const Sx = Math.round(s), dq = Math.abs(Q - q), dr = Math.abs(R - r), ds = Math.abs(Sx - s);
+    if (dq > dr && dq > ds) Q = -R - Sx; else if (dr > ds) R = -Q - Sx;
+    return [Q, R];
+  }
+  const hkN = h => HK.subj ? h.L.filter(x => x[1] === HK.subj).length : h.L.length;
+  const hkCol = n => n < 8 ? '#F2C94C' : n < 20 ? '#F2994A' : n < 40 ? '#EB5757' : '#B3261E';
+  const hkSeoul = (la, ln) => la > 37.42 && la < 37.71 && ln > 126.76 && ln < 127.19;
+  function hkLoad() {
+    return HK.ld || (HK.ld = Promise.all(['/data/hakgu-11.json', '/data/aca-11.json'].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.json(); }))).then(([z, a]) => {
+      for (const q of z.z) { q.g = { type: q.t === 'P' ? 'Polygon' : 'MultiPolygon', coordinates: q.c }; bbOf(q); }
+      const map = new Map();
+      for (const r of a.rows) {
+        if (r[3] > 1) continue;   // 입시·보습(0) · 외국어(1)만 (예체능·독서실·직업 등은 뺌 — 11/5 선배 결정)
+        const [Q, R] = hkKey(r[0], r[1]), k = Q + ',' + R;
+        (map.get(k) || map.set(k, { q: Q, r: R, L: [] }).get(k)).L.push([r[2], hSubj(r[2]), r[4]]);
+      }
+      for (const b of map.values()) {
+        const cx = HR * S3 * (b.q + b.r / 2), cy = HR * 1.5 * b.r;
+        b.lat = cy / HKY + 37.55; b.lng = cx / HKX + 126.9;
+        b.pts = [0, 1, 2, 3, 4, 5].map(i => { const t = (60 * i + 30) * Math.PI / 180; return [(cy + HR * Math.sin(t)) / HKY + 37.55, (cx + HR * Math.cos(t)) / HKX + 126.9]; });
+      }
+      HK.Z = z; HK.A = { updated: a.updated, map, bins: [...map.values()] };
+      return true;
+    }).catch(e => { console.warn('[리얼맵] 학군', e); HK.ld = null; return false; }));
+  }
+  function hkInit() {
+    $('mtHak').onclick = () => hkToggle(!HK.on);
+    $('hkClose').onclick = () => { $('hakpanel').hidden = true; };
+    document.querySelectorAll('[data-hk]').forEach(cb => cb.onchange = () => { HK.want[cb.dataset.hk] = cb.checked; $('hkSubj').hidden = !HK.want.aca; if (!HK.want.aca) hkHideCard(); hkDraw(); });
+    $('hkSubj').onclick = e => {
+      const b = e.target.closest('[data-s]'); if (!b) return;
+      HK.subj = b.dataset.s; $('hkSubj').querySelectorAll('[data-s]').forEach(x => x.setAttribute('aria-pressed', x === b));
+      hkHideCard(); hkDraw();
+    };
+    kakao.maps.event.addListener(S.map, 'idle', () => { if (HK.on) hkDraw(); });
+  }
+  async function hkToggle(on) {
+    HK.on = on; $('mtHak').setAttribute('aria-pressed', on); $('hakpanel').hidden = !on;
+    if (!on) { hkHideCard(); hkDraw(); if (S.sel) render(); return; }
+    if (D.on) toggleDev(false);   // 개발지도와 함께 켜면 선이 겹쳐 지저분 → 하나만
+    const c = S.map.getCenter();
+    if (!hkSeoul(c.getLat(), c.getLng())) toast('학군 정보는 지금 서울만 제공합니다');
+    else if (S.map.getLevel() > 5) S.map.setLevel(5);
+    if (!(await hkLoad())) { toast('학군 정보를 잠시 불러오지 못했습니다'); HK.on = false; $('mtHak').setAttribute('aria-pressed', false); $('hakpanel').hidden = true; return; }
+    if (!HK.on) return;
+    hkDraw(); if (S.sel) render();
+    if (mobile()) toast('필지를 누르면 정보창 맨 위에 배정 초등학교가 나옵니다 · 색칠된 육각형은 학원가', 4500);
+  }
+  function hkHideCard() { if (HK.card) { $('zonecard').hidden = true; HK.card = false; } HK.selH = null; }
+  function hkDraw() {
+    const K = kakao.maps;
+    HK.sh.forEach(o => o.setMap(null)); HK.sh = [];
+    if (!HK.on || !HK.Z) return;
+    const lv = S.map.getLevel(), b = S.map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast();
+    const W = sw.getLng(), Sth = sw.getLat(), E = ne.getLng(), N = ne.getLat();
+    if (lv > 5) { if (Date.now() - HK.hint > 20000) { HK.hint = Date.now(); toast('학군 정보는 지도를 조금 더 확대하면 보입니다'); } return; }
+    if (HK.want.zone) for (const z of HK.Z.z) {
+      const bb = z.bb; if (bb[2] < W || bb[0] > E || bb[3] < Sth || bb[1] > N) continue;
+      const on = HK.selZ.has(z.id), co = z.gb === '1';
+      for (const path of geoToPaths(z.g)) HK.sh.push(new K.Polygon({ map: S.map, path, strokeWeight: on ? 3.5 : 1.3, strokeColor: on ? '#0E7A4E' : '#3F9C72', strokeOpacity: co && !on ? .6 : .9, strokeStyle: co ? 'shortdash' : 'solid', fillColor: '#168C5A', fillOpacity: on ? .15 : co ? 0 : .02, zIndex: on ? 2 : 1 }));
+    }
+    if (HK.want.aca && HK.A) for (const h of HK.A.bins) {
+      if (h.lat < Sth - .002 || h.lat > N + .002 || h.lng < W - .002 || h.lng > E + .002) continue;
+      const n = hkN(h); if (n < 3) continue;   // 2곳 이하는 칠하지 않음
+      const sel = h === HK.selH;
+      HK.sh.push(new K.Polygon({ map: S.map, path: h.pts.map(([la, ln]) => new K.LatLng(la, ln)), strokeWeight: sel ? 3 : 1, strokeColor: sel ? '#111' : '#fff', strokeOpacity: 1, fillColor: hkCol(n), fillOpacity: .55, zIndex: sel ? 4 : 3 }));
+    }
+    if (HK.want.sch) {
+      const selS = new Set(HK.Z.z.filter(z => HK.selZ.has(z.id)).flatMap(z => z.s));
+      const put = (id, x, m) => {
+        if (x[1] < Sth || x[1] > N || x[2] < W || x[2] > E) return;
+        const el = document.createElement('div');
+        el.className = 'hks' + (m ? ' m' : selS.has(id) ? ' on' : '');
+        el.innerHTML = `<i></i>${esc(x[0].replace(/초등학교$/, '초').replace(/중학교$/, '중').replace(/고등학교$/, '고'))}`;
+        if (!m) el.onclick = ev => { ev.stopPropagation(); hkSchool(id); };
+        HK.sh.push(new K.CustomOverlay({ map: S.map, position: new K.LatLng(x[1], x[2]), content: el, xAnchor: 0, yAnchor: .5, zIndex: 2, clickable: !m }));
+      };
+      for (const [id, x] of Object.entries(HK.Z.e)) put(id, x, false);
+      if (lv <= 4) for (const [id, x] of Object.entries(HK.Z.m)) put(id, x, true);
+    }
+  }
+  // 초등학교 이름을 누르면 그 학교 통학구역을 진하게
+  function hkSchool(id) {
+    const zs = HK.Z.z.filter(z => z.s.includes(id));
+    HK.selZ = new Set(zs.map(z => z.id)); HK.selKey = null; hkDraw();
+    const x = HK.Z.e[id]; if (x) toast(`${x[0]} 통학구역을 진하게 표시했습니다${zs.some(z => z.gb === '1') ? ' (점선 = 공동통학구역)' : ''}`);
+  }
+  // 학원가 육각형을 누르면 그 안 학원 목록 (필지 정보는 카드의 버튼으로 — 개발지도 구역 카드와 같은 방식)
+  function hkHit(la, ln) {
+    if (!HK.on || !HK.want.aca || !HK.A || S.map.getLevel() > 5) return false;
+    const [Q, R] = hkKey(la, ln), h = HK.A.map.get(Q + ',' + R);
+    if (!h || hkN(h) < 3) { if (HK.card) { hkHideCard(); hkDraw(); } return false; }
+    HK.selH = h; hkDraw();
+    const L = (HK.subj ? h.L.filter(x => x[1] === HK.subj) : h.L).slice().sort((a, b) => a[1].localeCompare(b[1], 'ko') || a[0].localeCompare(b[0], 'ko'));
+    const cnt = {}; L.forEach(x => { cnt[x[1]] = (cnt[x[1]] || 0) + 1; });
+    const el = $('zonecard');
+    el.innerHTML = `<div class="zc-h"><span style="font-size:12px;color:var(--muted)">학원가 · 반경 약 75m</span><button id="zcClose" aria-label="닫기">×</button></div>
+      <div class="zc-h"><b>${HK.subj ? esc(HK.subj) + ' ' : ''}학원 ${L.length}곳</b></div>
+      <div class="zc-tags">${Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span>${esc(k)} ${v}</span>`).join('')}</div>
+      <ul class="hk-l">${L.map(x => `<li><b>${esc(x[0])}</b><span>${esc(x[1])}${x[2] ? ' · 교습소' : ''}</span></li>`).join('')}</ul>
+      <button class="zc-go" id="zcGo">이 자리 필지 정보 보기</button>
+      <div class="zc-meta">출처 · 나이스 교육정보 개방포털 학원교습소정보 (${esc(HK.A.updated)} 기준) · 입시·보습·외국어 학원과 교습소 · 과목은 학원 이름으로 나눈 참고값입니다</div>`;
+    el.hidden = false; HK.card = true;
+    if (mobile()) { $('hakpanel').hidden = true; $('panel').classList.add('closed'); }
+    $('zcClose').onclick = () => { hkHideCard(); hkDraw(); };
+    $('zcGo').onclick = () => { hkHideCard(); hkDraw(); pick(la, ln); };
+    return true;
+  }
+  // 필지 정보창 맨 위 '학군' (학군을 켰을 때 · 서울 필지만)
+  function hkSection() {
+    if (!HK.on) return '';
+    const p = S.sel;
+    if (!p || !p.c || !String(p.pnu || '').startsWith('11')) return '';
+    if (!HK.Z) { hkLoad().then(ok => { if (ok && S.sel === p) render(); }); return skel(); }
+    const la = p.c.lat, ln = p.c.lng;
+    const zs = HK.Z.z.filter(z => { const b = z.bb; return ln >= b[0] && ln <= b[2] && la >= b[1] && la <= b[3] && inGeo(z.g, ln, la); });
+    const key = zs.map(z => z.id).join();
+    if (key !== HK.selKey) { HK.selKey = key; HK.selZ = new Set(zs.map(z => z.id)); setTimeout(hkDraw); }
+    const dist = x => Math.hypot((x[2] - ln) * HKX, (x[1] - la) * HKY), m10 = d => n(Math.round(d / 10) * 10);
+    const main = zs.filter(z => z.gb !== '1'), co = zs.filter(z => z.gb === '1');
+    const es = [...new Set(main.flatMap(z => z.s))].map(id => HK.Z.e[id]).filter(Boolean);
+    let h = es.length ? es.map(x => { const d = dist(x); return `<div class="hk-a"><b>${esc(x[0])}</b><span>${esc(x[4] || '')} · 직선 ${m10(d)}m · 걸어서 약 ${Math.max(1, Math.round(d * 1.3 / 67))}분</span></div>`; }).join('')
+      : '<p class="note">이 자리는 통학구역 자료에 나오지 않습니다.</p>';
+    h += co.map(z => `<p class="hk-co">공동통학구역 · ${z.s.map(id => HK.Z.e[id]).filter(Boolean).map(x => esc(x[0].replace(/초등학교$/, '초'))).join(' · ')} 중 선택</p>`).join('');
+    const near = k => Object.values(HK.Z.m).filter(x => x[3] === k).map(x => [dist(x), x]).sort((a, b) => a[0] - b[0]).slice(0, 3);
+    const li = ([d, x]) => `<li><b>${esc(x[0])}</b><span>${esc(x[4] || '')} · ${m10(d)}m</span></li>`;
+    let aca = '';
+    if (HK.A) {
+      const cnt = {}; let tot = 0;
+      for (const b of HK.A.bins) if (Math.abs(b.lat - la) < .004 && Math.abs(b.lng - ln) < .005 && Math.hypot((b.lng - ln) * HKX, (b.lat - la) * HKY) <= 300) for (const x of b.L) { tot++; cnt[x[1]] = (cnt[x[1]] || 0) + 1; }
+      aca = `<div class="hk-aca">가까운 학원 (약 300m 안) <b>${tot}곳</b>${tot ? ' · ' + Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} ${v}`).join(' · ') : ''}</div>`;
+    }
+    return `<section class="hkbox"><div class="hk-main"><small>배정 초등학교</small>${h}</div>${aca}
+      <p class="hk-t">가까운 중학교</p><ul class="hk-l">${near('중').map(li).join('')}</ul>
+      <p class="hk-t">가까운 고등학교</p><ul class="hk-l">${near('고').map(li).join('')}</ul>
+      <p class="note">참고용입니다. 실제 배정은 관할 교육지원청에서 확인해 주세요. 중학교는 학교군, 고등학교는 선발 방식으로 배정되어 거리 순과 다를 수 있습니다.</p>
+      ${src([`한국교육시설안전원 학구도 (${esc(HK.Z.base)} 기준)`, '나이스 학원교습소정보'])}</section>`;
   }
 
   // ---------- 처음 오신 분 안내 배너 (한 장씩 넘어가는 작은 카드 · '오늘 하루 보지 않기') ----------
@@ -737,7 +886,7 @@
     S.seen = S.seen || {};
     const lazy = (k, fn) => S.seen[k] ? fn() : `<div class="lazy" data-lazy="${k}">${skel()}</div>`;
     const blk = (k, label, html) => `<div class="blk" id="sec-${k}"><h2 class="blkh">${label}</h2>${html}</div>`;
-    const body = (apt ? [
+    const hkB = hkSection(), body = (hkB ? blk('hak', '학군', hkB) : '') + (apt ? [   // 11/5 [학군]을 켰을 때만 맨 위에
       // 11/1 A안: 아파트는 '중개사 매물' 상자 대신 위쪽 노란 광고 매물 줄 하나로
       blk('danji', '단지', danjiSection(jz, apt && S.d.bld ? danjiInfo() : null)),   // 11/1 A안: 평형별 실거래 · 단지 개요 · 재건축 · 관리비
       blk('trade', '실거래', lazy('trade', tradeTab)),
@@ -1638,6 +1787,7 @@
   }
   function toggleDev(on) {
     D.on = on; D.hinted = false;
+    if (on && HK.on) hkToggle(false);   // 11/5 학군과 개발지도는 하나만
     $('mtDev').setAttribute('aria-pressed', on);
     $('devpanel').hidden = true;
     if (!on) hideZone();
@@ -3150,7 +3300,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = (pre ? Math.min(144, Math.max(112, String(x.n || '').length * 11.5 + 14)) : rows ? Math.min(130, Math.max(72, String(x.n || '').length * 11.5 + 14)) : x.j ? 88 : 68) * MZ, h = (pre ? 32 + (rows.length ? 13 + rows.length * 16.5 : 15) : rows ? 17 + rows.length * 16.5 + (x.king ? 13 : 0) : 26) * MZ, cy = pt.y - 0.7 * (h - 26) - (x.king ? 4 : 0);   // 11/5 글씨 1단계 키움에 맞춰 크기 계산도   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = (pre ? Math.min(144, Math.max(112, String(x.n || '').length * 11.5 + 14)) : rows ? Math.min(130, Math.max(72, String(x.n || '').length * 11.5 + 14)) : x.j ? 88 : 68) * MZ, h = (pre ? 32 + (rows.length ? 13 + rows.length * 16.5 : 15) : rows ? 17 + rows.length * 16.5 + (x.king ? 22 : 0) : 26) * MZ, cy = pt.y - 0.7 * (h - 26) - (x.king ? 9 : 0);   // 11/5 글씨 1단계 키움에 맞춰 크기 계산도   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
