@@ -1,0 +1,28 @@
+name: realmap-school-neis
+# 11/5 서울 학교 정보 (나이스 학교기본정보·학급정보 → data/school-11.json) — 해마다 4월 + 수동 실행
+#   화면에는 아직 안 씀 (선배 확인 후 학군 정보창에 붙임) · 결과 요약에 학구도 학교와 짝 맞춘 결과
+on:
+  schedule:
+    - cron: '17 20 10 4 *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/school-neis.mjs
+        env:
+          NEIS_KEY: ${{ secrets.NEIS_KEY }}
+      - name: 바뀐 자료 저장
+        if: always()
+        run: |
+          git config user.name "realmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/school-11.json 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "서울 학교 정보 갱신 (나이스)" && (git push || (git pull --rebase origin main && git push)))
