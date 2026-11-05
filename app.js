@@ -226,9 +226,9 @@
         if (x[1] < Sth || x[1] > N || x[2] < W || x[2] > E) return;
         const el = document.createElement('div');
         el.className = 'hks' + (m ? ' m' : selS.has(id) ? ' on' : '');
-        el.innerHTML = `<i></i>${esc(x[0].replace(/초등학교$/, '초').replace(/중학교$/, '중').replace(/고등학교$/, '고'))}`;
+        el.innerHTML = `<b>${m ? esc(x[3]) : '초'}</b><span>${esc(x[0].replace(/초등학교$/, '초').replace(/중학교$/, '중').replace(/고등학교$/, '고'))}</span>`;   // 11/5 C안: 동그라미 아이콘 + 이름
         if (!m) el.onclick = ev => { ev.stopPropagation(); hkSchool(id); };
-        HK.sh.push(new K.CustomOverlay({ map: S.map, position: new K.LatLng(x[1], x[2]), content: el, xAnchor: 0, yAnchor: .5, zIndex: 2, clickable: !m }));
+        HK.sh.push(new K.CustomOverlay({ map: S.map, position: new K.LatLng(x[1], x[2]), content: el, xAnchor: .5, yAnchor: .3, zIndex: m ? 2 : selS.has(id) ? 4 : 3, clickable: !m }));
       };
       for (const [id, x] of Object.entries(HK.Z.e)) put(id, x, false);
       if (lv <= 4) for (const [id, x] of Object.entries(HK.Z.m)) put(id, x, true);

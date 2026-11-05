@@ -1000,11 +1000,13 @@ a.favbtn{text-decoration:none}
 .hk-l li b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hk-l li span{color:var(--muted);font-size:12px;white-space:nowrap;flex:none}
 .hk-aca{font-size:12.5px;background:var(--soft);border-radius:8px;padding:8px 10px;line-height:1.5}
-.hks{position:relative;margin-left:-6px;display:flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:#0E4D33;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;cursor:pointer;font-family:var(--f-body)}
-.hks i{width:11px;height:11px;border-radius:50%;background:#fff;border:2.5px solid #0E7A4E;box-sizing:border-box;flex:none}
-.hks.on{font-size:13px}
-.hks.on i{background:#0E7A4E}
-.hks.m{margin-left:-4px;font-size:11px;color:#3D4F7A;font-weight:600;cursor:default}
-.hks.m i{width:8px;height:8px;border:2px solid #4A63A8}
+.hks{display:flex;flex-direction:column;align-items:center;cursor:pointer;font-family:var(--f-body)}   /* 11/5 학교 위치 C안 */
+.hks b{width:26px;height:26px;border-radius:50%;background:#0E7A4E;color:#fff;display:grid;place-items:center;font-size:13px;font-weight:900;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);box-sizing:border-box}
+.hks span{margin-top:2px;background:rgba(255,255,255,.93);border-radius:4px;padding:0 4px;font-size:12px;font-weight:800;color:#0E4D33;white-space:nowrap;line-height:1.45}
+.hks.on b{box-shadow:0 0 0 3px #F5C800,0 2px 6px rgba(0,0,0,.3)}
+.hks.on span{font-size:13px}
+.hks.m{cursor:default}
+.hks.m b{background:#3B5BA9;width:22px;height:22px;font-size:11.5px}
+.hks.m span{color:#24386E;font-size:11px;font-weight:700}
 @media (prefers-color-scheme: dark){.hkbox .hk-main{background:#10261C}.hk-co,.hk-t,.hkbox .hk-main small{color:#5BC48F}}
 @media (max-width:760px){.hkpanel{gap:2px;padding:8px 10px}.hkpanel .dp-note{display:none}.hkpanel label{padding:2px 0}}
