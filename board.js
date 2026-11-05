@@ -1203,10 +1203,24 @@ window.Board = (() => {
     const d0 = String(P.dong || '').trim(), h0 = String(P.ho || '').trim().replace(/호$/, '');
     const dongs = [...new Set([d0, d0.replace(/동$/, ''), d0 && !/동$/.test(d0) ? d0 + '동' : d0])];
     const tries = [[dongs[0], h0], ...dongs.slice(1).map(d => [d, h0]), [dongs[0], h0 + '호']].slice(0, 3);
-    let ar = null;
-    for (const [dq, h] of tries) {
-      try { const j = await H.api(`/api/units?pnu=${P.pnu}&dong=${encodeURIComponent(dq)}&ho=${encodeURIComponent(h)}`); const ex = ((j.area && j.area.ok && j.area.data) || []).filter(r => /전유/.test(r.gb || '')); const sum = ex.reduce((a, r) => a + (r.area || 0), 0); if (sum) { ar = Math.round(sum * 100) / 100; break; } } catch { /* 다음 */ }
-    }
+    // 11/5 고침: 호를 여러 개 더하면 동시에 찾다가 공공데이터 '초당 요청 제한'에 걸려 일부만 채워졌음 → 한 번에 하나씩 차례로 · 거절되면 잠깐 쉬고 한 번 더
+    const run = B.aaQ = (B.aaQ || Promise.resolve()).catch(() => null).then(async () => {
+      let ar = null;
+      for (const [dq, h] of tries) {
+        for (let t = 0; t < 2 && ar == null; t++) {
+          try {
+            const j = await H.api(`/api/units?pnu=${P.pnu}&dong=${encodeURIComponent(dq)}&ho=${encodeURIComponent(h)}${t ? '&r=' + Date.now() % 1000 : ''}`);
+            if (j.area && j.area.ok === false) { await new Promise(r => setTimeout(r, 1500)); continue; }   // 거절 → 쉬고 다시
+            const ex = ((j.area && j.area.data) || []).filter(r => /전유/.test(r.gb || '')); const sum = ex.reduce((a, r) => a + (r.area || 0), 0);
+            if (sum) ar = Math.round(sum * 100) / 100;
+            break;   // 찾았거나, 이 이름으로는 없음 → 다음 이름
+          } catch { await new Promise(r => setTimeout(r, 1500)); }
+        }
+        if (ar != null) break;
+      }
+      return ar;
+    });
+    const ar = await run.catch(() => null);
     if (!ar) return;
     saveItem(id, it => { const Q = (it.places || []).find(q => q.pnu === P.pnu && (q.dong || '') === (P.dong || '') && q.ho === P.ho); if (Q && !Q.area) Q.area = ar; });
   }
