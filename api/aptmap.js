@@ -74,10 +74,11 @@ export default handler(async (req, res) => {
   }
 
   const yms = monthsBack(MONTHS);
-  const [rs, codes, book] = await Promise.all([
+  const [rs, codes, book, rents] = await Promise.all([
     pool(yms, 3, ym => month(kind, lawd, ym)),
     VWORLD_KEY ? dongCodes(lawd).catch(() => ({})) : {},
     readBook(lawd).catch(() => ({})),
+    kind === 'apt' ? pool(yms, 3, ym => month('aptRent', lawd, ym)) : [],   // 11/5 라벨 옆 전세 (실패해도 매매 라벨은 그대로)
   ]);
   const errors = rs.filter(r => !r.ok).map(r => r.e.message);
   if (errors.length === rs.length) return fail(res, 502, 'datagokr', errors[0]);
@@ -113,10 +114,22 @@ export default handler(async (req, res) => {
       if (via === 'm' && ar >= 80 && ar <= 86 && price > (g.x84 || 0)) g.x84 = price;   // 11/1 대장 아파트: 84㎡ 6개월 최고가 (중개거래만)
     }
   }
-  // 평형별 줄: [전용㎡, 가격(만원), 거래일, 6개월 건수] — 작은 평형부터
+  // 11/5 전세: 순수 전세(월세 0)만 · 신규 계약을 먼저 (갱신은 5% 상한이라 시세보다 낮음 → 신규가 없을 때만) · 평형(전용 정수 ㎡)별 가장 최근
+  for (const r of rents) if (r.ok) for (const x of r.v) {
+    if (num(x.monthlyRent) > 0) continue;
+    const dep = num(x.deposit), ar = num(x.excluUseAr); if (!dep || ar < 10) continue;
+    const g = byKey.get(`${clean(x.umdNm)}|${clean(x.jibun)}|${clean(x.aptNm)}`); if (!g || !g.s) continue;
+    const date = `${x.dealYear}${String(x.dealMonth).padStart(2, '0')}${String(x.dealDay || '').padStart(2, '0')}`;
+    const t = (g.js ||= {})[Math.floor(ar)] ||= {}, w = clean(x.contractType) === '갱신' ? 'g' : 'n';
+    if (date > (t[w + 'd'] || '')) { t[w + 'd'] = date; t[w + 'p'] = dep; }
+  }
+  // 평형별 줄: [전용㎡, 가격(만원), 거래일, 6개월 건수, 전세(만원), 전세 계약일] — 작은 평형부터 (전세 없으면 0, '')
   for (const g of byKey.values()) if (g.s) {
-    g.pa = Object.entries(g.s).map(([k, s]) => s.md ? [+k, s.mp, s.md, s.c] : [+k, s.jp, s.jd, s.c]).sort((a, b) => a[0] - b[0]);
-    delete g.s;
+    g.pa = Object.entries(g.s).map(([k, s]) => {
+      const j = (g.js || {})[k], je = j ? (j.nd ? [j.np, j.nd] : [j.gp, j.gd]) : [0, ''];
+      return [...(s.md ? [+k, s.mp, s.md, s.c] : [+k, s.jp, s.jd, s.c]), ...je];
+    }).sort((a, b) => a[0] - b[0]);
+    delete g.s; delete g.js;
   }
   const list = [...byKey.values()];
 
