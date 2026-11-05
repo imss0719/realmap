@@ -261,9 +261,13 @@
   // ---------- 구역 페이지: 내 집 분담금·평형 미리 계산 (10/29, 참고용 추정) ----------
   //   감정가 = 동네 시세(동별 실거래 ㎡당 중간값, data/price*-11.json) × 면적 × 75% · 조합원 분양가 = 동네 아파트 전용㎡당 시세 × 전용 × 60%
   //   평형 순서 = 권리가액 큰 순서로 큰 평형부터 · 조합원 수(분양의 50%)·평형 비율(59:84:114 = 40:50:10)·권리가액 분포(로그정규 σ 0.6)는 가정
+  //   11/5 재건축(공동주택) 구역: 내 물건 = 아파트·상가 · 감정가 = 그 단지 같은 평형 최근 실거래 × 100% · 조합원 분양가 = 동네 아파트 같은 평형 실거래 중간값 × 95%
+  //   · 비례율 85% · 재건축초과이익 부담금 안내 · 평형 순서 추정은 숨김 (기준: 은마·잠실주공5 2026 분양신청 사례 역산 — 감정가 ≈ 시세, 비례율 83~89%, 84㎡ 조합원 분양가 ≈ 동네 시세 90~110%)
   function calc(row, PA, PB, act, offBox) {
     const anchor = $$('.gm section.pn').find(x => /사업 개요/.test(($('h2', x) || {}).textContent || '')); if (!anchor) return;
-    const AP = 0.75, SP = 0.6, SIG = 0.6;
+    const kTxt = row.k || ((($$('dt', anchor).find(x => x.textContent.trim() === '사업 구분') || {}).nextElementSibling || {}).textContent || '');   // 페이지 안 구역 자료(zrow)에는 종류가 없어 '사업 구분' 칸에서 읽음
+    const RB = /재건축/.test(kTxt) && !/가로|소규모|자율|단독/.test(kTxt);
+    const AP = RB ? 1 : 0.75, SP = RB ? 0.95 : 0.6, SIG = 0.6;
     const dongN = String(row.a || '').split(/\s+/)[0], gu = row.gu, BC = String(row.bcode || '');
     let gk = BC.length >= 5 ? BC.slice(0, 5) : PA && PA.g ? Object.keys(PA.g).find(k => PA.g[k].n === gu) : '';   // 10/30 경기: 법정동코드로 바로
     if (!gk && PA && PA.g && PA.d && dongN) {   // 경기 좌표가 아직 없을 때: '부천시' → '부천시 ○○구' 중 그 동이 있는 곳
@@ -283,17 +287,38 @@
     const nn = re => { const m = ft.match(re); return m ? +m[1].replace(/,/g, '') : 0; };
     const HH = row.hh || nn(/^([\d,]+)세대/), SALE = row.sale || nn(/분양 ([\d,]+)/) || Math.round(HH * 0.8), RENT = nn(/임대 ([\d,]+)/) || Math.max(0, HH - SALE);
     const late = row.late || /관리처분|이주|철거|착공|준공|이전고시|청산/.test(row.st || '');
-    const KIND = { rh: ['빌라', '전용면적', RH], sh: ['단독·다가구', '대지면적', SH], ld: ['토지', '토지면적', LD], sg: ['상가', '전용면적', { v: 0, w: '' }] };
+    const KIND = RB ? { apt: ['아파트', '전용면적', APT], sg: ['상가', '전용면적', { v: 0, w: '' }] } : { rh: ['빌라', '전용면적', RH], sh: ['단독·다가구', '대지면적', SH], ld: ['토지', '토지면적', LD], sg: ['상가', '전용면적', { v: 0, w: '' }] };
     const PY = { 59: 25, 84: 34, 114: 43 };
-    const S = { k: 'rh', ar: 49, ap: null, py: 84, sp: null, rt: 100, mem: Math.round(SALE * 0.5), c: { 114: Math.round(SALE * 0.1), 84: Math.round(SALE * 0.5), 59: 0 } };
+    const S = { k: RB ? 'apt' : 'rh', ar: RB ? 84 : 49, ap: null, py: 84, sp: null, rt: RB ? 85 : 100, mem: Math.round(SALE * 0.5), c: { 114: Math.round(SALE * 0.1), 84: Math.round(SALE * 0.5), 59: 0 } };
     S.c[59] = Math.max(0, SALE - S.c[114] - S.c[84]);
     // 10/30 경기: 조합원 수 · 평형별 분양 세대(40이하+40~60 → 59 · 60~85 → 84 · 85 초과 → 114)는 경기도 자료 실제 값
     const REAL = { mem: !!row.mem, mix: !!(row.mix && row.mix.s && row.mix.s.some(Boolean)) };
     if (REAL.mem) S.mem = row.mem;
     if (REAL.mix) { const m = row.mix.s; S.c = { 59: (m[0] || 0) + (m[1] || 0), 84: m[2] || 0, 114: (m[3] || 0) + (m[4] || 0) }; }
     const won = v => { v = Math.round(+v || 0); const neg = v < 0; v = Math.abs(v); const e = Math.floor(v / 10000), m = v % 10000; return (neg ? '−' : '') + (e ? e + '억' : '') + (m ? (e ? ' ' : '') + m.toLocaleString() + '만' : e ? '' : '0'); };
-    const autoAp = () => { const K = KIND[S.k][2]; return K.v ? Math.round(K.v * S.ar * AP / 100) * 100 : 0; };
-    const autoSp = () => APT.v ? Math.round(APT.v * S.py * SP / 100) * 100 : 0;
+    // 재건축: 그 단지(CX)·동네 같은 평형 실거래 (리얼맵 실거래 라벨 자료 /api/aptmap — 늦게 와도 계산기는 먼저 보이고 오면 다시 그림)
+    let CX = null; const DN = {};
+    const cxRow = () => CX && S.k === 'apt' ? CX.pa.filter(r => Math.abs(r[0] - S.ar) <= 3).sort((a, b) => Math.abs(a[0] - S.ar) - Math.abs(b[0] - S.ar) || String(b[2]).localeCompare(String(a[2])))[0] : null;
+    const ymd = d => `${String(d).slice(0, 4)}.${String(d).slice(4, 6)}`;
+    const autoAp = () => { const c = cxRow(); if (c) return Math.round(c[1] * AP / 100) * 100; const K = KIND[S.k][2]; return K.v ? Math.round(K.v * S.ar * AP / 100) * 100 : 0; };
+    const autoSp = () => RB && DN[S.py] ? Math.round(DN[S.py].v * SP / 100) * 100 : APT.v ? Math.round(APT.v * S.py * SP / 100) * 100 : 0;
+    const apWhy = () => { const c = cxRow(); if (c) return `${CX.n} ${c[0]}㎡ 최근 실거래 ${won(c[1])} (${ymd(c[2])}) × ${AP * 100}%`; const K = KIND[S.k]; return `${K[2].w} ${K[0]} 시세 ㎡당 ${K[2].v.toLocaleString()}만 × ${S.ar}㎡ × ${AP * 100}%`; };
+    const spWhy = () => RB && DN[S.py] ? `${DN[S.py].w} 아파트 ${S.py}㎡ 실거래 중간값 ${won(DN[S.py].v)} (${DN[S.py].n}건) × ${SP * 100}%` : `${APT.w} 아파트 시세 전용㎡당 ${APT.v.toLocaleString()}만 × ${S.py}㎡ × ${SP * 100}%`;
+    if (RB && gk) {
+      const sido = gk.startsWith('11') ? '서울특별시' : gk.startsWith('28') ? '인천광역시' : '경기도', gname = (PA && PA.g && PA.g[gk] && PA.g[gk].n) || gu;
+      fetch(`/api/aptmap?kind=apt&lawd=${gk}&r=${encodeURIComponent(sido + ' ' + gname)}&v=k2`).then(r => r.json()).then(j => {
+        const it = (j.items || []).filter(x => x.pa && x.pa.length), parts = x => String(x.a || '').split(/\s+/), dong = x => parts(x).slice(-2)[0], jb = x => parts(x).slice(-1)[0];
+        const [rd, rj] = String(row.a || '').split(/\s+/), nm = v => String(v || '').replace(/\s|아파트|APT|\(.*?\)/gi, '');
+        const dist = x => x.lat && row.lat ? Math.hypot((x.lat - row.lat) * 111e3, (x.lng - row.lng) * 88e3) : 1e9;
+        CX = it.find(x => dong(x) === rd && jb(x) === rj) || it.find(x => dong(x) === rd && nm(x.n).length >= 2 && nm(row.n).startsWith(nm(x.n))) || it.filter(x => dist(x) < 250).sort((a, b) => dist(a) - dist(b))[0] || null;
+        if (CX && S.ap == null) { const top = [...CX.pa].sort((a, b) => b[3] - a[3])[0]; if (top) S.ar = top[0]; }
+        for (const py of [59, 84, 114]) {   // 동네(같은 동) 같은 평형 ±3㎡ 최근 실거래 중간값 — 3건 이상일 때만
+          const v = it.filter(x => dong(x) === rd).flatMap(x => x.pa.filter(r => Math.abs(r[0] - py) <= 3).map(r => r[1])).sort((a, b) => a - b);
+          if (v.length >= 3) DN[py] = { v: v.length % 2 ? v[v.length >> 1] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2, n: v.length, w: rd };
+        }
+        draw();
+      }).catch(() => { /* 실거래 자료가 없으면 동네 시세로 그대로 */ });
+    }
     const Phi = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
     const box = document.createElement('section'); box.className = 'pn zc';
     const css = document.createElement('style');
@@ -332,29 +357,30 @@
       box.innerHTML = `<h2>내 집 분담금·평형 미리 계산 <small>${esc(row.n || row.title || '')} · 참고용 추정</small></h2>
 <div class="g"><div class="in">
 <div class="r"><b>내 물건</b><span class="seg" data-g="k">${Object.entries(KIND).map(([k, v]) => `<button type="button" data-v="${k}" class="${S.k === k ? 'on' : ''}">${v[0]}</button>`).join('')}</span></div>
-<div class="r"><b>${K[1]}</b><span><input class="n s" data-f="ar" inputmode="decimal" value="${S.ar || ''}"> <i class="u">㎡ (${(S.ar / 3.3058).toFixed(1)}평)</i></span></div>
-<div class="r"><b>예상 감정가</b><span><input class="n" data-f="ap" inputmode="numeric" value="${ap || ''}"> <i class="u">만원</i><i class="h">${ap ? won(ap) : ''}</i>${tag(S.ap == null && apA, S.ap != null)}${S.ap == null && apA ? `<i class="ex">${esc(K[2].w)} ${K[0]} 시세 ㎡당 ${K[2].v.toLocaleString()}만 × ${S.ar}㎡ × ${AP * 100}%</i>` : !apA ? '<i class="ex">이 종류는 동네 시세 자료가 없어 직접 넣어 주세요</i>' : ''}</span></div>
+<div class="r"><b>${RB && S.k === 'apt' ? '지금 평형' : K[1]}</b><span><input class="n s" data-f="ar" inputmode="decimal" value="${S.ar || ''}"> <i class="u">㎡ (${(S.ar / 3.3058).toFixed(1)}평)</i>${RB && S.k === 'apt' && CX ? `<span class="seg" data-g="ar" style="margin-top:5px">${[...new Set(CX.pa.map(r => r[0]))].map(v => `<button type="button" data-v="${v}" class="${Math.abs(S.ar - v) < 1 ? 'on' : ''}">${v}㎡</button>`).join('')}</span><i class="ex">${esc(CX.n)} — 최근 6개월 거래된 평형</i>` : ''}</span></div>
+<div class="r"><b>예상 감정가</b><span><input class="n" data-f="ap" inputmode="numeric" value="${ap || ''}"> <i class="u">만원</i><i class="h">${ap ? won(ap) : ''}</i>${tag(S.ap == null && apA, S.ap != null)}${S.ap == null && apA ? `<i class="ex">${esc(apWhy())}</i>` : !apA ? '<i class="ex">이 종류는 동네 시세 자료가 없어 직접 넣어 주세요</i>' : ''}</span></div>
 <div class="r"><b>원하는 평형</b><span class="seg" data-g="py">${[59, 84, 114].map(v => `<button type="button" data-v="${v}" class="${S.py === v ? 'on' : ''}">${v}㎡ (${PY[v]}평)</button>`).join('')}</span></div>
-<div class="r"><b>조합원 분양가</b><span><input class="n" data-f="sp" inputmode="numeric" value="${sp || ''}"> <i class="u">만원</i><i class="h">${sp ? won(sp) : ''}</i>${tag(S.sp == null && spA, S.sp != null)}${S.sp == null && spA ? `<i class="ex">${esc(APT.w)} 아파트 시세 전용㎡당 ${APT.v.toLocaleString()}만 × ${S.py}㎡ × ${SP * 100}%</i>` : ''}</span></div>
-<div class="r"><b>비례율</b><span class="rv"><input type="range" data-f="rt" min="70" max="130" step="1" value="${S.rt}"><b>${S.rt}%</b></span></div>
+<div class="r"><b>조합원 분양가</b><span><input class="n" data-f="sp" inputmode="numeric" value="${sp || ''}"> <i class="u">만원</i><i class="h">${sp ? won(sp) : ''}</i>${tag(S.sp == null && spA, S.sp != null)}${S.sp == null && spA ? `<i class="ex">${esc(spWhy())}</i>` : ''}</span></div>
+<div class="r"><b>비례율</b><span class="rv"><input type="range" data-f="rt" min="70" max="130" step="1" value="${S.rt}"><b>${S.rt}%</b></span>${RB ? '<i class="ex" style="grid-column:2">최근 서울 재건축 83~89% (은마·잠실주공5) 기준</i>' : ''}</div>
 </div><div class="out">
 <dl><dt>예상 감정가</dt><dd>${won(ap)}</dd><dt>× 비례율 ${S.rt}% = 권리가액</dt><dd>${won(right)}</dd><dt>${S.py}㎡ 조합원 분양가</dt><dd>${won(sp)}</dd></dl>
 <div class="big"><b>${pay >= 0 ? '예상 분담금' : '예상 환급금'}</b><em class="${pay < 0 ? 'pl' : ''}">약 ${won(Math.abs(pay))}</em></div>
 ${late ? '<p class="warn">이 구역은 관리처분인가 이후 단계라 조합원 분양가가 정해져 있습니다. 조합 공지 분양가로 고쳐 넣어 주세요.</p>' : ''}
-<p class="note">감정가는 동네 실거래 시세의 ${AP * 100}%, 조합원 분양가는 동네 아파트 시세의 ${SP * 100}%로 처음 계산했습니다. 실제 분담금은 감정평가와 관리처분계획으로 정해집니다. 숫자를 고치면 바로 다시 계산됩니다.</p>
+${RB ? '<p class="warn"><b>재건축초과이익 부담금은 별도입니다.</b> 조합원 1인당 초과이익이 8천만 원을 넘으면 따로 부과되며, 오른 집값이 클수록 커질 수 있습니다. 조합의 추정 금액을 꼭 확인하세요.</p>' : ''}
+<p class="note">${RB ? `감정가는 ${CX && S.k === 'apt' ? '이 단지 같은 평형 최근 실거래가' : '동네 아파트 시세'}, 조합원 분양가는 동네 아파트 같은 평형 시세의 ${SP * 100}%로 처음 계산했습니다` : `감정가는 동네 실거래 시세의 ${AP * 100}%, 조합원 분양가는 동네 아파트 시세의 ${SP * 100}%로 처음 계산했습니다`}. 실제 분담금은 감정평가와 관리처분계획으로 정해집니다. 숫자를 고치면 바로 다시 계산됩니다.</p>
 </div></div>
-<div class="s2"><h3>내가 받을 평형 순서 <small>권리가액이 큰 순서대로 큰 평형을 먼저 고르는 방식으로 추정</small></h3>
+${RB ? '<div class="ctx" style="color:var(--muted)">재건축은 같은 단지 안에서 평형·대지지분이 비슷해 \'내가 받을 평형 순서\' 추정은 보여 드리지 않습니다.</div>' : `<div class="s2"><h3>내가 받을 평형 순서 <small>권리가액이 큰 순서대로 큰 평형을 먼저 고르는 방식으로 추정</small></h3>
 <div class="fx"><div><span class="u">계획 세대</span><b>${HH ? HH.toLocaleString() : '-'}</b></div><div><span class="u">분양 / 임대</span><b>${SALE.toLocaleString()} / ${RENT.toLocaleString()}</b></div><div><span class="u">조합원 수</span><b><input class="n" data-f="mem" inputmode="numeric" value="${S.mem}">${S.memSet ? '' : REAL.mem ? '<i class="auto">실제</i>' : '<i class="auto">자동</i>'}</b></div><div><span class="u">내 권리가액 순위</span><b>${rank ? `약 ${rank.toLocaleString()}등` : '-'}</b></div></div>
 ${rank ? `<div class="bar">${seg.filter(x => x.to >= x.from).map(x => `<i style="width:${((x.to - x.from + 1) / M * 100).toFixed(2)}%;background:${COL[x.k]}" title="${x.k}㎡ ${x.from}~${x.to}등"></i>`).join('')}<span class="mk" style="left:calc(${((rank - 0.5) / M * 100).toFixed(2)}% - 1px)"><span>▼ 약 ${rank.toLocaleString()}등 (상위 ${Math.max(1, Math.round(rank / M * 100))}%)</span></span></div><div class="lx"><span>1등 (권리가액 큰 쪽)</span><span>조합원 ${M.toLocaleString()}등</span></div>` : '<p class="note">동네 시세 자료가 없어 순위는 계산하지 못했습니다.</p>'}
 <div class="rk">${seg.map(x => `<div class="${mine === x.k ? 'me' : ''}"><b>${x.k}㎡ (${PY[x.k]}평)</b><span><input class="n" data-c="${x.k}" inputmode="numeric" value="${x.c}"> 세대 · ${x.to >= x.from ? `${x.from.toLocaleString()}~${x.to.toLocaleString()}등` : '조합원 몫 없음 (일반분양)'}</span></div>`).join('')}</div>
 ${mine && S.py > mine ? `<p class="warn">원하는 ${S.py}㎡보다 순서가 뒤라 ${mine}㎡ 배정 가능성이 높아 보입니다.</p>` : ''}
 <p class="note">${REAL.mem || REAL.mix ? `${[REAL.mem ? '조합원 수' : '', REAL.mix ? '평형별 분양 세대수' : ''].filter(Boolean).join('·')}는 경기도 자료의 실제 값입니다(평형별은 조합원·일반분양 합계). ${!REAL.mem ? '조합원 수(분양 세대의 50%)와 ' : !REAL.mix ? '평형 비율(59:84:114 = 40:50:10)과 ' : ''}권리가액 분포는 가정한 값입니다.` : '조합원 수(분양 세대의 50%)·평형별 세대수(59:84:114 = 40:50:10)·권리가액 분포는 서울시 자료에 없어 가정한 값입니다.'} 아시는 숫자로 고쳐 넣어 주세요.</p></div>
-<div class="ctx">이 구역 계획 <b>${HH ? HH.toLocaleString() + '세대' : '-'}</b>${SALE ? ` (분양 ${SALE.toLocaleString()} · 임대 ${RENT.toLocaleString()})` : ''}${row.far ? ` · 용적률 <b>${row.far}%</b>` : ''}${row.fl ? ` · 지상 ${String(row.fl).split('/')[1] || ''}층` : ''}${row.st ? ` · ${esc(row.st)} 단계` : ''}</div>
+`}<div class="ctx">이 구역 계획 <b>${HH ? HH.toLocaleString() + '세대' : '-'}</b>${SALE ? ` (분양 ${SALE.toLocaleString()} · 임대 ${RENT.toLocaleString()})` : ''}${row.far ? ` · 용적률 <b>${row.far}%</b>` : ''}${row.fl ? ` · 지상 ${String(row.fl).split('/')[1] || ''}층` : ''}${row.st ? ` · ${esc(row.st)} 단계` : ''}</div>
 <div class="cta3"><a class="a" href="${esc(mapHref)}">이 구역 매물 보기</a><a class="b" href="#" data-goof>이 구역 중개사에게 상담하기</a></div>`;
     }
     const num = v => +String(v).replace(/[^\d.]/g, '') || 0;
     box.addEventListener('click', e => {
-      const b = e.target.closest('[data-g] button'); if (b) { const g = b.parentElement.dataset.g; if (g === 'k') { S.k = b.dataset.v; S.ap = null; } else { S.py = +b.dataset.v; S.sp = null; } draw(); return; }
+      const b = e.target.closest('[data-g] button'); if (b) { const g = b.parentElement.dataset.g; if (g === 'k') { S.k = b.dataset.v; S.ap = null; } else if (g === 'ar') { S.ar = +b.dataset.v; S.ap = null; } else { S.py = +b.dataset.v; S.sp = null; } draw(); return; }
       if (e.target.closest('[data-goof]')) { e.preventDefault(); offBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     });
     box.addEventListener('change', e => {
