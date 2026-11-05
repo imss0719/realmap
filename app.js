@@ -3065,7 +3065,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     let e = T.regions.get(key);
     if (e) return e.p;
     e = { kind, items: null };
-    e.p = api(`/api/aptmap?kind=${kind}&lawd=${rg.lawd}&r=${encodeURIComponent(rg.name)}&v=k1`).then(j => {
+    e.p = api(`/api/aptmap?kind=${kind}&lawd=${rg.lawd}&r=${encodeURIComponent(rg.name)}&v=k2`).then(j => {
       // 서버가 요청한 종류의 자료를 돌려줬는지 확인 (예전 서버 파일이면 모든 종류에 아파트 자료가 와서 겹쳐 보입니다)
       if ((j.kind || 'apt') !== kind) { console.warn('api/aptmap.js 파일이 최신이 아닙니다'); e.items = []; return []; }
       e.items = j.items.map((x, i) => ({ ...x, k: kind, id: `${key}:${i}`, lawd: rg.lawd }));
@@ -3196,19 +3196,34 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   // 11/1 대장 아파트: 같은 법정동에서 84㎡ 최근 6개월 최고가(중개거래)가 가장 높은 단지 하나에 왕관 — 84㎡ 거래 단지가 3곳 이상인 동만
   const dongOf = x => String(x.a || '').split(' ').slice(-2, -1)[0] || '';
-  // 11/5 선배: 국토부 실거래는 한 단지를 'N단지'로 나눠 신고하는 곳이 있음 → 실제로 한 단지인 곳은 이름을 하나로 합쳐 라벨 하나로
-  //   (상암월드컵파크 1~12단지처럼 정말 따로인 단지는 그대로 — 그래서 자동 규칙이 아니라 목록으로) · 필요하면 여기에 한 줄씩 추가
-  const APT_ONE = [[/^마포래미안푸르지오\s*\d단지$/, '마포래미안푸르지오']];
+  // 11/5 선배: 아파트 이름 정리 + 한 단지인데 'N단지'로 나뉜 곳은 라벨 하나로 (선배 확인: 자동 규칙 + 예외)
+  //   이름: 괄호 내용·BL번호·'아파트'·끝의 동 번호·앞 '은평뉴타운' 빼기, (3단지) → 3단지, 이편한세상/e-편한세상 → e편한세상
+  //   합치기: 같은 법정동 + 'N단지'만 다른 이름 + 500m 안 (좌표를 모르면 이름이 완전히 같을 때만)
+  //   예외: 월드컵파크·주공처럼 번호만 붙은 별개 단지는 합치지 않음 (필요하면 APT_KEEP에 추가)
+  const APT_KEEP = /월드컵파크|주공/;
+  const aptShort = n => {
+    let t = String(n || '').trim().replace(/\((\d+(?:-\d+)?단지)\)/g, '$1').replace(/\([^)]*\)/g, '').replace(/BL\d+(?:-\d+)?/gi, '').replace(/아파트/g, '').replace(/\s+/g, '');
+    t = t.replace(/(\d+|[A-Z])동$/, '').replace(/^은평뉴타운/, '').replace(/이편한세상|e-편한세상/g, 'e편한세상');
+    return t || String(n || '').trim();
+  };
+  const aptBase = t => APT_KEEP.test(t) ? t : (t.replace(/\d+(?:-\d+)?단지$/, '') || t);
+  const nearM = (p, q) => p.lat != null && q.lat != null && Math.hypot((p.lat - q.lat) * 110950, (p.lng - q.lng) * 88200) <= 500;
   function aptMerge(items) {
     const out = [], by = new Map();
-    for (const x of items) {
-      const hit = APT_ONE.find(([re]) => re.test(String(x.n || '').trim()));
-      if (!hit) { out.push(x); continue; }
-      const k = dongOf(x) + '|' + hit[1], g = by.get(k);
-      if (!g) { const y = { ...x, n: hit[1], pnus: x.pnu ? [x.pnu] : [], pa: (x.pa || []).map(r => [...r]) }; by.set(k, y); out.push(y); continue; }
-      // 합치기: 평형마다 더 최근 거래 · 건수는 더함 · 자리는 거래가 더 많은 쪽
+    for (const x0 of items) {
+      const sh = aptShort(x0.n), base = aptBase(sh), x = { ...x0, full: x0.n, n: sh };
+      const k = dongOf(x) + '|' + base, gs = by.get(k) || by.set(k, []).get(k);
+      const g = gs.find(q => q.n === sh || q.base0 === sh || nearM(q, x));
+      if (!g) { const y = { ...x, base0: sh, pnus: x.pnu ? [x.pnu] : [], pa: (x.pa || []).map(r => [...r]), fulls: [x.full] }; gs.push(y); out.push(y); continue; }
+      if (sh !== g.base0) g.n = base;   // 'N단지'가 다른 단지가 붙으면 이름은 공통 부분으로
+      g.fulls.push(x.full);
+      // 합치기: 평형마다 더 최근 매매·전세 · 건수는 더함 · 자리는 거래가 더 많은 쪽
       const rows = new Map(g.pa.map(r => [r[0], r]));
-      for (const r of x.pa || []) { const o = rows.get(r[0]); if (!o) rows.set(r[0], [...r]); else { const c = o[3] + r[3]; if (r[2] > o[2]) { o[1] = r[1]; o[2] = r[2]; } o[3] = c; } }
+      for (const r of x.pa || []) {
+        const o = rows.get(r[0]); if (!o) { rows.set(r[0], [...r]); continue; }
+        const c = o[3] + r[3]; if (r[2] > o[2]) { o[1] = r[1]; o[2] = r[2]; } o[3] = c;
+        if (r[4] && (!o[4] || (r[5] || '') > (o[5] || ''))) { o[4] = r[4]; o[5] = r[5]; }
+      }
       g.pa = [...rows.values()].sort((a, z) => a[0] - z[0]);
       if (x.pnu) g.pnus.push(x.pnu);
       if ((x.c || 0) > (g.c || 0) && x.lat != null) { g.lat = x.lat; g.lng = x.lng; g.a = x.a; g.pnu = x.pnu; }
@@ -3273,9 +3288,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const val = r => py ? `<i class="tpy">평</i>${n(Math.round(r[1] / (r[0] / 3.305785) / 10) * 10)}만` : eok(r[1]);
     el.classList.add('mp');
     el.classList.toggle('king', !!x.king);
-    const v = nhOf(x), nw = nhNew(v), hs = (v && v.h) || [];
-    el.innerHTML = `${nw ? '<i class="bdg nnew" aria-label="새 실거래">N</i>' : ''}${x.king ? `<i class="bdg gutag">${esc(x.king.gu)} 1위</i>` : ''}<span class="nm">${esc(x.n || '')}</span>${rows.map(r => { const hi = nhRow(v, r); return `<span class="r"><i>${r[0]}</i><b${hi ? ' class="nhi"' : ''}>${hi ? '<i class="up">▲</i>' : ''}${val(r)}</b></span>`; }).join('')}`;
-    el.title = (x.king ? `🏆 ${x.king.full} 대장 · 84㎡ 최근 거래가 1위 (${x.king.n}개 단지 중 · 최근 6개월 중개거래)\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건`).join('\n');
+    const v = nhOf(x), nw = nhNew(v), hs = (v && v.h) || [], hasJe = rows.some(r => r[4]);   // 전세가 한 줄이라도 있으면 빈 칸도 자리 맞춤
+    el.innerHTML = `${nw ? '<i class="bdg nnew" aria-label="새 실거래">N</i>' : ''}${x.king ? `<i class="bdg gutag">${esc(x.king.gu)} 1위</i>` : ''}<span class="nm">${esc(x.n || '')}</span>${rows.map(r => { const hi = nhRow(v, r); return `<span class="r"><i>${r[0]}</i><b${hi ? ' class="nhi"' : ''}>${hi ? '<i class="up">▲</i>' : ''}${val(r)}</b>${!py && hasJe ? (r[4] ? `<u class="je"><small>전</small>${(r[4] / 10000).toFixed(1)}</u>` : '<u class="je"></u>') : ''}</span>`; }).join('')}`;   // 11/5 A안: 옆에 파란 '전' + 전세(억)
+    el.title = (x.king ? `🏆 ${x.king.full} 대장 · 84㎡ 최근 거래가 1위 (${x.king.n}개 단지 중 · 최근 6개월 중개거래)\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''}${x.fulls && x.fulls.length > 1 ? ` (${x.fulls.join(' · ')})` : x.full && x.full !== x.n ? ` (${x.full})` : ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건${r[4] ? ` / 전세 ${won(r[4])} · ${ymd(r[5])}` : ''}`).join('\n');
   }
   // 11/1 상가·건물 라벨: 가격 + 직거래면 네모 "직" + 거래 연월 · 평당가는 대지 기준
   function btLabel(el, x) {
@@ -3300,7 +3315,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
       const ll = new K.LatLng(x.lat, x.lng);
       if (!b.contain(ll)) continue;
       const pt = proj.containerPointFromCoords(ll);
-      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = (pre ? Math.min(144, Math.max(112, String(x.n || '').length * 11.5 + 14)) : rows ? Math.min(130, Math.max(72, String(x.n || '').length * 11.5 + 14)) : x.j ? 88 : 68) * MZ, h = (pre ? 32 + (rows.length ? 13 + rows.length * 16.5 : 15) : rows ? 17 + rows.length * 16.5 + (x.king ? 22 : 0) : 26) * MZ, cy = pt.y - 0.7 * (h - 26) - (x.king ? 9 : 0);   // 11/5 글씨 1단계 키움에 맞춰 크기 계산도   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
+      const pre = x.k === 'pre', rows = pre ? preRows(x, far) : aptRows(x, far), w = (pre ? Math.min(144, Math.max(112, String(x.n || '').length * 11.5 + 14)) : rows ? Math.min(130, Math.max(72, Math.min(10, String(x.n || '').length) * 11.5 + 14)) + (rows.some(r => r[4]) && T.mode !== 'py' ? 40 : 0) : x.j ? 88 : 68) * MZ, h = (pre ? 32 + (rows.length ? 13 + rows.length * 16.5 : 15) : rows ? 17 + rows.length * 16.5 + (x.king ? 22 : 0) : 26) * MZ, cy = pt.y - 0.7 * (h - 26) - (x.king ? 9 : 0);   // 11/5 글씨 1단계 키움에 맞춰 크기 계산도   // 여러 줄 라벨은 위로 자람 (yAnchor 1.2 기준 한 줄 라벨과 같은 계산)
       if (placed.some(q => Math.abs(q.x - pt.x) < (q.w + w) / 2 && Math.abs(q.y - cy) < (q.h + h) / 2)) continue;   // 10/30 한 줄 알약이라 위아래 간격을 줄임
       placed.push({ x: pt.x, y: cy, w, h }); show.add(x.id);
       let o = T.ovs.get(x.id);
