@@ -887,11 +887,12 @@ window.Danji = (() => {
       case 'pub': {
         const ls = (s.mine || []).find(z => z.status !== 'done');
         // 리얼맵: 내 매물만 — [리얼맵 등록] / [● 게시중 ▾] / [기간만료 ▾] (매물장에 없으면 장부 내용으로 간단 등록창)
-        if (s.src !== 'mine' || s.done) return '<span class="mut">-</span>';
+        if (!s.src || s.done) return '<span class="mut">-</span>';   // 11/5 선배: 타부동산 물건도 등록 가능 (공동중개 · 매물 카드에 '공동')
         // 10/28 칸 폭: 칸 이름이 '리얼맵'이라 버튼 글은 짧게 (등록 / ● 게시 ▾ / 만료 ▾)
         const sh = h => h.replace('>리얼맵 등록<', ' title="리얼맵 지도에 올리기">등록<').replace('● 게시중 ▾', '● 게시 ▾').replace('기간만료 ▾', '만료 ▾');
-        return ls ? sh((S.host.pubCell ? S.host.pubCell(ls.id) : '') || '<span class="mut">-</span>')   // 10/28 매물카드 여는 버튼은 없앰 (보류 매물 등은 빈칸)
-          : s.src === 'mine' && !s.done && !s.hold && (!S.host.canPub || S.host.canPub()) ? `<button type="button" class="pbtn reg" data-up="${esc(x.key)}" title="리얼맵 지도에 올리기">등록</button>` : '<span class="mut">-</span>';
+        const coT = ls && ls.ad && ls.ad.co ? '<i class="djco" title="공동중개로 올린 타부동산 물건" style="font-style:normal;font-size:10.5px;font-weight:800;color:#7048E8;border:1px solid #B9A6F5;background:#F3EFFF;border-radius:4px;padding:0 4px;margin-left:4px">공동</i>' : '';
+        return ls ? sh((S.host.pubCell ? S.host.pubCell(ls.id) : '') || '<span class="mut">-</span>') + coT   // 10/28 매물카드 여는 버튼은 없앰 (보류 매물 등은 빈칸)
+          : !s.done && !s.hold && (!S.host.canPub || S.host.canPub()) ? `<button type="button" class="pbtn reg" data-up="${esc(x.key)}" title="리얼맵 지도에 올리기">등록</button>` : '<span class="mut">-</span>';
       }
       case 'imp': return r.imp ? `<span class="imp">${r.impd ? `<span class="dd${impSoon(r.impd) ? ' soon' : ''}">${esc(r.impd.slice(5).replace('-', '/'))}</span>` : ''}${esc(r.impd ? impTxt(r.imp) : r.imp)}</span>` : '<span class="mut">-</span>';
       default: return r[c.f] ? esc(r[c.f]) : '<span class="mut">-</span>';
@@ -1041,13 +1042,13 @@ window.Danji = (() => {
       ...(r.tels && r.tels.length ? { contacts: r.tels.map(t => ({ role: t.l || '소유자', name: t.m || '', phone: t.n })) } : {}) };
     if (!S.host.pubNew) { S.host.openAdd(x.pnu, x.dn, x.ho, pre); return; }
     const dir = x.dir ? (/향$/.test(x.dir) ? x.dir : x.dir + '향') : '', mi = r.moveIn ? (/^\d{4}-\d{2}-\d{2}$/.test(r.moveIn) ? r.moveIn.replace(/-/g, '.') : String(r.moveIn)) : '';
-    S.host.pubNew({ pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, rooms: r.rm || 0, baths: r.bt || 0, mgmt: r.mg || 0, ptype: cxType(x.cx), pre });
+    S.host.pubNew({ co: x.st && x.st.src === 'other', pnu: x.pnu, dong: x.dn, ho: x.ho, kind: pre.kind, money: { price: pre.price || null, deposit: pre.deposit || null, rent: pre.rent || null }, contacts: (pre.contacts || []).map(c => ({ ...c })), area: x.a || null, dir, movein: mi, rooms: r.rm || 0, baths: r.bt || 0, mgmt: r.mg || 0, ptype: cxType(x.cx), pre });
   }
   // 연락처 펼치기 · 번호를 누르면 전화 (통화 기록이 남음)
   function wireTel(cx, root) {
     root.querySelectorAll('[data-ls]').forEach(b => b.onclick = e => { e.stopPropagation(); if (S.ed) endEdit(S.tcx); S.host.openEdit(b.dataset.ls); });
     root.querySelectorAll('[data-pubm]').forEach(b => b.onclick = e => { e.stopPropagation(); if (S.ed) endEdit(S.tcx); S.host.pubClick(b.dataset.pubm, b); });
-    root.querySelectorAll('[data-up]').forEach(b => b.onclick = e => { e.stopPropagation(); if (S.ed) endEdit(S.tcx); const x = S.rows.find(z => z.key === b.dataset.up); if (x) cardFrom(x); });
+    root.querySelectorAll('[data-up]').forEach(b => b.onclick = e => { e.stopPropagation(); if (S.ed) endEdit(S.tcx); const x = S.rows.find(z => z.key === b.dataset.up); if (!x) return; if (x.st && x.st.src === 'other') { let ok = false; try { ok = localStorage.getItem('rm.coOk') === '1'; } catch { /* 저장소 없음 */ } if (!ok) { if (!confirm('타부동산 물건은 공동중개로 올라갑니다.\n매도인(임대인)에게 공동중개 동의를 받은 매물만 올려 주세요.\n지도 매물 카드에는 \'공동\'으로 표시됩니다.')) return; try { localStorage.setItem('rm.coOk', '1'); } catch { /* 무시 */ } } } cardFrom(x); });   // 11/5 타부동산 물건: 처음 한 번만 안내
     root.querySelectorAll('[data-tx]').forEach(b => b.onclick = e => { e.stopPropagation(); S.telOpen = S.telOpen || new Set(); const k = b.dataset.tx; S.telOpen.has(k) ? S.telOpen.delete(k) : S.telOpen.add(k); redrawRow(cx, k); });
     root.querySelectorAll('[data-tcall]').forEach(a => a.onclick = e => {
       e.stopPropagation();

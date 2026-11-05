@@ -1647,7 +1647,7 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
   async function pubNew(o) {
     if (!S.canPub) return toast('지금은 리얼맵 지도 게시를 시범 운영 중이라 올릴 수 없습니다', 4000);
     toast('건축물대장에서 면적·층 정보를 가져오는 중…', 6000);
-    try { const it = await Board.autoItem(o); it._new = true; $('toast').hidden = true; pubSheet(it); }
+    try { const it = await Board.autoItem(o); it._new = true; if (o.co) it.ad = { ...(it.ad || {}), co: true }; $('toast').hidden = true; pubSheet(it); }   // 11/5 타부동산 물건 = 공동중개
     catch (e) { toast(e.message || '정보를 가져오지 못했습니다. 매물카드로 등록해 주세요', 4000); S.mode === 'danji' && openForm(null, o.pnu, { dong: o.dong, ho: o.ho, ...(o.pre || {}) }); }
   }
   // ---------- 손님용 매물 브리핑 (A4 · 인쇄/PDF) ----------
@@ -1798,9 +1798,14 @@ window.wonH = v => { const t = String(v ?? '').replace(/[^\d.-]/g, ''); const n 
     $('xlK').onclick = ok; $('xlC').onkeydown = e => { if (e.key === 'Enter') ok(); };
   }
   function exportCsv(only) { const list = Array.isArray(only) ? only : S.items; return xlGate({ what: Array.isArray(only) ? '매물장 (고른 매물)' : '매물장 전체', n: list.length }, () => exportCsvNow(only)); }
+  // 11/5 매물장 내려받기 = 리얼맵 매물 양식(xlsx · 종류별 탭)과 같은 파일 → 고쳐서 그대로 다시 올릴 수 있음 · 양식 파일을 못 만들면 예전 CSV로
   function exportCsvNow(only) {
     const list = Array.isArray(only) ? only : S.items;
     if (!list.length) return toast('저장할 매물이 없습니다');
+    if (window.XImport && XImport.exportLs) return XImport.exportLs(list).then(() => toast('엑셀 파일로 저장했습니다 (리얼맵 매물 양식)')).catch(e => { console.warn(e); exportCsvOld(list); });
+    exportCsvOld(list);
+  }
+  function exportCsvOld(list) {
     const head = ['매물번호', '상태', '거래', '유형', '매물 이름', '주소', '동·호', '면적㎡', '면적평', '대지㎡', '건축㎡', '매매가', '보증금', '월세', '관리비', '권리금', '기보증금', '기월세', '융자금', '프리미엄', '납입액', '연락처', '세부 임대료', '사진 수', '메모', '등록일', '수정일', '리얼맵 링크'];
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = list.map(x => {
