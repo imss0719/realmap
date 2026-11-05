@@ -1,6 +1,6 @@
 // 11/5 학원가 자료 만들기 (서울) — GitHub Actions에서 실행 (매달 + 수동)
 // 나이스 교육정보 개방포털 「학원교습소정보」(비밀값 NEIS_KEY) → 개원 중인 곳만 → 카카오 주소 검색(비밀값 KAKAO_REST_KEY)으로 좌표
-//  → data/aca-11.json (화면용: [위도, 경도, 이름, 분야번호, 학원0/교습소1]) · 좌표 기억은 data/aca-memo.json (다음 실행 때 다시 찾지 않음)
+//  → data/aca-11.json (화면용: [위도, 경도, 이름, 분야번호, 학원0/교습소1, 정원, 개원 연도]) · 11/5 정원·개원 연도 추가 ('정원 많은 순' 목록용) · 좌표 기억은 data/aca-memo.json (다음 실행 때 다시 찾지 않음)
 // 아직 화면에서 쓰지 않음 — 선배가 결과 확인한 뒤에 지도에 붙임.
 // 파일에 키를 적지 마세요 (공개 저장소).
 import { readFile, writeFile, appendFile } from 'node:fs/promises';
@@ -11,6 +11,7 @@ const OFC = process.env.OFC || 'B10';   // 서울특별시교육청
 const GEO_MIN = +(process.env.GEO_MINUTES || 40);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const clean = s => String(s ?? '').replace(/\s+/g, ' ').trim();
+const num0 = v => { const n = parseFloat(String(v ?? '').replace(/[^\d.]/g, '')); return isFinite(n) ? n : 0; };
 
 // 1) 받기 (1,000건씩)
 async function page(i) {
@@ -31,6 +32,7 @@ for (let i = 2; (i - 1) * 1000 < first.total; i++) { rows.push(...(await page(i)
 console.log(`받은 ${rows.length}건 / 전체 ${first.total}건`);
 if (!rows.length) process.exit(1);
 console.log('항목:', Object.keys(rows[0]).join(', '));
+console.log('첫 줄:', JSON.stringify(rows[0]).slice(0, 800));
 const cnt = k => { const m = {}; rows.forEach(r => { const v = clean(r[k]); m[v] = (m[v] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([v, n]) => `${v || '(빈칸)'}:${n}`).join(' · '); };
 for (const k of ['REG_STTUS_NM', 'ACA_INSTI_SC_NM', 'REALM_SC_NM', 'LE_ORD_NM']) console.log(`[${k}] ${cnt(k)}`);
 
@@ -63,10 +65,11 @@ console.log(`좌표 새로 ${found}곳 · 못 찾음 ${miss}곳 · 다음으로 
 
 // 4) 저장
 const out = [];
-for (const r of live) { const p = memo.get(addrOf(r)); if (p && p[0] > 33) out.push([p[0], p[1], clean(r.ACA_NM), realmNo(r.REALM_SC_NM), /교습소/.test(clean(r.ACA_INSTI_SC_NM)) ? 1 : 0]); }
+for (const r of live) { const p = memo.get(addrOf(r)); if (p && p[0] > 33) out.push([p[0], p[1], clean(r.ACA_NM), realmNo(r.REALM_SC_NM), /교습소/.test(clean(r.ACA_INSTI_SC_NM)) ? 1 : 0, Math.round(num0(r.TOFOR_SMTOT)), (clean(r.ESTBL_YMD) || clean(r.REG_YMD)).slice(0, 4)]); }
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 await writeFile('data/aca-11.json', JSON.stringify({ source: '나이스 교육정보 개방포털 학원교습소정보', updated: today, realm: REALM, live: live.length, n: out.length, rows: out }));
 await writeFile('data/aca-memo.json', JSON.stringify([...memo].map(([a, p]) => [a, ...p])));
 const by = {}; out.forEach(r => { by[REALM[r[3]]] = (by[REALM[r[3]]] || 0) + 1; });
-const msg = `## 학원가 자료 (서울 · ${today})\n개원 중 ${live.length.toLocaleString()}곳 · 지도 좌표 ${out.length.toLocaleString()}곳 · 다음으로 미룬 주소 ${left}개\n\n분야별: ${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n.toLocaleString()}`).join(' · ')}\n`;
+const caps = out.map(r => r[5]).filter(Boolean).sort((a, b) => a - b), q = f => caps[Math.floor(caps.length * f)] || 0;
+const msg = `## 학원가 자료 (서울 · ${today})\n정원 있는 곳 ${caps.length.toLocaleString()} · 정원 중간값 ${q(.5)}명 · 상위 10% ${q(.9)}명 · 상위 1% ${q(.99)}명\n\n개원 중 ${live.length.toLocaleString()}곳 · 지도 좌표 ${out.length.toLocaleString()}곳 · 다음으로 미룬 주소 ${left}개\n\n분야별: ${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n.toLocaleString()}`).join(' · ')}\n`;
 if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, msg); else console.log(msg);
