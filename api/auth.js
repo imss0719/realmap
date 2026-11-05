@@ -299,6 +299,7 @@ function pubSummary(uid, x, bk) {
     pnu: x.pnu, lat: x.lat, lng: x.lng, addr: x.addr, road: x.road || '', bname: x.bname || '',
     dong: ['아파트', '오피스텔'].includes(tbase(x)) ? (p0.dong || '') : '',   // 호수는 공개하지 않음
     flr: floorText(a), tfl: a.tfl || null, dir: a.dir || '', dirB: RESID.includes(tbase(x)) ? '주실 기준' : '주출입구 기준', rooms: a.rooms ?? null, baths: a.baths ?? null, movein: a.movein || '', park: a.park || '', appr: a.appr || '', desc: a.desc || '',
+    co: !!a.co,   // 11/5 공동중개(타부동산 물건) — 지도 매물 카드에 '공동'
     use: a.use || '', viol: !!a.viol, zone: a.zone || '', rside: a.road || '', lp: a.lp || null, hhld: a.hhld || null, elev: a.elev || null,
     biz: a.biz || '', wc: a.wc || '', facx: a.facx || '',
     ...(tbase(x) === '공장·창고' ? { occ: a.occ || facOcc(x), strct: a.strct || '', pow: a.pow || null, ch: a.ch || null, hoist: a.hoist || null, trl: a.trl || '' } : {}),   // 11/2 공장·창고 mgmtT: a.mgmtT || '', mgmtInc: a.mgmtInc || [], mgmtTx: a.mgmtTx || '',
@@ -436,6 +437,7 @@ function cleanAd(a) {
   const won = v => { const x = Number(String(v ?? '').replace(/[^\d.]/g, '')); return x > 0 && x < 1e9 ? Math.round(x * 100) / 100 : null; };
   return { fl: t(a.fl, 8), tfl: int(a.tfl), ufl: int(a.ufl), flx: a.flx === 'lmh' ? 'lmh' : 'exact', dir: DIRS.includes(a.dir) ? a.dir : '', rooms: int(a.rooms), baths: int(a.baths),
     movein: t(a.movein, 20), park: t(a.park, 30), appr: t(a.appr, 10).replace(/[^\d.-]/g, ''), nomgmt: !!a.nomgmt, desc: t(a.desc, 300),
+    co: !!a.co,   // 11/5 공동중개
     use: t(a.use, 40), viol: !!a.viol, zone: t(a.zone, 40), road: t(a.road, 20), lp: (v => v > 0 && v < 1e9 ? v : null)(Number(String(a.lp ?? '').replace(/\D/g, ''))), hhld: int(a.hhld), elev: int(a.elev),
     biz: t(a.biz, 30), wc: WCS.includes(a.wc) ? a.wc : '', facx: t(a.facx, 80),
     occ: ['self', 'rent', 'empty'].includes(a.occ) ? a.occ : '', strct: t(a.strct, 30), pow: dec(a.pow), ch: dec(a.ch), hoist: dec(a.hoist), trl: ['y', 'n'].includes(a.trl) ? a.trl : '',   // 11/2 공장·창고
