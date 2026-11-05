@@ -1198,9 +1198,13 @@ window.Board = (() => {
   B.aa = B.aa || new Set();
   async function autoArea(id, P) {
     const k = `${id}|${P.pnu}|${P.dong || ''}|${P.ho}`; if (B.aa.has(k)) return; B.aa.add(k);
-    const dq = P.dong ? (/동$/.test(P.dong) ? P.dong : P.dong + '동') : '';
+    // 11/5 고침: 대장의 동·호 이름 그대로 먼저 (예: 동 '오피스' · 호 '1609') — 예전엔 동에 '동'을 붙이고 호에 '호'를 붙여 먼저 찾아서
+    //   대장과 글자가 달라 못 찾고, 서버가 건물 전체를 뒤지다 시간이 넘었음 (킨텍스 원시티 오피스 1609호 등)
+    const d0 = String(P.dong || '').trim(), h0 = String(P.ho || '').trim().replace(/호$/, '');
+    const dongs = [...new Set([d0, d0.replace(/동$/, ''), d0 && !/동$/.test(d0) ? d0 + '동' : d0])];
+    const tries = [[dongs[0], h0], ...dongs.slice(1).map(d => [d, h0]), [dongs[0], h0 + '호']].slice(0, 3);
     let ar = null;
-    for (const h of [...new Set([P.ho, /호$/.test(P.ho) ? P.ho.replace(/호$/, '') : P.ho + '호'])]) {
+    for (const [dq, h] of tries) {
       try { const j = await H.api(`/api/units?pnu=${P.pnu}&dong=${encodeURIComponent(dq)}&ho=${encodeURIComponent(h)}`); const ex = ((j.area && j.area.ok && j.area.data) || []).filter(r => /전유/.test(r.gb || '')); const sum = ex.reduce((a, r) => a + (r.area || 0), 0); if (sum) { ar = Math.round(sum * 100) / 100; break; } } catch { /* 다음 */ }
     }
     if (!ar) return;
