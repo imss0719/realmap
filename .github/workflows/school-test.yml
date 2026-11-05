@@ -1,0 +1,44 @@
+name: realmap-school-test
+# 11/5 학교알리미 공시공통내역(공공데이터포털 파일→API, api.odcloud.kr · 15154558) 확인용 — 수동 실행만 (Run workflow)
+#   비밀값 DATA_GO_KR_KEY(공공데이터포털 키) 사용 · 키 값은 화면에 안 나옴 · 사이트에는 영향 없음
+#   결과: 제공되는 자료(기준일)별 경로 · 칸 이름 · 전체 건수 · 첫 줄 예시 · 서울 마포 학교 몇 곳
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 학교알리미 공시공통내역 확인
+        env:
+          KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: |
+          node -e '
+          const KEY = (process.env.KEY || "").trim(), out = [];
+          const get = async u => { const r = await fetch(u, { signal: AbortSignal.timeout(30000) }); const t = await r.text(); try { return { s: r.status, j: JSON.parse(t) }; } catch { return { s: r.status, t: t.slice(0, 300) }; } };
+          (async () => {
+            if (!KEY) { out.push("DATA_GO_KR_KEY 비밀값이 없습니다."); }
+            const spec = await get("https://infuser.odcloud.kr/oas/docs?namespace=15154558/v1");
+            if (!spec.j) { out.push(`명세를 못 받음: HTTP ${spec.s} ${spec.t || ""}`); }
+            const paths = spec.j ? Object.entries(spec.j.paths || {}) : [];
+            out.push(`제공 경로 ${paths.length}개`);
+            for (const [p, v] of paths) { const g = v.get || {}; out.push(` ${p}  ·  ${g.summary || ""}`); }
+            // 응답 칸 이름 (명세의 모델)
+            const sch = spec.j && spec.j.components && spec.j.components.schemas || {};
+            for (const [nm, s] of Object.entries(sch).slice(0, 3)) out.push(` 모델 ${nm}: ${Object.keys(s.properties || {}).join(", ").slice(0, 600)}`);
+            for (const [p] of paths.slice(-2)) {   // 가장 최근 2개 기준일
+              const u = `https://api.odcloud.kr/api${p}?page=1&perPage=3&serviceKey=${encodeURIComponent(KEY)}`;
+              const r = await get(u);
+              if (!r.j) { out.push(`${p}: HTTP ${r.s} · ${r.t}`); continue; }
+              out.push(`${p}: HTTP ${r.s} · 전체 ${r.j.totalCount ?? "?"}건 · ${r.j.msg || r.j.message || ""}`);
+              const d = r.j.data || [];
+              if (d[0]) { out.push(`  칸: ${Object.keys(d[0]).join(", ")}`); out.push(`  첫 줄: ${JSON.stringify(d[0]).slice(0, 900)}`); }
+              const sido = d[0] && Object.keys(d[0]).find(k => /시도|교육청/.test(k)), nm = d[0] && Object.keys(d[0]).find(k => /학교명/.test(k));
+              if (sido) {
+                const q = await get(`https://api.odcloud.kr/api${p}?page=1&perPage=5&serviceKey=${encodeURIComponent(KEY)}&cond%5B${encodeURIComponent(sido)}%3A%3ALIKE%5D=${encodeURIComponent("서울")}`);
+                out.push(`  서울 조건(${sido}) → 전체 ${q.j ? q.j.totalCount : "?"}건`); (q.j && q.j.data || []).slice(0, 5).forEach(x => out.push(`   ${nm ? x[nm] : ""} · ${JSON.stringify(x).slice(0, 300)}`));
+              }
+            }
+            const msg = "## 학교알리미 공시공통내역 확인\n\n```\n" + out.join("\n") + "\n```\n";
+            console.log(msg); require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg);
+          })();'
