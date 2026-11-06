@@ -2,12 +2,21 @@
 // 공공데이터(국토부 실거래)만 내려 줍니다. 네이버 호가 같은 자료는 받지도, 저장하지도 않습니다.
 // 기존 trades.js의 월별 실거래 받기(month)와 그 캐시를 그대로 빌려 씁니다. 기존 파일은 바꾸지 않습니다.
 //
+// 요청 머리에 X-Hoga-Key: <비밀번호> 가 있어야 합니다 (틀리면 401, 환경변수 없으면 503).
 // GET /api/hoga?op=find&lawd=11440&q=마포래미안
 //   → 최근 3개월 그 구에서 거래된 아파트 중 이름이 비슷한 단지 목록 [{name, umd, jibun, n}]
 // GET /api/hoga?op=sum&lawd=11440&names=마포래미안푸르지오|마포래미안푸르지오1단지&umd=아현동&months=6
 //   → 그 단지들의 최근 n개월 매매·전세 실거래 (취소 건 제외, 칸은 짧게)
+import { timingSafeEqual } from 'node:crypto';
 import { handler, send, fail, need, pool, DATA_KEY } from './_lib.js';
 import { month, monthsBack } from './trades.js';
+
+// 선배만 쓰도록 비밀번호: Vercel 환경변수 HOGA_KEY. 비어 있으면 아무도 못 씀(잠김).
+const HOGA_KEY = (process.env.HOGA_KEY || '').trim();
+function keyOk(got) {
+  const a = Buffer.from(String(got || '')), b = Buffer.from(HOGA_KEY);
+  return HOGA_KEY.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+}
 
 const clean = s => String(s ?? '').trim();
 const norm = s => clean(s).replace(/\s|\(.*?\)|아파트|APT/gi, '');
@@ -19,8 +28,11 @@ export default handler(async (req, res) => {
   // PC에서 바로 연 파일(주소 없음)에서도 부를 수 있게 — 읽기 전용 공공자료라 열어 둡니다
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Hoga-Key');
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return fail(res, 405, 'method', 'GET만 됩니다.');
+  if (!HOGA_KEY) return fail(res, 503, 'nokey', '비밀번호(HOGA_KEY)가 아직 설정되지 않았습니다.');
+  if (!keyOk(req.headers['x-hoga-key'])) return fail(res, 401, 'badkey', '비밀번호가 맞지 않습니다.');
   if (!need(res, [DATA_KEY, 'DATA_GO_KR_KEY'])) return;
 
   const lawd = clean(req.query.lawd);
@@ -46,7 +58,7 @@ export default handler(async (req, res) => {
       }
     });
     const list = [...map.values()].sort((a, b) => b.n - a.n).slice(0, 20);
-    return send(res, 200, { ok: true, lawd, items: list, errors: got.filter(r => !r.ok).length }, 21600);
+    return send(res, 200, { ok: true, lawd, items: list, errors: got.filter(r => !r.ok).length }, 0);
   }
 
   if (op === 'sum') {
@@ -79,7 +91,7 @@ export default handler(async (req, res) => {
     sale.sort((a, b) => b[0].localeCompare(a[0]));
     jeonse.sort((a, b) => b[0].localeCompare(a[0]));
     // 칸: [거래일 YYYYMMDD, 전용㎡, 층, 금액(만원)]
-    return send(res, 200, { ok: true, lawd, months, sale: sale.slice(0, 600), jeonse: jeonse.slice(0, 600), errors }, errors ? 0 : 21600);
+    return send(res, 200, { ok: true, lawd, months, sale: sale.slice(0, 600), jeonse: jeonse.slice(0, 600), errors }, 0);
   }
 
   return fail(res, 400, 'bad_op', 'op는 find 또는 sum 입니다.');
