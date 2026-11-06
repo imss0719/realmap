@@ -135,6 +135,8 @@ const viewNav = cur => `<nav class="vw" aria-label="보는 방법"><div class="v
   <details class="vd"><summary${cur === 'gu' ? ' class="on"' : ''}>25개 구 ▾</summary><div class="vdm">${GU_ORDER.filter(g => byGu.get(g).length).map(g => `<a href="/seoul/${GU[g]}.html">${g}<small>${byGu.get(g).length}</small></a>`).join('')}</div></details>
   ${TG.map(g => `<span class="vs">${g}</span>${THEMES.filter(t => t.g === g && t.list.length).map(t => `<a href="${themeUrl(t)}"${cur === t.slug ? ' aria-current="page"' : ''}>${esc(t.short)}</a>`).join('')}`).join('')}
 </div></nav>`;
+// 11/6 선배 결정(중개사 가입 경로): 구역 페이지에는 이미 '이 구역 중개사무소' 칸이 있어서, 전체·구·주제 페이지에만 중개사 안내 한 칸
+const BKC = `<section class="pn bkc"><div class="t"><b>중개사이신가요?</b><p>정비구역 페이지마다 그 구역 매물이 많은 중개사무소가 <b>1순위 대표 사무소</b>로 크게 소개됩니다. 매물 10건까지 무료입니다.</p></div><div class="a"><a class="go" href="/promo.html?go=1">무료로 내 매물 올리기</a><a class="mo" href="/promo.html">자세히 보기 ›</a></div></section>`;
 function page({ path, title, desc, crumbs, h1, sub = '', body, faq = [], cur = '', zrow = null }) {
   const url = SITE + path;
   const ld = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c[0], item: SITE + c[1] })) }];
@@ -162,6 +164,7 @@ ${viewNav(cur)}
 <main>
 <div class="ph"><h1>${h1}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div>
 ${body}
+${zrow ? '' : BKC}
 ${faq.length ? `<section class="pn faq"><h2>자주 묻는 질문</h2>${faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</section>` : ''}
 <p class="src">자료: 서울 열린데이터광장 「도시계획사업(서울플랜+) 정비사업 현황」(${esc(updK)} 받음), 국토교통부 정비구역 연속주제도. 리얼맵이 분기마다 자동으로 갱신합니다. 계획 수치와 추진 단계는 진행 중에 바뀔 수 있으니 계약 등 중요한 결정 전에는 구청이나 조합, <a href="https://cleanup.seoul.go.kr" target="_blank" rel="noopener">정비사업 정보몽땅</a>에서 꼭 확인해 주세요.</p>
 </main>
@@ -501,11 +504,15 @@ footer{max-width:1240px;margin:0 auto 26px;padding:0 20px;font-size:12px;color:v
   .vdm{grid-template-columns:repeat(3,auto);left:12px;right:12px}
   .track li{font-size:10px;letter-spacing:-.05em}
 }
+
+/* 11/6 중개사 안내 칸 (전체·구·주제 페이지) */
+.bkc{display:flex;align-items:center;gap:16px;padding:16px 18px;border:2px solid var(--accent)}.bkc .t{flex:1;min-width:0}.bkc .t>b{font-size:15px}.bkc .t p{margin:4px 0 0;font-size:13px;color:var(--muted);line-height:1.55}.bkc .t p b{color:var(--fg)}.bkc .a{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none}.bkc .go{background:var(--accent);color:#14212E;font-weight:700;font-size:14px;padding:10px 16px;border-radius:8px;text-decoration:none;white-space:nowrap}.bkc .mo{font-size:12px;color:var(--muted);text-decoration:none}
+@media (max-width:640px){.bkc{flex-direction:column;align-items:stretch}.bkc .a{flex-direction:row;justify-content:space-between}}
 `);
 await copyFile('scripts/seoul.client.js', 'seoul/seoul.js');
 
 // ---------- 사이트맵 ----------
-const base = [['/', 1.0], ['/guide.html', 0.8], ['/privacy.html', 0.2]];
+const base = [['/', 1.0], ['/guide.html', 0.8], ['/apt.html', 0.7], ['/privacy.html', 0.2]];   // 11/6 apt.html(아파트 장부 소개) 공개
 await writeFile('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${[...base, ...urls].map(([u, p]) => `  <url><loc>${SITE}${u}</loc><lastmod>${UPDATED}</lastmod><priority>${p.toFixed(1)}</priority></url>`).join('\n')}
