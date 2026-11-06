@@ -231,7 +231,7 @@ for (const g of byP.values()) {
   const h5 = g.h.filter(h => h[0] >= CUT5), top = h5.find(h => !h[2]) || h5[0];
   mapItems.push({ pnu: g.pnu, k: g.k, lat: pt.lat, lng: pt.lng, a: `${g.umd} ${g.c.san ? '산' : ''}${g.c.bun}${g.c.ji !== '0' ? '-' + g.c.ji : ''}`, ...(top ? { p: top[1], d: top[0], j: top[2] } : {}), c: h5.length, pl: g.pl, gf: g.gf, h: g.h });
 }
-if (mapItems.length && !(process.env.BT_STRICT === '1' && late())) {   // 11/5 서울 넓히기(bt-seoul)는 시간 안에 다 끝난 구만 저장 (덜 된 파일이 남으면 다시 안 만들어지므로)
+if (mapItems.length && !(process.env.BT_STRICT === '1' && (late() || tradeErr.length))) {   // 11/6 실거래 빠진 달이 있으면(요청 제한 등) 저장 안 함 → 다음 실행에 다시   // 11/5 서울 넓히기(bt-seoul)는 시간 안에 다 끝난 구만 저장 (덜 된 파일이 남으면 다시 안 만들어지므로)
   await mkdir('data/bt', { recursive: true });
   await writeFile(`data/bt/${GU}.json`, JSON.stringify({ updated: new Date().toISOString(), gu: GU, months: MONTHS, items: mapItems }));
 }
