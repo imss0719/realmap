@@ -1,5 +1,5 @@
 name: realmap-bt-seoul
-# 11/5 건물·단독·공장 실거래 지도 자료를 서울 전체로 넓히기 — 2시간마다 아직 없는 구 1곳씩 (서울 약 2일) (scripts/landtrade-test.mjs · 구 하나 약 20분 · 공공데이터 약 1,000번)
+# 11/5 건물·단독·공장 실거래 지도 자료를 서울 전체로 넓히기 — 2시간마다 아직 없는 구를 한 번에 최대 3곳 (11/6: GitHub 예약이 하루 2~3번만 돌아 1곳씩은 너무 느려서) (scripts/landtrade-test.mjs · 구 하나 약 20분 · 공공데이터 약 1,000번)
 #   순서: 서대문 → 은평 → 용산 → 중구 → 종로 → 영등포 → 성동 → 나머지 · 서울이 다 차면 아무것도 안 하고 끝남
 #   수동 실행도 가능 (Run workflow) · 결과: data/bt/<구>.json (화면은 이 파일이 있는 구만 표시)
 on:
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 110
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -31,12 +31,25 @@ jobs:
           BT_STRICT: '1'
         run: |
           ORDER="11410 11380 11170 11140 11110 11560 11200 11470 11500 11530 11545 11590 11620 11650 11680 11710 11740 11215 11230 11260 11290 11305 11320 11350"
-          n=0
-          for g in $ORDER; do
-            [ -f "data/bt/$g.json" ] && continue
-            echo "== $g =="
-            GU=$g node scripts/landtrade-test.mjs || echo "$g 실패 · 다음 실행에 다시"
-            n=$((n+1)); break
+          # 11/6 이미 있어도 실거래 빠진 달이 있던 구(예: 마포 11/1 판 2025년 5~12월 상가·건물)는 맨 뒤에 다시 만듦
+          REDO=""
+          for g in 11440 $ORDER; do
+            f="data/landtrade-test-$g.json"
+            [ -f "data/bt/$g.json" ] && [ -f "$f" ] && node -e "const d=require('./$f');process.exit((d['실거래오류']||[]).length?0:1)" && REDO="$REDO $g"
+          done
+          n=0; left=0; START=$SECONDS
+          for g in $ORDER; do [ -f "data/bt/$g.json" ] || left=$((left+1)); done
+          echo "남은 구 $left곳 · 다시 만들 구:${REDO:- 없음}"
+          for g in $ORDER $REDO; do
+            [ -f "data/bt/$g.json" ] && ! echo " $REDO " | grep -q " $g " && continue
+            [ -f "data/bt/$g.json" ] && [ $left -gt 0 ] && continue   # 다시 만들기는 빈 구를 다 채운 뒤
+            [ $n -ge 3 ] && break
+            rem=$(( 95 - (SECONDS - START) / 60 ))   # 남은 시간(분) · 구 하나 약 10~20분
+            [ $n -gt 0 ] && [ $rem -lt 30 ] && break
+            m=$(( rem < 50 ? rem : 50 ))
+            echo "== $g (최대 $m분) =="
+            MINUTES=$m GU=$g node scripts/landtrade-test.mjs || echo "$g 실패 · 다음 실행에 다시"
+            n=$((n+1))
           done
           [ $n -eq 0 ] && echo "서울 전체 완료"
           true
