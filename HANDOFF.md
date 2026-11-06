@@ -839,6 +839,7 @@
 - 선배 개인 PC 프로그램 '호가 장부'(HTML 파일 하나, 네이버 매물 목록을 직접 복사해 PC 안에서만 정리)가 단지 비교 분석의 '시세 대비 호가 %'를 내려고 실거래만 받아 감. 방향은 리얼맵 → PC 한쪽뿐: 네이버 호가 자료는 리얼맵 서버로 오지 않고 저장도 안 함(2025.12 네이버 vs 다윈 판결 때문에 지키는 원칙).
 - GET /api/hoga?op=find&lawd=11440&q=단지명 → 최근 3개월 그 구 아파트 매매 중 이름 비슷한 단지 [{name,umd,jibun,n}] (20개까지)
 - GET /api/hoga?op=sum&lawd=11440&names=이름1|이름2&umd=아현동&months=6 → sale/jeonse 배열 [YYYYMMDD, 전용㎡, 층, 만원] (매매 취소 건 제외, 전세는 월세 0만, 각 600건까지)
-- trades.js의 month()/monthsBack()을 그대로 빌려 써서 같은 캐시(rt:apt|aptRent:<lawd>:<ym>) 공유 → 공공데이터 호출이 거의 안 늘어남. CDN 6시간.
+- trades.js의 month()/monthsBack()을 그대로 빌려 써서 같은 캐시(rt:apt|aptRent:<lawd>:<ym>) 공유 → 공공데이터 호출이 거의 안 늘어남.
 - PC 파일(file://)에서 부르므로 Access-Control-Allow-Origin: * (읽기 전용 공공자료라 열어 둠). GET만.
+- 11/6 선배만 쓰게 비밀번호: Vercel 환경변수 HOGA_KEY(선배가 정함) · 요청 머리 X-Hoga-Key 일치해야 응답(틀리면 401 badkey, 환경변수 없으면 503 nokey = 잠김). 비밀번호가 다른 요청에 새지 않게 CDN 캐시 끔(no-store) — 공공데이터 호출은 trades.js month() 캐시(Redis)로 그대로 아낌. PC 프로그램은 비밀번호를 그 PC 브라우저 저장소에만 둠.
 - api 함수 파일이 하나 늘어남(Pro라 한도 문제 없음).
