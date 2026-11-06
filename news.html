@@ -84,10 +84,54 @@ a{color:inherit;text-decoration:none}
 .lot b{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#1B1B1B;color:#FFD43B;font-size:13px;padding:3px 8px;border-radius:4px;margin:0;white-space:nowrap}
 .qa{background:#fff;border:1px solid #D8D2C3;padding:14px 16px}.qa b{font-size:16px;display:block;margin-bottom:6px}.qa p{margin:0;font-size:14.5px;line-height:1.7;color:#333}
 @media(max-width:700px){.g2,.sp,.rn2{grid-template-columns:1fr}.fc{grid-template-columns:1fr 1fr;gap:10px}.f .ill{height:100px}.tab{transform:scale(.75);transform-origin:left top}.rn{padding:18px 14px;margin-left:-16px;margin-right:-16px}.rn .hd{flex-direction:column;align-items:flex-start}.sp h2{font-size:25px}.f b{font-size:15px}.f p{font-size:12.5px}}
+
+:root{--ink:#1E1E1E;--paper:#E9E9E4;--red:#C92A2A}
+body{background:#BFC0BA !important;color:var(--ink) !important}
+.pg{background:var(--paper) !important;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.15),0 12px 36px rgba(0,0,0,.18) !important}
+.pg:before{content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .35 0 0 0 0 .33 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E")}
+.pg>*{position:relative}
+.top{color:#555 !important}.top a b{background:var(--ink) !important;color:var(--paper);border-radius:0 !important}
+.mast{border-bottom:0 !important;display:grid;grid-template-columns:150px 1fr 150px;align-items:center;gap:16px;padding:14px 0 8px !important}
+.mast h1{font-size:84px !important;letter-spacing:-.07em !important}.mast h1 img{display:none}
+.mast p{grid-column:1/4;font-size:13.5px !important;color:#444 !important;letter-spacing:.02em}
+.ear{border:1px solid var(--ink);padding:8px 10px;font-size:12px;line-height:1.5;text-align:left;font-weight:600}.ear b{display:block;font-size:14px;font-weight:900}
+.bar{border-top:3px solid var(--ink);border-bottom:1px solid var(--ink) !important;box-shadow:0 -6px 0 -4.5px var(--ink);margin-top:4px}
+.hero{border-bottom:0 !important}
+.kick{background:var(--ink) !important;border-radius:0}
+.hero h2 em{background:none !important;box-shadow:inset 0 -.32em 0 #D9D9D2}
+p,.lead,.nw p,.sp .lead{text-align:justify}
+.go{border-radius:0 !important;background:var(--ink) !important}.go.y{background:transparent !important;color:var(--ink) !important;border:1.5px solid var(--ink)}
+.chart,.sp,.qa,.pre,.cmp{background:rgba(255,255,255,.35) !important;border:1px solid #9A9A94 !important}
+.br i{background:#3A3A3A !important}.br i.t{background:var(--red) !important}
+.sec{border-top:3px double var(--ink) !important}
+.sh{border-bottom:1px solid var(--ink);padding-bottom:6px}
+.tag{border-radius:0 !important;background:var(--ink) !important}.tag.b{background:#495057 !important}.tag.r{background:var(--red) !important}
+.nw a,.mv .d{color:var(--red) !important}
+.li .v.u,.pre .n{color:var(--red) !important}
+.li:hover,.mv:hover{background:rgba(0,0,0,.05) !important}
+.col{border-left:1px solid #9A9A94 !important}
+.g2>div+div{border-left:1px solid #9A9A94;padding-left:24px}
+.sp svg{filter:saturate(.75) contrast(1.02)}
+.box{background:rgba(255,255,255,.35) !important;border-left:4px solid var(--ink) !important}
+.rn{background:transparent !important;color:var(--ink) !important;border-top:6px solid var(--ink);border-bottom:2px solid var(--ink);padding:16px 0 20px !important;margin-left:0 !important;margin-right:0 !important}
+.rn .hd{border-bottom:1px solid var(--ink) !important}
+.rn .hd h3{color:var(--ink) !important;font-size:30px !important}.rn .hd h3:before{content:'NEWS';background:var(--red);color:#fff;font-size:12px;padding:2px 6px;margin-right:10px;vertical-align:8px;letter-spacing:.05em}
+.rn .hd p{color:#555 !important}
+.f{background:rgba(255,255,255,.45) !important;border:1px solid #9A9A94;border-radius:0 !important}
+.f .ill{border-bottom:1px solid #9A9A94;filter:saturate(.8)}
+.f p{color:#333 !important}.f a{color:var(--red) !important}
+.f .who{border-radius:0 !important;background:var(--ink) !important;color:var(--paper) !important}.f .who.c{background:#868E96 !important}
+.mini span{background:transparent !important;border:1px solid #9A9A94;color:var(--ink) !important;border-radius:0 !important}.mini span b{color:var(--red) !important}
+.tip{background:rgba(255,255,255,.45) !important;border:1px solid var(--ink);border-radius:0 !important}
+.nx{border:1px dashed #777 !important;border-radius:0 !important}.nx h4{color:var(--red) !important}.nx p{color:#333 !important}
+.qz{background:rgba(255,255,255,.4) !important;border:2px solid var(--ink) !important}
+.st{border-radius:0 !important}
+.ft{border-top:3px double var(--ink) !important}
+@media(max-width:700px){.mast{grid-template-columns:1fr !important}.ear{display:none}.mast h1{font-size:46px !important}.mast p{grid-column:1 !important}.g2>div+div{border-left:0;padding-left:0}}
 </style><div class=pg>
 <div class=top><span>지도로 보는 부동산 정보 · realmap.online</span><a href="/?from=news">리얼맵 지도 열기 <b>무료</b></a></div>
-<div class=mast><h1><img src="/favicon.svg" alt="">월간 리얼맵</h1><p>국토부 실거래 · 서울시 정비사업 자료로 매달 정리하는 동네 부동산 신문</p></div>
-<div class=bar><span>2026년 11월호 · 창간호 · 제1호</span><span>11월 4일 발행</span><span>다음 호 12월 첫째 주</span></div>
+<div class=mast><div class=ear><b>창간호</b>동네 부동산 소식을<br>매달 한 장에</div><h1>월간 리얼맵</h1><div class=ear><b>무료 · 매달 첫째 주</b>realmap.online</div><p>국토부 실거래 · 서울시 정비사업 자료로 매달 정리하는 동네 부동산 신문</p></div>
+<div class=bar><span>제1호 · 2026년 11월호</span><span>2026년 11월 4일 화요일</span><span>발행 리얼맵 편집부</span></div>
 
 <section class=hero><div><span class=kick>이달의 1면</span>
 <h2>서울 아파트 평당가 1위 <em>반포동 1억 7,359만원</em>… 압구정동과 단 119만원 차</h2>
@@ -162,4 +206,4 @@ a{color:inherit;text-decoration:none}
 
 <div class=qz><div><b>Q. 다음 호 퀴즈 · 인천 아파트 평당가 1위 동네는 송도동일까, 청라동일까?</b><br><span>정답은 12월호에서 · 지금 지도에서 먼저 확인해 보세요</span></div><a class=go href="/?from=news">지도에서 확인</a></div>
 <div class=ft><span>자료: 국토교통부 실거래가 공개시스템 · 서울시 정비사업 정보몽땅 · 한국부동산원 청약홈<br>동네 평균값이라 단지·평형마다 다릅니다. 투자 판단은 개별 확인 후 하시기 바랍니다.</span><span style="white-space:nowrap">발행 리얼맵 · 주식회사 드림인베스트</span></div>
-</div><script>(function(){try{if(localStorage.getItem('rm.op')==='1')return;var v=localStorage.getItem('rm.vid');if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('rm.vid',v)}var s='';if(!sessionStorage.getItem('rm.nsrc')){var u=navigator.userAgent||'',r='';try{r=document.referrer?new URL(document.referrer).hostname:''}catch(e){}s=/Instagram/i.test(u)?'insta':/KAKAOTALK/i.test(u)?'kakao':!r||r===location.hostname?'direct':/blog\.naver\.com$/.test(r)?'blog':/search\.naver\.com$/.test(r)?'nsearch':/naver\.(com|me)$/.test(r)?'naver':/google\./.test(r)?'google':/daum\.net$/.test(r)?'daum':/instagram\.com$/.test(r)?'insta':/youtube\.com$|youtu\.be$/.test(r)?'youtube':'etc';sessionStorage.setItem('rm.nsrc',s)}fetch('/api/auth?action=hit&k=s&v='+encodeURIComponent(v)+'&pg=news'+(s?'&src='+s:''),{keepalive:true}).catch(function(){})}catch(e){}})();</script>
+</div><script src="/track.js" data-pg="news" defer></script>

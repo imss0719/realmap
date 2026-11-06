@@ -242,6 +242,7 @@ window.XImport = (() => {
     (multi.memo || []).forEach(x => { const v = clean(x.v); if (v) lines.push(/설명|메모|비고|내역|내용/.test(x.lb) ? v : `${clean(x.lb)}: ${v}`); });
     if (more.length) lines.push(`엑셀의 다른 필지: ${more.join(', ')}`);
     const other = /타/.test(clean(g.src));   // 11/5 받은 곳 = 타부동산 → 아파트·오피스텔은 단지 장부(타부동산)로
+    const book = /^(o|○|●|y|예)$/i.test(clean(g.ld));   // 11/6 '단지 장부' 칸이 O인 줄(장부 내려받기) → 내 물건도 매물장이 아니라 장부로
     if (g.opt) lines.push(`옵션: ${clean(g.opt).replace(/\n+/g, ' ')}`);
     if (g.office && !(other && APTT.includes(ty.ptype))) lines.push(`${other ? '받은 곳: 타부동산 · ' : ''}부동산명: ${clean(g.office)}`); else if (other && !APTT.includes(ty.ptype)) lines.push('받은 곳: 타부동산');
     if (clean(g.kind) && /상속/.test(clean(g.kind))) lines.push(`거래: ${clean(g.kind)}`);
@@ -258,7 +259,8 @@ window.XImport = (() => {
       kind, status: st, ptype: ty.ptype, ptypeTx: ty.tx || '', bname, ...money,
       contacts: contacts.slice(0, 10), rents: (r._rents || []).slice(0, 60), photos: [], ad, at, no: clean(g.no).slice(0, 20), exp: g.exp ? dateOf(g.exp) : '', imp: clean(g.imp).replace(/\n+/g, ' ').slice(0, 100),
       _q: q, _qs: qs.slice(1), _land: land, _whole: whole, _ex: { dong: ud, ho, hos: hos.length > 1 && !land ? hos : null, area, site },
-      _other: other && APTT.includes(ty.ptype) && ud && ho && kind !== 'presale' ? { office: clean(g.office).slice(0, 30) } : null,
+      _other: (other || book) && APTT.includes(ty.ptype) && ud && ho && kind !== 'presale' ? { office: other ? clean(g.office).slice(0, 30) : '', mine: !other,
+        ...(book ? { bare: !clean(g.src) && !clean(g.kind), kinds: ['sale', 'jeonse', 'wolse'].filter(k => new RegExp(KN[k]).test(clean(g.kind))), pr: { sale: man(g.price) || 0, jeonse: man(g.jeon) || 0, wd: man(g.deposit) || 0, wr: man(g.rent) || 0 } } : {}) } : null,
       _memo: lines.join('\n'),
     };
     return { item, warn };
@@ -300,7 +302,7 @@ window.XImport = (() => {
     지목: 'jimok', '도로 접면': 'road', 건축구조: 'strct', '사용전력(kW)': 'pow', '층고(m)': 'ch', '호이스트(톤)': 'hoist', 추레라: 'trl', '기타 시설': 'facx', 구역명: 'rz', 단계: 'stage',
     '물건 형태': 'form', '대지지분(㎡)': 'jshare', '감정가(만원)': 'apv', '권리가액(만원)': 'rgt', '조합원 분양': 'msh', '이주비(만원)': 'mvl', '분양가(만원)': 'price', '프리미엄(만원)': 'pr',
     '계약금(만원)': 'down', 중도금: 'mid', '중도금 메모': 'midTx', '입주 예정': 'due', '전매 가능일': 'resale', 소유자: 'owner', '소유자 연락처': 'phone', 임차인: 'tenant', '임차인 연락처': 'phone2',
-    '그 외 연락처': 'others', 메모: 'memo', 호실: 'rho', '임차인·업종': 'rlabel', 공실: 'vac', '확인할 점': 'chk', 등록일: 'date',   // 등록일: 내려받은 파일 맨 끝 칸 (다시 올리면 그 날짜로)
+    '그 외 연락처': 'others', 메모: 'memo', 호실: 'rho', '임차인·업종': 'rlabel', 공실: 'vac', '확인할 점': 'chk', '단지 장부': 'ld', 등록일: 'date',   // 등록일: 내려받은 파일 맨 끝 칸 (다시 올리면 그 날짜로)
     // 예전(v1) 양식의 칸 이름
     종류: 'ptype', 건물명: 'bname', '현재 업종': 'biz', '규모(지상/지하)': 'floors', 사용승인일: 'appr', 용도지역: 'zone', '건축물 용도': 'use', 주차: 'park', 승강기: 'elev', 연락처: 'phone', 상태: 'status' };
   const TABPT = { '아파트·오피': '아파트', '상가·사무실': '상가', 지식산업센터: '지식산업센터', '빌라·주택': '빌라', 건물: '건물', 토지: '토지', '공장·창고': '공장·창고', '숙박·기타': '숙박', '재개발·재건축': '재개발', 분양권: '아파트 분양권' };
@@ -315,7 +317,7 @@ window.XImport = (() => {
   const CURT = new Set(['아파트·오피', '상가·사무실', '지식산업센터', '빌라·주택', '재개발·재건축']);   // '현 보증금·현 월세' 칸이 있는 탭 (없는 탭의 매매는 보증금·월세 칸 = 지금 임대 합계)
   const uq = a => [...new Set(a.filter(Boolean))];
   const ymd = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 10); };
-  const EXTRA = { chk: '확인할 점', date: '등록일', up: '수정일', ph: '사진 수' };
+  const EXTRA = { chk: '확인할 점', date: '등록일', up: '수정일', ph: '사진 수', ld: '단지 장부' };   // 11/6 ld: 단지 장부에서 받은 줄 (O면 다시 올려도 장부로)
   // 매물(저장된 모양) → 양식 한 줄 {칸 key: 값} + 층별 현황 줄
   function rowOf(x) {
     const a = x.ad || {}, tab = tabOfS(x), pl = Array.isArray(x.places) && x.places.length ? x.places : [{ addr: x.addr, dong: x.dong, ho: x.ho, area: x.area }];
@@ -383,6 +385,31 @@ window.XImport = (() => {
   function form() { const a = document.createElement('a'); a.href = FORM_URL; a.download = '리얼맵_매물양식.xlsx'; document.body.appendChild(a); a.click(); a.remove(); }
   // 매물장 내려받기 (전체 · 고른 매물) — 양식과 같은 파일
   async function exportLs(list) { await formFill(byTabOf(list), `리얼맵_매물장_${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10)}.xlsx`, ['date', 'up', 'ph']); }
+  // 11/6 아파트 단지 장부 내려받기도 같은 양식 ('아파트·오피' 탭 · 맨 끝 '단지 장부' 칸 = O → 다시 올리면 장부로, 이미 적힌 호는 건너뜀)
+  //   data: [[단지, units{key: rec}], …] · 매물 O = 매물로 올림 · X = 꺼 둠(보관한 구분·거래) · 완료 = 거래완료
+  const LVN = { owner: '입주', tenant: '임차', empty: '공실' };
+  function ledgerRows(data) {
+    const out = [];
+    for (const [c, U] of data) for (const [key, r] of Object.entries(U || {}).sort((a, b) => a[0].localeCompare(b[0], 'ko', { numeric: true }))) {
+      if (!r || typeof r !== 'object') continue;
+      const [pnu, dn, ho] = key.split('|'), s = r.st || {}, on = !!s.src && !s.done, sv = on || s.done ? s : r.so || {}, pr = r.pr || {};
+      const pl = (c.places || []).find(p => p.pnu === pnu) || (c.places || [])[0] || {};
+      const tl = (r.tels || []).filter(t => t && (t.n || t.m)), ten = tl.filter(t => /임차|세입/.test(t.l || '')), own = tl.filter(t => !ten.includes(t) && (!t.l || /소유|집주인|매도|임대인/.test(t.l)));
+      const etc = tl.filter(t => !own.includes(t) && !ten.includes(t)), nm = L => L.map(t => t.m || '').filter(Boolean).join(', ');   // 장부 연락처 {l 구분, n 번호, m 이름}
+      out.push({ st2: s.done ? '완료' : on ? 'O' : 'X', addr: pl.addr || '', bname: c.name, ptype: /오피스텔/.test(c.name || '') ? '오피스텔' : '아파트', udong: dn, ho, area: r.ar ? r2(r.ar) : '',
+        src: sv.src === 'other' ? '타부동산' : sv.src ? '내 매물' : '', office: sv.src === 'other' ? sv.office || '' : '', kind: (sv.k || []).map(k => KN[k]).filter(Boolean).join('·'),
+        price: pr.sale || '', jeon: pr.jeonse || '', deposit: pr.wd || '', rent: pr.wr || '', mgmt: r.mg || '', loan: r.ln || '', loanR: LRN[r.lnr] || '', imp: r.imp || '',
+        live: LVN[r.live] || '', cdep: r.cd || '', crent: r.cr || '', exp: r.exp || '', rooms: r.rm || '', baths: r.bt || '', movein: r.moveIn || '', opt: r.opt || '',
+        owner: nm(own), phone: own.map(t => t.n).filter(Boolean).join(', '), tenant: nm(ten), phone2: ten.map(t => t.n).filter(Boolean).join(', '),
+        others: etc.map(t => [t.l || '기타', t.m, t.n].filter(Boolean).join(' ')).join(', '), memo: r.note || '', ld: 'O' });
+    }
+    return out;
+  }
+  async function exportLedger(data) {
+    const rows = ledgerRows(data); if (!rows.length) return 0;
+    await formFill({ '아파트·오피': rows }, `리얼맵_아파트장부_${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10)}.xlsx`, ['ld']);
+    return rows.length;
+  }
   // 내 엑셀 → 리얼맵 양식으로 바꿔 받기 (불러오기 2단계 · 확인할 점 칸 포함)
   async function tplOut(all) {
     await formFill(byTabOf(all.map(asStored)), `리얼맵양식_${String(S.file || '내엑셀').replace(/\.(xlsx?|csv)$/i, '')}.xlsx`, ['chk']);
@@ -495,7 +522,7 @@ window.XImport = (() => {
     const ex = c => { for (const r of S.data.slice(0, 30)) { const v = clean(r[c]); if (v) return v.slice(0, 26); } return ''; };
     const el = shell(`<div class="xi-bd">
       <div class="xi-sum"><div class="t"><b>${S.data.length}</b>엑셀 줄</div><div class="g"><b>${C.ok.length}</b>바로 등록</div><div class="y"><b>${C.warn.length}</b>확인 필요<small>노랑 표시로 넣음</small></div><div class="n"><b>${skipN}</b>건너뜀</div></div>
-      <p class="xi-m">건너뜀 = 빈 줄 ${C.skip.empty} · 타거래 ${C.skip.other} · 중복 ${C.skip.dup} · 주소 없음 ${C.skip.noaddr}${C.skip.have ? ` · <b>이미 매물장에 있는 매물번호 ${C.skip.have}</b>` : ''}${(S.rentMiss || []).length ? ` · 층별 현황 짝 없음 ${S.rentMiss.length}줄` : ''}${othN ? `<br>아파트·오피 <b>타부동산 ${othN}줄</b>은 매물장이 아니라 [아파트] 단지 장부의 그 호에 타부동산 물건으로 넣습니다` : ''}${all.length - othN > room ? ` · <b class="xi-r">요금제 한도로 ${room.toLocaleString()}건까지만 넣을 수 있습니다</b>` : ''}</p>
+      <p class="xi-m">건너뜀 = 빈 줄 ${C.skip.empty} · 타거래 ${C.skip.other} · 중복 ${C.skip.dup} · 주소 없음 ${C.skip.noaddr}${C.skip.have ? ` · <b>이미 매물장에 있는 매물번호 ${C.skip.have}</b>` : ''}${(S.rentMiss || []).length ? ` · 층별 현황 짝 없음 ${S.rentMiss.length}줄` : ''}${othN ? `<br>아파트·오피 <b>타부동산·장부 ${othN}줄</b>은 매물장이 아니라 [아파트] 단지 장부의 그 호에 넣습니다 (이미 적힌 호는 건너뜀)` : ''}${all.length - othN > room ? ` · <b class="xi-r">요금제 한도로 ${room.toLocaleString()}건까지만 넣을 수 있습니다</b>` : ''}</p>
       ${sample.length ? `<table class="xi-t"><tr><th>엑셀 줄</th><th>종류</th><th>주소</th><th>거래</th><th>가격</th><th>면적</th><th></th></tr>${sample.map(x => `<tr><td>${S.data[x.item._row]._n}</td><td>${esc(x.item.ptype)}</td><td>${esc(x.item._q)}${x.item._ex.dong || x.item._ex.ho ? ` · ${esc([x.item._ex.dong && x.item._ex.dong + '동', x.item._ex.ho && x.item._ex.ho + '호' + (x.item._ex.hos ? ` 외 ${x.item._ex.hos.length - 1}` : '')].filter(Boolean).join(' '))}` : ''}</td><td>${H.X.KIND[x.item.kind]}</td><td>${esc(pr(x))}</td><td>${x.item._ex.area ? (x.item._ex.area / PY).toFixed(1) + '평' : '-'}</td><td>${x.warn.length ? `<span class="tg y">${esc(x.warn.join(' · '))}</span>` : '<span class="tg g">OK</span>'}</td></tr>`).join('')}</table>` : ''}
       <details class="xi-map" ${S.openMap ? 'open' : ''}><summary>칸 맞추기 보기 · 고치기 <small>(${S.labels.filter(Boolean).length}칸 · 틀린 것만 바꾸면 숫자가 바로 바뀝니다)</small></summary>
         <table class="xi-t"><tr><th>엑셀 칸</th><th>예시 값</th><th>넣을 곳</th></tr>${S.labels.map((lb, c) => lb ? `<tr><td>${esc(lb)}</td><td class="ex">${esc(ex(c))}</td><td><select data-c="${c}" class="${S.map[c] === 'skip' ? 'no' : ''}">${opts(S.map[c])}</select></td></tr>` : '').join('')}</table></details>
@@ -556,7 +583,7 @@ window.XImport = (() => {
   }
   function result(fail) {
     S.step = 2;
-    const el = shell(`<div class="xi-bd"><div class="xi-sum"><div class="g"><b>${S.saved || 0}</b>등록됨</div>${S.made.length ? `<div class="t"><b>${S.made.length}</b>단지 장부(타부동산)</div>` : ''}<div class="y"><b>${fail.length}</b>못 넣음</div></div>
+    const el = shell(`<div class="xi-bd"><div class="xi-sum"><div class="g"><b>${S.saved || 0}</b>등록됨</div>${S.made.length ? `<div class="t"><b>${S.made.length}</b>단지 장부</div>` : ''}<div class="y"><b>${fail.length}</b>못 넣음</div></div>
       <p class="xi-m">확인이 필요한 줄은 <b>노랑 표시</b>와 '꼭 챙길 것'에 '엑셀 확인'을 적어 두었습니다. 줄을 눌러 입력창에서 고치시면 됩니다.</p>
       ${(S.cxAdd || []).length ? `<p class="xi-m">아파트·오피스텔 단지 <b>${S.cxAdd.length}곳</b>을 [아파트·오피] 단지 목록에 자동으로 담았습니다: ${esc(S.cxAdd.map(c => c.name).join(', '))}</p>` : ''}${(S.cxFull || []).length ? `<p class="xi-m xi-r">단지 한도가 차서 ${esc(S.cxFull.join(', '))} 단지는 담지 못했습니다. 이 매물들은 '단지 밖' 목록에 있습니다.</p>` : ''}
       ${fail.length ? `<h3>못 넣은 줄</h3><table class="xi-t"><tr><th>엑셀 줄</th><th>내용</th><th>이유</th></tr>${fail.slice(0, 50).map(f => `<tr><td>${(f.r && f.r._n) || f.i + 1}</td><td class="ex">${esc((f.r || []).map(clean).filter(Boolean).slice(0, 6).join(' · ').slice(0, 80))}</td><td>${esc(f.err)}</td></tr>`).join('')}</table>${fail.length > 50 ? `<p class="xi-m">외 ${fail.length - 50}줄 — 엑셀로 받아서 보세요</p>` : ''}` : ''}</div>
@@ -628,12 +655,14 @@ window.XImport = (() => {
       if (units[key]) { F(`${dn}동 ${ho}호는 단지 장부에 이미 적혀 있어 건너뜀`); continue; }
       units[key] = 1;
       const a = it.ad || {}, k = ['sale', 'jeonse', 'wolse'].filter(z => z === it.kind), on = it.status === 'on';
-      const st = { src: 'other', k, hold: false, office: o.office };
-      const tels = (it.contacts || []).filter(c => c.phone || c.name).slice(0, 4).map(c => ({ l: (({ 소유자: '소유', 임차인: '임차' })[c.role] || c.role || '') + (c.name ? ' ' + c.name : ''), n: c.phone || '' })).map(t => ({ ...t, l: t.l.slice(0, 10) }));
+      const k2 = o.kinds ? o.kinds : k, src = o.mine ? 'mine' : 'other';
+      if (o.kinds) x.warn = x.warn.filter(w => !/전용면적/.test(w));   // 11/6 장부에서 받은 줄은 면적이 비어도 됨
+      const st = { src, k: k2, hold: false, office: o.office };
+      const tels = (it.contacts || []).filter(c => c.phone || c.name).slice(0, 4).map(c => { const nm = String(c.name || ''), sp = c.role === '기타' && / /.test(nm); const t = { l: (sp ? nm.split(' ')[0] : c.role === '기타' && nm && !c.phone ? '' : c.role || '소유자').slice(0, 10), n: c.phone || '' }, m = (sp ? nm.split(' ').slice(1).join(' ') : nm).slice(0, 20); return m ? { ...t, m } : t; })   // 11/6 장부 연락처 모양 {l 구분, n 번호, m 이름};
       const opt = ((it._memo || '').match(/^옵션: (.*)$/m) || [])[1] || '';
       const note = [it.status === 'done' && '거래완료(엑셀)', (it._memo || '').split('\n').filter(l => !/^옵션: /.test(l)).join(' · ')].filter(Boolean).join(' · ').slice(0, 300);
-      const rec = { ...(on ? { st } : { st: { src: '', k: [], hold: false, office: '' }, so: { src: 'other', k, office: o.office } }),
-        pr: { sale: it.kind === 'sale' ? it.price || 0 : 0, jeonse: it.kind === 'jeonse' ? it.deposit || 0 : 0, wd: it.kind === 'wolse' ? it.deposit || 0 : 0, wr: it.kind === 'wolse' ? it.rent || 0 : 0 },
+      const rec = { ...(on && !o.bare ? { st } : { st: { src: '', k: [], hold: false, office: '' }, so: o.bare ? null : { src, k: k2, office: o.office } }),   // bare = 구분·거래 없이 적어 둔 호
+        pr: o.pr || { sale: it.kind === 'sale' ? it.price || 0 : 0, jeonse: it.kind === 'jeonse' ? it.deposit || 0 : 0, wd: it.kind === 'wolse' ? it.deposit || 0 : 0, wr: it.kind === 'wolse' ? it.rent || 0 : 0 },
         ar: it._ex.area || 0, live: a.live || '', exp: it.exp || '', moveIn: a.movein || '', rm: a.rooms || 0, bt: a.baths || 0, mg: it.mgmt || 0, ln: it.loan || 0, lnr: a.loanR || '', opt: opt.slice(0, 200),
         tels, note, imp: [it.imp, x.warn.length && `엑셀 확인: ${x.warn.join(' · ')}`].filter(Boolean).join(' · ').slice(0, 100), cd: it.curDep || 0, cr: it.curRent || 0, mk: x.warn.length ? 'y' : '' };
       try {
@@ -860,5 +889,5 @@ window.XImport = (() => {
       H.toast(`되돌렸습니다 (${m + S.made.filter(([id]) => S.newCx.includes(id)).length}호${S.newCx.length ? ` · 단지 ${S.newCx.length}곳` : ''})`); S.made = []; close();
     };
   }
-  return { open, form, exportLs, _rowItem: rowItem, _header: header, _autoMap: autoMap, _ledgerRec: ledgerRec, _lmap: lmap, _rowOf: rowOf, _K2: K2 };
+  return { open, form, exportLs, exportLedger, _ledgerRows: ledgerRows, _rowItem: rowItem, _header: header, _autoMap: autoMap, _ledgerRec: ledgerRec, _lmap: lmap, _rowOf: rowOf, _K2: K2 };
 })();

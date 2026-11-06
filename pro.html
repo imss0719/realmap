@@ -355,6 +355,7 @@ footer a{color:rgba(255,255,255,.8)}
 .yt:hover .ytp{transform:scale(1.06)}
 .vmore{text-align:center;margin-top:18px;font-size:17px;font-weight:700}.vmore a{color:inherit;text-decoration:underline;text-underline-offset:4px}
 </style>
+<script src="/track.js" data-pg="pro" defer></script>
 </head>
 <body>
 <div class="prog" id="prog"></div>
@@ -555,7 +556,7 @@ footer a{color:rgba(255,255,255,.8)}
   </div>
 </div></section>
 
-<footer><div class="wrap">리얼맵 · <a href="/pro-guide.html">중개장부 사용 설명서</a> · <a href="/guide.html">리얼맵 지도 이용 안내</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html"><b>개인정보처리방침</b></a><br><small style="display:block;margin-top:8px;line-height:1.7">주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · 02-393-7676 · contact@realmap.online</small></div></footer>
+<footer><div class="wrap">리얼맵 · <a href="/pro-guide.html">중개장부 사용 설명서</a> · <a href="/apt.html">아파트 장부 소개</a> · <a href="/guide.html">리얼맵 지도 이용 안내</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html"><b>개인정보처리방침</b></a><br><small style="display:block;margin-top:8px;line-height:1.7">주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · contact@realmap.online</small></div></footer>
 
 <div class="modal" id="modal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <h3 id="mTitle">2주 무료 체험 시작</h3>
@@ -584,7 +585,7 @@ footer a{color:rgba(255,255,255,.8)}
   <div class="err" id="vErr"></div>
   <div class="row"><button class="btn x" type="button" data-vclose>닫기</button><button class="btn gold" type="button" id="vGo">신청하기</button></div>
   </div>
-  <div class="vok" id="vDone" hidden><b>신청이 접수되었습니다</b><p>남겨 주신 번호로 곧 연락드리겠습니다.<br>급하시면 02-393-7676으로 전화 주세요.</p><div class="row" style="justify-content:center"><button class="btn gold" type="button" data-vclose>닫기</button></div></div>
+  <div class="vok" id="vDone" hidden><b>신청이 접수되었습니다</b><p>남겨 주신 번호로 곧 연락드리겠습니다.<br>급하시면 contact@realmap.online으로 메일 주세요.</p><div class="row" style="justify-content:center"><button class="btn gold" type="button" data-vclose>닫기</button></div></div>
 </div></div>
 
 <script src="/sms.js"></script>
@@ -660,7 +661,7 @@ footer a{color:rgba(255,255,255,.8)}
   let lastReg = '';
   // 11/3 선배: 입력하는 대로 숫자만 남기고 5-4-5로 하이픈 · 14자리가 아니면 바로 빨간 안내 (틀린 번호로 '승인 대기'에 걸리지 않게)
   const regFmt = d => d.length <= 5 ? d : d.length <= 9 ? `${d.slice(0, 5)}-${d.slice(5)}` : `${d.slice(0, 5)}-${d.slice(5, 9)}-${d.slice(9, 14)}`;
-  const REG_BAD = n => `등록번호는 숫자 14자리입니다 (지금 ${n}자리). 중개사무소 등록증의 번호를 다시 확인해 주세요.\n번호 형식이 등록증과 다르면 02-393-7676으로 문의해 주세요.`;
+  const REG_BAD = n => `등록번호는 숫자 14자리입니다 (지금 ${n}자리). 중개사무소 등록증의 번호를 다시 확인해 주세요.\n번호 형식이 등록증과 다르면 contact@realmap.online으로 문의해 주세요.`;
   $('b_regno').oninput = () => {
     const el = $('b_regno'), d = el.value.replace(/\D/g, '').slice(0, 14), f = regFmt(d);
     if (el.value !== f) el.value = f;
@@ -711,6 +712,6 @@ $('vGo').addEventListener('click',async()=>{const err=$('vErr');err.textContent=
  if(!body.name.trim())return err.textContent='성함을 적어 주세요.';if(body.phone.replace(/\D/g,'').length<9)return err.textContent='연락받으실 전화번호를 적어 주세요.';if(!body.agree)return err.textContent='개인정보 수집·이용에 동의해 주세요.';
  const g=$('vGo');g.disabled=true;g.textContent='보내는 중…';
  try{const r=await fetch('/api/auth?action=visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!j.ok)throw new Error(j.message||'보내지 못했습니다.');$('vForm').hidden=true;$('vDone').hidden=false;}
- catch(e){err.textContent=e.message+' 계속 안 되면 02-393-7676으로 전화 주세요.';}finally{g.disabled=false;g.textContent='신청하기';}});})();</script>
+ catch(e){err.textContent=e.message+' 계속 안 되면 contact@realmap.online으로 메일 주세요.';}finally{g.disabled=false;g.textContent='신청하기';}});})();</script>
 </body>
 </html>

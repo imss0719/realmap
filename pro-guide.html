@@ -99,6 +99,7 @@ table.pl td:first-child,table.pl th:first-child{text-align:left}
 .ytc button{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font:inherit;font-size:15px;font-weight:700;color:var(--fg);cursor:pointer}
 .ytc button span{color:var(--accent);font-variant-numeric:tabular-nums}.ytc button:hover{border-color:var(--accent)}
 </style>
+<script src="/track.js" data-pg="proguide" defer></script>
 </head>
 <body>
 <div class="top"><div class="in"><a class="brand" href="/pro.html"><img src="/favicon.svg" width="28" height="28" alt="">리얼맵 중개장부</a><a class="go" href="/listings.html">중개장부 열기</a></div></div>
@@ -345,7 +346,7 @@ table.pl td:first-child,table.pl th:first-child{text-align:left}
 
 </main>
 <script>document.querySelectorAll('.fig img').forEach(function(i){i.style.cursor='zoom-in';i.title='누르면 크게 볼 수 있습니다';i.addEventListener('click',function(){window.open(i.src,'_blank')})});</script>
-<footer>리얼맵 · <a href="/guide.html">리얼맵 지도 이용 가이드</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html"><b>개인정보처리방침</b></a><br>주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · 02-393-7676 · contact@realmap.online</footer>
+<footer>리얼맵 · <a href="/guide.html">리얼맵 지도 이용 가이드</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html"><b>개인정보처리방침</b></a><br>주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · contact@realmap.online</footer>
 <script>(()=>{const b=document.querySelector('[data-yt]');if(!b)return;const play=t=>{let f=b.querySelector('iframe');const src='https://www.youtube-nocookie.com/embed/'+b.dataset.yt+'?autoplay=1&rel=0&start='+(t||0);if(!f){f=document.createElement('iframe');f.title='중개장부 사용 설명 영상';f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;b.replaceChildren(f);b.style.cursor='default';}f.src=src;};
 b.addEventListener('click',()=>{if(!b.querySelector('iframe'))play(0);});document.querySelectorAll('[data-ytt]').forEach(c=>c.addEventListener('click',()=>{play(+c.dataset.ytt);b.scrollIntoView({behavior:'smooth',block:'center'});}));})();</script>
 </body>

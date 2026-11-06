@@ -89,6 +89,32 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
 .code{font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:700;background:var(--soft);border:1px dashed var(--line);border-radius:6px;padding:8px 12px;display:inline-block;margin:4px 0 10px;user-select:all}
 .err{color:var(--warn);margin-top:8px}
 @media (max-width:1000px){.lay{flex-direction:column}.nav{width:100%;position:static;display:flex;flex-wrap:wrap}.nav button{width:auto}.nav hr,.nav .g{display:none}.det-g{grid-template-columns:1fr}.g2{grid-template-columns:1fr}.sts{grid-template-columns:1fr 1fr}}
+
+/* 11/6 새 [방문·가입] */
+.vh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.vh h2{margin:0;font-size:17px}.vh small{color:var(--muted);font-size:12px;margin-left:auto}
+.vk{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.vk div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}.vk small{color:var(--muted);font-weight:700;font-size:12px}.vk b{font-size:24px;letter-spacing:-.3px}.vk em{font-style:normal;font-size:11px;color:var(--muted)}
+.up{color:var(--ok);font-size:12px;font-weight:800}.dn{color:var(--warn);font-size:12px;font-weight:800}.eq{color:var(--muted);font-size:12px;font-weight:700}
+.flow{display:flex;align-items:flex-end;gap:3px;height:150px;padding:10px 12px 0}.flow .fc{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}.flow .fc b{display:block;width:100%;background:#C9D3DD;border-radius:2px 2px 0 0}.flow .fc.in b{background:var(--navy)}.flow .dot{display:block;border-radius:50%;background:var(--gold);flex:none}
+th.nr,td.nr{text-align:right}
+.fnl{display:flex;gap:6px;align-items:stretch;padding:10px 12px}.fnl div{flex:1;background:var(--soft);border-radius:8px;padding:10px;text-align:center}.fnl b{display:block;font-size:20px}.fnl small{color:var(--muted);font-size:11.5px;font-weight:700}.fnl i{align-self:center;font-style:normal;color:var(--muted);font-size:12px;white-space:nowrap}
+.hb{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:5px 0}.hb span{width:150px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hb i{height:12px;background:var(--navy);border-radius:3px;min-width:2px}.hb b{font-size:12px}.hb small{color:var(--muted);font-size:11px}
+.mn{display:flex;gap:8px;padding:10px 12px}.mn div{flex:1;background:var(--soft);border-radius:8px;padding:8px 12px}.mn small{display:block;color:var(--muted);font-weight:700;font-size:11.5px}.mn b{font-size:17px}
+details.more{background:#fff;border:1px solid var(--line);border-radius:8px}details.more>summary{cursor:pointer;padding:9px 12px;font-weight:700;font-size:13px;color:var(--muted)}details.more>#vOld{padding:0 8px 8px;display:flex;flex-direction:column;gap:8px}
+@media (max-width:1000px){.vk{grid-template-columns:1fr 1fr}.vh small{margin-left:0}}
+
+/* 11/6 새 [중개사] 위쪽 */
+.bt{padding:10px 10px 0;display:flex;flex-direction:column;gap:8px}
+.todo{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.td{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);background:#fff;border-radius:8px;padding:10px 14px;font:inherit;cursor:pointer;text-align:left}.td small{font-size:13px;font-weight:700}.td b{font-size:22px}
+.td.r{border:2px solid var(--warn);background:#FFF5F5}.td.r b{color:var(--warn)}.td.y{border:2px solid var(--gold);background:#FFFBEA}.td.z{color:#9AA5B1}
+.g3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px}.big{font-size:24px;letter-spacing:-.3px}.mu{color:var(--muted);font-size:12px;font-weight:600}
+.stk{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:10px 0 6px;background:#EEF1F4}.stk i{display:block}.lgd{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);font-weight:700}.lgd i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+.mb{display:flex;gap:6px;height:74px;margin-top:8px}.mb div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px}.mb b{display:block;width:100%;background:#C9D3DD;border-radius:3px 3px 0 0}.mb b.c{background:var(--navy)}.mb small{font-size:10.5px;color:var(--muted)}
+.sl{display:flex;flex-direction:column;gap:7px;font-size:13px}.sl>div{display:flex;justify-content:space-between;align-items:center}.lk2{cursor:pointer}.lk2:hover b{text-decoration:underline}
+.adot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}.adot.a1{background:var(--ok)}.adot.a2{background:var(--gold)}.adot.a3{background:#C9D3DD}
+.help{background:#FFF4CC;color:#8A6100;border-radius:5px;padding:0 6px;font-size:11px;font-weight:800}
+@media (max-width:1000px){.todo,.g3{grid-template-columns:1fr 1fr}}
+.vk.m6{grid-template-columns:repeat(6,1fr)}.w2{grid-template-columns:1.5fr 1fr}.w2 .bars{height:110px}
+@media (max-width:1000px){.vk.m6{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -110,7 +136,7 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
   let pw = ''; try { pw = sessionStorage.getItem('rm.adm') || ''; } catch (e) { /* 무시 */ }
   let tab = (location.hash.slice(1) || 'br'); if (!['br', 'visit', 'mem', 'zone'].includes(tab)) tab = 'br';
   let B = null, M = null, ZN = null;           // B: 중개사 자료 · M: 회원·통계 자료
-  let sec = 'list', f = 'all', q = '', open = null, ps = null, onlyMk = false, noBn = true;
+  let sec = 'list', f = 'all', q = '', open = null, ps = null, mf = 'all', mq = '';
 
   document.querySelectorAll('.top .tab').forEach(b => b.onclick = () => { tab = b.dataset.tab; history.replaceState(null, '', '#' + tab); go(); });
   document.getElementById('reload').onclick = () => { if (tab === 'br') loadB(); else loadM(); };
@@ -162,20 +188,42 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
   const isGift = r => !r.plan.op && (r.src || {}).by === 'op' && r.plan.plan !== 'free';
   const isPaid = r => !r.plan.op && PAID.includes(r.plan.plan) && (r.src || {}).by !== 'op';
   const isSoon = r => !r.plan.op && r.plan.plan !== 'free' && r.plan.until && left(r.plan.until) <= 7;
-  const FIL = { all: ['전체', r => !r.plan.op], trial: ['체험', r => r.plan.plan === 'trial' && !isGift(r)], paid: ['유료', isPaid], gift: ['운영자 혜택', isGift], free: ['무료', r => r.plan.plan === 'free'], soon: ['곧 끝남', isSoon], wait: ['승인 대기', r => r.bk && r.bk.pend] };
+  // 11/6 마지막 활동 = 로그인·매물 수정 중 늦은 것 · '매물 0건'(도움 필요) · '14일 넘게 안 들어옴' 필터
+  const lastAct = r => { const a = [r.last, (r.stat || {}).up].filter(Boolean).map(x => new Date(x).getTime()); return a.length ? Math.max(...a) : 0; };
+  const idleD = r => { const t = lastAct(r); return t ? Math.floor((Date.now() - t) / 864e5) : 999; };
+  const actDot = r => { const d = idleD(r); return `<span class="adot ${d <= 7 ? 'a1' : d <= 14 ? 'a2' : 'a3'}" title="마지막 활동 ${d === 999 ? '기록 없음' : d + '일 전'}"></span>`; };
+  const FIL = { all: ['전체', r => !r.plan.op], paid: ['유료', isPaid], trial: ['체험', r => r.plan.plan === 'trial' && !isGift(r)], gift: ['운영자 혜택', isGift], free: ['무료', r => r.plan.plan === 'free'], soon: ['곧 끝남', isSoon], zero: ['매물 0건', r => !r.plan.op && !(r.bk && r.bk.pend) && !((r.stat || {}).n > 0)], idle: ['14일 넘게 안 들어옴', r => !r.plan.op && idleD(r) > 14], wait: ['승인 대기', r => r.bk && r.bk.pend] };
   function drawB() {
     const R = B.rows, P = B.pays || [], Q = B.qnas || [], V = B.visits || [];
     const ym = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7);
     const income = P.filter(p => p.st === 'ok' && p.done && new Date(new Date(p.done).getTime() + 9 * 3600e3).toISOString().slice(0, 7) === ym).reduce((a, p) => a + (p.amt || 0), 0);
     const n = k => R.filter(FIL[k][1]).length, waitP = P.filter(p => p.st === 'wait').length, openQ = Q.filter(x => !x.reply).length, newV = V.filter(v => v.st === 'new').length;
     const NAV = [['list', '중개사 회원', n('all')], ['pay', '입금 확인', waitP, 1], ['qna', '문의', openQ, 1], ['vreq', '방문 신청', newV, 1], ['pub', '지도 광고', B.pubs.length], '-', ['log', '요금 변경 이력', (B.plog || []).length], ['dup', '중복 가입 의심', (B.dups || []).length]];
-    app.innerHTML = `<div class="kpi"><div><small>중개사</small><b>${n('all')}</b></div><div><small>체험 중</small><b>${n('trial')}</b></div><div><small>유료(결제)</small><b>${n('paid')}</b></div>
-      <div class="${n('gift') ? 'w' : ''}"><small>운영자 혜택</small><b>${n('gift')}</b></div><div><small>무료</small><b>${n('free')}</b></div><div class="${n('soon') ? 'rd' : ''}"><small>7일 안에 끝남</small><b>${n('soon')}</b></div>
-      <div class="${n('wait') ? 'rd' : ''}"><small>승인 대기</small><b>${n('wait')}</b></div><div class="${waitP ? 'w' : ''}"><small>입금 대기</small><b>${waitP}</b></div><div class="${openQ ? 'rd' : ''}"><small>답변 전 문의</small><b>${openQ}</b></div>
-      <div class="${newV ? 'w' : ''}"><small>새 방문 신청</small><b>${newV}</b></div><div><small>지도 광고</small><b>${B.pubs.length}</b></div><div><small>이번 달 입금</small><b>${income.toLocaleString()}원</b></div></div>
+    // 11/6 위쪽: 오늘 할 일(누르면 그 목록) + 현황 세 칸
+    const all = R.filter(r => !r.plan.op), wk = all.filter(r => r.joined && Date.now() - new Date(r.joined) < 7 * 864e5).length;
+    const ymOf = t => new Date(new Date(t).getTime() + 9 * 3600e3).toISOString().slice(0, 7);
+    const mons = [...Array(6).keys()].reverse().map(i => { const d = new Date(Date.now() + 9 * 3600e3); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7); });
+    const inc = Object.fromEntries(mons.map(k => [k, 0])); P.filter(p => p.st === 'ok' && p.done).forEach(p => { const k = ymOf(p.done); if (k in inc) inc[k] += p.amt || 0; });
+    const imx = Math.max(1, ...Object.values(inc)), lastM = inc[mons[4]] || 0;
+    const TD = [['wait', '승인 대기', n('wait'), 'r'], ['pay', '입금 대기', waitP, 'y'], ['qna', '답변 전 문의', openQ, 'r'], ['vreq', '새 방문 신청', newV, 'y'], ['soon', '7일 안에 끝남', n('soon'), 'y']];
+    const cmp = [['paid', '유료', '#1F7A3A'], ['trial', '체험', '#1C64C8'], ['gift', '혜택', '#F2B705'], ['free', '무료', '#C9D3DD']], tot = Math.max(1, n('all'));
+    const act7 = all.filter(r => idleD(r) <= 7).length;
+    app.innerHTML = `<div class="bt"><div class="todo">${TD.map(([k, t, v, c]) => `<button type="button" class="td ${v ? c : 'z'}" data-todo="${k}"><small>${t}</small><b>${v}</b></button>`).join('')}</div>
+      <div class="g3"><div class="pn"><h3>중개사 회원 <small>지금 요금제별</small></h3><div class="pd"><b class="big">${n('all')}</b> 곳 <small class="mu">· 최근 7일 +${wk}</small>
+          <div class="stk">${cmp.map(([k, , c]) => n(k) ? `<i style="width:${n(k) / tot * 100}%;background:${c}"></i>` : '').join('')}</div><div class="lgd">${cmp.map(([k, t, c]) => `<span><i style="background:${c}"></i>${t} ${n(k)}</span>`).join('')}</div></div></div>
+        <div class="pn"><h3>입금 <small>월별 · 입금 확인 기준</small></h3><div class="pd"><b class="big">${income.toLocaleString()}원</b> <small class="mu">이번 달 · 지난달 ${lastM.toLocaleString()}원</small>
+          <div class="mb">${mons.map((k, i) => `<div title="${k} · ${inc[k].toLocaleString()}원"><b class="${i === 5 ? 'c' : ''}" style="height:${Math.max(2, inc[k] / imx * 100)}%"></b><small>${+k.slice(5)}월</small></div>`).join('')}</div></div></div>
+        <div class="pn"><h3>회원 상태</h3><div class="pd sl">
+          <div><span>유료 비율 <small class="mu">유료 ÷ 전체</small></span><b>${Math.round(n('paid') / tot * 100)}%</b></div>
+          <div><span><span class="adot a1"></span>7일 안에 활동</span><b>${act7}곳</b></div>
+          <div data-go2="idle" class="lk2"><span><span class="adot a3"></span>14일 넘게 안 들어옴</span><b>${n('idle')}곳 ›</b></div>
+          <div data-go2="zero" class="lk2"><span>매물 0건 <small class="mu">전화·엑셀 대행 권하기</small></span><b style="color:#8A6100">${n('zero')}곳 ›</b></div>
+          <div><span>지도 광고 중</span><b>${B.pubs.length}건</b></div></div></div></div></div>
       <div class="wrap"><div class="lay"><div class="nav">${NAV.map(x => x === '-' ? '<hr><div class="g">기록</div>' : `<button type="button" data-sec="${x[0]}" aria-pressed="${sec === x[0]}">${x[1]} ${x[3] ? (x[2] ? `<i>${x[2]}</i>` : '') : `<span>${x[2]}</span>`}</button>`).join('')}</div>
       <div class="main" id="main"></div></div></div>`;
     app.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { sec = b.dataset.sec; drawB(); });
+    app.querySelectorAll('[data-todo]').forEach(b => b.onclick = () => { const k = b.dataset.todo; if (FIL[k]) { sec = 'list'; f = k; } else sec = k; drawB(); });
+    app.querySelectorAll('[data-go2]').forEach(b => b.onclick = () => { sec = 'list'; f = b.dataset.go2; drawB(); });
     const m = document.getElementById('main');
     ({ list: secList, pay: secPay, qna: secQna, vreq: secVisit, pub: secPub, log: secLog, dup: secDup })[sec](m);
   }
@@ -190,7 +238,7 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
           <td>${esc(b.ceo || '-')}</td><td>${esc(b.regno || '-')}</td><td>${esc(b.mobile || b.tel || '-')}</td>
           <td><span class="pl ${P.op ? 'op' : P.plan}">${P.op ? '운영자' : esc(PN[P.plan] || P.name || P.plan)}</span>${r.staff || P.seats ? ` <small title="직원 (승인 대기 포함) / 직원 자리">직원 ${r.staff || 0}/${P.seats || 0}</small>` : ''}${(r.staffL || []).some(m => m.st === 'wait') ? ` <span class="vf wait" title="대표 승인을 기다리는 직원">대기 ${(r.staffL || []).filter(m => m.st === 'wait').length}</span>` : ''}</td><td><span class="src ${kc}">${esc(kt)}</span></td>
           <td>${P.op || P.plan === 'free' || P.plan === 'none' ? '-' : P.until ? `<span class="${L <= 7 ? 'dd r' : ''}">${d8(P.until)}</span> <small>${L >= 0 ? 'D-' + L : '지남'}</small>` : '기한 없음'}</td>
-          <td>${st.n ?? '-'} · ${st.pub ?? 0}${r.hj && r.hj.h ? ` <small title="아파트 단지 장부에 적은 호 기록 (단지 ${r.hj.c}곳)">· 단지 ${r.hj.h}</small>` : ''}${r.cu ? ` <small title="고객관리에 등록한 고객 (한도 ${P.cu == null ? '없음' : P.cu.toLocaleString()})"${P.cu != null && r.cu > P.cu ? ' style="color:#C92A2A;font-weight:800"' : ''}>· 고객 ${r.cu}</small>` : ''}${P.ls && st.n > P.ls ? ` <small>(보기 전용 ${st.n - P.ls})</small>` : ''}</td><td>${d8(r.joined)}</td><td>${ago(st.up || r.last)}</td><td>${r.opmemo ? `<span class="tag" title="${esc(r.opmemo)}">${esc(r.opmemo)}</span>` : ''}</td></tr>`;
+          <td>${st.n ?? '-'} · ${st.pub ?? 0}${!st.n && !(b.pend) ? ' <span class="help">도움 필요</span>' : ''}${r.hj && r.hj.h ? ` <small title="아파트 단지 장부에 적은 호 기록 (단지 ${r.hj.c}곳)">· 단지 ${r.hj.h}</small>` : ''}${r.cu ? ` <small title="고객관리에 등록한 고객 (한도 ${P.cu == null ? '없음' : P.cu.toLocaleString()})"${P.cu != null && r.cu > P.cu ? ' style="color:#C92A2A;font-weight:800"' : ''}>· 고객 ${r.cu}</small>` : ''}${P.ls && st.n > P.ls ? ` <small>(보기 전용 ${st.n - P.ls})</small>` : ''}</td><td>${d8(r.joined)}</td><td>${actDot(r)}${lastAct(r) ? ago(new Date(lastAct(r)).toISOString()) : '-'}</td><td>${r.opmemo ? `<span class="tag" title="${esc(r.opmemo)}">${esc(r.opmemo)}</span>` : ''}</td></tr>`;
         return row + (open === r.id ? `<tr class="det"><td colspan="${COLS}">${detail(r)}</td></tr>` : ''); }).join('') || `<tr><td colspan="${COLS}" class="empty">해당하는 중개사가 없습니다.</td></tr>`}
       </tbody></table></div></div>
       <p class="note">· 줄을 누르면 요금제 바꾸기 · 운영 메모 · 이력이 열립니다. 가입할 때 국가 자료(브이월드)로 등록번호·대표·영업 상태를 자동 확인하고, 확인하지 못한 신청은 '승인 대기'로 남습니다 (국가공간정보포털 부동산중개업 조회로 확인 뒤 [승인] → 그때 체험 시작).</p>`;
@@ -357,7 +405,70 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
     app.innerHTML = box; const m = document.getElementById('main');
     if (tab === 'visit') tVisit(m); else if (tab === 'mem') tMem(m); else tZone(m);
   }
+  // 11/6 새 [방문·가입]: 기간 버튼 하나(오늘·7일·30일) · 핵심 숫자 5개(지난 기간 대비) · 30일 흐름 · 홍보 페이지 성과 · 가입까지 · 유입 경로
+  //   정비사업·지역별 조회·창고는 요약만 보이고 [자세히]로 예전 표를 펼침
+  const GPN = { pro: ['중개사 소개', '/pro.html'], promo: ['매물 홍보 페이지', '/promo.html'], apt: ['아파트 장부 소개', '/apt.html'], proguide: ['중개사 이용 안내', '/pro-guide.html'], guide: ['이용 안내', '/guide.html'], news: ['월간 리얼맵', '/news.html'] };
+  const REFN = { ...{ map: '리얼맵 지도', seoul: '정비사업 페이지', in: '다른 소개 페이지' } };
+  let per = 7, vMore = false;
   function tVisit(m) {
+    const st = M.stats; if (!st) { m.innerHTML = '<div class="pn"><div class="pd">방문 통계를 읽지 못했습니다.</div></div>'; return; }
+    if (!B) { loadB().then(() => { if (tab === 'visit') drawM(); }); }
+    const G = st.g || [], U = st.un || {}, P = per, D = st.days, n30 = D.length;
+    const sumD = (a, b, fn) => { let t = 0; for (let i = a; i < Math.min(b, n30); i++) t += fn(i) || 0; return t; };
+    const hsum = (a, b, get) => { const o = {}; for (let i = a; i < Math.min(b, n30); i++) Object.entries(get(i) || {}).forEach(([k, v]) => { o[k] = (o[k] || 0) + v; }); return o; };
+    const tot = o => Object.values(o).reduce((a, v) => a + v, 0);
+    // 지금 기간 [0, P) · 지난 기간 [P, 2P) (30일의 지난 기간은 서버가 따로 더해 줌)
+    const allNow = P === 1 ? (G[0] || {}).all || 0 : U['all' + P] || 0, allPrev = P === 1 ? (G[1] || {}).all || 0 : U['allp' + P] || 0;
+    const gNow = P === 1 ? (G[0] || {}).guv || 0 : U['g' + P] || 0, gPrev = P === 1 ? (G[1] || {}).guv || 0 : U['gp' + P] || 0;
+    const pclNow = sumD(0, P, i => D[i].pcl), pclPrev = P === 30 ? (st.prev30 || {}).pcl || 0 : sumD(P, 2 * P, i => D[i].pcl);
+    const clNow = tot(hsum(0, P, i => (G[i] || {}).gcl)), clPrev = P === 30 ? (st.prev30 || {}).gcl || 0 : tot(hsum(P, 2 * P, i => (G[i] || {}).gcl));
+    const BR = B ? B.rows.filter(r => !r.plan.op) : [], bj = {}; BR.forEach(r => { const d = kday(r.joined); if (d) bj[d] = (bj[d] || 0) + 1; });
+    const mj = {}; M.rows.forEach(r => { const d = kday(r.joined); if (d) mj[d] = (mj[d] || 0) + 1; });
+    const dayAt = i => new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, '');
+    const cnt = (o, a, b) => { let t = 0; for (let i = a; i < b; i++) t += o[dayAt(i)] || 0; return t; };
+    const bjNow = cnt(bj, 0, P), bjPrev = cnt(bj, P, 2 * P), mjNow = cnt(mj, 0, P);
+    const PL = { 1: '어제', 7: '지난 7일', 30: '지난 30일' }[P];
+    const chg = (a, b, unit) => { if (!b && !a) return '<span class="eq">변화 없음</span>'; if (!b) return '<span class="up">▲ 새로</span>'; const d = a - b; if (unit) return d === 0 ? '<span class="eq">같음</span>' : `<span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}${unit}</span>`; const p = Math.round(d / b * 100); return p === 0 ? '<span class="eq">같음</span>' : `<span class="${p > 0 ? 'up' : 'dn'}">${p > 0 ? '▲' : '▼'} ${Math.abs(p)}%</span>`; };
+    const K = [['방문자', allNow, chg(allNow, allPrev), '지도·정비사업·소개 페이지 합쳐 중복 제외'], ['필지 조회', pclNow, chg(pclNow, pclPrev), ''], ['소개 페이지 방문자', gNow, chg(gNow, gPrev), 'pro·promo·apt 등 6곳'],
+      ['가입 버튼 클릭', clNow, chg(clNow, clPrev), ''], ['중개사 가입', bjNow, chg(bjNow, bjPrev, '곳'), `일반 회원 가입 ${mjNow}명`]];
+    // 30일 흐름: 막대 = 하루 방문자(전체) · 노란 점 = 그날 중개사 가입
+    const days = [...Array(n30).keys()].reverse(), mx = Math.max(1, ...days.map(i => (G[i] || {}).all || D[i].uv || 0)), bw = 100 / n30;
+    const flow = `<div class="flow">${days.map(i => { const v = (G[i] || {}).all || D[i].uv || 0, j = bj[D[i].d] || 0, mm = mj[D[i].d] || 0; return `<div class="fc${i < P ? ' in' : ''}" title="${md(D[i].d)} · 방문자 ${v.toLocaleString()} · 중개사 가입 ${j} · 일반 가입 ${mm}"><i class="dot" style="${j ? `width:${8 + Math.min(j, 4) * 3}px;height:${8 + Math.min(j, 4) * 3}px` : 'visibility:hidden'}"></i><b style="height:${Math.max(2, v / mx * 100)}%"></b></div>`; }).join('')}</div>
+      <div class="axis"><span>${md(D[n30 - 1].d)}</span><span>${md(D[Math.floor(n30 / 2)].d)}</span><span>오늘</span></div>`;
+    // 홍보 페이지 성과
+    const gpg = hsum(0, P, i => (G[i] || {}).gpg), gcl = hsum(0, P, i => (G[i] || {}).gcl), gref = hsum(0, P, i => (G[i] || {}).gref);
+    const PGS = st.gpgs || Object.keys(GPN);
+    const puv = p => P === 1 ? ((G[0] || {}).gpv || {})[p] || 0 : U[`pg${P}.${p}`] || 0;
+    const topRef = p => { const L = Object.entries(gref).filter(([k]) => k.startsWith(p + '.')).sort((a, b) => b[1] - a[1]); if (!L.length) return '<small>-</small>'; const t = L.reduce((a, x) => a + x[1], 0), [k, v] = L[0], r = k.slice(p.length + 1); return `${esc(REFN[r] || SRC[r] || r)} <small>${Math.round(v / t * 100)}%</small>`; };
+    const spark = p => { const v = days.map(i => ((G[i] || {}).gpv || {})[p] || 0), m2 = Math.max(1, ...v); return `<svg width="120" height="24" viewBox="0 0 ${(v.length - 1) * 4} 24" preserveAspectRatio="none"><polyline points="${v.map((x, k) => `${k * 4},${(23 - x / m2 * 21).toFixed(1)}`).join(' ')}" fill="none" stroke="#14212E" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`; };
+    const prow = PGS.map(p => ({ p, uv: puv(p), pv: gpg[p] || 0, cl: gcl[p] || 0 })).sort((a, b) => b.uv - a.uv || b.pv - a.pv);
+    const ptab = `<table><thead><tr><th>페이지</th><th class="nr">방문자</th><th class="nr">조회</th><th class="nr">가입 버튼 클릭</th><th class="nr">클릭률</th><th>주로 들어온 곳</th><th>30일 방문자</th></tr></thead><tbody>
+      ${prow.map(x => `<tr><td><b>${esc((GPN[x.p] || [x.p])[0])}</b> <a href="${(GPN[x.p] || [, '#'])[1]}" target="_blank"><small>${(GPN[x.p] || [, ''])[1]}</small></a></td><td class="nr">${x.uv.toLocaleString()}</td><td class="nr">${x.pv.toLocaleString()}</td><td class="nr">${x.cl.toLocaleString()}</td><td class="nr"><b>${x.uv ? (x.cl / x.uv * 100).toFixed(1) + '%' : '-'}</b></td><td>${topRef(x.p)}</td><td>${spark(x.p)}</td></tr>`).join('')}</tbody></table>`;
+    // 가입까지
+    const r1 = gNow ? (clNow / gNow * 100).toFixed(1) + '%' : '-', r2 = clNow ? (bjNow / clNow * 100).toFixed(1) + '%' : '-';
+    // 유입 경로: 지도(방문 첫 화면) + 정비사업(첫 화면) + 소개 페이지(첫 화면)
+    const sr = hsum(0, P, i => { const o = { ...(D[i].src || {}) }; Object.entries(D[i].ssrc || {}).forEach(([k, v]) => { o[k] = (o[k] || 0) + v; }); Object.entries((G[i] || {}).gsrc || {}).forEach(([k, v]) => { o[k] = (o[k] || 0) + v; }); return o; });
+    const srk = Object.keys(sr).sort((a, b) => sr[b] - sr[a]).slice(0, 9), srt = tot(sr) || 1, srm = Math.max(1, ...srk.map(k => sr[k]));
+    // 접는 칸 요약
+    const sv = P === 1 ? D[0].suv || 0 : st['suv' + P] != null ? st['suv' + P] : sumD(0, P, i => D[i].suv), spv = sumD(0, P, i => D[i].spv), toMap = sumD(0, P, i => (D[i].src || {}).seoul);
+    const gsum = hsum(0, P, i => D[i].gu), gtop = Object.keys(gsum).sort((a, b) => gsum[b] - gsum[a])[0], pct = st.maxKeys ? Math.round(st.keys / st.maxKeys * 100) : 0;
+    m.innerHTML = `<div class="vh"><h2>방문·가입</h2><span class="seg">${[[1, '오늘'], [7, '7일'], [30, '30일']].map(([k, t]) => `<button type="button" data-per="${k}" aria-pressed="${P === k}">${t}</button>`).join('')}</span><small>▲▼ = ${PL} 대비 · 운영자 방문 제외 · 같은 기기는 하루 한 명</small></div>
+      <div class="vk">${K.map(([t, v, c, s2]) => `<div><small>${t}</small><b>${Number(v).toLocaleString()}</b>${c}${s2 ? `<em>${s2}</em>` : ''}</div>`).join('')}</div>
+      <div class="pn"><h3>30일 흐름 <small>막대 = 하루 방문자 · 노란 점 = 그날 중개사 가입 (클수록 많음) · 진한 막대 = 고른 기간</small></h3>${flow}</div>
+      <div class="pn"><h3>소개 페이지 성과 <small>어느 페이지가 가입을 데려오는지 · ${{ 1: '오늘', 7: '최근 7일', 30: '최근 30일' }[P]}</small></h3><div class="tw">${ptab}</div>
+        <div class="pd note">· 11/7부터 집계를 시작해 그 전 기록은 없습니다. 가입 버튼 = [시작하기]·[무료로 매물 올리기] 같은 가입·로그인 버튼 (한 방문에 한 번만 셈)</div></div>
+      <div class="g2"><div class="pn"><h3>가입까지 <small>소개 페이지 → 중개사 가입 완료</small></h3><div class="fnl"><div><b>${gNow.toLocaleString()}</b><small>소개 페이지 방문자</small></div><i>${r1} ›</i><div><b>${clNow.toLocaleString()}</b><small>가입 버튼 클릭</small></div><i>${r2} ›</i><div><b>${bjNow.toLocaleString()}</b><small>중개사 가입 완료</small></div></div>
+        <div class="pd note">· 버튼은 많이 누르는데 가입이 적으면 → 카카오 로그인·사무소 확인 단계에서 멈춘 것<br>· 가입 완료는 소개 페이지를 거치지 않은 가입(직접 방문·영업)도 함께 셉니다</div></div>
+        <div class="pn"><h3>유입 경로 <small>방문 1회당 첫 화면 한 번 · 지도·정비사업·소개 페이지 합계</small></h3><div class="pd">${srk.map(k => `<div class="hb"><span>${esc(SRC[k] || REFN[k] || k)}</span><i style="width:${sr[k] / srm * 70}%"></i><b>${Math.round(sr[k] / srt * 100)}%</b><small>${sr[k].toLocaleString()}</small></div>`).join('') || '<div class="empty">아직 집계된 유입이 없습니다.</div>'}</div>
+        <div class="pd note">· 주소를 올릴 때 <b>realmap.online/?from=blog</b> (?from=insta · kakao · youtube)처럼 붙이면 더 정확하게 구분됩니다.</div></div></div>
+      <div class="g2"><div class="pn"><h3>정비사업 페이지 <small>검색 노출 효과 · ${{ 1: '오늘', 7: '7일', 30: '30일' }[P]}</small></h3><div class="mn"><div><small>방문자</small><b>${Number(sv).toLocaleString()}</b></div><div><small>열람</small><b>${spv.toLocaleString()}</b></div><div><small>지도로 넘어옴</small><b>${toMap.toLocaleString()}</b></div></div></div>
+        <div class="pn"><h3>지역별 필지 조회 · 창고 <small>${{ 1: '오늘', 7: '7일', 30: '30일' }[P]}</small></h3><div class="mn"><div><small>1위 지역</small><b>${gtop ? esc(GU[gtop] || (st.guNames && st.guNames[gtop]) || gtop) : '-'}</b></div><div><small>창고 사용량</small><b style="color:${pct >= 90 ? '#C03A16' : pct >= 70 ? '#9A6200' : 'inherit'}">${pct}%</b></div></div></div></div>
+      <details class="more"${vMore ? ' open' : ''}><summary>자세히 · 날짜별 표 · 정비사업 많이 본 페이지 · 지역별 필지 조회 · 창고</summary><div id="vOld"></div></details>`;
+    m.querySelectorAll('[data-per]').forEach(b => b.onclick = () => { per = +b.dataset.per; drawM(); });
+    const dtl = m.querySelector('details.more'); dtl.ontoggle = () => { vMore = dtl.open; if (dtl.open && !dtl.dataset.on) { dtl.dataset.on = 1; tVisitOld(document.getElementById('vOld')); } };
+    if (vMore) { dtl.dataset.on = 1; tVisitOld(document.getElementById('vOld')); }
+  }
+  function tVisitOld(m) {
     const st = M.stats; if (!st) { m.innerHTML = '<div class="pn"><div class="pd">방문 통계를 읽지 못했습니다.</div></div>'; return; }
     const D = [...st.days].reverse(), T = st.days[0];
     const join = {}; M.rows.forEach(r => { const d = kday(r.joined); if (d) join[d] = (join[d] || 0) + 1; });
@@ -387,17 +498,31 @@ tr.det>td{background:#FBFCFD;padding:0;white-space:normal}
   }
   function tMem(m) {
     // 11/2 메일 반송 관리: [반송 주소 넣기] · 반송 주소 빼기 · [보낼 주소 복사] (동의 + 반송 아님)
-    const rows = M.rows.filter(r => (!onlyMk || r.marketing) && (!noBn || !r.bounce)), week = Date.now() - 7 * 864e5, recent = M.rows.filter(r => r.joined && new Date(r.joined).getTime() > week).length;
+    // 11/6 새 [일반 회원]: 핵심 숫자 6개 · 일별 가입 30일 · 소식 메일 칸 · 필터 칩 + 찾기
+    const week = Date.now() - 7 * 864e5, recent = M.rows.filter(r => r.joined && new Date(r.joined).getTime() > week).length;
+    const mIdle = r => !r.last || Date.now() - new Date(r.last) > 14 * 864e5, mAct = M.rows.filter(r => r.last && Date.now() - new Date(r.last) <= 7 * 864e5).length;
+    const MF = { all: ['전체', () => true], mk: ['수신 동의', r => r.marketing], new: ['최근 7일 가입', r => r.joined && new Date(r.joined).getTime() > week], idle: ['14일 넘게 안 들어옴', mIdle], zn: ['관심 구역 담음', r => r.zones], bn: ['메일 반송', r => r.bounce] };
+    if (!MF[mf]) mf = 'all';
+    const rows = M.rows.filter(MF[mf][1]).filter(r => !mq || `${r.nickname || ''} ${r.email || ''}`.toLowerCase().includes(mq.toLowerCase()));
+    const jd = {}; M.rows.forEach(r => { const d = kday(r.joined); if (d) jd[d] = (jd[d] || 0) + 1; });
+    const dd = [...Array(30).keys()].reverse().map(i => new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, ''));
+    const reAt = M.rows.filter(r => r.marketing && r.marketingAt).map(r => new Date(r.marketingAt).getTime()).sort((x, y) => x - y)[0];
+    const reTx = reAt ? new Date(reAt + 2 * 365 * 864e5).toISOString().slice(0, 7).replace('-', '.') : '-';
+    const mdot = r => { const d = r.last ? Math.floor((Date.now() - new Date(r.last)) / 864e5) : 999; return `<span class="adot ${d <= 7 ? 'a1' : d <= 14 ? 'a2' : 'a3'}"></span>`; };
     const bnN = M.rows.filter(r => r.bounce).length, sendable = M.rows.filter(r => r.marketing && !r.bounce && /@/.test(r.email || ''));
     const md2 = s => { const d = new Date(s); return `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, '0')}`; };
-    m.innerHTML = `<div class="pn">${sts([['전체 회원', M.total], ['소식 수신 동의', M.marketing], ['메일 반송', bnN, bnN ? '#C03A16' : ''], ['보낼 수 있는 주소', sendable.length], ['최근 7일 가입', recent], ['관심 구역 담은 회원', (M.zsum || {}).members || 0]])}
-      <div class="bar"><label><input type="checkbox" id="mk" ${onlyMk ? 'checked' : ''}> 수신 동의 회원만</label><label style="margin-left:10px"><input type="checkbox" id="nb" ${noBn ? 'checked' : ''}> 반송 주소 빼기</label><button class="btn" type="button" id="bnOpen" style="margin-left:10px">반송 주소 넣기</button><button class="btn ml" type="button" id="cpy" style="background:#14212E;color:#fff;border-color:#14212E">보낼 주소 복사 (${sendable.length}개)</button><button class="btn" type="button" id="csv">엑셀(CSV) 내려받기</button></div>
-      <div id="bnBox" hidden style="border:1px solid #DCE2E8;border-radius:10px;padding:12px;margin:0 0 12px;max-width:520px"><b>반송 주소 넣기</b><p style="margin:4px 0 8px;font-size:12px;color:#5E6A77">반송 메일에 나온 주소를 붙여 넣으세요. 여러 개를 한꺼번에, 반송 메일 내용을 통째로 붙여 넣어도 주소만 골라냅니다.</p><textarea id="bnTx" style="width:100%;box-sizing:border-box;height:110px;border:1px solid #CED4DA;border-radius:8px;padding:8px;font:inherit;font-size:13px"></textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn" type="button" id="bnX">닫기</button><button class="btn" type="button" id="bnGo" style="background:#14212E;color:#fff;border-color:#14212E">반송으로 표시</button></div></div>
+    m.innerHTML = `<div class="vk m6">${[['전체 회원', M.total, ''], ['최근 7일 가입', recent, ''], ['7일 안에 들어온 회원', mAct, M.total ? Math.round(mAct / M.total * 100) + '%' : ''], ['소식 수신 동의', M.marketing, M.total ? '동의율 ' + Math.round(M.marketing / M.total * 100) + '%' : ''], ['보낼 수 있는 주소', sendable.length, ''], ['메일 반송', bnN, '']].map(([t, v, e]) => `<div><small>${t}</small><b${t === '메일 반송' && v ? ' style="color:#C92A2A"' : ''}>${Number(v || 0).toLocaleString()}</b>${e ? `<em>${e}</em>` : ''}</div>`).join('')}</div>
+      <div class="g2 w2"><div class="pn"><h3>일별 가입 <small>최근 30일 · 영상·블로그 올린 날 확인</small></h3>${bars(dd.map(d => ({ v: jd[d] || 0, t: md(d) })), 'dk')}<div class="axis"><span>${md(dd[0])}</span><span>${md(dd[15])}</span><span>오늘</span></div></div>
+        <div class="pn"><h3>소식 메일 보내기 <small>수신 동의 + 반송 아닌 주소</small></h3><div class="pd"><b class="big">${sendable.length.toLocaleString()}</b> <small class="mu">개 주소</small>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn" type="button" id="cpy" style="background:#14212E;color:#fff;border-color:#14212E">보낼 주소 복사</button><button class="btn" type="button" id="bnOpen">반송 주소 넣기</button><button class="btn" type="button" id="csv">엑셀(CSV) 내려받기</button></div>
+          <p class="note" style="margin:8px 0 0">제목에 (광고) · 수신거부 방법 넣기 · 동의는 2년마다 다시 확인 (가장 먼저 돌아오는 재확인: ${reTx})</p>
+          <div id="bnBox" hidden style="border:1px solid #DCE2E8;border-radius:10px;padding:12px;margin:0 0 12px;max-width:520px"><b>반송 주소 넣기</b><p style="margin:4px 0 8px;font-size:12px;color:#5E6A77">반송 메일에 나온 주소를 붙여 넣으세요. 여러 개를 한꺼번에, 반송 메일 내용을 통째로 붙여 넣어도 주소만 골라냅니다.</p><textarea id="bnTx" style="width:100%;box-sizing:border-box;height:110px;border:1px solid #CED4DA;border-radius:8px;padding:8px;font:inherit;font-size:13px"></textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn" type="button" id="bnX">닫기</button><button class="btn" type="button" id="bnGo" style="background:#14212E;color:#fff;border-color:#14212E">반송으로 표시</button></div></div></div></div></div>
+      <div class="pn"><h3>회원 목록 <small>${rows.length.toLocaleString()}명</small></h3><div class="bar"><span class="seg">${Object.entries(MF).map(([k, [t, fn]]) => `<button type="button" data-mf="${k}" aria-pressed="${mf === k}">${t} ${M.rows.filter(fn).length.toLocaleString()}</button>`).join('')}</span><input type="search" id="mq" placeholder="닉네임·이메일 찾기" value="${esc(mq)}" style="margin-left:auto"></div>
       <div class="tw"><table><thead><tr><th>닉네임</th><th>이메일</th><th>가입</th><th>최근 로그인</th><th>소식 수신</th><th>메일</th><th>동의 일시</th><th>관심 부동산</th><th>관심 구역</th><th>추진 알림</th></tr></thead><tbody>
-      ${rows.map(r => `<tr${r.bounce ? ' style="opacity:.6"' : ''}><td>${esc(r.nickname || '-')}</td><td>${esc(r.email || '-')}</td><td>${dt(r.joined)}</td><td>${dt(r.last)}</td><td style="color:${r.marketing ? '#1F7A3A' : '#5E6A77'};font-weight:700">${r.marketing ? '동의' : '미동의'}</td><td>${r.bounce ? `<span style="color:#C03A16;font-weight:800;background:#FDECEA;border-radius:6px;padding:1px 7px">반송 ${md2(r.bounce)}</span> <a href="#" data-unbn="${esc(r.email)}" style="font-size:12px">풀기</a>` : r.email ? '<span style="color:#1F7A3A;font-weight:700">정상</span>' : '-'}</td><td>${r.marketing ? dt(r.marketingAt) : '-'}</td><td>${r.favs || '-'}</td><td>${r.zones || '-'}</td><td>${r.zalerts ? r.zalerts + '곳' : '-'}</td></tr>`).join('') || '<tr><td colspan="10" class="empty">회원이 없습니다</td></tr>'}</tbody></table></div>
+      ${rows.map(r => `<tr${r.bounce ? ' style="opacity:.6"' : ''}><td>${esc(r.nickname || '-')}</td><td>${esc(r.email || '-')}</td><td>${dt(r.joined)}</td><td>${mdot(r)}${dt(r.last)}</td><td style="color:${r.marketing ? '#1F7A3A' : '#5E6A77'};font-weight:700">${r.marketing ? '동의' : '미동의'}</td><td>${r.bounce ? `<span style="color:#C03A16;font-weight:800;background:#FDECEA;border-radius:6px;padding:1px 7px">반송 ${md2(r.bounce)}</span> <a href="#" data-unbn="${esc(r.email)}" style="font-size:12px">풀기</a>` : r.email ? '<span style="color:#1F7A3A;font-weight:700">정상</span>' : '-'}</td><td>${r.marketing ? dt(r.marketingAt) : '-'}</td><td>${r.favs || '-'}</td><td>${r.zones || '-'}</td><td>${r.zalerts ? r.zalerts + '곳' : '-'}</td></tr>`).join('') || '<tr><td colspan="10" class="empty">회원이 없습니다</td></tr>'}</tbody></table></div>
       <div class="pd note">· 이 화면과 내려받은 파일에는 개인정보가 들어 있습니다. 공유하지 마시고 쓰고 난 파일은 지워 주세요.<br>· 소식은 '동의' 회원에게만, 제목에 (광고) 표시와 수신거부 방법을 넣어 보내야 합니다. 동의일로부터 2년마다 다시 확인해야 합니다.<br>· [보낼 주소 복사]: 동의했고 반송이 아닌 주소를 쉼표로 이어 복사합니다 → 메일의 '숨은참조'에 붙여 넣기 · 반송은 주소 기준이라 회원이 이메일을 바꾸면 새 주소는 정상으로 시작합니다.</div></div>`;
-    document.getElementById('mk').onchange = e => { onlyMk = e.target.checked; drawM(); };
-    document.getElementById('nb').onchange = e => { noBn = e.target.checked; drawM(); };
+    m.querySelectorAll('[data-mf]').forEach(b => b.onclick = () => { mf = b.dataset.mf; drawM(); });
+    const mqi = document.getElementById('mq'); mqi.oninput = () => { mq = mqi.value; const pos = mqi.selectionStart; drawM(); const n2 = document.getElementById('mq'); n2.focus(); n2.setSelectionRange(pos, pos); };
     const box = document.getElementById('bnBox');
     document.getElementById('bnOpen').onclick = () => { box.hidden = !box.hidden; if (!box.hidden) document.getElementById('bnTx').focus(); };
     document.getElementById('bnX').onclick = () => { box.hidden = true; };

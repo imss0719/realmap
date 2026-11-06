@@ -1044,3 +1044,29 @@ a.favbtn{text-decoration:none}
 .tcap i{display:inline-block;width:14px;height:0;border-top:2.4px solid var(--muted);border-radius:2px}
 .tcap i.b{height:9px;border:0;background:var(--muted);opacity:.25}
 .tcap span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+
+/* 11/6 학군 A안: 남·여·공학 표시 · 고교 유형·학급 수 · 배정 초등 1학년 반 수·개교·홈페이지 */
+.hk-tg{display:inline-block;font-style:normal;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:1px;line-height:16px}
+.hk-tg.m{background:#E3EDFA;color:#2457A6}.hk-tg.f{background:#FBE6EE;color:#B0346A}.hk-tg.k{background:var(--soft);color:var(--muted)}
+.hk-sub{display:block;font-size:11.5px;font-weight:400;color:var(--muted);margin-top:1px}
+.hk-a .hk-x{display:block;font-size:12px;color:#3E6B55;margin-top:2px}
+.hk-a .hk-x a{color:#0E7A4E;font-weight:700;margin-left:6px;text-decoration:none;white-space:nowrap}
+@media (prefers-color-scheme: dark){.hk-tg.m{background:#1C2E47;color:#8DB4F0}.hk-tg.f{background:#3A1E2B;color:#F08DB8}.hk-a .hk-x{color:#8FCBAA}.hk-a .hk-x a{color:#5BC48F}}
+
+/* 11/6 A안: 사진 없는 매물 타일 (종류별 색) */
+.lt{position:relative;display:flex;align-items:center;justify-content:center;text-align:center;padding:5px 5px 16px;box-sizing:border-box;font-weight:800;line-height:1.2;word-break:keep-all;overflow:hidden}
+.lt .lt-n{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;word-break:break-all}
+.lt small{position:absolute;left:2px;right:2px;bottom:5px;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ofCard .ms .ms-t{height:56px;font-size:11px;padding-bottom:14px}#ofCard .ms .ms-t .lt-n{font-size:11.5px!important;-webkit-line-clamp:2}#ofCard .ms .ms-t small{bottom:3px;font-size:9.5px}
+.lt-apt{background:linear-gradient(160deg,#EAF2FD,#D5E4FA);color:#1C3E6E}.lt-apt small{color:#4A6A96}
+.lt-pre{background:linear-gradient(160deg,#F1ECFD,#E1D7FA);color:#432C8A;box-shadow:inset 0 0 0 1.5px #9C84E8}.lt-pre small{color:#6A55B8}
+.lt-vil{background:linear-gradient(160deg,#E8F6EC,#D2EDDA);color:#1E5631}.lt-vil small{color:#3F7A52}
+.lt-com{background:linear-gradient(160deg,#FDF0E6,#F8DCC6);color:#7A3B0C}.lt-com small{color:#A15C07}
+.lt-bld{background:linear-gradient(160deg,#ECEEF5,#D8DCEA);color:#2E3550}.lt-bld small{color:#5A6280}
+.lt-lnd{background:linear-gradient(160deg,#F3F1E4,#E4DFC2);color:#5A4E1C}.lt-lnd small{color:#7D6F33}
+.lt-fac{background:linear-gradient(160deg,#E9EDF0,#D3DAE0);color:#33414C}.lt-fac small{color:#56646F}
+.lt-rz{background:linear-gradient(160deg,#FFF6D6,#FBE7A1);color:#6B4E00}.lt-rz small{color:#8A6A00}
+.lt-etc{background:linear-gradient(160deg,#F4F0F0,#E6DEDE);color:#5A3E3E}.lt-etc small{color:#7E6262}
+.lc-bn{font-weight:800;color:var(--fg)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lt{filter:brightness(.82) saturate(.9)}}
+:root[data-theme="dark"] .lt{filter:brightness(.82) saturate(.9)}

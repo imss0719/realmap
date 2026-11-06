@@ -435,7 +435,7 @@
     const A = st.agent;
     const line = [A.ceo && `대표 ${esc(A.ceo)}`, A.tel && esc(A.tel), A.reg && `등록번호 ${esc(A.reg)}`].filter(Boolean).join(' · ');
     return `<div class="s-foot"><div class="ag">${A.logo ? `<img src="${A.logo}" alt="">` : ''}<div><b>${esc(A.name || '')}</b><span>${line}</span>${A.addr ? `<br><span>${esc(A.addr)}</span>` : ''}</div></div>
-      <div class="rm"><i><img src="/favicon.svg" width="12" height="12" alt="">리얼맵</i><br>공공데이터 기준 · ${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '.')} 작성<br>세부 내용은 공부서류로 다시 확인하시기 바랍니다.</div></div>`;
+      <div class="rm"><i><img src="/favicon.svg" width="12" height="12" alt="">리얼맵 · realmap.online</i><br>중개사 무료 브리핑 자료 · 공공데이터 기준 · ${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '.')} 작성<br>세부 내용은 공부서류로 다시 확인하시기 바랍니다.</div></div>`;
   }
 
   function draw() {

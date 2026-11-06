@@ -178,6 +178,8 @@
         b.pts = [0, 1, 2, 3, 4, 5].map(i => { const t = (60 * i + 30) * Math.PI / 180; return [(cy + HR * Math.sin(t)) / HKY + 37.55, (cx + HR * Math.cos(t)) / HKX + 126.9]; });
       }
       HK.Z = z; HK.A = { updated: a.updated, map, bins: [...map.values()] };
+      // 11/6 학교 정보 (나이스 학교기본정보·학급정보 · scripts/school-neis.mjs 해마다) — 없어도 학군은 그대로
+      fetch('/data/school-11.json').then(r => r.ok ? r.json() : null).then(j => { if (!j || !j.s) return; const m = new Map(); for (const [k, v] of Object.entries(j.s)) m.set(k.replace(/[・·\s]/g, ''), v); HK.SC = { ay: j.ay, m }; if (S.sel) render(); }).catch(() => {});
       return true;
     }).catch(e => { console.warn('[리얼맵] 학군', e); HK.ld = null; return false; }));
   }
@@ -264,6 +266,12 @@
     $('zcGo').onclick = () => { hkHideCard(); hkDraw(); pick(la, ln); };
     return true;
   }
+  // 11/6 A안: 학교 이름 옆 남·여·공학, 아래 줄 고교 유형·학급 수 · 배정 초등은 1학년 반 수·개교·홈페이지
+  //   school-11.json s[이름] = [코드, 공학(남·여·공), 개교연도, 고교구분, 특목계열, 홈페이지, 전화, 학급계, [학년별 반 수], 특수학급]
+  const hkSc = name => HK.SC ? HK.SC.m.get(String(name || '').replace(/[・·\s]/g, '')) : null;
+  const hkTg = c => c && c[1] ? `<i class="hk-tg ${c[1] === '남' ? 'm' : c[1] === '여' ? 'f' : 'k'}">${c[1] === '공' ? '공학' : esc(c[1])}</i>` : '';
+  const hkTy = c => c && c[3] ? (c[3] === '특목고' && c[4] ? `특목고(${esc(c[4].replace(/계열$/, ''))})` : esc(c[3])) : '';
+  const hkUrl = u => /^https?:\/\/[\w.-]+\.[a-z]{2,}/i.test(u || '') ? u : '';
   // 필지 정보창 맨 위 '학군' (학군을 켰을 때 · 서울 필지만)
   function hkSection() {
     if (!HK.on) return '';
@@ -277,11 +285,14 @@
     const dist = x => Math.hypot((x[2] - ln) * HKX, (x[1] - la) * HKY), m10 = d => n(Math.round(d / 10) * 10);
     const main = zs.filter(z => z.gb !== '1'), co = zs.filter(z => z.gb === '1');
     const es = [...new Set(main.flatMap(z => z.s))].map(id => HK.Z.e[id]).filter(Boolean);
-    let h = es.length ? es.map(x => { const d = dist(x); return `<div class="hk-a"><b>${esc(x[0])}</b><span>${esc(x[4] || '')} · 직선 ${m10(d)}m · 걸어서 약 ${Math.max(1, Math.round(d * 1.3 / 67))}분</span></div>`; }).join('')
+    let h = es.length ? es.map(x => { const d = dist(x), c = hkSc(x[0]), u = c && hkUrl(c[5]);
+      const ex = c && c[7] ? [`${c[7]}학급`, c[8] && c[8][0] ? `1학년 ${c[8][0]}반` : '', c[2] ? `${esc(c[2])}년 개교` : ''].filter(Boolean).join(' · ') : '';
+      return `<div class="hk-a"><b>${esc(x[0])}</b><span>${esc(x[4] || '')} · 직선 ${m10(d)}m · 걸어서 약 ${Math.max(1, Math.round(d * 1.3 / 67))}분</span>${ex || u ? `<span class="hk-x">${ex}${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">홈페이지 ›</a>` : ''}</span>` : ''}</div>`; }).join('')
       : '<p class="note">이 자리는 통학구역 자료에 나오지 않습니다.</p>';
     h += co.map(z => `<p class="hk-co">공동통학구역 · ${z.s.map(id => HK.Z.e[id]).filter(Boolean).map(x => esc(x[0].replace(/초등학교$/, '초'))).join(' · ')} 중 선택</p>`).join('');
     const near = k => Object.values(HK.Z.m).filter(x => x[3] === k).map(x => [dist(x), x]).sort((a, b) => a[0] - b[0]).slice(0, 3);
-    const li = ([d, x]) => `<li><b>${esc(x[0])}</b><span>${esc(x[4] || '')} · ${m10(d)}m</span></li>`;
+    const li = ([d, x]) => { const c = hkSc(x[0]), sub = c ? [hkTy(c), c[7] ? `${c[7]}학급` : ''].filter(Boolean).join(' · ') : '';
+      return `<li><b>${esc(x[0])}${hkTg(c)}${sub ? `<small class="hk-sub">${sub}</small>` : ''}</b><span>${esc(x[4] || '')} · ${m10(d)}m</span></li>`; };
     let aca = '';
     if (HK.A) {
       const cnt = {}; let tot = 0;
@@ -292,7 +303,7 @@
       <p class="hk-t">가까운 중학교</p><ul class="hk-l">${near('중').map(li).join('')}</ul>
       <p class="hk-t">가까운 고등학교</p><ul class="hk-l">${near('고').map(li).join('')}</ul>
       <p class="note">참고용입니다. 실제 배정은 관할 교육지원청에서 확인해 주세요. 중학교는 학교군, 고등학교는 선발 방식으로 배정되어 거리 순과 다를 수 있습니다.</p>
-      ${src([`한국교육시설안전원 학구도 (${esc(HK.Z.base)} 기준)`, '나이스 학원교습소정보'])}</section>`;
+      ${src([`한국교육시설안전원 학구도 (${esc(HK.Z.base)} 기준)`, '나이스 학원교습소정보', ...(HK.SC ? [`나이스 학교기본정보·학급정보 (${esc(HK.SC.ay)}학년도 · 학급 수는 특수학급 제외)`] : [])])}</section>`;
   }
 
   // ---------- 처음 오신 분 안내 배너 (한 장씩 넘어가는 작은 카드 · '오늘 하루 보지 않기') ----------
@@ -500,7 +511,7 @@
       return null;
     }
     const dong = p.dongName, cx = cxNorm(cxName());
-    const m = kingGroups(e.items).get(dong); if (!m || m.size < 3) return null;   // 지도 구 대장과 같은 기준 (84㎡ 최근 거래가 · 11/5)
+    const m = kingGroups(e.items).get(dong); if (!m || m.size < 3) return null;   // 동 안 84㎡ 최근 거래가 순위 (11/5 · 11/6 구 대장은 대형 평형 환산도 넣었지만 이 순위는 '84㎡ 중 n위' 그대로)
     const L = [...m.entries()].sort((a, z) => p84(z[1]) - p84(a[1]));
     const i = L.findIndex(([c]) => (cx.length >= 2 && c === cx) || e.items.some(y => y.pnu === p.pnu && cxNorm(y.n) === c));
     return i < 0 ? null : { dong, i: i + 1, n: L.length };
@@ -3300,13 +3311,22 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   }
   // 11/5 선배 결정: 동 대장 표시는 없앰 → 구 대장 하나만 (금색 테두리 + '마포 1위' 꼬리표 · 왕관 없음)
   //   구 대장 = 그 구(지도 자료 한 묶음)에서 라벨에 보이는 84㎡ 최근 거래가(중개거래 우선) 1위 단지 · 84㎡ 거래 단지가 3곳 이상일 때만
+  // 11/6 선배 결정: 84㎡가 없는 대형 평형 단지(압구정 현대·나인원한남 등)도 비교되도록
+  //   84㎡ 거래가 있으면 그 값 그대로 · 없으면 86㎡ 넘는 평형 중 84㎡에 가장 가까운 평형의 전용 평당가로 84㎡ 가격을 환산
+  //   (84㎡ 미만 소형만 있는 단지는 지금처럼 빠짐 — 소형은 평당가가 높게 나와 왜곡됨)
+  function k84(x) {
+    const v = p84(x); if (v) return { v };
+    const rs = (x.pa || []).filter(r => r[0] > 86 && r[1] > 0); if (!rs.length) return { v: 0 };
+    const r = rs.sort((a, z) => a[0] - z[0] || z[2].localeCompare(a[2]))[0];
+    return { v: Math.round(r[1] / r[0] * 84), a: r[0], p: r[1] };
+  }
   function kingMark(items, rgName) {
     const m = new Map();
-    for (const x of items) if (p84(x) > 0) { const c = cxNorm(x.n) || x.id, o = m.get(c); if (!o || p84(x) > p84(o)) m.set(c, x); }
+    for (const x of items) { const k = k84(x); if (k.v > 0) { const c = cxNorm(x.n) || x.id, o = m.get(c); if (!o || k.v > o.k.v) m.set(c, { x, k }); } }
     if (m.size < 3) return;
     const w = String(rgName || '').split(' ').slice(1).filter(Boolean), full = w.join(' ') || '이 지역';
-    const top = [...m.values()].sort((a, z) => p84(z) - p84(a))[0];
-    top.king = { gu: w.map(t => t.replace(/(시|군|구)$/, '')).join(' ') || '지역', full, n: m.size };
+    const top = [...m.values()].sort((a, z) => z.k.v - a.k.v)[0];
+    top.x.king = { gu: w.map(t => t.replace(/(시|군|구)$/, '')).join(' ') || '지역', full, n: m.size, v: top.k.v, a: top.k.a, p: top.k.p };
   }
   // 11/5 아파트 신고가(▲ 빨간 가격 · 처음 본 날부터 14일) · 새 실거래(N 파란 동그라미 · 7일) — data/nh-11.json (scripts/newhigh.mjs가 매일 만듦 · 서울)
   //   신고가 = 같은 단지·평형의 2006년부터 최고가보다 1% 이상 (해제·직거래 제외) · 범례 없음(선배 결정) · 뜻은 라벨에 마우스를 올리면
@@ -3344,7 +3364,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     el.classList.toggle('king', !!x.king);
     const v = nhOf(x), nw = nhNew(v), hs = (v && v.h) || [], hasJe = rows.some(r => r[4]);   // 전세가 한 줄이라도 있으면 빈 칸도 자리 맞춤
     el.innerHTML = `${nw ? '<i class="bdg nnew" aria-label="새 실거래">N</i>' : ''}${x.king ? `<i class="bdg gutag">${esc(x.king.gu)} 1위</i>` : ''}<span class="nm">${esc(x.n || '')}</span>${rows.map(r => { const hi = nhRow(v, r); return `<span class="r"><i>${r[0]}</i><b${hi ? ' class="nhi"' : ''}>${hi ? '<i class="up">▲</i>' : ''}${val(r)}</b>${!py && hasJe ? (r[4] ? `<u class="je"><small>전</small>${(r[4] / 10000).toFixed(1)}</u>` : '<u class="je"></u>') : ''}</span>`; }).join('')}`;   // 11/5 A안: 옆에 파란 '전' + 전세(억)
-    el.title = (x.king ? `🏆 ${x.king.full} 대장 · 84㎡ 최근 거래가 1위 (${x.king.n}개 단지 중 · 최근 6개월 중개거래)\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''}${x.fulls && x.fulls.length > 1 ? ` (${x.fulls.join(' · ')})` : x.full && x.full !== x.n ? ` (${x.full})` : ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건${r[4] ? ` / 전세 ${won(r[4])} · ${ymd(r[5])}` : ''}`).join('\n');
+    el.title = (x.king ? `🏆 ${x.king.full} 대장 · 84㎡ 기준 1위 (${x.king.n}개 단지 중 · 최근 6개월 중개거래)\n` : '') + (nw ? '🆕 최근 7일 안에 새 실거래\n' : '') + hs.filter(h => h[5] >= kstDay(-14)).map(h => `▲ 신고가 전용 ${h[0]}㎡ ${won(h[1])} · ${ymd(h[2])} (이전 최고 ${won(h[3])} · ${ymd(h[4])})\n`).join('') + `${x.n || ''}${x.fulls && x.fulls.length > 1 ? ` (${x.fulls.join(' · ')})` : x.full && x.full !== x.n ? ` (${x.full})` : ''} · 최근 6개월 매매 (중개거래 우선)\n` + x.pa.map(r => `전용 ${r[0]}㎡ ${won(r[1])} · ${ymd(r[2])} · ${r[3]}건${r[4] ? ` / 전세 ${won(r[4])} · ${ymd(r[5])}` : ''}`).join('\n');
   }
   // 11/1 상가·건물 라벨: 가격 + 직거래면 네모 "직" + 거래 연월 · 평당가는 대지 기준
   function btLabel(el, x) {
@@ -3747,7 +3767,7 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const gu = (String(b.addr || '').split(' ').find(w => /(동|가|읍|면)\d*$/.test(w) && !/[시군구]$/.test(w))) || '';
     c.innerHTML = `<div class="h">${ofAv(b, 'av')}<div class="t"><b>${esc(b.office)}<span class="ver">등록번호 확인</span></b><small>대표 ${esc(b.ceo || '')}${gu ? ' · ' + esc(gu) : ''}</small></div><a class="ofi" href="/office.html?r=${r}">소개 ›</a><button type="button" class="x" aria-label="닫기">×</button></div>
       <div class="tels">${tel(b.tel)}${b.mobile && String(b.mobile).replace(/\D/g, '') !== String(b.tel || '').replace(/\D/g, '') ? tel(b.mobile) : ''}</div>
-      ${n ? `<div class="ms">${L.slice(0, 3).map((x, i) => `<button type="button" data-i="${i}"><i${x.photos && x.photos[0] ? ` style="background-image:url('${esc(x.photos[0])}')"` : ''}>${x.photos && x.photos[0] ? '' : '사진 없음'}</i><b><em class="lk-${x.kind}">${LKIND[x.kind]}</em>${esc(lsPrice(x))}</b><small>${esc([x.bname || String(x.addr || '').split(' ').slice(-1)[0], x.dong ? x.dong + '동' : ''].filter(Boolean).join(' '))}</small></button>`).join('')}</div>
+      ${n ? `<div class="ms">${L.slice(0, 3).map((x, i) => `<button type="button" data-i="${i}">${x.photos && x.photos[0] ? `<i style="background-image:url('${esc(x.photos[0])}')"></i>` : lsTile(x, 'lt ms-t')}<b><em class="lk-${x.kind}">${LKIND[x.kind]}</em>${esc(lsPrice(x))}</b><small>${esc([x.bname || String(x.addr || '').split(' ').slice(-1)[0], x.dong ? x.dong + '동' : ''].filter(Boolean).join(' '))}</small></button>`).join('')}</div>
       <button type="button" class="all">이 중개사 매물 ${n}건 모두 보기 ›</button>` : '<p class="of0">지도에 올린 매물이 아직 없습니다</p>'}`;
     c.hidden = false;
     c.querySelector('.x').onclick = () => { c.hidden = true; };
@@ -3837,6 +3857,24 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
         <div class="lbtn">${btns}</div></div>
       <div class="lft">등록 ${lsYmd(x.at)} · 거래 가능 확인 ${lsYmd(x.chk)}${x.no ? ' · No. ' + esc(x.no) : ''} · <a href="mailto:contact@realmap.online?subject=${encodeURIComponent('[리얼맵 허위매물 신고] ' + x.k)}&body=${encodeURIComponent(`매물: ${x.addr} ${x.bname || ''} No.${x.no}\n신고 사유: `)}">허위매물 신고</a></div>`;
   }
+  // 11/6 A안: 사진 없는 매물 타일 — 종류별 색 · 단지명/건물명(없으면 동·지번) · 아래 작은 글씨 (아파트·오피는 평 대신 층 — 전용·공급평 오해 방지)
+  const LS_FAM = t => /분양권/.test(t) ? 'pre' : /아파트|오피스텔|주상복합/.test(t) ? 'apt' : /빌라|연립|다세대|다가구|단독|주택/.test(t) ? 'vil' : /상가|사무실|지식산업/.test(t) ? 'com'
+    : t === '건물' ? 'bld' : t === '토지' ? 'lnd' : /공장|창고/.test(t) ? 'fac' : /재개발|재건축/.test(t) ? 'rz' : 'etc';
+  const lsB = f => String(f || '').replace(/^지하\s*(\d+)층$/, 'B$1').replace(/^지하$/, '지하');
+  function lsTile(x, cls) {
+    const t = x.pbase || x.ptype || '', fam = x.kind === 'presale' ? 'pre' : LS_FAM(t), py = x.area ? Math.round(x.area / 3.305785) : 0;
+    const lbl = x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.ptype || '';
+    const fl = x.flr && x.tfl && /^\d+층$/.test(x.flr) ? `${x.flr.replace('층', '')}/${x.tfl}층` : x.flr || '';
+    const spot = String(x.addr || '').split(/\s+/).slice(-2).join(' ');
+    const name = fam === 'lnd' ? '토지' : fam === 'fac' ? (/창고/.test(lbl) && !/공장/.test(lbl) ? '창고' : '공장') : x.bname || spot || lbl;
+    const sub = fam === 'apt' ? (/오피스텔/.test(t) ? ['오피스텔', fl] : [fl || lbl]).filter(Boolean).join(' · ')
+      : fam === 'pre' ? '분양권' : fam === 'lnd' ? [x.use, py ? py + '평' : ''].filter(Boolean).join(' · ') || '토지'
+      : fam === 'fac' ? (py ? `연 ${py}평` : lbl) : fam === 'bld' ? (py ? `연 ${py}평` : '건물') : fam === 'rz' ? [x.ptype, x.form].filter(Boolean).join(' · ')
+      : fam === 'vil' ? (x.ak === 'land' && py ? `대지 ${py}평` : [lbl, fl].filter(Boolean).join(' · '))
+      : [lbl.replace('지식산업센터', '지산'), lsB(fl).replace('건물 전체', '전체')].filter(Boolean).join(' · ');   // 아래 글씨는 짧게 (칸이 72px)
+    const L = String(name).length, fz = L <= 4 ? 15 : L <= 7 ? 13 : 11.5;
+    return `<span class="${cls} lt-${fam}"><span class="lt-n" style="font-size:${fz}px">${esc(name)}</span><small>${esc(sub)}</small></span>`;
+  }
   // 중개사 대표 사진(동그라미). 없으면 사무소 이름 첫 글자
   const lsAv = (bk, cls) => `<span class="${cls}">${bk.photo ? `<img src="${esc(bk.photo)}" alt="" loading="lazy">` : `<b>${esc(String(bk.office || '').trim().charAt(0))}</b>`}</span>`;
   function lsCard(x) {
@@ -3844,10 +3882,12 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     const py = x.area ? `${Math.round(x.area / 3.305785)}평` : '';
     const akN = x.ak === 'land' ? '토지 ' : x.ak === 'tot' ? '연면적 ' : '전용 ';   // 11/5 면적 기준을 붙임 ('25평'이 전용평인지 알 수 있게)
     const meta = [x.area ? `${akN}${n(x.area, 0)}㎡${x.area ? ` (${(x.area / 3.305785).toFixed(1)}평)` : ''}` : '', x.flr, x.dir].filter(Boolean).join(' · ');
-    const what = `${esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.form && /^재(개발|건축)$/.test(x.ptype) ? `${x.ptype} ${x.form}` : x.ptype)}${x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : ''}`;
+    const tyN = esc(x.ptype === '기타' && x.ptypeTx ? x.ptypeTx : x.form && /^재(개발|건축)$/.test(x.ptype) ? `${x.ptype} ${x.form}` : x.ptype), dgN = x.dong ? ' ' + esc(/동$/.test(x.dong) ? x.dong : x.dong + '동') : '';
+    const aptL = ['apt', 'pre'].includes(x.kind === 'presale' ? 'pre' : LS_FAM(x.pbase || x.ptype || ''));   // 11/6 윗줄에 단지명·건물명: 아파트류는 '단지명 402동', 나머지는 '종류 · 건물명'
+    const what = x.bname ? (aptL ? `<b class="lc-bn">${esc(x.bname)}</b>${dgN}${/오피스텔|분양권/.test(x.ptype || '') ? ' ' + tyN : ''}` : `${tyN} · <b class="lc-bn">${esc(x.bname)}</b>`) : `${tyN}${dgN}`;
     return `<div class="lc${open ? ' open' : ''}">
       <button type="button" class="lc-top" data-lx="${esc(x.k)}" aria-expanded="${open}">
-        ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : '<span class="lc-th none">사진<br>없음</span>'}
+        ${ph ? `<img class="lc-th" src="${esc(ph)}" alt="" loading="lazy">` : lsTile(x, 'lc-th lt')}
         <span class="lc-tx"><span class="lc-k"><i class="lk-${x.kind}">${LKIND[x.kind]}</i>${x.co ? '<em class="lco" title="여러 중개사무소가 함께 중개하는 매물">공동</em>' : ''}${what}${x.viol ? ' <b class="lviol">위반</b>' : ''}</span>
           <b class="lc-pr">${esc(lsPrice(x))}</b><small>${esc(meta)}</small><small class="lc-of">${lsAv(x.bk, 'lav')}${esc(x.bk.office)}</small></span>
         <span class="lc-ar" aria-hidden="true">›</span></button>

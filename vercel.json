@@ -1,8 +1,12 @@
 {
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)scripts' ':(exclude).github' ':(exclude)*.md' ':(exclude)*.py'",
   "regions": [
     "icn1"
   ],
   "functions": {
+    "api/backup.js": {
+      "maxDuration": 300
+    },
     "api/*.js": {
       "maxDuration": 30
     }
