@@ -87,6 +87,17 @@ async function stats() {
       ['PFCOUNT', `rm:st:${d}:suv`], ['GET', `rm:st:${d}:spv`], ['HGETALL', `rm:st:${d}:spg`], ['HGETALL', `rm:st:${d}:ssrc`]]);
     cmds.push(['PFCOUNT', ...days.slice(0, 7).map(d => `rm:st:${d}:suv`)], ['PFCOUNT', ...days.map(d => `rm:st:${d}:suv`)]);
     cmds.push(['PFCOUNT', ...days.slice(0, 7).map(d => `rm:st:${d}:uv`)], ['PFCOUNT', ...days.map(d => `rm:st:${d}:uv`)], ['DBSIZE']);
+    // 11/6 운영 화면 새 [방문·가입]: 홍보 페이지(track.js) · 전체 방문자(지도+정비사업+홍보 중복 제외) · 지난 기간 비교
+    const GPG = ['pro', 'promo', 'apt', 'proguide', 'guide', 'news'], G0 = cmds.length, GN = 6 + GPG.length;
+    for (const d of days) cmds.push(['PFCOUNT', `rm:st:${d}:guv`], ['HGETALL', `rm:st:${d}:gpg`], ['HGETALL', `rm:st:${d}:gcl`], ['HGETALL', `rm:st:${d}:gref`], ['HGETALL', `rm:st:${d}:gsrc`],
+      ['PFCOUNT', `rm:st:${d}:uv`, `rm:st:${d}:suv`, `rm:st:${d}:guv`], ...GPG.map(p => ['PFCOUNT', `rm:st:${d}:gv:${p}`]));
+    const prev = []; for (let i = 30; i < 60; i++) prev.push(new Date(Date.now() + 9 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, ''));
+    const all = L => L.flatMap(d => [`rm:st:${d}:uv`, `rm:st:${d}:suv`, `rm:st:${d}:guv`]), U0 = cmds.length;
+    const UN = [['all7', all(days.slice(0, 7))], ['allp7', all(days.slice(7, 14))], ['all30', all(days)], ['allp30', all(prev)],
+      ['g7', days.slice(0, 7).map(d => `rm:st:${d}:guv`)], ['gp7', days.slice(7, 14).map(d => `rm:st:${d}:guv`)], ['g30', days.map(d => `rm:st:${d}:guv`)], ['gp30', prev.map(d => `rm:st:${d}:guv`)],
+      ...GPG.flatMap(p => [[`pg7.${p}`, days.slice(0, 7).map(d => `rm:st:${d}:gv:${p}`)], [`pg30.${p}`, days.map(d => `rm:st:${d}:gv:${p}`)]])];
+    UN.forEach(([, ks]) => cmds.push(['PFCOUNT', ...ks]));
+    const P0 = cmds.length; prev.forEach(d => cmds.push(['GET', `rm:st:${d}:pcl`], ['HGETALL', `rm:st:${d}:gcl`]));
     const r = await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
     const out = await r.json();
     const val = i => Number(out[i] && out[i].result) || 0;
@@ -98,6 +109,10 @@ async function stats() {
       suv7: val(days.length * N), suv30: val(days.length * N + 1),
       uv7: val(days.length * N + 2), uv30: val(days.length * N + 3),
       keys: val(days.length * N + 4), maxKeys: MAX_KEYS,
+      gpgs: GPG,
+      g: days.map((d, i) => { const o = G0 + i * GN; return { guv: val(o), gpg: hash(out[o + 1]), gcl: hash(out[o + 2]), gref: hash(out[o + 3]), gsrc: hash(out[o + 4]), all: val(o + 5), gpv: Object.fromEntries(GPG.map((p, k) => [p, val(o + 6 + k)])) }; }),
+      un: Object.fromEntries(UN.map(([k], i) => [k, val(U0 + i)])),
+      prev30: { pcl: prev.reduce((a, d, i) => a + val(P0 + i * 2), 0), gcl: prev.reduce((a, d, i) => a + Object.values(hash(out[P0 + i * 2 + 1])).reduce((x, y) => x + y, 0), 0) },
       guNames: await guNames(days.map((d, i) => hash(out[i * N + 5]))),
     };
   } catch { return null; }

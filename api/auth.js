@@ -573,6 +573,19 @@ export default async function (req, res) {
         try { await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(sc) }); } catch { /* 통계 실패는 무시 */ }
         return send(res, 200, { ok: true });
       }
+      // 11/6 홍보 페이지 (pro·promo·apt·pro-guide·guide·news): 페이지별 조회·방문자·들어온 곳 · 가입 버튼 클릭 (track.js)
+      const GPG = ['pro', 'promo', 'apt', 'proguide', 'guide', 'news'];
+      if ((req.query.k === 'g' || req.query.k === 'c') && GPG.includes(req.query.pg)) {
+        const pg = req.query.pg, REF = [...SRC, 'map', 'seoul', 'in'], ref = REF.includes(req.query.r) ? req.query.r : '';
+        const gc = req.query.k === 'c'
+          ? [['HINCRBY', `rm:st:${day}:gcl`, pg, '1'], ['EXPIRE', `rm:st:${day}:gcl`, ex]]
+          : [['HINCRBY', `rm:st:${day}:gpg`, pg, '1'], ['EXPIRE', `rm:st:${day}:gpg`, ex],
+             ...(v ? [['PFADD', `rm:st:${day}:guv`, v], ['EXPIRE', `rm:st:${day}:guv`, ex], ['PFADD', `rm:st:${day}:gv:${pg}`, v], ['EXPIRE', `rm:st:${day}:gv:${pg}`, ex]] : []),
+             ...(ref ? [['HINCRBY', `rm:st:${day}:gref`, `${pg}.${ref}`, '1'], ['EXPIRE', `rm:st:${day}:gref`, ex]] : []),
+             ...(src ? [['HINCRBY', `rm:st:${day}:gsrc`, src, '1'], ['EXPIRE', `rm:st:${day}:gsrc`, ex]] : [])];
+        try { await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(gc) }); } catch { /* 통계 실패는 무시 */ }
+        return send(res, 200, { ok: true });
+      }
       const cmds = kind === 'p'
         ? [['INCR', `rm:st:${day}:pcl`], ['EXPIRE', `rm:st:${day}:pcl`, ex],
            ...(/^\d{5}$/.test(String(req.query.g || '')) ? [['HINCRBY', `rm:st:${day}:gu`, String(req.query.g), '1'], ['EXPIRE', `rm:st:${day}:gu`, ex]] : [])]
@@ -893,7 +906,7 @@ export default async function (req, res) {
       const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x', day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
       const a = await redis(['INCR', `realmap:vrl:${ip}`]); if (a === 1) await redis(['EXPIRE', `realmap:vrl:${ip}`, 3600]);
       const b = await redis(['INCR', `realmap:vrld:${day}`]); if (b === 1) await redis(['EXPIRE', `realmap:vrld:${day}`, 90000]);
-      if (a > 3 || b > 60) return fail(res, 429, 'many', '신청이 많아 잠시 받을 수 없습니다. 02-393-7676으로 전화 주세요.');
+      if (a > 3 || b > 60) return fail(res, 429, 'many', '신청이 많아 잠시 받을 수 없습니다. 잠시 후 다시 시도하시거나 contact@realmap.online으로 메일 주세요.');
       const W = ['평일 오전', '평일 오후', '평일 저녁', '주말'], when = (Array.isArray(body.when) ? body.when : []).filter(x => W.includes(x));
       const rec = { id: Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), at: new Date().toISOString(), office: t(body.office, 40), name: t(body.name, 20), phone: phone.replace(/^(0\d{1,2})(\d{3,4})(\d{4})$/, '$1-$2-$3'), area: t(body.area, 40), when, memo: t(body.memo, 500), st: 'new', note: '' };
       await redis(['HSET', 'realmap:visit', rec.id, JSON.stringify(rec)]);
@@ -1060,7 +1073,7 @@ export default async function (req, res) {
       if (await redis(['GET', `realmap:staffof:${s.id}`])) return fail(res, 400, 'staff', '이 카카오 계정은 다른 사무소의 직원으로 등록되어 있습니다. 내 사무소를 따로 시작하시려면 [설정 → 내 소속]에서 먼저 나가 주세요.');
       if (!(await mobileOk(s.id, bk, null))) return fail(res, 400, 'sms', SMS_NEED);
       // 11/3 등록번호가 14자리가 아니면 '승인 대기'로 받지 않고 바로 다시 쓰게 (예전엔 형식 오류가 조회 장애로 보여 대기에 걸렸음)
-      { const n = bk.regno.replace(/\D/g, '').length; if (n !== 14) return fail(res, 400, 'regno', `등록번호는 숫자 14자리입니다 (지금 ${n}자리). 중개사무소 등록증의 번호를 다시 확인해 주세요. 번호 형식이 등록증과 다르면 02-393-7676으로 문의해 주세요.`); }
+      { const n = bk.regno.replace(/\D/g, '').length; if (n !== 14) return fail(res, 400, 'regno', `등록번호는 숫자 14자리입니다 (지금 ${n}자리). 중개사무소 등록증의 번호를 다시 확인해 주세요. 번호 형식이 등록증과 다르면 contact@realmap.online으로 문의해 주세요.`); }
       // 국가 자료로 확인된 중개사무소만 시작. 브이월드 점검 등으로 확인이 안 되면 '확인 대기'로 받아 두고 운영자가 승인
       const v = await verifyBk(s.id, bk);
       if (v.st === 'error') {
