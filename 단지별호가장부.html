@@ -262,15 +262,23 @@ var RM_API='https://realmap.online/api/hoga';
 var SEOUL=[['종로구','11110'],['중구','11140'],['용산구','11170'],['성동구','11200'],['광진구','11215'],['동대문구','11230'],['중랑구','11260'],['성북구','11290'],['강북구','11305'],['도봉구','11320'],['노원구','11350'],['은평구','11380'],['서대문구','11410'],['마포구','11440'],['양천구','11470'],['강서구','11500'],['구로구','11530'],['금천구','11545'],['영등포구','11560'],['동작구','11590'],['관악구','11620'],['서초구','11650'],['강남구','11680'],['송파구','11710'],['강동구','11740']];
 function lawdOf(gu){var f=SEOUL.filter(function(x){return x[0]===gu})[0];return f?f[1]:''}
 function rmGet(params){
+  if(!db.hogaKey){var e0=new Error('리얼맵 비밀번호를 먼저 넣어 주세요.');e0.code='nokey';return Promise.reject(e0)}
   var u=RM_API+'?'+Object.keys(params).map(function(k){return k+'='+encodeURIComponent(params[k])}).join('&');
-  return fetch(u).then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.message||'오류');return j});
+  return fetch(u,{headers:{'X-Hoga-Key':db.hogaKey}}).then(function(r){return r.json()}).then(function(j){if(!j.ok){var e=new Error(j.message||'오류');e.code=j.error;throw e}return j});
 }
+function keyDialog(msg,after){
+  var h='<h3 style="margin:0 0 4px;font-size:18px">리얼맵 비밀번호</h3><p class="note" style="margin:0 0 14px;font-size:12px">실거래를 받아 오려면 선배가 Vercel에 넣은 비밀번호(HOGA_KEY)가 필요합니다. 이 PC에만 저장됩니다.</p>';
+  if(msg)h+='<div class="msg warn" style="margin-bottom:12px">'+esc(msg)+'</div>';
+  h+='<label class="fld">비밀번호<input id="hkey" type="password" autocomplete="off" value=""></label><div class="row"><span></span><div style="display:flex;gap:8px"><button class="btn" data-act="keyno">나중에</button><button class="big" data-act="keysave">저장</button></div></div>';
+  KD.after=after||null;var d=document.getElementById('dlg');d.innerHTML=h;if(!d.open)d.showModal();setTimeout(function(){var e=document.getElementById('hkey');if(e)e.focus()},50);
+}
+var KD={};
 var rtBusy={};
-function needRt(n){var c=db.complexes[n];return c&&c.lawd&&c.rtNames&&c.rtNames.length&&(!c.rt||Date.now()-c.rt.at>12*3600e3)}
+function needRt(n){var c=db.complexes[n];return c&&c.lawd&&c.rtNames&&c.rtNames.length&&db.hogaKey&&c.rtErr!=='key'&&(!c.rt||Date.now()-c.rt.at>12*3600e3)}
 function loadRt(n){
   var c=db.complexes[n];if(!needRt(n)||rtBusy[n])return;
   rtBusy[n]=1;
-  rmGet({op:'sum',lawd:c.lawd,names:c.rtNames.join('|'),umd:c.rtUmd||'',months:6}).then(function(j){c.rt={at:Date.now(),sale:j.sale,jeonse:j.jeonse};c.rtErr='';save()}).catch(function(e){c.rtErr=String(e.message||e)}).then(function(){delete rtBusy[n];render()});
+  rmGet({op:'sum',lawd:c.lawd,names:c.rtNames.join('|'),umd:c.rtUmd||'',months:6}).then(function(j){c.rt={at:Date.now(),sale:j.sale,jeonse:j.jeonse};c.rtErr='';save()}).catch(function(e){c.rtErr=(e.code==='badkey'||e.code==='nokey')?'key':String(e.message||e)}).then(function(){delete rtBusy[n];render()});
 }
 
 /* ===== 화면용 정리 ===== */
@@ -411,7 +419,9 @@ function renderMain(){
 function rtChip(n,rec){
   var c=db.complexes[n];
   if(!c.lawd)return '<button class="btn" data-act="info">리얼맵 실거래 연결하기</button>';
+  if(!db.hogaKey&&!c.rt)return '<button class="btn" data-act="keyask">리얼맵 비밀번호 넣기</button>';
   if(needRt(n)){loadRt(n);return '<span class="note" style="font-size:12px">실거래 불러오는 중…</span>'}
+  if(c.rtErr==='key'&&!c.rt)return '<button class="btn" data-act="keyask">리얼맵 비밀번호 넣기</button>';
   if(c.rtErr&&!c.rt)return '<span class="note" style="font-size:12px;color:var(--red)">실거래를 불러오지 못했습니다</span>';
   if(rec.kind==='월세')return '';
   var b=bandStat(n,rec.kind==='전세'?'전세':'매매',areaBand(S.area||'84'));
@@ -556,6 +566,7 @@ function renderCmp(){
   if(concl)h+='<div class="concl"><i>결론</i><span>'+concl+'</span></div>';
   else if(busy)h+='<span class="note" style="font-size:12px">실거래 불러오는 중…</span>';
   h+='<button class="btn" data-act="cmpExcel">엑셀</button></section>';
+  if(!db.hogaKey||SEL.some(function(n){return db.complexes[n].rtErr==='key'}))h+='<div class="msg warn">실거래를 받아 오려면 리얼맵 비밀번호가 필요합니다. <button class="btn" data-act="keyask" style="margin-left:6px">비밀번호 넣기</button></div>';
   if(nolink.length)h+='<div class="msg warn">'+nolink.map(esc).join(', ')+' — 리얼맵 실거래가 아직 연결되지 않았습니다. 단지를 눌러 위쪽 [위치·실거래 연결하기]로 한 번만 연결해 주세요.</div>';
   // 표
   var ax=axis(SEL,K);
@@ -661,11 +672,12 @@ function drawLoc(){
     h+='</div>';
   }else if(c.rtNames&&c.rtNames.length)h+='<p class="note" style="margin-top:10px;font-size:12px">지금 연결: <b style="color:var(--ink)">'+c.rtNames.map(esc).join(', ')+'</b> ('+esc(c.rtUmd||'')+')</p>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><label class="fld">동<input id="ldong" list="dgl" placeholder="찾으면 자동으로 채워집니다" value="'+esc(LD.umd||c.dong||'')+'"></label><label class="fld">메모 (선택)<input id="linfo" placeholder="예: ○○○○세대 · 2014년 입주" value="'+esc(c.info||'')+'"></label></div><datalist id="dgl">'+uniqVals('dong').map(function(v){return '<option value="'+esc(v)+'">'}).join('')+'</datalist>';
-  h+='<div class="row"><span class="note" style="font-size:12px">'+(locQueue.length?'남은 새 단지 '+locQueue.length+'곳':'')+'</span><div style="display:flex;gap:8px"><button class="btn" data-act="locskip">나중에</button><button class="big" data-act="locsave">저장</button></div></div>';
+  h+='<div class="row"><span class="note" style="font-size:12px">'+(locQueue.length?'남은 새 단지 '+locQueue.length+'곳 · ':'')+'<button class="link" data-act="keyask2">리얼맵 비밀번호 '+(db.hogaKey?'바꾸기':'넣기')+'</button></span><div style="display:flex;gap:8px"><button class="btn" data-act="locskip">나중에</button><button class="big" data-act="locsave">저장</button></div></div>';
   var d=document.getElementById('dlg');d.innerHTML=h;if(!d.open)d.showModal();
   document.getElementById('lgu').onchange=function(){LD.gu=this.value};
   document.getElementById('lq').oninput=function(){LD.q=this.value};
 }
+function locDialog2(){drawLoc();locFind()}
 function locFind(){
   LD.gu=document.getElementById('lgu').value;LD.q=document.getElementById('lq').value.trim();LD.umd=document.getElementById('ldong').value.trim();
   var lawd=lawdOf(LD.gu);if(!lawd){LD.err='구를 먼저 골라 주세요.';drawLoc();return}
@@ -673,7 +685,7 @@ function locFind(){
   rmGet({op:'find',lawd:lawd,q:LD.q||LD.n}).then(function(j){LD.cands=j.items;
     if(!LD.picked.length&&j.items.length){var nn=LD.q.replace(/\s/g,'');var ex=j.items.filter(function(x){return x.name.replace(/\s/g,'')===nn});LD.picked=(ex.length?ex:[j.items[0]]).map(function(x){return x.name})}
     var f=j.items.filter(function(x){return LD.picked.indexOf(x.name)>=0})[0];if(f&&!LD.umd)LD.umd=f.umd;
-  }).catch(function(e){LD.err='리얼맵에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요. ('+(e.message||e)+')'}).then(drawLoc);
+  }).then(drawLoc,function(e){if(e.code==='badkey'||e.code==='nokey'){keyDialog(e.code==='badkey'?'비밀번호가 맞지 않습니다. 다시 넣어 주세요.':'',function(){locDialog2()});return}LD.err=e.code==='nokey'?'':'리얼맵에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요. ('+(e.message||e)+')';drawLoc()});
 }
 function locSave(){
   var c=db.complexes[LD.n];if(!c)return nextLoc();
@@ -706,7 +718,7 @@ function cmpExcel(){
   BANDS.forEach(function(b){SEL.forEach(function(n){var o=bandStat(n,K,b[0]);if(!o||!o.cnt)return;var c=db.complexes[n];lines.push([BLAB[b[0]],n,c.gu,c.dong,o.cnt,o.askLo,o.askMed,o.dealMed,o.dealN,o.pct!=null?o.pct.toFixed(1):'',o.flow!=null?o.flow.toFixed(1):'',o.stock,o.py,o.jr!=null?o.jr.toFixed(1):''].map(q).join(','))})});
   download('단지비교_'+K+'_'+ymd()+'.csv','﻿'+lines.join('\r\n'),'text/csv;charset=utf-8');
 }
-function doBackup(){download('호가장부_백업_'+ymd()+'.json',JSON.stringify(db),'application/json')}
+function doBackup(){var c=Object.assign({},db);delete c.hogaKey;download('호가장부_백업_'+ymd()+'.json',JSON.stringify(c),'application/json')}
 function doRestore(file){
   var fr=new FileReader();
   fr.onload=function(){
@@ -752,6 +764,10 @@ document.addEventListener('click',function(e){
   else if(a==='info'){locQueue=[];locDialog(S.cx)}
   else if(a==='tog'){folded[v]=!folded[v];renderSide()}
   else if(a==='locfind')locFind();
+  else if(a==='keyask')keyDialog('',function(){var d=document.getElementById('dlg');if(d.open)d.close();render()});
+  else if(a==='keyask2'){LD.q=document.getElementById('lq').value;LD.gu=document.getElementById('lgu').value;LD.umd=document.getElementById('ldong').value;keyDialog('',function(){drawLoc()})}
+  else if(a==='keysave'){var kv=document.getElementById('hkey').value.trim();if(!kv){alert('비밀번호를 넣어 주세요.');return}db.hogaKey=kv;names().forEach(function(n){var c=db.complexes[n];if(c.rtErr==='key')c.rtErr=''});save();var af=KD.after;KD.after=null;if(af)af();else{dlg.close();render()}}
+  else if(a==='keyno'){KD.after=null;dlg.close();render()}
   else if(a==='lcand'){var x=LD.cands[+v],k=LD.picked.indexOf(x.name);if(b.checked&&k<0)LD.picked.push(x.name);if(!b.checked&&k>=0)LD.picked.splice(k,1);if(b.checked&&!document.getElementById('ldong').value)document.getElementById('ldong').value=x.umd}
   else if(a==='locsave')locSave();
   else if(a==='locskip')nextLoc();
