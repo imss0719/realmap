@@ -4,7 +4,7 @@
 //
 // 요청 머리에 X-Hoga-Key: <비밀번호> 가 있어야 합니다 (틀리면 401, 환경변수 없으면 503).
 // GET /api/hoga?op=find&lawd=11440&q=마포래미안
-//   → 최근 3개월 그 구에서 거래된 아파트 중 이름이 비슷한 단지 목록 [{name, umd, jibun, n}]
+//   → 최근 6개월 그 구에서 거래된 아파트 중 이름이 비슷한 단지 목록 [{name, umd, jibun, n}] (&all=1 이면 그 구 전체)
 // GET /api/hoga?op=sum&lawd=11440&names=마포래미안푸르지오|마포래미안푸르지오1단지&umd=아현동&months=6
 //   → 그 단지들의 최근 n개월 매매·전세 실거래 (취소 건 제외, 칸은 짧게)
 import { timingSafeEqual } from 'node:crypto';
@@ -40,25 +40,30 @@ export default handler(async (req, res) => {
   const op = clean(req.query.op) || 'sum';
 
   if (op === 'find') {
+    // all=1: 이름과 상관없이 그 구에서 최근 거래된 아파트 전체 목록 (직접 고르기용)
+    const all = req.query.all === '1';
     const q = norm(req.query.q);
-    if (q.length < 2) return fail(res, 400, 'bad_q', '단지 이름을 두 글자 이상 넣어 주세요.');
-    const yms = monthsBack(3);
+    if (!all && q.length < 2) return fail(res, 400, 'bad_q', '단지 이름을 두 글자 이상 넣어 주세요.');
+    const yms = monthsBack(6);
     const got = await pool(yms, 3, ym => month('apt', lawd, ym));
+    // 네 글자 조각 (예: 마포그랑자이 → 마포그랑, 포그랑자, 그랑자이) 하나라도 겹치면 후보
+    const grams = [];
+    for (let i = 0; i + 4 <= q.length; i++) grams.push(q.slice(i, i + 4));
     const map = new Map();
     got.forEach(r => {
       if (!r.ok) return;
       for (const t of r.v) {
         const nm = clean(t.aptNm), key = nm + '|' + clean(t.umdNm);
         const k = norm(nm);
-        // 앞 네 글자가 같거나 서로 포함되면 후보 (예: 마포래미안푸르지오 ↔ 마포래미안푸르지오1단지)
-        const hit = k.includes(q) || q.includes(k) || (q.length >= 4 && k.startsWith(q.slice(0, 4)));
+        const hit = all || k.includes(q) || q.includes(k) || grams.some(g => k.includes(g));
         if (!hit) continue;
         const o = map.get(key) || { name: nm, umd: clean(t.umdNm), jibun: clean(t.jibun), n: 0 };
         o.n++; map.set(key, o);
       }
     });
-    const list = [...map.values()].sort((a, b) => b.n - a.n).slice(0, 20);
-    return send(res, 200, { ok: true, lawd, items: list, errors: got.filter(r => !r.ok).length }, 0);
+    const score = o => (norm(o.name) === q ? 1e6 : 0) + (norm(o.name).includes(q) || q.includes(norm(o.name)) ? 1e5 : 0) + o.n;
+    const list = [...map.values()].sort(all ? (a, b) => a.umd.localeCompare(b.umd) || a.name.localeCompare(b.name) : (a, b) => score(b) - score(a)).slice(0, all ? 400 : 30);
+    return send(res, 200, { ok: true, lawd, months: 6, items: list, errors: got.filter(r => !r.ok).length }, 0);
   }
 
   if (op === 'sum') {
