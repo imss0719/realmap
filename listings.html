@@ -1567,5 +1567,14 @@ table td,table tr{touch-action:manipulation}
 <script src="ximport.js"></script>
 <script src="settings.js"></script>
 <script src="listings.js"></script>
+<script>/* 11/7 체험용 매물장 띠 (realmap.online/demo 로 들어온 3시간 임시 장부) */
+fetch('/api/auth?action=me', { cache: 'no-store' }).then(r => r.json()).then(j => { if (!j || !j.demo) return;
+  const d = document.createElement('div'); d.id = 'demoBar';
+  d.innerHTML = '<b>체험용 예시 화면</b><span>이름·연락처는 모두 예시이고, 고친 내용은 3시간 뒤 사라집니다 · 지도 광고·문자·사진 올리기는 가입 후 쓰실 수 있습니다</span><a href="/pro.html">무료로 시작하기 ›</a>';
+  d.style.cssText = 'position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:12px;background:#14212E;color:#fff;border-radius:999px;padding:9px 10px 9px 18px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100vw - 24px)';
+  d.querySelector('b').style.cssText = 'color:#F2B705;white-space:nowrap'; d.querySelector('span').style.cssText = 'opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  d.querySelector('a').style.cssText = 'background:#F2B705;color:#14212E;font-weight:800;border-radius:999px;padding:6px 14px;text-decoration:none;white-space:nowrap';
+  document.body.appendChild(d); }).catch(() => {});
+</script>
 </body>
 </html>

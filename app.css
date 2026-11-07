@@ -959,10 +959,13 @@ a.favbtn{text-decoration:none}
 .tlabel.k-pre .pr b.no{color:#ADB5BD;font-weight:600;text-align:center}
 .tlabel.k-pre .pn{font-size:10px;font-weight:600;color:#868E96;text-align:center;padding:1px 0}
 .tlabel.k-pre .tpy{color:inherit;opacity:.7}
+.tlabel.k-pre.nt{border-color:#ADB5BD}   /* 11/7 분양권 거래 없음 */
 .tlabel.k-pre:hover{background:#FFF8F3;border-color:#D9480F;color:#D9480F}
 .tlabel.k-pre:hover .b{color:#D9480F}.tlabel.k-pre:hover .i{color:#495057}
 .precard{max-height:calc(100% - 140px);overflow:auto}
 .precard .pre-bd{color:#D9480F;font-weight:700}
+.precard .pre-tg{display:inline-block;background:#868E96;color:#fff;border-radius:5px;padding:0 5px;font-size:10px;font-weight:700;margin-left:4px;vertical-align:1px}
+.precard .pre-nt{margin:8px 0 0;background:#FFF4E6;border:1px solid #FFD8A8;color:#8A4B00;border-radius:8px;padding:7px 9px;font-size:12px;line-height:1.5}
 .precard .pre-i{margin:4px 0 2px;font-size:12px;color:var(--muted)}
 .precard th.b,.precard td.b,.precard span.b{color:#D9480F}
 .precard td.r{text-align:right;font-weight:700}

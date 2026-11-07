@@ -22,6 +22,8 @@
 - Vercel **Pro** (10/27 전환, 지출 알림 $30) · 지역 icn1 · 함수는 api/ 파일들(_로 시작하는 건 공용 모듈).
 - **자동 백업** api/backup.js: 매일 03:00(Vercel cron `0 18 * * *`) Upstash 전체(rmc:* 캐시 제외, rmc:geo:* 포함) → gzip → 구글 드라이브 '리얼맵 백업'. 30일은 매일치, 그 전은 매월 1일치만. 실패 시 운영자 문자. 점검: 운영자 로그인 후 `/api/backup?check=1`. 환경변수 GDRIVE_CLIENT_ID·GDRIVE_CLIENT_SECRET·GDRIVE_REFRESH_TOKEN·CRON_SECRET (구글 클라우드 프로젝트 realmap-backup).
 - 문자: 솔라피(SOLAPI_KEY·SOLAPI_SECRET·SMS_FROM, 발신 02-393-7676). 지도 광고 전체 공개 PUB_OPEN=1.
+- **보안팀 (11/7 선배 지시로 신설)**: 보안 위험을 늘 판단하고 개발·운영·데이터·마케팅과 같이 처리. 매일 밤 묶음 보내기 전 점검(비밀값이 파일에 섞였는지, 새 API에 로그인·권한·호출 횟수 제한이 있는지, 손님·회원 화면에 나가면 안 되는 자료가 있는지) + 주간 보고. 11/7 1차 점검: 파일 속 키 노출 없음 · 장부·고객 자료는 LEDGER_KEY로 암호화(_ls·_cust·_ledger) · 쿠키 HttpOnly/Secure/SameSite=Lax · 문자 인증·문의·체험에 횟수 제한 있음. 남은 것: ① 보안 헤더 → 11/7 선배 승인, vercel.json headers 추가(X-Frame-Options SAMEORIGIN · CSP frame-ancestors 'self' · nosniff · Referrer-Policy strict-origin-when-cross-origin · Permissions-Policy 카메라·마이크 끔). 전체 CSP는 카카오맵·브이월드 등 외부 스크립트가 많아 일부러 안 넣음 ② hoga.js는 HOGA_KEY 비밀번호(X-Hoga-Key)로 잠겨 있어 문제 없음(11/7 정정 — 처음엔 누구나 호출 가능으로 잘못 봄). 일 호출 상한은 권고만 ③ 운영자(중개사)가 회원 매물을 볼 수 있다는 신뢰 문제 — 약관 문구 + 연락처 잠금(본인 비밀번호 암호화) 검토 ④ LEDGER_KEY 사본을 선배가 안전한 곳에 따로 보관(잃으면 장부 전부 못 읽음) ⑤ GitHub·Vercel·Upstash·Google·카카오·솔라피 계정 2단계 인증 확인.
+- **API 키 만료일 (선배 확인분 · 2주 전에 반드시 미리 알림)**: 공공데이터포털(data.go.kr) DATA_KEY **2028-10-21** (11/7 선배) · 브이월드 '리얼맵' 키 4개(11/7 선배 화면): 10/16 발급 1개 **2027-04-16**(개발·운영심사 중) · 10/23 발급 3개 **2027-04-23**(개발 2개, 1개는 '운영반려') — VWORLD_BK_KEY는 10/23 것 중 하나 · 카카오 등은 미확인. 알림 예약: 2027-04-02(브이월드), 2028-10-07(공공데이터).
 - 자동 수집(GitHub Actions): 입주 예정·분양권(presale, 매일) · 시세지도(price, 매주) · 서울 정비사업(seoul-zones, **11/3부터 매달 6일 04시** — 월간 신문용) · warm 등.
 - 광주: 행정구역 코드가 12(전남광주통합특별시)로 바뀜 — 광주 구 12210·12240·12270·12300·12330, 예전 29xxx는 국토부가 0건. 시세 sgg/umd/price-12, 분양 SIDO[12].
 - 검색: 구글이 홈을 Soft 404로 봤던 문제 → 첫 화면 intro에 `<nav class="introx">` 링크(서울·경기·인천 + 인기 구역 8곳), 봇에게는 '준비 중' 창 안 띄움. 사이트맵 sitemap.xml(서울)·sitemap-gg.xml·sitemap-ic.xml, rss.xml(서울 구역 단계 변화 100건, seoul-pages.mjs가 만듦).
@@ -854,14 +856,8 @@
 - **11/6 왼쪽 창 접기(PC 가운데 손잡이 ‹/›) — 선배 보류.** 시안·검토만 함(scratchpad/qa/t/fold.js 주입 시안). 걸린 점: 접으면 검색창도 사라짐 · 접은 채 필지 누르면 자동 펼침 필요 · 지도 relayout · 매물 목록 창(lpane)과 손잡이 겹침 · 상태 기억 여부. 다시 하자고 하시면 이 목록부터.
 - **11/6 Vercel 비용**: 주기 약 10/28~11/27, 포함 20달러 · 11/6 기준 8.03달러(빌드 6.31) · 10/28 이후 커밋 430번(선배 379 · 봇 51) = 하루 약 48번 배포 → 그대로면 약 27달러. 배포 1번 ≈ 0.0162달러(23원). **11/6 이후 안전선 469번(하루 약 22번)**. 대책: 묶음은 폴더 구조 zip 하나 → GitHub Upload files 한 번에 Commit 1번 · vercel.json ignoreCommand(scripts/.github/md/py만 바뀌면 빌드 건너뜀). 매일 21:47 '리얼맵 Vercel 배포 횟수 점검' 예약 작업(푸시 알림, 70%·90%·초과·하루 30번 넘으면 경고). 새 주기(11/27 이후)엔 사용량 캡처 받아 기준 다시 맞추기.
 
-## 11/6 호가 장부(선배 PC 프로그램)용 실거래 요약 API — api/hoga.js (새 파일, 기존 파일 변경 없음)
-- 선배 개인 PC 프로그램 '호가 장부'(HTML 파일 하나, 네이버 매물 목록을 직접 복사해 PC 안에서만 정리)가 단지 비교 분석의 '시세 대비 호가 %'를 내려고 실거래만 받아 감. 방향은 리얼맵 → PC 한쪽뿐: 네이버 호가 자료는 리얼맵 서버로 오지 않고 저장도 안 함(2025.12 네이버 vs 다윈 판결 때문에 지키는 원칙).
-- GET /api/hoga?op=find&lawd=11440&q=단지명 → 최근 3개월 그 구 아파트 매매 중 이름 비슷한 단지 [{name,umd,jibun,n}] (20개까지)
-- GET /api/hoga?op=sum&lawd=11440&names=이름1|이름2&umd=아현동&months=6 → sale/jeonse 배열 [YYYYMMDD, 전용㎡, 층, 만원] (매매 취소 건 제외, 전세는 월세 0만, 각 600건까지)
-- trades.js의 month()/monthsBack()을 그대로 빌려 써서 같은 캐시(rt:apt|aptRent:<lawd>:<ym>) 공유 → 공공데이터 호출이 거의 안 늘어남.
-- PC 파일(file://)에서 부르므로 Access-Control-Allow-Origin: * (읽기 전용 공공자료라 열어 둠). GET만.
-- 11/6 선배만 쓰게 비밀번호: Vercel 환경변수 HOGA_KEY(선배가 정함) · 요청 머리 X-Hoga-Key 일치해야 응답(틀리면 401 badkey, 환경변수 없으면 503 nokey = 잠김). 비밀번호가 다른 요청에 새지 않게 CDN 캐시 끔(no-store) — 공공데이터 호출은 trades.js month() 캐시(Redis)로 그대로 아낌. PC 프로그램은 비밀번호를 그 PC 브라우저 저장소에만 둠.
-- api 함수 파일이 하나 늘어남(Pro라 한도 문제 없음).
+## 호가 장부(선배 PC 프로그램) — 별도 문서
+- api/hoga.js와 그 설명은 **HANDOFF-hoga.md**에만 적습니다 (호가 장부 담당 창 전용). 이 HANDOFF.md는 리얼맵 운영 담당만 고칩니다 — 서로 덮어쓰지 않게 11/7 분리.
 
 ## 11/6 저녁 반영 (11/7 0시 묶음)
 - **사무소 전화번호 뺌**: 02-393-7676(리얼워커스 사무소 번호)을 리얼맵 화면 9곳에서 빼고 문의는 contact@realmap.online만 (settings.js 운영 회사 · pro.html 바닥글·상담 완료·가입 오류 2곳 · pro-guide.html · terms.html · privacy.html 2곳 · api/auth.js 오류 문구 2곳). 알림 문자 발신번호(SMS_FROM)는 그대로 02-393-7676 — 솔라피는 듀얼번호(010-9868-0869) 등록 불가, 바꾸려면 법인 070. 새 번호 010-9868-0869는 통신판매업 신고·법정 표시용(화면 재표시는 선배 결정 대기).
@@ -869,3 +865,17 @@
 - **중개사 가입 경로 1순위**: briefing.js 바닥 '리얼맵 · realmap.online / 중개사 무료 브리핑 자료' · scripts/seoul-pages.mjs 전체·구·주제 페이지에 중개사 안내 칸(.bkc, 구역 페이지는 이미 '이 구역 중개사무소' 칸이 있어 제외) — 다음 seoul-zones 실행 때 반영.
 - **운영 화면 새 단장(brokers.html)**: [방문·가입] 기간 버튼(오늘·7일·30일, ▲▼ 지난 기간 대비) · 핵심 숫자 5 · 30일 흐름(막대=전체 방문자, 노란 점=중개사 가입) · 소개 페이지 성과 · 가입까지 · 유입 경로 · [자세히]에 예전 표(tVisitOld). [중개사] 오늘 할 일 카드 · 요금제 막대 · 월별 입금 · 회원 상태 · 필터 '매물 0건'·'14일 넘게 안 들어옴'. [일반 회원] 숫자 6 · 일별 가입 · 소식 메일 칸 · 필터 칩·찾기.
 - **소개 페이지 집계(track.js 새 파일)**: pro·promo·apt·pro-guide·guide·news에 `<script src="/track.js" data-pg=...>` → /api/auth?action=hit k=g(조회·방문자·들어온 곳) · k=c(가입 버튼, 방문당 1번). 키: rm:st:<날>:gpg·guv·gv:<pg>·gref(pg.ref)·gcl·gsrc (400일). news.html은 예전 k=s(정비사업 집계에 섞임) → k=g로 옮김. members.js stats에 g·un(기간 합집합)·prev30 추가.
+
+## 11/7 체험용 매물장 (realmap.online/demo)
+- 선배 현장 영업 때 본인 장부 대신 보여 줄 예시 장부. vercel.json rewrite /demo → /api/auth?action=demo.
+- action=demo: 'demo'+랜덤 10자 id로 3시간짜리 임시 회원을 만들어 api/_demo.js 예시 데이터(○○ 매물 32 · 단지 장부 ○○아파트 · 고객 3명 김사장·이부장·박선생)를 넣고 쿠키(3시간) 주고 /listings.html로. 키는 4시간 만료 + realmap:demos(zset)에 남겨 3시간 지난 것은 다음 체험 때 dropDemo로 지움(나중에 생긴 lsv·bstat 등도 같이). 같은 IP 1시간 12번까지.
+- 체험 회원은 isDemo(id): canPub false(지도 광고 절대 안 나감) · 사진 올리기 막음 · POST 막음 = sms·staff·bk·bkpos·start·help·quit·withdraw·office·plan·pyt (sms·quit·withdraw는 GET도). 나머지(매물·단지 장부·고객·엑셀·브리핑·주소 자동 입력)는 실제와 똑같이 돎.
+- me 응답에 demo:true → listings.html 아래 '체험용 예시 화면' 띠 + [무료로 시작하기].
+- 예시 데이터 고칠 때: scratchpad/qa에서 demo.xlsx 불러와 장부 만든 뒤 dump_demo.mjs → _demo.js 다시 만듦 (위치는 마포 안에 흩어 놓음).
+- pro.html: 첫 화면 [가입 없이 둘러보기 →](/demo) + 아래 안내 줄, 맨 아래 무료 상자 작은 글에 '가입 없이 먼저 둘러보기 ›'. 로그인된 회원에게는 안 보임(data-demo 지움). 로그인된 회원이 /demo를 열면 '로그인이 풀린다 · 시크릿 창 권장' 확인 화면(force=1이면 진행).
+- 11/7 아침회의: 010-9868-0869(리얼맵 전용 듀얼번호) 화면 표시 — 설정 운영 회사 '연락처' · pro/pro-guide 바닥글 · 이용약관 · 처리방침(연락처 표·바닥글). '급하시면…' 안내 문구는 메일 그대로. 처리방침에 '엑셀 대행 등록을 요청한 경우' 항목 추가(등록 후 메일·파일 즉시 삭제) · 시행일 11/7. 문의 메일은 ImprovMX → Gmail 전달.
+- 11/7 아침회의: 서울 BT 다 차면 BT_OPEN=true(Vercel 환경변수) 전체 공개 — 1~2일 내 예상. 법인 목적변경 등기·통신판매업 신고 진행 중.
+- 11/7 오류 수정(board.js 매물 창 연락처): [연락처 추가]로 생긴 빈 줄에서 관계(대리인·관리인 등)를 먼저 고르고 번호를 넣으면 '소유자'로 돌아가던 문제 → 빈 줄에서 고른 관계를 B.crole에 기억했다가 줄이 생길 때 그 관계로 만듦 (빈 줄 지우면 기억도 지움). QA: 예전 파일은 '소유자'로 저장, 고친 파일은 '대리인'으로 저장 확인.
+- 11/7 입주 예정(분양권) 지도 '왜 안 나오지?' 확인용: Actions realmap-presale 수동 실행에 why(단지 이름 일부) 칸 추가 → 요약에 그 단지가 어디서 빠졌는지(실거래 0건/이미 입주/청약홈 짝 없음/최근 1년 거래 없음/나옴) 적음. 선배 질문: 위례자이더파크(성남 수정구 창곡동 41131, 26.12 입주)가 안 나옴 — presale.json·presale-geo.json에 창곡동 자체가 없음 → 분양권 실거래가 아예 없을 가능성이 큼(전매제한 추정, why로 확인 예정).
+- 11/7 선배 OK(시안 확인): **분양권 거래가 아직 없는 입주 예정 단지도 지도에** — presale.mjs ③-2: 청약홈 공고 중 분양권 짝이 없는 것, 입주예정 이번 달~36개월(NT_MONTHS), 임대(RENT_SECD≠0)·사전청약 등(HOUSE_SECD≠01)·'임대/행복주택' 이름 빼기, 같은 구+이름(차수·BL 뗀) 재공고는 하나로, 같은 동 비슷한 이름의 분양권 단지가 있으면 뺌, 위치는 공고 주소로 카카오 검색. 결과 항목에 `nt:1`, pa·h 빈 배열, c 0. app.js: 라벨 '분양권 거래 없음' + 회색 점선(.k-pre.nt), 카드는 청약홈 주택형으로 줄(분양권·입주권 '-') + '거래 없음' 태그 + 주황 안내 상자(.pre-nt).
+- 11/7 presale 수동 실행에서 gus를 '전체'가 아닌 구로 고르면 **확인만 하고 지도 파일은 안 바꿈**(전에는 그 구만으로 presale.json을 덮어써 지도에서 다른 지역이 사라질 수 있었음). why 확인은 gus 아무거나 + why.

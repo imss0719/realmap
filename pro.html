@@ -354,6 +354,7 @@ footer a{color:rgba(255,255,255,.8)}
 .ytp:after{content:"";position:absolute;left:35px;top:18px;border-left:24px solid #14212E;border-top:13px solid transparent;border-bottom:13px solid transparent}
 .yt:hover .ytp{transform:scale(1.06)}
 .vmore{text-align:center;margin-top:18px;font-size:17px;font-weight:700}.vmore a{color:inherit;text-decoration:underline;text-underline-offset:4px}
+.demo-n{margin:10px 0 0;font-size:13.5px;opacity:.8}.demo-n a{color:inherit}
 </style>
 <script src="/track.js" data-pg="pro" defer></script>
 </head>
@@ -373,7 +374,8 @@ footer a{color:rgba(255,255,255,.8)}
       <span class="eyebrow">공인중개사 전용 · 리얼맵 중개장부</span>
       <h1><span class="ln"><span>쓸데없는 기능은 뺐습니다.</span></span><span class="ln"><span><b>주소 한 줄</b>이면</span></span><span class="ln"><span>매물 등록 끝.</span></span></h1>
       <p class="lead">건축물대장·토지대장을 알아서 읽어 면적·층·용도까지 채워 드립니다. 엑셀처럼 표에서 바로 고치고, 아파트는 동·호 장부로 관리하세요.</p>
-      <div class="cta"><button class="btn gold lg" type="button" data-start>2주 무료로 시작하기 →</button><a class="btn ghost lg" href="/pro-guide.html">설명서 먼저 보기 →</a></div>
+      <div class="cta"><button class="btn gold lg" type="button" data-start>2주 무료로 시작하기 →</button><a class="btn ghost lg" href="/demo" data-demo>가입 없이 둘러보기 →</a></div>
+      <p class="demo-n"><span data-demo>예시 매물 32건이 담긴 체험용 장부가 바로 열립니다 · 로그인 없이 · </span><a href="/pro-guide.html">설명서 먼저 보기</a></p>
       <div class="free">설치 없이 인터넷 창에서 · <b>매물 10건까지는 계속 무료</b></div>
     </div>
     <div class="hcard-w" aria-hidden="true"><div class="hcard">
@@ -538,7 +540,7 @@ footer a{color:rgba(255,255,255,.8)}
     <h2>2주간 무료로 써보고<br>결정하세요.</h2>
     <p>결제 안 해도 <b>매물 10건 · 지도 광고 10건 · 단지 3곳 · 고객 10명 무료!</b></p>
     <button class="btn lg" type="button" data-start>지금 무료로 시작하기 →</button>
-    <div class="small">카카오 로그인 · 중개사무소 정보 입력 · 1분이면 끝</div>
+    <div class="small">카카오 로그인 · 중개사무소 정보 입력 · 1분이면 끝<span data-demo> · <a href="/demo" style="color:inherit;font-weight:800">가입 없이 먼저 둘러보기 ›</a></span></div>
     <a class="btn lg line2" href="/pro-guide.html" style="margin-top:14px">설명서 먼저 보기 →</a>
   </div>
 </div></section>
@@ -556,7 +558,7 @@ footer a{color:rgba(255,255,255,.8)}
   </div>
 </div></section>
 
-<footer><div class="wrap">리얼맵 · <a href="/pro-guide.html">중개장부 사용 설명서</a> · <a href="/apt.html">아파트 장부 소개</a> · <a href="/guide.html">리얼맵 지도 이용 안내</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html"><b>개인정보처리방침</b></a><br><small style="display:block;margin-top:8px;line-height:1.7">주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · contact@realmap.online</small></div></footer>
+<footer><div class="wrap">리얼맵 · <a href="/pro-guide.html">중개장부 사용 설명서</a> · <a href="/apt.html">아파트 장부 소개</a> · <a href="/guide.html">리얼맵 지도 이용 안내</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html"><b>개인정보처리방침</b></a><br><small style="display:block;margin-top:8px;line-height:1.7">주식회사 드림인베스트 · 대표 임승재 · 사업자등록번호 643-87-01035 · 통신판매업 신고 진행 중 · 경기도 파주시 고봉로 755-27 가동 2층 201-116호 · 010-9868-0869 · contact@realmap.online</small></div></footer>
 
 <div class="modal" id="modal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <h3 id="mTitle">2주 무료 체험 시작</h3>
@@ -649,6 +651,7 @@ footer a{color:rgba(255,255,255,.8)}
   let SMSA = null;
   ready.then(() => {
     if (me.sms && window.SmsAuth && !PREVIEW) SMSA = SmsAuth.attach($('b_mobile'), { onDone: () => { $('mErr').textContent = ''; } });
+    if (me.member) document.querySelectorAll('[data-demo]').forEach(e => e.remove());   // 11/7 로그인된 회원에게는 체험 버튼 안 보임 (누르면 로그인이 풀리므로)
     if (me.member && me.plan && me.plan.started) document.querySelectorAll('[data-start]').forEach(b => { if (!b.closest('.plan')) b.innerHTML = b.classList.contains('sm') ? '내 중개장부' : '내 중개장부 열기 →'; });
     if (new URLSearchParams(location.search).get('go') && me.member && !(me.plan && me.plan.started)) start();
   });

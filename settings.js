@@ -279,7 +279,7 @@ window.Sett = (() => {
       rw('로그인', `카카오 · ${esc(me.nickname || '')}님`, '<a class="sb" href="/api/auth?action=logout&r=/">로그아웃</a>') +
       rw('글씨 크기', '<small>위쪽 [가−][가+]와 같습니다</small>', B('', '가− 작게', '', 'data-fz="-1"') + B('', '가+ 크게', '', 'data-fz="1"')) +
       rw('안내', '<a href="/pro-guide.html" target="_blank" rel="noopener">설명서</a> · <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener"><b>개인정보처리방침</b></a>'))}
-      ${pn('운영 회사', '', rw('상호', '주식회사 드림인베스트 · 대표 임승재') + rw('사업자등록번호', '643-87-01035 <small>· 통신판매업 신고 진행 중</small>') + rw('주소', '경기도 파주시 고봉로 755-27 가동 2층 201-116호') + rw('문의', 'contact@realmap.online'))}
+      ${pn('운영 회사', '', rw('상호', '주식회사 드림인베스트 · 대표 임승재') + rw('사업자등록번호', '643-87-01035 <small>· 통신판매업 신고 진행 중</small>') + rw('주소', '경기도 파주시 고봉로 755-27 가동 2층 201-116호') + rw('연락처', '010-9868-0869 · contact@realmap.online'))}
       ${me.staff ? '' : pn('자료 비우기', '되돌릴 수 없음 · 요금제·사무소 정보·직원은 그대로',
         rw('지울 자료', `<label><input type="checkbox" data-wp="ls"> 매물장 ${H.items().length.toLocaleString()}건 <small>(사진·지도 광고 포함)</small></label><br><label><input type="checkbox" data-wp="hj"> 아파트 장부 호 기록 <small>(담은 단지 목록은 남음)</small></label><br><label><input type="checkbox" data-wp="cu"> 고객관리${Array.isArray(cus) ? ` ${cus.length.toLocaleString()}명` : ''}</label>`) +
         rw('확인', `<input id="stWipeTx" class="si" maxlength="10" placeholder="전체 삭제" autocomplete="off"> <small>'전체 삭제'라고 입력해야 지워집니다</small>`, B('stWipe', '골라서 지우기', 'r')) +

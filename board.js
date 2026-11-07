@@ -18,7 +18,7 @@ window.Board = (() => {
   const tb = x => (X && X.tbase ? X.tbase(x) : x.ptype);   // 세부 유형 → 원래 큰 유형 (listings.js)
   const B = Object.assign({ cat: 'shop', sort: 'at', dir: -1, grp: '', f: {}, map: false, rate: 4.5, fo: false, fk: [], fs: ['on'], fc: [], fx: [] },
     (() => { try { return JSON.parse(localStorage.getItem('rm.bd') || 'null') || {}; } catch { return {}; } })(),
-    { q: '', open: new Set(), blank: new Map(), cblank: new Map(), hl: null, sel: null, ed: null, add: { q: '', res: null, busy: false, D: null }, L: {}, U: {}, fitNext: true });
+    { q: '', open: new Set(), blank: new Map(), cblank: new Map(), crole: new Map(), hl: null, sel: null, ed: null, add: { q: '', res: null, busy: false, D: null }, L: {}, U: {}, fitNext: true });
   // 예전 폴더 값({pt, bn})은 버림 · 거르기 배열이 없으면 처음대로
   if (!CATS[B.cat]) B.cat = 'shop'; if (B.tr && !B.tr.hd) B.tr = null; ['fk', 'fs', 'fc', 'fx'].forEach(k => { if (!Array.isArray(B[k])) B[k] = []; });
   // 10/28 단순화(5단계): 체크 거르기·▾ 거르기·노랑/빨강 표시·여러 건 선택·손님 조건은 없앰 → 예전에 기억한 거르기는 버리고, 상태는 늘 '진행 중'부터
@@ -781,7 +781,7 @@ window.Board = (() => {
         ${!W && pl.length > 1 && tot ? `<p class="rpn">전용 합계 <b>${m2t(Math.round(tot * 100) / 100)}</b> (${pyt(tot)})</p>` : ''}</div>`;
     }
     // 연락처
-    const cs = [...(x.contacts || []), ...Array(B.cblank.get(id) || 0).fill({ role: '소유자' })];
+    const cs = [...(x.contacts || []), ...Array.from({ length: B.cblank.get(id) || 0 }, (_, k) => ({ role: B.crole.get(`${id}:${(x.contacts || []).length + k}`) || '소유자' }))];   // 11/7 빈 줄에서 고른 관계 유지
     body += row('연락처', `<div class="rptels">${cs.map((c, i) => `<div class="rptel"><select class="rpi lb" data-ci="${i}" data-cf="role" ${dis}>${H.roles.map(r => `<option ${c.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select><input class="rpi" data-fk="c:${id}:${i}:name" data-ci="${i}" data-cf="name" value="${esc(c.name || '')}" placeholder="이름" ${dis}><input class="rpi" data-fk="c:${id}:${i}:phone" data-ci="${i}" data-cf="phone" value="${esc(c.phone || '')}" placeholder="번호" inputmode="tel" ${dis}>${c.phone ? `<a class="rpcall" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}" data-call="${id}:${i}">전화</a>` : '<span></span>'}${RO ? '' : `<button type="button" class="rpdel" data-cdel="${i}" aria-label="지우기">×</button>`}</div>`).join('')}</div>${RO ? '' : '<button type="button" class="rplnk" data-a="cadd">＋ 추가</button>'}`);
     body += row('챙길 것', inp('imp', x.imp, '', 'maxlength="100"'));
     // 10/29 정보 칸(접지 않음)은 10/30 융자 바로 아래로 옮김
@@ -1056,7 +1056,7 @@ window.Board = (() => {
       ${L.length ? `<div class="cmx">${L.slice(0, 5).map(c => `<div><b>${esc(c.name)}</b><small>${esc(c.line)}${c.g === 'over' ? ` · <em>예산 +${sw(c.over)}</em>` : ''}</small>${c.phone ? `<a class="tl" href="tel:${esc(String(c.phone).replace(/\D/g, ''))}" title="전화">☎</a>` : ''}<button type="button" class="b2" data-gcu="${c.id}">이동</button></div>`).join('')}${L.length > 5 ? `<div class="meta">외 ${L.length - 5}명</div>` : ''}</div>` : '<div class="meta">아직 맞는 고객이 없습니다</div>'}`;
   }
   function contactsHtml(x, RO) {
-    const cs = [...(x.contacts || []), ...Array(B.cblank.get(x.id) || 0).fill({ role: '소유자' })], dis = RO ? 'disabled' : '';
+    const cs = [...(x.contacts || []), ...Array.from({ length: B.cblank.get(x.id) || 0 }, (_, k) => ({ role: B.crole.get(`${x.id}:${(x.contacts || []).length + k}`) || '소유자' }))], dis = RO ? 'disabled' : '';
     return `<div class="dt-h"><b>연락처</b></div><div class="ct">${cs.map((c, i) => `<div><select class="ci" data-ci="${i}" data-cf="role" ${dis}>${H.roles.map(r => `<option ${c.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
       <input class="ci" data-fk="c:${x.id}:${i}:name" data-ci="${i}" data-cf="name" value="${esc(c.name || '')}" placeholder="이름" ${dis}><input class="ci" data-fk="c:${x.id}:${i}:phone" data-ci="${i}" data-cf="phone" value="${esc(c.phone || '')}" placeholder="010-0000-0000" inputmode="tel" ${dis}>
       ${c.phone ? `<a class="tl" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}" title="전화 걸기">☎</a>` : ''}${RO ? '' : `<button type="button" class="x" data-cdel="${i}" aria-label="이 연락처 지우기">×</button>`}</div>`).join('')}
@@ -1138,11 +1138,12 @@ window.Board = (() => {
       i.onchange = () => setTimeout(() => {
         const n = +i.dataset.ci, f = i.dataset.cf, v = f === 'phone' ? fmtPhone(i.value) : i.value.trim().slice(0, 20);
         const have = ((H.items().find(z => z.id === id) || x).contacts || []).length;
-        if (n >= have) { if (!v || f === 'role') return; B.cblank.set(id, Math.max(0, (B.cblank.get(id) || 0) - (n - have + 1))); }
-        saveItem(id, it => { while (it.contacts.length <= n) it.contacts.push({ role: '소유자', name: '', phone: '' }); it.contacts[n][f] = v; });
+        // 11/7 아직 저장 안 된 빈 줄: 관계만 바꾼 건 기억해 뒀다가, 이름·번호를 넣어 줄이 생길 때 그 관계로 만듦 (전엔 '소유자'로 돌아감)
+        if (n >= have) { if (f === 'role') { B.crole.set(`${id}:${n}`, v); return; } if (!v) return; B.cblank.set(id, Math.max(0, (B.cblank.get(id) || 0) - (n - have + 1))); }
+        saveItem(id, it => { while (it.contacts.length <= n) { const k = `${id}:${it.contacts.length}`; it.contacts.push({ role: B.crole.get(k) || '소유자', name: '', phone: '' }); B.crole.delete(k); } it.contacts[n][f] = v; });
       }, 0);
     });
-    r.querySelectorAll('[data-cdel]').forEach(b => b.onclick = () => +b.dataset.cdel >= (x.contacts || []).length ? (B.cblank.set(id, Math.max(0, (B.cblank.get(id) || 0) - 1)), refresh()) : saveItem(id, it => { it.contacts.splice(+b.dataset.cdel, 1); }));
+    r.querySelectorAll('[data-cdel]').forEach(b => b.onclick = () => +b.dataset.cdel >= (x.contacts || []).length ? (B.cblank.set(id, Math.max(0, (B.cblank.get(id) || 0) - 1)), [...B.crole.keys()].forEach(k => k.startsWith(id + ':') && B.crole.delete(k)), refresh()) : saveItem(id, it => { it.contacts.splice(+b.dataset.cdel, 1); }));
     // 층별 칸: 고치고 나가거나 Enter → 저장
     r.querySelectorAll('[data-ri]').forEach(i => {
       i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); i.blur(); } };

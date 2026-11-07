@@ -3237,8 +3237,9 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
   function preLabel(el, x, rows) {
     const py = T.mode === 'py';
     const v = (c, a) => c ? (py ? `<i class="tpy">평</i>${n(Math.round(c[0] / (a / 3.305785) / 10) * 10)}만` : eok(c[0])) : '-';
-    el.innerHTML = `<span class="nm">${esc(x.n)}</span><span class="dt">${preSt(x)}</span>${rows.length ? `<span class="pt"><i></i><em class="b">분양권</em><em class="i">입주권</em></span>${rows.map(r => `<span class="pr"><i>${r[0]}</i><b class="b${r[1] ? '' : ' no'}">${v(r[1], r[0])}</b><b class="i${r[2] ? '' : ' no'}">${v(r[2], r[0])}</b></span>`).join('')}` : '<span class="pn">거래 아직 없음</span>'}`;
-    el.title = `${x.n} · 입주 예정 ${ymd(x.mv)}\n분양권·입주권 최근 거래 (해제 제외) · 누르면 분양가와 거래 내역`;
+    el.innerHTML = `<span class="nm">${esc(x.n)}</span><span class="dt">${preSt(x)}</span>${rows.length ? `<span class="pt"><i></i><em class="b">분양권</em><em class="i">입주권</em></span>${rows.map(r => `<span class="pr"><i>${r[0]}</i><b class="b${r[1] ? '' : ' no'}">${v(r[1], r[0])}</b><b class="i${r[2] ? '' : ' no'}">${v(r[2], r[0])}</b></span>`).join('')}` : `<span class="pn">${x.nt ? '분양권 거래 없음' : '거래 아직 없음'}</span>`}`;
+    el.classList.toggle('nt', !!x.nt);   // 11/7 분양권 거래가 아직 없는 단지(청약홈 공고만) — 회색 테두리
+    el.title = x.nt ? `${x.n} · 입주 예정 ${ymd(x.mv)}\n아직 신고된 분양권·입주권 거래가 없습니다 · 누르면 분양가` : `${x.n} · 입주 예정 ${ymd(x.mv)}\n분양권·입주권 최근 거래 (해제 제외) · 누르면 분양가와 거래 내역`;
   }
   function preClose() { const el = document.getElementById('preCard'); if (el) el.hidden = true; PRE.sel = null; }
   function preCard(x) {
@@ -3247,12 +3248,14 @@ ${badList.map(x => `<tr><th>${esc(x.cat.split('>').pop().trim() || '시설')}</t
     PRE.sel = x.id;
     const tyOf = a => (x.ty || []).filter(t => t[0] === a).map(t => t[1]);
     const cell = (c, cls) => c ? `<td class="${cls}">${eok(c[0])}<small>${ymd(c[1]).slice(2, 7)}${c[2] ? ` · ${esc(c[2])}층` : ''}</small></td>` : '<td class="n">-</td>';
-    const rows = (x.pa || []).map(r => { const t = tyOf(r[0]); return `<tr><th>${r[0]}㎡</th><td>${t.length ? eok(Math.max(...t)) : '-'}</td>${cell(r[1], 'b')}${cell(r[2], 'i')}</tr>`; }).join('');
+    const pa = (x.pa || []).length ? x.pa : [...new Set((x.ty || []).map(t => t[0]))].sort((a, z) => a - z).map(a => [a, 0, 0, 0]);   // 11/7 거래 없는 단지는 청약홈 주택형으로 줄을 만듦
+    const rows = pa.map(r => { const t = tyOf(r[0]); return `<tr><th>${r[0]}㎡</th><td>${t.length ? eok(Math.max(...t)) : '-'}</td>${cell(r[1], 'b')}${cell(r[2], 'i')}</tr>`; }).join('');
     const hist = (x.h || []).slice(0, 8).map(h => `<tr><th>${ymd(h[0]).slice(2)}</th><td>${h[1]}㎡ <span class="${h[2] === 'i' ? 'i' : 'b'}">${h[2] === 'i' ? '입주권' : '분양권'}</span>${h[4] ? ` · ${esc(h[4])}층` : ''}</td><td class="r">${eok(h[3])}</td></tr>`).join('');
     const info = [x.cn, x.hh ? `공급 ${n(x.hh)}세대` : '', x.mv ? `입주 예정 ${ymd(x.mv)}` : ''].filter(Boolean).map(esc).join(' · ');
-    el.innerHTML = `<div class="pmc-h"><div><small>${esc(x.sgg)} ${esc(x.umd)} · <span class="pre-bd">${x.st === 'in' ? '입주 중' : '공사 중'}</span></small><b>${esc(x.n)}</b></div><button type="button" aria-label="닫기" id="preClose">×</button></div>
+    el.innerHTML = `<div class="pmc-h"><div><small>${esc(x.sgg)} ${esc(x.umd)} · <span class="pre-bd">${x.st === 'in' ? '입주 중' : '공사 중'}</span>${x.nt ? '<span class="pre-tg">거래 없음</span>' : ''}</small><b>${esc(x.n)}</b></div><button type="button" aria-label="닫기" id="preClose">×</button></div>
       ${info ? `<p class="pre-i">${info}</p>` : ''}
       <table><thead><tr><th>전용</th><th>분양가</th><th class="b">분양권</th><th>입주권</th></tr></thead><tbody>${rows}</tbody></table>
+      ${x.nt ? '<p class="pre-nt">아직 신고된 분양권·입주권 거래가 없습니다. 전매제한 기간이거나 거래가 없었을 수 있습니다. 거래가 생기면 이 칸에 자동으로 나옵니다.</p>' : ''}
       <p class="pmc-n">분양가는 청약홈 공고의 주택형별 최고가 · 입주권 가격에는 앞으로 낼 추가분담금이 빠져 있어 분양가와 바로 비교할 수 없습니다.</p>
       ${hist ? `<b class="pre-hh">최근 거래</b><table class="pre-h"><tbody>${hist}</tbody></table>` : ''}
       <p class="pmc-n">국토교통부 분양권전매 실거래(해제 거래 제외) · 청약홈 분양정보 · 매일 갱신${PRE.updated ? ` (${esc(PRE.updated)})` : ''}</p>`;
