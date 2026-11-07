@@ -9,6 +9,9 @@ on:
       gus:
         description: '전체(수도권+부산·대구·대전·세종·울산·광주) · 수도권 · 서울 · 경기 · 인천 · 부산 · 대구 · 대전 · 세종 · 울산 · 광주 · 구 코드 쉼표 목록'
         default: '전체'
+      why:
+        description: '(선택) 왜 안 나오는지 볼 단지 이름 일부 — 예: 위례자이더파크 · 요약에 어디서 빠졌는지 적음'
+        default: ''
 permissions:
   contents: write
 jobs:
@@ -25,6 +28,7 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
           GUS: ${{ github.event.inputs.gus || '전체' }}
+          WHY: ${{ github.event.inputs.why || '' }}
       - name: 바뀐 자료 저장
         run: |
           git config user.name "realmap-bot"
