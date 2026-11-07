@@ -11,7 +11,7 @@
   var ext = /Instagram/i.test(ua) ? 'insta' : /KAKAOTALK/i.test(ua) ? 'kakao' : !h || h === location.hostname ? 'direct'
     : /blog\.naver\.com$/.test(h) ? 'blog' : /search\.naver\.com$/.test(h) ? 'nsearch' : /naver\.(com|me)$/.test(h) ? 'naver'
     : /google\./.test(h) ? 'google' : /daum\.net$/.test(h) ? 'daum' : /instagram\.com$/.test(h) ? 'insta' : /youtube\.com$|youtu\.be$/.test(h) ? 'youtube' : 'etc';
-  try { var f = new URLSearchParams(location.search).get('from'); if (/^(blog|insta|kakao|youtube|news)$/.test(f || '')) ext = f; } catch (e) { /* 무시 */ }
+  try { var f = new URLSearchParams(location.search).get('from'); if (/^(blog|insta|kakao|youtube|news|ad)$/.test(f || '')) ext = f; } catch (e) { /* 무시 */ }
   // 이 페이지로 바로 앞에 어디서 왔는지 (리얼맵 안이면 지도·정비사업·다른 홍보 페이지)
   var ref = h && h === location.hostname ? (/^\/(seoul|gyeonggi|incheon)\//.test(p) ? 'seoul' : /^\/(pro|promo|apt|pro-guide|guide|news)\.html/.test(p) ? 'in' : 'map') : ext;
   var src = '';   // 방문(세션)의 첫 화면일 때만 → 전체 유입 경로
