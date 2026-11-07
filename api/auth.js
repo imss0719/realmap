@@ -8,7 +8,7 @@
 // 필요한 환경변수: KAKAO_REST_KEY, SESSION_SECRET (선택: KAKAO_CLIENT_SECRET, Upstash 저장소)
 import crypto from 'node:crypto';
 import { send, fail, VWORLD_DOMAIN, MAX_KEYS } from './_lib.js';
-import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch, clearHist } from './_ledger.js';
+import { ledger, dropLedger, dropLedgers, normD, normH, impDay, ledgerPatch, clearHist, seal, ledgerReady } from './_ledger.js';
 import { cust, dropCust } from './_cust.js';
 import { mgClean, mgMiss, mgPub } from './_mg.js';   // 10/30 주거용 관리비 세분화
 import { lsLoad, lsSave, lsMutate, lsDrop } from './_ls.js';
@@ -242,7 +242,9 @@ const RESID = ['아파트', '빌라', '오피스텔', '주택'];
 // 10/26 세부 유형 → 원래 큰 유형 (listings.js tbase 와 같은 규칙) — 광고 필수 항목·방향 맞추기는 이 값으로
 const TB = { 주상복합: '아파트', 지식산업센터: '사무실', 연립: '빌라', 다가구: '주택', 숙박: '건물' }, FB = { 빌라: '빌라', 단독: '주택', 상가: '상가', 아파트: '아파트', 토지: '토지' };
 const tbase = x => { const t = (x && x.ptype) || ''; if (t === '재개발' || t === '재건축') return FB[(x.ad || {}).form] || (t === '재건축' ? '아파트' : ''); return TB[t] || t; };
-const canPub = id => (ADMIN_ID && String(id) === ADMIN_ID) || process.env.PUB_OPEN === '1';
+// 11/7 체험용 매물장: id가 demo로 시작하면 체험 회원 (3시간 임시 장부 · 지도 광고·문자·직원·사무소 정보 변경 막음)
+const isDemo = id => String(id || '').startsWith('demo');
+const canPub = id => !isDemo(id) && ((ADMIN_ID && String(id) === ADMIN_ID) || process.env.PUB_OPEN === '1');
 async function pipe(cmds) {
   if (!cmds.length || !R_URL || !R_TOKEN) return;
   await fetch(R_URL.replace(/\/$/, '') + '/pipeline', { method: 'POST', headers: { Authorization: `Bearer ${R_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmds) });
@@ -475,8 +477,8 @@ function origin(req) {
   return `${proto}://${host}`;
 }
 const sign = s => crypto.createHmac('sha256', SECRET).update(s).digest('base64url');
-function makeSession(id, nick) {
-  const exp = Math.floor(Date.now() / 1000) + DAYS * 86400;
+function makeSession(id, nick, sec = DAYS * 86400) {
+  const exp = Math.floor(Date.now() / 1000) + sec;
   const body = Buffer.from(JSON.stringify({ id: String(id), n: nick || '', exp })).toString('base64url');
   return `${body}.${sign(body)}`;
 }
@@ -525,15 +527,52 @@ function redirect(res, url, cookies = []) {
   res.statusCode = 302; res.setHeader('Location', url); res.end();
 }
 
+// 11/7 체험용 매물장 도우미
+const DEMO_SEC = 3 * 3600;
+const DEMO_NO = new Set(['sms', 'staff', 'bk', 'bkpos', 'start', 'help', 'quit', 'withdraw', 'office', 'plan', 'pyt']);   // POST(고치기)는 막음
+const DEMO_ALL = new Set(['sms', 'quit', 'withdraw']);   // 이건 GET도 막음
+const DEMO_KEYS = u => ['user', 'bk', 'plan', 'cx', 'cxlk', 'hjs', 'cu', 'lsh', 'lsv', 'ls', 'lsm', 'lsbak', 'xim', 'xdl', 'bstat', 'pnote', 'norule', 'fav', 'zfav', 'sseen'].map(p => `realmap:${p}:${u}`);
+async function dropDemo(u) {
+  if (!isDemo(u)) return;
+  let ids = []; try { ids = (await redis(['SMEMBERS', `realmap:hjs:${u}`])) || []; } catch { /* 없음 */ }
+  await pipe([['DEL', ...DEMO_KEYS(u), ...ids.map(id => `realmap:hj:${u}:${id}`)], ['ZREM', 'realmap:demos', u]]);
+}
 export default async function (req, res) {
   const action = String(req.query.action || '');
   try {
+    // 11/7 체험용 매물장 — realmap.online/api/auth?action=demo 를 열면 3시간짜리 임시 장부를 만들고 매물장으로 보냄
+    //   예시 데이터는 api/_demo.js (○○ 예시만) · 실제 회원 데이터와 키가 완전히 따로 (realmap:*:demo…) · 3시간 지난 체험 장부는 다음 체험 때 지움(+ 키마다 4시간 만료)
+    if (DEMO_NO.has(action)) { const sd = readSession(req); if (sd && isDemo(sd.id) && (req.method === 'POST' || DEMO_ALL.has(action))) return fail(res, 403, 'demo', '체험용 화면에서는 쓸 수 없는 기능입니다. 무료로 가입하시면 바로 쓰실 수 있습니다.'); }
+    if (action === 'demo') {
+      res.setHeader('Cache-Control', 'no-store');
+      if (!R_URL || !R_TOKEN || !ledgerReady()) return fail(res, 503, 'demo', '지금은 체험 화면을 열 수 없습니다.');
+      // 로그인된 회원이 열면 그 로그인이 풀리므로 먼저 물어봄 (선배 노트북으로 현장 시연할 때는 시크릿 창 권장)
+      { const cur = readSession(req); if (cur && !isDemo(cur.id) && req.query.force !== '1') { res.statusCode = 200; res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>체험 화면 · 리얼맵</title><body style="font-family:sans-serif;max-width:460px;margin:12vh auto;padding:0 20px;color:#14212E;line-height:1.6"><h2>지금 로그인되어 있습니다</h2><p>체험용 예시 화면을 열면 이 브라우저의 로그인이 풀립니다 (내 장부는 그대로입니다). 시연하실 때는 <b>시크릿 창</b>에서 realmap.online/demo 를 여시면 로그인을 유지한 채 보여 줄 수 있습니다.</p><p style="display:flex;gap:8px;flex-wrap:wrap"><a href="/listings.html" style="background:#14212E;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">내 장부로 가기</a><a href="/api/auth?action=demo&force=1" style="border:1px solid #ccc;color:#14212E;padding:10px 16px;border-radius:8px;text-decoration:none">로그아웃하고 체험 화면 열기</a></p></body>`); } }
+      const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x', rk = `realmap:demorl:${ip}`;
+      const n = Number(await redis(['INCR', rk]).catch(() => 0)); if (n === 1) await redis(['EXPIRE', rk, '3600']).catch(() => {});
+      if (n > 12) return fail(res, 429, 'demo', '체험 화면을 너무 자주 열었습니다. 잠시 후 다시 시도해 주세요.');
+      try { const old = (await redis(['ZRANGEBYSCORE', 'realmap:demos', '0', String(Date.now() - DEMO_SEC * 1000)])) || []; for (const u of old.slice(0, 20)) await dropDemo(u); } catch { /* 다음에 */ }
+      const { DEMO } = await import('./_demo.js');
+      const uid = 'demo' + crypto.randomBytes(5).toString('hex'), now = new Date().toISOString(), ex = String(DEMO_SEC + 3600);
+      const bk = { ok: true, verified: true, mobileOk: true, demo: true, regno: '00000000000000', name: '○○공인중개사사무소', office: '○○공인중개사사무소', ceo: '○○○', tel: '02-000-0000', mobile: '010-0000-0000', addr: '서울특별시 마포구 ○○로 00' };
+      const cmds = [['SET', `realmap:user:${uid}`, JSON.stringify({ id: uid, nickname: '체험', joined: now, last: now, demo: true })],
+        ['SET', `realmap:bk:${uid}`, JSON.stringify(bk)], ['SET', `realmap:plan:${uid}`, JSON.stringify({ plan: 'basic', until: new Date(Date.now() + 86400e3).toISOString(), trialUsed: true, demo: true })],
+        ['SET', `realmap:cx:${uid}`, JSON.stringify(DEMO.cx)]];
+      for (const [id, recs] of Object.entries(DEMO.hj)) { const f = Object.entries(recs).flatMap(([k, r]) => [k, seal({ ...r, up: now })]); if (f.length) cmds.push(['HSET', `realmap:hj:${uid}:${id}`, ...f]); cmds.push(['SADD', `realmap:hjs:${uid}`, id]); }
+      const cu = DEMO.cu.map((c, i) => ({ ...c, id: 'dc' + i, at: now, up: now, last: '', memo: c.memo ? `[${now.slice(2, 10).replace(/-/g, '.')}] ${c.memo}` : '' }));
+      if (cu.length) cmds.push(['HSET', `realmap:cu:${uid}`, ...cu.flatMap(c => [c.id, seal(c)])]);
+      await pipe(cmds);
+      await lsSave(redis, uid, DEMO.ls.map(x => ({ ...x, at: now, up: now })));
+      await pipe([...DEMO_KEYS(uid).map(k => ['EXPIRE', k, ex]), ...Object.keys(DEMO.hj).map(id => ['EXPIRE', `realmap:hj:${uid}:${id}`, ex]), ['ZADD', 'realmap:demos', String(Date.now()), uid]]);
+      return redirect(res, '/listings.html', [cookie('rm_s', makeSession(uid, '체험', DEMO_SEC), DEMO_SEC)]);
+    }
     if (action === 'me') {
       const s = await office(req);
       const P = s ? await planOf(s.id) : null;
       let pend = null; // 가입 신청 후 확인 대기 중이면 화면에 안내
       if (s && P && !P.started) { const b = await loadBk(s.id); if (b && b.pend) pend = { office: b.office, addr: b.addr, regno: b.regno, ceo: b.ceo, tel: b.tel, mobile: b.mobile, at: b.pend }; }
-      return send(res, 200, { ok: true, sms: smsOn(), ready: !!REST, member: !!s, nickname: s ? s.n : '', pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && (s.me || s.id) === ADMIN_ID), pend, ...(s && s.staff ? { staff: { role: s.role, name: s.sname, office: ((await loadBk(s.id)) || {}).office || '', blocked: s.blocked || '' } } : {}), ...(s && s.wait ? { swait: true } : {}) });
+      return send(res, 200, { ok: true, sms: smsOn(), ready: !!REST, member: !!s, nickname: s ? s.n : '', ...(s && isDemo(s.id) ? { demo: true } : {}), pro: !!(P && P.adv), plan: P ? planView(P) : null, op: !!(s && ADMIN_ID && (s.me || s.id) === ADMIN_ID), pend, ...(s && s.staff ? { staff: { role: s.role, name: s.sname, office: ((await loadBk(s.id)) || {}).office || '', blocked: s.blocked || '' } } : {}), ...(s && s.wait ? { swait: true } : {}) });
     }
     if (action === 'logout') return redirect(res, safeReturn(req.query.r), [cookie('rm_s', '', 0)]);
 
@@ -1239,6 +1278,7 @@ export default async function (req, res) {
       if (gate) return fail(res, 403, 'verify', gate.msg, { bk: gate.bk });
       // 사진 올리기: 브라우저에서 줄인 JPEG를 받아 저장하고 주소를 돌려줍니다
       if (action === 'listing' && req.query.op === 'photo') {
+        if (isDemo(s.id)) return fail(res, 403, 'demo', '체험용 화면에서는 사진을 올릴 수 없습니다. 무료로 가입하시면 바로 쓰실 수 있습니다.');
         if (req.method !== 'POST') return fail(res, 405, 'method', '허용되지 않는 요청입니다.');
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
         const buf = Buffer.from(String(body.data || '').replace(/^data:image\/\w+;base64,/, ''), 'base64');
