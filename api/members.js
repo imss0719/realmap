@@ -258,6 +258,7 @@ async function brokers(req, res) {
       try { const P = await planOf(uid), bk = await loadBk(uid); const items = await lsMutate(redis, uid, ls => syncPub(uid, ls, bk, P)); await brokerStat(uid, items); } catch { /* 공개 목록은 다음 저장 때 */ }
     }
     let ids = (await redis(['SMEMBERS', 'realmap:brokers'])) || [];
+    { const dm = ids.filter(x => String(x).startsWith('demo')); if (dm.length) { ids = ids.filter(x => !String(x).startsWith('demo')); await redis(['SREM', 'realmap:brokers', ...dm]).catch(() => {}); } }   // 11/7 체험용 임시 회원 빼고, 남아 있던 것도 정리
     const legacy = (await redis(['SMEMBERS', 'realmap:pro'])) || [];
     ids = [...new Set([...ids, ...legacy, ...(ADMIN_ID ? [ADMIN_ID] : [])].map(String))];
     const rows = [];

@@ -456,6 +456,7 @@ function cleanAd(a) {
 }
 // 중개사 명단·통계 (관리 페이지용): realmap:brokers 집합, realmap:bstat:<id> { n, pub, up }
 export async function brokerStat(uid, items) {
+  if (isDemo(uid)) return;   // 11/7 체험용 임시 회원은 운영 페이지 중개사 명단에 넣지 않음
   const now = new Date().toISOString();
   try { await pipe([['SADD', 'realmap:brokers', String(uid)], ['SET', `realmap:bstat:${uid}`, JSON.stringify({ n: items.length, on: items.filter(x => x.status === 'on').length, pub: items.filter(x => x.pub && x.pub.on && x.status === 'on' && x.pub.exp > now).length, up: now })]]); } catch { /* 통계 실패는 무시 */ }
 }
@@ -535,7 +536,7 @@ const DEMO_KEYS = u => ['user', 'bk', 'plan', 'cx', 'cxlk', 'hjs', 'cu', 'lsh', 
 async function dropDemo(u) {
   if (!isDemo(u)) return;
   let ids = []; try { ids = (await redis(['SMEMBERS', `realmap:hjs:${u}`])) || []; } catch { /* 없음 */ }
-  await pipe([['DEL', ...DEMO_KEYS(u), ...ids.map(id => `realmap:hj:${u}:${id}`)], ['ZREM', 'realmap:demos', u]]);
+  await pipe([['DEL', ...DEMO_KEYS(u), ...ids.map(id => `realmap:hj:${u}:${id}`)], ['ZREM', 'realmap:demos', u], ['SREM', 'realmap:brokers', u]]);
 }
 export default async function (req, res) {
   const action = String(req.query.action || '');
